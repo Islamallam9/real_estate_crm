@@ -64,33 +64,35 @@ class _DashboardPlaceholderGrid extends StatelessWidget {
         final columns = width >= 1024
             ? 4
             : width >= 600
-            ? 2
-            : 1;
+                ? 2
+                : 1;
+        final spacing = AppSpacing.md * (columns - 1);
+        final itemWidth = (width - spacing) / columns;
 
-        return GridView.count(
-          crossAxisCount: columns,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: AppSpacing.md,
-          mainAxisSpacing: AppSpacing.md,
-          childAspectRatio: columns == 1 ? 3.8 : 2.5,
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
           children: [
             _DashboardMetricCard(
+              width: itemWidth,
               label: localizations.totalLeads,
               value: '-',
               icon: Icons.people_alt_outlined,
             ),
             _DashboardMetricCard(
+              width: itemWidth,
               label: localizations.followUpsDue,
               value: '-',
               icon: Icons.event_available_outlined,
             ),
             _DashboardMetricCard(
+              width: itemWidth,
               label: localizations.openDeals,
               value: '-',
               icon: Icons.handshake_outlined,
             ),
             _DashboardMetricCard(
+              width: itemWidth,
               label: localizations.availableProperties,
               value: '-',
               icon: Icons.business_outlined,
@@ -104,11 +106,13 @@ class _DashboardPlaceholderGrid extends StatelessWidget {
 
 class _DashboardMetricCard extends StatelessWidget {
   const _DashboardMetricCard({
+    required this.width,
     required this.label,
     required this.value,
     required this.icon,
   });
 
+  final double width;
   final String label;
   final String value;
   final IconData icon;
@@ -117,7 +121,9 @@ class _DashboardMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
+    return SizedBox(
+      width: width,
+      child: Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -125,6 +131,7 @@ class _DashboardMetricCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 42,
@@ -139,7 +146,7 @@ class _DashboardMetricCard extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -153,7 +160,7 @@ class _DashboardMetricCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary,
@@ -163,6 +170,7 @@ class _DashboardMetricCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
