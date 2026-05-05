@@ -119,4 +119,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signingIn => 'Signing in...';
+
+  @override
+  String get authErrorInvalidCredentials => 'Invalid email or password.';
+
+  @override
+  String get authErrorConnection =>
+      'Connection error. Check your internet connection.';
+
+  @override
+  String get authErrorSignInFailed => 'Unable to sign in. Please try again.';
+
+  @override
+  String get authErrorSignOutFailed => 'Unable to sign out. Please try again.';
+
+  @override
+  String get authErrorProfileMissing => 'Unable to load your user profile.';
+
+  @override
+  String get authErrorInactiveAccount =>
+      'Your account is inactive. Please contact an administrator.';
+
+  @override
+  String get logoutTooltip => 'Logout';
 }

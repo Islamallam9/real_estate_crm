@@ -8,6 +8,9 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/usecases/get_current_user_profile_usecase.dart';
 import '../../domain/usecases/auth_state_changes_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
@@ -24,6 +27,10 @@ class LoginPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final remoteDataSource = FirebaseAuthRemoteDataSource();
     final repository = AuthRepositoryImpl(remoteDataSource: remoteDataSource);
+    final userProfileRemoteDataSource = FirestoreUserProfileRemoteDataSource();
+    final userProfileRepository = UserProfileRepositoryImpl(
+      remoteDataSource: userProfileRemoteDataSource,
+    );
 
     return BlocProvider(
       create: (_) => AuthBloc(
@@ -31,6 +38,9 @@ class LoginPage extends StatelessWidget {
         signOutUseCase: SignOutUseCase(repository),
         getCurrentUserUseCase: GetCurrentUserUseCase(repository),
         authStateChangesUseCase: AuthStateChangesUseCase(repository),
+        getCurrentUserProfileUseCase: GetCurrentUserProfileUseCase(
+          userProfileRepository,
+        ),
       )..add(const AuthStarted()),
       child: const _LoginView(),
     );

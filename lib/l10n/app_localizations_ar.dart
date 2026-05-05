@@ -120,4 +120,28 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get signingIn => 'جاري تسجيل الدخول...';
+
+  @override
+  String get authErrorInvalidCredentials =>
+      'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+
+  @override
+  String get authErrorConnection =>
+      'حدث خطأ في الاتصال. تحقق من اتصالك بالإنترنت.';
+
+  @override
+  String get authErrorSignInFailed => 'تعذر تسجيل الدخول. حاول مرة أخرى.';
+
+  @override
+  String get authErrorSignOutFailed => 'تعذر تسجيل الخروج. حاول مرة أخرى.';
+
+  @override
+  String get authErrorProfileMissing => 'تعذر تحميل ملف المستخدم الخاص بك.';
+
+  @override
+  String get authErrorInactiveAccount =>
+      'حسابك غير مفعل. يرجى التواصل مع مسؤول النظام.';
+
+  @override
+  String get logoutTooltip => 'تسجيل الخروج';
 }

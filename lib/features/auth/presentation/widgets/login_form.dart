@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/errors/auth_exception.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -75,7 +76,13 @@ class _LoginFormState extends State<LoginForm> {
               if (state.status == AuthStatus.failure && state.message != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: _LoginErrorMessage(message: state.message!),
+                  child: _LoginErrorMessage(
+                    message: _localizedAuthError(
+                      localizations,
+                      state.errorCode,
+                      state.message,
+                    ),
+                  ),
                 ),
               AppButton(
                 label: isLoading
@@ -116,6 +123,30 @@ class _LoginFormState extends State<LoginForm> {
         password: _passwordController.text,
       ),
     );
+  }
+}
+
+String _localizedAuthError(
+  AppLocalizations localizations,
+  AuthErrorCode? code,
+  String? fallback,
+) {
+  switch (code) {
+    case AuthErrorCode.invalidCredentials:
+      return localizations.authErrorInvalidCredentials;
+    case AuthErrorCode.connection:
+      return localizations.authErrorConnection;
+    case AuthErrorCode.signInFailed:
+      return localizations.authErrorSignInFailed;
+    case AuthErrorCode.signOutFailed:
+      return localizations.authErrorSignOutFailed;
+    case AuthErrorCode.profileMissing:
+      return localizations.authErrorProfileMissing;
+    case AuthErrorCode.inactiveAccount:
+      return localizations.authErrorInactiveAccount;
+    case AuthErrorCode.unknown:
+    case null:
+      return fallback ?? localizations.authErrorSignInFailed;
   }
 }
 

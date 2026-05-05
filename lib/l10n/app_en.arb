@@ -39,4 +39,13 @@
   "invalidEmail": "Enter a valid email address.",
   "forgotPassword": "Forgot password?",
   "signingIn": "Signing in..."
+  ,
+  "authErrorInvalidCredentials": "Invalid email or password.",
+  "authErrorConnection": "Connection error. Check your internet connection.",
+  "authErrorSignInFailed": "Unable to sign in. Please try again.",
+  "authErrorSignOutFailed": "Unable to sign out. Please try again.",
+  "authErrorProfileMissing": "Unable to load your user profile.",
+  "authErrorInactiveAccount": "Your account is inactive. Please contact an administrator."
+  ,
+  "logoutTooltip": "Logout"
 }

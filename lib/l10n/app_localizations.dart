@@ -319,6 +319,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Signing in...'**
   String get signingIn;
+
+  /// No description provided for @authErrorInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email or password.'**
+  String get authErrorInvalidCredentials;
+
+  /// No description provided for @authErrorConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection error. Check your internet connection.'**
+  String get authErrorConnection;
+
+  /// No description provided for @authErrorSignInFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to sign in. Please try again.'**
+  String get authErrorSignInFailed;
+
+  /// No description provided for @authErrorSignOutFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to sign out. Please try again.'**
+  String get authErrorSignOutFailed;
+
+  /// No description provided for @authErrorProfileMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your user profile.'**
+  String get authErrorProfileMissing;
+
+  /// No description provided for @authErrorInactiveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is inactive. Please contact an administrator.'**
+  String get authErrorInactiveAccount;
+
+  /// No description provided for @logoutTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logoutTooltip;
 }
 
 class _AppLocalizationsDelegate

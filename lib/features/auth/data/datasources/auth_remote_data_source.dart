@@ -35,12 +35,15 @@ class FirebaseAuthRemoteDataSource implements AuthRemoteDataSource {
 
       final user = credential.user;
       if (user == null) {
-        throw const AuthException('Invalid email or password.');
+        throw const AuthException(
+          AuthErrorMessages.invalidCredentials,
+          code: AuthErrorCode.invalidCredentials,
+        );
       }
 
       return AppUserModel.fromFirebaseUser(user);
     } on FirebaseAuthException catch (error) {
-      throw AuthException(_mapFirebaseAuthError(error));
+      throw _mapFirebaseAuthError(error);
     }
   }
 
@@ -71,17 +74,26 @@ class FirebaseAuthRemoteDataSource implements AuthRemoteDataSource {
   }
 }
 
-String _mapFirebaseAuthError(FirebaseAuthException error) {
+AuthException _mapFirebaseAuthError(FirebaseAuthException error) {
   switch (error.code) {
     case 'invalid-email':
     case 'user-disabled':
     case 'user-not-found':
     case 'wrong-password':
     case 'invalid-credential':
-      return 'Invalid email or password.';
+      return const AuthException(
+        AuthErrorMessages.invalidCredentials,
+        code: AuthErrorCode.invalidCredentials,
+      );
     case 'network-request-failed':
-      return 'Connection error. Check your internet connection.';
+      return const AuthException(
+        AuthErrorMessages.connection,
+        code: AuthErrorCode.connection,
+      );
     default:
-      return 'Unable to sign in. Please try again.';
+      return const AuthException(
+        AuthErrorMessages.signInFailed,
+        code: AuthErrorCode.signInFailed,
+      );
   }
 }

@@ -39,4 +39,13 @@
   "invalidEmail": "أدخل بريداً إلكترونياً صحيحاً.",
   "forgotPassword": "نسيت كلمة المرور؟",
   "signingIn": "جاري تسجيل الدخول..."
+  ,
+  "authErrorInvalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+  "authErrorConnection": "حدث خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
+  "authErrorSignInFailed": "تعذر تسجيل الدخول. حاول مرة أخرى.",
+  "authErrorSignOutFailed": "تعذر تسجيل الخروج. حاول مرة أخرى.",
+  "authErrorProfileMissing": "تعذر تحميل ملف المستخدم الخاص بك.",
+  "authErrorInactiveAccount": "حسابك غير مفعل. يرجى التواصل مع مسؤول النظام."
+  ,
+  "logoutTooltip": "تسجيل الخروج"
 }
