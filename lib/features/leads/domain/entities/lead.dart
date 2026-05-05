@@ -1,0 +1,134 @@
+import 'package:equatable/equatable.dart';
+
+enum LeadSource {
+  facebook,
+  website,
+  phoneCall,
+  whatsapp,
+  referral,
+  walkIn,
+  other,
+}
+
+enum LeadStatus {
+  newLead,
+  contacted,
+  interested,
+  visitScheduled,
+  negotiation,
+  won,
+  lost,
+}
+
+enum LeadPriority {
+  low,
+  medium,
+  high,
+}
+
+class Lead extends Equatable {
+  const Lead({
+    required this.id,
+    required this.companyId,
+    required this.fullName,
+    required this.phone,
+    required this.email,
+    required this.source,
+    required this.status,
+    required this.priority,
+    required this.budgetMin,
+    required this.budgetMax,
+    required this.preferredLocation,
+    required this.preferredPropertyType,
+    required this.assignedTo,
+    required this.notes,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.createdBy,
+    required this.updatedBy,
+  });
+
+  final String id;
+  final String companyId;
+  final String fullName;
+  final String phone;
+  final String email;
+  final LeadSource source;
+  final LeadStatus status;
+  final LeadPriority priority;
+  final num budgetMin;
+  final num budgetMax;
+  final String preferredLocation;
+  final String preferredPropertyType;
+  final String assignedTo;
+  final String notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String createdBy;
+  final String updatedBy;
+
+  Lead copyWith({
+    String? id,
+    String? companyId,
+    String? fullName,
+    String? phone,
+    String? email,
+    LeadSource? source,
+    LeadStatus? status,
+    LeadPriority? priority,
+    num? budgetMin,
+    num? budgetMax,
+    String? preferredLocation,
+    String? preferredPropertyType,
+    String? assignedTo,
+    String? notes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? createdBy,
+    String? updatedBy,
+  }) {
+    return Lead(
+      id: id ?? this.id,
+      companyId: companyId ?? this.companyId,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      source: source ?? this.source,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      budgetMin: budgetMin ?? this.budgetMin,
+      budgetMax: budgetMax ?? this.budgetMax,
+      preferredLocation: preferredLocation ?? this.preferredLocation,
+      preferredPropertyType:
+          preferredPropertyType ?? this.preferredPropertyType,
+      assignedTo: assignedTo ?? this.assignedTo,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        id,
+        companyId,
+        fullName,
+        phone,
+        email,
+        source,
+        status,
+        priority,
+        budgetMin,
+        budgetMax,
+        preferredLocation,
+        preferredPropertyType,
+        assignedTo,
+        notes,
+        createdAt,
+        updatedAt,
+        createdBy,
+        updatedBy,
+      ];
+}
