@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/auth_event.dart';
+import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../../l10n/app_localizations.dart';
+import '../routing/route_names.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem { dashboard, leads, properties, clients, tasks }
@@ -51,27 +57,29 @@ class CrmAppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveLayout(
-      mobile: _MobileShell(
-        selectedItem: selectedItem,
-        title: title,
-        items: _items,
-        onItemSelected: onItemSelected,
-        child: child,
-      ),
-      tablet: _DesktopShell(
-        selectedItem: selectedItem,
-        title: title,
-        items: _items,
-        onItemSelected: onItemSelected,
-        child: child,
-      ),
-      desktop: _DesktopShell(
-        selectedItem: selectedItem,
-        title: title,
-        items: _items,
-        onItemSelected: onItemSelected,
-        child: child,
+    return _AuthLogoutListener(
+      child: ResponsiveLayout(
+        mobile: _MobileShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: _items,
+          onItemSelected: onItemSelected,
+          child: child,
+        ),
+        tablet: _DesktopShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: _items,
+          onItemSelected: onItemSelected,
+          child: child,
+        ),
+        desktop: _DesktopShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: _items,
+          onItemSelected: onItemSelected,
+          child: child,
+        ),
       ),
     );
   }
@@ -144,6 +152,7 @@ class _MobileShell extends StatelessWidget {
       appBar: AppBar(
         title: Text(title ?? _labelFor(context, selectedItem)),
         centerTitle: false,
+        actions: const [_LogoutIconButton()],
       ),
       body: SafeArea(
         child: Padding(
@@ -365,10 +374,45 @@ class _TopBar extends StatelessWidget {
             onPressed: () {},
             icon: const Icon(Icons.notifications_none),
           ),
+          const SizedBox(width: AppSpacing.xs),
+          const _LogoutIconButton(),
           const SizedBox(width: AppSpacing.sm),
           const _UserAvatar(),
         ],
       ),
+    );
+  }
+}
+
+class _AuthLogoutListener extends StatelessWidget {
+  const _AuthLogoutListener({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) {
+        return previous.status != current.status &&
+            current.status == AuthStatus.unauthenticated;
+      },
+      listener: (context, state) => context.go(RouteNames.login),
+      child: child,
+    );
+  }
+}
+
+class _LogoutIconButton extends StatelessWidget {
+  const _LogoutIconButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: AppLocalizations.of(context)!.logoutTooltip,
+      onPressed: () {
+        context.read<AuthBloc>().add(const AuthSignOutRequested());
+      },
+      icon: const Icon(Icons.logout),
     );
   }
 }
