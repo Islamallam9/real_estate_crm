@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "138177769693",
+    "project_id": "real-escrm-ia",
+    "storage_bucket": "real-escrm-ia.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:138177769693:android:8b06080ca847d808ae6b34",
+        "android_client_info": {
+          "package_name": "com.example.real_estate_crm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBY2cVTZyLnOSgUTAC9FlHLpjmpIdSZLdQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
