@@ -1,0 +1,20 @@
+{
+  "@@locale": "en",
+  "appName": "Real Estate CRM",
+  "login": "Login",
+  "email": "Email",
+  "password": "Password",
+  "signIn": "Sign in",
+  "logout": "Logout",
+  "dashboard": "Dashboard",
+  "leads": "Leads",
+  "properties": "Properties",
+  "clients": "Clients",
+  "tasks": "Tasks",
+  "deals": "Deals",
+  "reports": "Reports",
+  "settings": "Settings",
+  "language": "Language",
+  "arabic": "Arabic",
+  "english": "English"
+}

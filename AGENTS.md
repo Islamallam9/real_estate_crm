@@ -29,6 +29,9 @@ It should be treated as a real production project.
 - go_router for navigation
 - Firebase SDKs
 - Responsive UI for desktop, tablet, and mobile
+- Flutter localization for Arabic and English
+- RTL support for Arabic
+- LTR support for English
 
 ## Backend / Cloud
 
@@ -326,6 +329,144 @@ lib/
       domain/
       presentation/
 ```
+
+
+---
+
+# Localization / Internationalization Rules
+
+The app must support both Arabic and English from the beginning.
+
+Supported languages:
+
+```text
+Arabic: ar
+English: en
+```
+
+## Direction Rules
+
+- Arabic must use RTL layout direction.
+- English must use LTR layout direction.
+- All screens must work correctly in both RTL and LTR.
+- Do not build layouts that break when direction changes.
+- Do not hardcode left/right spacing when directional spacing is needed.
+- Prefer `EdgeInsetsDirectional` instead of `EdgeInsets.only(left/right)` when the spacing depends on reading direction.
+- Prefer `AlignmentDirectional` instead of `Alignment.centerLeft` or `Alignment.centerRight` when alignment depends on reading direction.
+- Icons that imply direction, such as arrows, should behave correctly in RTL and LTR.
+
+## Text Rules
+
+Do not hardcode visible UI text directly inside widgets.
+
+Avoid:
+
+```dart
+Text('Login')
+Text('Dashboard')
+Text('Leads')
+```
+
+Use localization instead.
+
+Preferred approach:
+
+```dart
+Text(context.l10n.login)
+Text(context.l10n.dashboard)
+Text(context.l10n.leads)
+```
+
+or the generated Flutter localization class used in the project.
+
+## Localization Files
+
+Use Flutter localization with ARB files.
+
+Recommended structure:
+
+```text
+lib/l10n/app_en.arb
+lib/l10n/app_ar.arb
+l10n.yaml
+```
+
+The app should include localization keys for all visible text, including:
+
+```text
+appName
+login
+email
+password
+signIn
+logout
+dashboard
+leads
+properties
+clients
+tasks
+deals
+reports
+settings
+language
+arabic
+english
+save
+cancel
+search
+filter
+create
+edit
+delete
+details
+loading
+noData
+tryAgain
+```
+
+## UI Design with Localization
+
+- Arabic text must look natural and professional.
+- English text must remain clean and business-like.
+- Avoid layouts that depend on fixed text length.
+- Buttons, cards, tables, forms, and navigation should handle longer Arabic labels.
+- Mobile and web layouts must both support Arabic and English.
+- Sidebar navigation on web must support RTL positioning when Arabic is active.
+- Bottom navigation on mobile must support translated labels.
+
+## Date, Number, and Currency Formatting
+
+Use localization-aware formatting for:
+
+- Dates
+- Times
+- Numbers
+- Prices
+- Currency
+- Percentages
+
+Do not manually concatenate localized strings in a way that breaks Arabic grammar.
+
+Avoid:
+
+```dart
+Text('Price: $price')
+```
+
+Use proper localized strings or formatting helpers.
+
+## Codex Localization Rules
+
+When adding or editing UI:
+
+- Add English and Arabic keys for new visible text.
+- Do not add English-only screens.
+- Do not hardcode labels, button text, error messages, empty states, or navigation labels.
+- Check that the UI remains usable in RTL and LTR.
+- Keep localization clean and centralized.
+- Do not introduce a localization package unless explicitly requested.
+- Use Flutter's official localization approach unless the project later chooses another approach.
+
 
 ---
 
@@ -1348,7 +1489,10 @@ For every task:
 5. Keep Firebase isolated in data sources.
 6. Keep UI professional and realistic.
 7. Avoid generic AI-looking designs.
-8. Summarize the work clearly.
+8. Support Arabic and English localization.
+9. Make layouts work correctly in RTL and LTR.
+10. Do not hardcode visible UI text.
+11. Summarize the work clearly.
 
 ---
 
@@ -1395,6 +1539,9 @@ When working on this repository:
 - Do not introduce another state management package.
 - Do not add backend systems outside Firebase unless explicitly requested.
 - Do not overbuild version 1.
+- Do not hardcode visible UI text.
+- Add Arabic and English localization keys for new visible UI text.
+- Respect RTL for Arabic and LTR for English.
 - Ask for confirmation only when the decision would strongly affect architecture, security, or data design.
 - Otherwise, make the safest minimal implementation and document the assumption.
 
