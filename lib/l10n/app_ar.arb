@@ -17,4 +17,18 @@
   "language": "اللغة",
   "arabic": "العربية",
   "english": "الإنجليزية"
+  ,
+  "salesWorkspace": "مساحة عمل المبيعات",
+  "searchCrm": "البحث في النظام",
+  "notifications": "الإشعارات",
+  "crmUser": "مستخدم النظام",
+  "workspace": "مساحة العمل",
+  "crmOverview": "نظرة عامة على النظام",
+  "dashboardPlaceholderDescription": "ستظهر هنا بيانات المبيعات والعملاء المحتملين والمتابعات ونشاط العقارات.",
+  "totalLeads": "إجمالي العملاء المحتملين",
+  "followUpsDue": "المتابعات المستحقة",
+  "openDeals": "الصفقات المفتوحة",
+  "availableProperties": "العقارات المتاحة",
+  "authScreenPlaceholder": "شاشة تسجيل دخول مؤقتة",
+  "openDashboard": "فتح لوحة التحكم"
 }

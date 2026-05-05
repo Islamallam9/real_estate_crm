@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -11,11 +12,11 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CrmAppShell(
       selectedItem: CrmNavigationItem.dashboard,
-      title: 'Dashboard',
+      title: AppLocalizations.of(context)!.dashboard,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             _DashboardIntro(),
             SizedBox(height: AppSpacing.lg),
             _DashboardPlaceholderGrid(),
@@ -32,17 +33,18 @@ class _DashboardIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final localizations = AppLocalizations.of(context)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'CRM overview',
+          localizations.crmOverview,
           style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Key sales, leads, follow-ups, and property activity will appear here.',
+          localizations.dashboardPlaceholderDescription,
           style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
       ],
@@ -57,6 +59,7 @@ class _DashboardPlaceholderGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final localizations = AppLocalizations.of(context)!;
         final width = constraints.maxWidth;
         final columns = width >= 1024
             ? 4
@@ -71,24 +74,24 @@ class _DashboardPlaceholderGrid extends StatelessWidget {
           crossAxisSpacing: AppSpacing.md,
           mainAxisSpacing: AppSpacing.md,
           childAspectRatio: columns == 1 ? 3.8 : 2.5,
-          children: const [
+          children: [
             _DashboardMetricCard(
-              label: 'Total leads',
+              label: localizations.totalLeads,
               value: '-',
               icon: Icons.people_alt_outlined,
             ),
             _DashboardMetricCard(
-              label: 'Follow-ups due',
+              label: localizations.followUpsDue,
               value: '-',
               icon: Icons.event_available_outlined,
             ),
             _DashboardMetricCard(
-              label: 'Open deals',
+              label: localizations.openDeals,
               value: '-',
               icon: Icons.handshake_outlined,
             ),
             _DashboardMetricCard(
-              label: 'Available properties',
+              label: localizations.availableProperties,
               value: '-',
               icon: Icons.business_outlined,
             ),

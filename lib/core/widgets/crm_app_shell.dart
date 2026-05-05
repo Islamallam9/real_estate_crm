@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import '../../l10n/app_localizations.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem { dashboard, leads, properties, clients, tasks }
@@ -23,31 +24,26 @@ class CrmAppShell extends StatelessWidget {
   static const _items = <_CrmShellItem>[
     _CrmShellItem(
       item: CrmNavigationItem.dashboard,
-      label: 'Dashboard',
       icon: Icons.dashboard_outlined,
       selectedIcon: Icons.dashboard,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.leads,
-      label: 'Leads',
       icon: Icons.people_alt_outlined,
       selectedIcon: Icons.people_alt,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.properties,
-      label: 'Properties',
       icon: Icons.business_outlined,
       selectedIcon: Icons.business,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.clients,
-      label: 'Clients',
       icon: Icons.person_outline,
       selectedIcon: Icons.person,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.tasks,
-      label: 'Tasks',
       icon: Icons.checklist_outlined,
       selectedIcon: Icons.checklist,
     ),
@@ -110,7 +106,7 @@ class _DesktopShell extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                _TopBar(title: title ?? _labelFor(selectedItem)),
+                _TopBar(title: title ?? _labelFor(context, selectedItem)),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -146,7 +142,7 @@ class _MobileShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(title ?? _labelFor(selectedItem)),
+        title: Text(title ?? _labelFor(context, selectedItem)),
         centerTitle: false,
       ),
       body: SafeArea(
@@ -164,7 +160,7 @@ class _MobileShell extends StatelessWidget {
             NavigationDestination(
               icon: Icon(item.icon),
               selectedIcon: Icon(item.selectedIcon),
-              label: item.label,
+              label: item.label(context),
             ),
         ],
       ),
@@ -240,7 +236,7 @@ class _BrandHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Real Estate CRM',
+                AppLocalizations.of(context)!.appName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.titleSmall?.copyWith(
@@ -248,7 +244,7 @@ class _BrandHeader extends StatelessWidget {
                 ),
               ),
               Text(
-                'Sales workspace',
+                AppLocalizations.of(context)!.salesWorkspace,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodySmall?.copyWith(
@@ -304,7 +300,7 @@ class _SidebarItem extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    item.label,
+                    item.label(context),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.bodyMedium?.copyWith(
@@ -354,7 +350,7 @@ class _TopBar extends StatelessWidget {
             width: 280,
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search CRM',
+                hintText: AppLocalizations.of(context)!.searchCrm,
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border: OutlineInputBorder(
@@ -365,7 +361,7 @@ class _TopBar extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           IconButton(
-            tooltip: 'Notifications',
+            tooltip: AppLocalizations.of(context)!.notifications,
             onPressed: () {},
             icon: const Icon(Icons.notifications_none),
           ),
@@ -399,7 +395,7 @@ class _ProfileSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CRM User',
+                  AppLocalizations.of(context)!.crmUser,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
@@ -407,7 +403,7 @@ class _ProfileSummary extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Workspace',
+                  AppLocalizations.of(context)!.workspace,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodySmall?.copyWith(
@@ -442,28 +438,30 @@ class _UserAvatar extends StatelessWidget {
 class _CrmShellItem {
   const _CrmShellItem({
     required this.item,
-    required this.label,
     required this.icon,
     required this.selectedIcon,
   });
 
   final CrmNavigationItem item;
-  final String label;
   final IconData icon;
   final IconData selectedIcon;
+
+  String label(BuildContext context) => _labelFor(context, item);
 }
 
-String _labelFor(CrmNavigationItem item) {
+String _labelFor(BuildContext context, CrmNavigationItem item) {
+  final localizations = AppLocalizations.of(context)!;
+
   switch (item) {
     case CrmNavigationItem.dashboard:
-      return 'Dashboard';
+      return localizations.dashboard;
     case CrmNavigationItem.leads:
-      return 'Leads';
+      return localizations.leads;
     case CrmNavigationItem.properties:
-      return 'Properties';
+      return localizations.properties;
     case CrmNavigationItem.clients:
-      return 'Clients';
+      return localizations.clients;
     case CrmNavigationItem.tasks:
-      return 'Tasks';
+      return localizations.tasks;
   }
 }

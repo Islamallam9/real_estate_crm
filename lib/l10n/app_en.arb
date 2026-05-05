@@ -17,4 +17,18 @@
   "language": "Language",
   "arabic": "Arabic",
   "english": "English"
+  ,
+  "salesWorkspace": "Sales workspace",
+  "searchCrm": "Search CRM",
+  "notifications": "Notifications",
+  "crmUser": "CRM User",
+  "workspace": "Workspace",
+  "crmOverview": "CRM overview",
+  "dashboardPlaceholderDescription": "Key sales, leads, follow-ups, and property activity will appear here.",
+  "totalLeads": "Total leads",
+  "followUpsDue": "Follow-ups due",
+  "openDeals": "Open deals",
+  "availableProperties": "Available properties",
+  "authScreenPlaceholder": "Authentication screen placeholder",
+  "openDashboard": "Open dashboard"
 }

@@ -58,4 +58,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get english => 'English';
+
+  @override
+  String get salesWorkspace => 'Sales workspace';
+
+  @override
+  String get searchCrm => 'Search CRM';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get crmUser => 'CRM User';
+
+  @override
+  String get workspace => 'Workspace';
+
+  @override
+  String get crmOverview => 'CRM overview';
+
+  @override
+  String get dashboardPlaceholderDescription =>
+      'Key sales, leads, follow-ups, and property activity will appear here.';
+
+  @override
+  String get totalLeads => 'Total leads';
+
+  @override
+  String get followUpsDue => 'Follow-ups due';
+
+  @override
+  String get openDeals => 'Open deals';
+
+  @override
+  String get availableProperties => 'Available properties';
+
+  @override
+  String get authScreenPlaceholder => 'Authentication screen placeholder';
+
+  @override
+  String get openDashboard => 'Open dashboard';
 }

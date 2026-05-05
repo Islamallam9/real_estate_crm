@@ -58,4 +58,44 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get english => 'الإنجليزية';
+
+  @override
+  String get salesWorkspace => 'مساحة عمل المبيعات';
+
+  @override
+  String get searchCrm => 'البحث في النظام';
+
+  @override
+  String get notifications => 'الإشعارات';
+
+  @override
+  String get crmUser => 'مستخدم النظام';
+
+  @override
+  String get workspace => 'مساحة العمل';
+
+  @override
+  String get crmOverview => 'نظرة عامة على النظام';
+
+  @override
+  String get dashboardPlaceholderDescription =>
+      'ستظهر هنا بيانات المبيعات والعملاء المحتملين والمتابعات ونشاط العقارات.';
+
+  @override
+  String get totalLeads => 'إجمالي العملاء المحتملين';
+
+  @override
+  String get followUpsDue => 'المتابعات المستحقة';
+
+  @override
+  String get openDeals => 'الصفقات المفتوحة';
+
+  @override
+  String get availableProperties => 'العقارات المتاحة';
+
+  @override
+  String get authScreenPlaceholder => 'شاشة تسجيل دخول مؤقتة';
+
+  @override
+  String get openDashboard => 'فتح لوحة التحكم';
 }

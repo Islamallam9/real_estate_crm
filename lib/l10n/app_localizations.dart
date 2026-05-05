@@ -199,6 +199,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'English'**
   String get english;
+
+  /// No description provided for @salesWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales workspace'**
+  String get salesWorkspace;
+
+  /// No description provided for @searchCrm.
+  ///
+  /// In en, this message translates to:
+  /// **'Search CRM'**
+  String get searchCrm;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @crmUser.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM User'**
+  String get crmUser;
+
+  /// No description provided for @workspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace'**
+  String get workspace;
+
+  /// No description provided for @crmOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM overview'**
+  String get crmOverview;
+
+  /// No description provided for @dashboardPlaceholderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Key sales, leads, follow-ups, and property activity will appear here.'**
+  String get dashboardPlaceholderDescription;
+
+  /// No description provided for @totalLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Total leads'**
+  String get totalLeads;
+
+  /// No description provided for @followUpsDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups due'**
+  String get followUpsDue;
+
+  /// No description provided for @openDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Open deals'**
+  String get openDeals;
+
+  /// No description provided for @availableProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'Available properties'**
+  String get availableProperties;
+
+  /// No description provided for @authScreenPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication screen placeholder'**
+  String get authScreenPlaceholder;
+
+  /// No description provided for @openDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Open dashboard'**
+  String get openDashboard;
 }
 
 class _AppLocalizationsDelegate
