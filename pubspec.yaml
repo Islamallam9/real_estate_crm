@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  shared_preferences: ^2.2.3
+  google_fonts: ^6.2.1
   flutter_bloc: ^9.1.1
   bloc: ^9.0.0
   equatable: ^2.0.7

@@ -20,11 +20,7 @@ enum LeadStatus {
   lost,
 }
 
-enum LeadPriority {
-  low,
-  medium,
-  high,
-}
+enum LeadPriority { low, medium, high }
 
 class Lead extends Equatable {
   const Lead({
@@ -46,6 +42,9 @@ class Lead extends Equatable {
     required this.updatedAt,
     required this.createdBy,
     required this.updatedBy,
+    this.isArchived = false,
+    this.archivedAt,
+    this.archivedBy,
   });
 
   final String id;
@@ -66,6 +65,9 @@ class Lead extends Equatable {
   final DateTime updatedAt;
   final String createdBy;
   final String updatedBy;
+  final bool isArchived;
+  final DateTime? archivedAt;
+  final String? archivedBy;
 
   Lead copyWith({
     String? id,
@@ -86,6 +88,9 @@ class Lead extends Equatable {
     DateTime? updatedAt,
     String? createdBy,
     String? updatedBy,
+    bool? isArchived,
+    DateTime? archivedAt,
+    String? archivedBy,
   }) {
     return Lead(
       id: id ?? this.id,
@@ -107,28 +112,34 @@ class Lead extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      isArchived: isArchived ?? this.isArchived,
+      archivedAt: archivedAt ?? this.archivedAt,
+      archivedBy: archivedBy ?? this.archivedBy,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        companyId,
-        fullName,
-        phone,
-        email,
-        source,
-        status,
-        priority,
-        budgetMin,
-        budgetMax,
-        preferredLocation,
-        preferredPropertyType,
-        assignedTo,
-        notes,
-        createdAt,
-        updatedAt,
-        createdBy,
-        updatedBy,
-      ];
+    id,
+    companyId,
+    fullName,
+    phone,
+    email,
+    source,
+    status,
+    priority,
+    budgetMin,
+    budgetMax,
+    preferredLocation,
+    preferredPropertyType,
+    assignedTo,
+    notes,
+    createdAt,
+    updatedAt,
+    createdBy,
+    updatedBy,
+    isArchived,
+    archivedAt,
+    archivedBy,
+  ];
 }

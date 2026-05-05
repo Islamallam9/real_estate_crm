@@ -7,6 +7,9 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/leads/presentation/pages/create_lead_page.dart';
+import '../../features/leads/presentation/pages/lead_details_page.dart';
+import '../../features/leads/presentation/pages/leads_list_page.dart';
 import 'route_names.dart';
 
 abstract final class AppRouter {
@@ -43,6 +46,22 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.dashboard,
           builder: (context, state) => const DashboardPage(),
+        ),
+        GoRoute(
+          path: RouteNames.leads,
+          builder: (context, state) => const LeadsListPage(),
+        ),
+        GoRoute(
+          path: RouteNames.leadsCreate,
+          builder: (context, state) => const CreateLeadPage(),
+        ),
+        GoRoute(
+          path: '/leads/:leadId',
+          builder: (context, state) {
+            return LeadDetailsPage(
+              leadId: state.pathParameters['leadId'] ?? '',
+            );
+          },
         ),
       ],
     );

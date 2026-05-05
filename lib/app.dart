@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import 'core/localization/locale_cubit.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
@@ -19,7 +21,9 @@ import 'features/users/domain/usecases/get_current_user_profile_usecase.dart';
 import 'l10n/app_localizations.dart';
 
 class RealEstateCrmApp extends StatefulWidget {
-  const RealEstateCrmApp({super.key});
+  const RealEstateCrmApp({super.key, this.initialLocale});
+
+  final Locale? initialLocale;
 
   @override
   State<RealEstateCrmApp> createState() => _RealEstateCrmAppState();
@@ -27,6 +31,7 @@ class RealEstateCrmApp extends StatefulWidget {
 
 class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
   late final AuthBloc _authBloc;
+  late final LocaleCubit _localeCubit;
   late final GoRouter _router;
 
   @override
@@ -53,32 +58,72 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
     )..add(const AuthStarted());
 
     _router = AppRouter.createRouter(_authBloc);
+    _localeCubit = LocaleCubit(initialLocale: widget.initialLocale);
   }
 
   @override
   void dispose() {
     _router.dispose();
     _authBloc.close();
+    _localeCubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _authBloc,
-      child: MaterialApp.router(
-        onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        routerConfig: _router,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _authBloc),
+        BlocProvider.value(value: _localeCubit),
+      ],
+      child: BlocBuilder<LocaleCubit, Locale?>(
+        builder: (context, locale) {
+          return MaterialApp.router(
+            locale: locale,
+            onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
+            debugShowCheckedModeBanner: false,
+            theme: _localizedTheme(AppTheme.light, locale),
+            routerConfig: _router,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+          );
+        },
       ),
     );
   }
+}
+
+ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
+  const fallback = [
+    'El Messiri',
+    'Noto Sans Arabic',
+    'Segoe UI',
+    'Tahoma',
+    'Arial',
+    'Roboto',
+    'sans-serif',
+  ];
+
+  final themeWithFallback = theme.copyWith(
+    textTheme: theme.textTheme.apply(fontFamilyFallback: fallback),
+    primaryTextTheme: theme.primaryTextTheme.apply(
+      fontFamilyFallback: fallback,
+    ),
+  );
+
+  if (locale?.languageCode != 'ar') {
+    return themeWithFallback;
+  }
+
+  return themeWithFallback.copyWith(
+    textTheme: GoogleFonts.elMessiriTextTheme(themeWithFallback.textTheme),
+    primaryTextTheme: GoogleFonts.elMessiriTextTheme(
+      themeWithFallback.primaryTextTheme,
+    ),
+  );
 }

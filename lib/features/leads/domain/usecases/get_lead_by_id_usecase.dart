@@ -6,13 +6,7 @@ class GetLeadByIdUseCase {
 
   final LeadsRepository _repository;
 
-  Future<Lead> call({
-    required String companyId,
-    required String leadId,
-  }) {
-    return _repository.getLeadById(
-      companyId: companyId,
-      leadId: leadId,
-    );
+  Future<Lead> call({required String companyId, required String leadId}) {
+    return _repository.getLeadById(companyId: companyId, leadId: leadId);
   }
 }

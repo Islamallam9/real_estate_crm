@@ -361,6 +361,306 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Logout'**
   String get logoutTooltip;
+
+  /// No description provided for @createLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Create lead'**
+  String get createLead;
+
+  /// No description provided for @leadDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead details'**
+  String get leadDetails;
+
+  /// No description provided for @leadName.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead name'**
+  String get leadName;
+
+  /// No description provided for @phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get phone;
+
+  /// No description provided for @source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get source;
+
+  /// No description provided for @status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get status;
+
+  /// No description provided for @priority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get priority;
+
+  /// No description provided for @budgetMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum budget'**
+  String get budgetMin;
+
+  /// No description provided for @budgetMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum budget'**
+  String get budgetMax;
+
+  /// No description provided for @preferredLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred location'**
+  String get preferredLocation;
+
+  /// No description provided for @preferredPropertyType.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred property type'**
+  String get preferredPropertyType;
+
+  /// No description provided for @assignedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to'**
+  String get assignedTo;
+
+  /// No description provided for @notes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get notes;
+
+  /// No description provided for @saveLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Save lead'**
+  String get saveLead;
+
+  /// No description provided for @leadCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead created successfully.'**
+  String get leadCreated;
+
+  /// No description provided for @noLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'No leads yet.'**
+  String get noLeads;
+
+  /// No description provided for @unableToLoadLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load leads. Please try again.'**
+  String get unableToLoadLeads;
+
+  /// No description provided for @unableToCreateLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to create lead. Please try again.'**
+  String get unableToCreateLead;
+
+  /// No description provided for @requiredField.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required.'**
+  String get requiredField;
+
+  /// No description provided for @notAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available'**
+  String get notAvailable;
+
+  /// No description provided for @newLead.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newLead;
+
+  /// No description provided for @contacted.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted'**
+  String get contacted;
+
+  /// No description provided for @interested.
+  ///
+  /// In en, this message translates to:
+  /// **'Interested'**
+  String get interested;
+
+  /// No description provided for @visitScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit scheduled'**
+  String get visitScheduled;
+
+  /// No description provided for @negotiation.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiation'**
+  String get negotiation;
+
+  /// No description provided for @won.
+  ///
+  /// In en, this message translates to:
+  /// **'Won'**
+  String get won;
+
+  /// No description provided for @lost.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost'**
+  String get lost;
+
+  /// No description provided for @low.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get low;
+
+  /// No description provided for @medium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get medium;
+
+  /// No description provided for @high.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get high;
+
+  /// No description provided for @facebook.
+  ///
+  /// In en, this message translates to:
+  /// **'Facebook'**
+  String get facebook;
+
+  /// No description provided for @website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get website;
+
+  /// No description provided for @phoneCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone call'**
+  String get phoneCall;
+
+  /// No description provided for @whatsapp.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp'**
+  String get whatsapp;
+
+  /// No description provided for @referral.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral'**
+  String get referral;
+
+  /// No description provided for @walkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in'**
+  String get walkIn;
+
+  /// No description provided for @other.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get other;
+
+  /// No description provided for @leadsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track new inquiries and follow up with prospects.'**
+  String get leadsSubtitle;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @archive.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get archive;
+
+  /// No description provided for @archiveLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive lead'**
+  String get archiveLead;
+
+  /// No description provided for @archiveLeadConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead will be archived and hidden from the active leads list.'**
+  String get archiveLeadConfirmation;
+
+  /// No description provided for @leadArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead archived successfully.'**
+  String get leadArchived;
+
+  /// No description provided for @unableToArchiveLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to archive lead. Please try again.'**
+  String get unableToArchiveLead;
+
+  /// No description provided for @permissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to perform this action.'**
+  String get permissionDenied;
+
+  /// No description provided for @contactInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact information'**
+  String get contactInformation;
+
+  /// No description provided for @leadPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead preferences'**
+  String get leadPreferences;
+
+  /// No description provided for @leadAssignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment and notes'**
+  String get leadAssignment;
+
+  /// No description provided for @missingCompanyProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your company profile. Please sign in again.'**
+  String get missingCompanyProfile;
 }
 
 class _AppLocalizationsDelegate

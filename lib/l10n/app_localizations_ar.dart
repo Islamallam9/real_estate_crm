@@ -144,4 +144,159 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get logoutTooltip => 'تسجيل الخروج';
+
+  @override
+  String get createLead => 'إضافة عميل محتمل';
+
+  @override
+  String get leadDetails => 'تفاصيل العميل المحتمل';
+
+  @override
+  String get leadName => 'اسم العميل المحتمل';
+
+  @override
+  String get phone => 'الهاتف';
+
+  @override
+  String get source => 'المصدر';
+
+  @override
+  String get status => 'الحالة';
+
+  @override
+  String get priority => 'الأولوية';
+
+  @override
+  String get budgetMin => 'الحد الأدنى للميزانية';
+
+  @override
+  String get budgetMax => 'الحد الأقصى للميزانية';
+
+  @override
+  String get preferredLocation => 'الموقع المفضل';
+
+  @override
+  String get preferredPropertyType => 'نوع العقار المفضل';
+
+  @override
+  String get assignedTo => 'مسند إلى';
+
+  @override
+  String get notes => 'ملاحظات';
+
+  @override
+  String get saveLead => 'حفظ العميل المحتمل';
+
+  @override
+  String get leadCreated => 'تم إنشاء العميل المحتمل بنجاح.';
+
+  @override
+  String get noLeads => 'لا توجد عملاء محتملون بعد.';
+
+  @override
+  String get unableToLoadLeads =>
+      'تعذر تحميل العملاء المحتملين. حاول مرة أخرى.';
+
+  @override
+  String get unableToCreateLead => 'تعذر إنشاء العميل المحتمل. حاول مرة أخرى.';
+
+  @override
+  String get requiredField => 'هذا الحقل مطلوب.';
+
+  @override
+  String get notAvailable => 'غير متوفر';
+
+  @override
+  String get newLead => 'جديد';
+
+  @override
+  String get contacted => 'تم التواصل';
+
+  @override
+  String get interested => 'مهتم';
+
+  @override
+  String get visitScheduled => 'تم تحديد زيارة';
+
+  @override
+  String get negotiation => 'تفاوض';
+
+  @override
+  String get won => 'تم الفوز';
+
+  @override
+  String get lost => 'مفقود';
+
+  @override
+  String get low => 'منخفضة';
+
+  @override
+  String get medium => 'متوسطة';
+
+  @override
+  String get high => 'عالية';
+
+  @override
+  String get facebook => 'فيسبوك';
+
+  @override
+  String get website => 'الموقع الإلكتروني';
+
+  @override
+  String get phoneCall => 'مكالمة هاتفية';
+
+  @override
+  String get whatsapp => 'واتساب';
+
+  @override
+  String get referral => 'ترشيح';
+
+  @override
+  String get walkIn => 'زيارة مباشرة';
+
+  @override
+  String get other => 'أخرى';
+
+  @override
+  String get leadsSubtitle =>
+      'تابع الاستفسارات الجديدة وتواصل مع العملاء المحتملين.';
+
+  @override
+  String get cancel => 'إلغاء';
+
+  @override
+  String get back => 'رجوع';
+
+  @override
+  String get archive => 'أرشفة';
+
+  @override
+  String get archiveLead => 'أرشفة العميل المحتمل';
+
+  @override
+  String get archiveLeadConfirmation =>
+      'سيتم أرشفة هذا العميل المحتمل وإخفاؤه من قائمة العملاء النشطين.';
+
+  @override
+  String get leadArchived => 'تمت أرشفة العميل المحتمل بنجاح.';
+
+  @override
+  String get unableToArchiveLead =>
+      'تعذرت أرشفة العميل المحتمل. حاول مرة أخرى.';
+
+  @override
+  String get permissionDenied => 'ليس لديك صلاحية لتنفيذ هذا الإجراء.';
+
+  @override
+  String get contactInformation => 'بيانات التواصل';
+
+  @override
+  String get leadPreferences => 'تفضيلات العميل المحتمل';
+
+  @override
+  String get leadAssignment => 'الإسناد والملاحظات';
+
+  @override
+  String get missingCompanyProfile =>
+      'تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى.';
 }

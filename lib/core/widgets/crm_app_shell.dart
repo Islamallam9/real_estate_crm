@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../localization/locale_cubit.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../../l10n/app_localizations.dart';
@@ -57,31 +58,47 @@ class CrmAppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveOnItemSelected =
+        onItemSelected ?? (item) => _goToItem(context, item);
+
     return _AuthLogoutListener(
       child: ResponsiveLayout(
         mobile: _MobileShell(
           selectedItem: selectedItem,
           title: title,
           items: _items,
-          onItemSelected: onItemSelected,
+          onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
         tablet: _DesktopShell(
           selectedItem: selectedItem,
           title: title,
           items: _items,
-          onItemSelected: onItemSelected,
+          onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
         desktop: _DesktopShell(
           selectedItem: selectedItem,
           title: title,
           items: _items,
-          onItemSelected: onItemSelected,
+          onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
       ),
     );
+  }
+}
+
+void _goToItem(BuildContext context, CrmNavigationItem item) {
+  switch (item) {
+    case CrmNavigationItem.dashboard:
+      context.go(RouteNames.dashboard);
+    case CrmNavigationItem.leads:
+      context.go(RouteNames.leads);
+    case CrmNavigationItem.properties:
+    case CrmNavigationItem.clients:
+    case CrmNavigationItem.tasks:
+      break;
   }
 }
 
@@ -350,38 +367,39 @@ class _TopBar extends StatelessWidget {
           return Row(
             children: [
               Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          if (!compact)
-            Flexible(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.searchCrm,
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          IconButton(
-            tooltip: AppLocalizations.of(context)!.notifications,
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          const _LogoutIconButton(),
-          const SizedBox(width: AppSpacing.sm),
-          const _UserAvatar(),
+              if (!compact)
+                Flexible(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(context)!.searchCrm,
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: AppSpacing.sm),
+              IconButton(
+                tooltip: AppLocalizations.of(context)!.notifications,
+                onPressed: () {},
+                icon: const Icon(Icons.notifications_none),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              const _LanguageMenuButton(),
+              const _LogoutIconButton(),
+              const SizedBox(width: AppSpacing.sm),
+              const _UserAvatar(),
             ],
           );
         },
@@ -419,6 +437,37 @@ class _LogoutIconButton extends StatelessWidget {
         context.read<AuthBloc>().add(const AuthSignOutRequested());
       },
       icon: const Icon(Icons.logout),
+    );
+  }
+}
+
+class _LanguageMenuButton extends StatelessWidget {
+  const _LanguageMenuButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return PopupMenuButton<String>(
+      tooltip: localizations.language,
+      icon: const Icon(Icons.language),
+      onSelected: (languageCode) {
+        final localeCubit = context.read<LocaleCubit>();
+        if (languageCode == 'ar') {
+          localeCubit.setArabic();
+        } else {
+          localeCubit.setEnglish();
+        }
+      },
+      itemBuilder: (context) {
+        return [
+          PopupMenuItem<String>(
+            value: 'en',
+            child: Text(localizations.english),
+          ),
+          PopupMenuItem<String>(value: 'ar', child: Text(localizations.arabic)),
+        ];
+      },
     );
   }
 }

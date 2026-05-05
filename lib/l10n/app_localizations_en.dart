@@ -142,4 +142,158 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logoutTooltip => 'Logout';
+
+  @override
+  String get createLead => 'Create lead';
+
+  @override
+  String get leadDetails => 'Lead details';
+
+  @override
+  String get leadName => 'Lead name';
+
+  @override
+  String get phone => 'Phone';
+
+  @override
+  String get source => 'Source';
+
+  @override
+  String get status => 'Status';
+
+  @override
+  String get priority => 'Priority';
+
+  @override
+  String get budgetMin => 'Minimum budget';
+
+  @override
+  String get budgetMax => 'Maximum budget';
+
+  @override
+  String get preferredLocation => 'Preferred location';
+
+  @override
+  String get preferredPropertyType => 'Preferred property type';
+
+  @override
+  String get assignedTo => 'Assigned to';
+
+  @override
+  String get notes => 'Notes';
+
+  @override
+  String get saveLead => 'Save lead';
+
+  @override
+  String get leadCreated => 'Lead created successfully.';
+
+  @override
+  String get noLeads => 'No leads yet.';
+
+  @override
+  String get unableToLoadLeads => 'Unable to load leads. Please try again.';
+
+  @override
+  String get unableToCreateLead => 'Unable to create lead. Please try again.';
+
+  @override
+  String get requiredField => 'This field is required.';
+
+  @override
+  String get notAvailable => 'Not available';
+
+  @override
+  String get newLead => 'New';
+
+  @override
+  String get contacted => 'Contacted';
+
+  @override
+  String get interested => 'Interested';
+
+  @override
+  String get visitScheduled => 'Visit scheduled';
+
+  @override
+  String get negotiation => 'Negotiation';
+
+  @override
+  String get won => 'Won';
+
+  @override
+  String get lost => 'Lost';
+
+  @override
+  String get low => 'Low';
+
+  @override
+  String get medium => 'Medium';
+
+  @override
+  String get high => 'High';
+
+  @override
+  String get facebook => 'Facebook';
+
+  @override
+  String get website => 'Website';
+
+  @override
+  String get phoneCall => 'Phone call';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get referral => 'Referral';
+
+  @override
+  String get walkIn => 'Walk-in';
+
+  @override
+  String get other => 'Other';
+
+  @override
+  String get leadsSubtitle =>
+      'Track new inquiries and follow up with prospects.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get archive => 'Archive';
+
+  @override
+  String get archiveLead => 'Archive lead';
+
+  @override
+  String get archiveLeadConfirmation =>
+      'This lead will be archived and hidden from the active leads list.';
+
+  @override
+  String get leadArchived => 'Lead archived successfully.';
+
+  @override
+  String get unableToArchiveLead => 'Unable to archive lead. Please try again.';
+
+  @override
+  String get permissionDenied =>
+      'You do not have permission to perform this action.';
+
+  @override
+  String get contactInformation => 'Contact information';
+
+  @override
+  String get leadPreferences => 'Lead preferences';
+
+  @override
+  String get leadAssignment => 'Assignment and notes';
+
+  @override
+  String get missingCompanyProfile =>
+      'Unable to load your company profile. Please sign in again.';
 }

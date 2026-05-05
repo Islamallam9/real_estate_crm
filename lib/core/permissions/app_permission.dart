@@ -6,6 +6,7 @@ enum AppPermission {
   createLead,
   editLead,
   deleteLead,
+  archiveLead,
   assignLead,
   viewProperties,
   createProperty,

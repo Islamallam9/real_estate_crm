@@ -6,13 +6,7 @@ class CreateLeadUseCase {
 
   final LeadsRepository _repository;
 
-  Future<Lead> call({
-    required String companyId,
-    required Lead lead,
-  }) {
-    return _repository.createLead(
-      companyId: companyId,
-      lead: lead,
-    );
+  Future<Lead> call({required String companyId, required Lead lead}) {
+    return _repository.createLead(companyId: companyId, lead: lead);
   }
 }

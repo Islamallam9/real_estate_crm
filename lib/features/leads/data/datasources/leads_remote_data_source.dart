@@ -20,16 +20,18 @@ abstract interface class LeadsRemoteDataSource {
     required String leadId,
   });
 
-  Stream<List<LeadModel>> watchLeads({
+  Future<void> archiveLead({
     required String companyId,
-    int limit,
+    required String leadId,
+    required String archivedBy,
   });
+
+  Stream<List<LeadModel>> watchLeads({required String companyId, int limit});
 }
 
 class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
-  FirestoreLeadsRemoteDataSource({
-    FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreLeadsRemoteDataSource({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -42,12 +44,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
 
     try {
       final collection = _leadsCollection(companyId);
-      final document = lead.id.isEmpty ? collection.doc() : collection.doc(lead.id);
+      final document = lead.id.isEmpty
+          ? collection.doc()
+          : collection.doc(lead.id);
       final leadToSave = LeadModel.fromEntity(
-        lead.copyWith(
-          id: document.id,
-          companyId: companyId,
-        ),
+        lead.copyWith(id: document.id, companyId: companyId, isArchived: false),
       );
 
       await document.set(leadToSave.toFirestore());
@@ -106,6 +107,38 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   }
 
   @override
+  Future<void> archiveLead({
+    required String companyId,
+    required String leadId,
+    required String archivedBy,
+  }) async {
+    try {
+      final document = _leadsCollection(companyId).doc(leadId);
+      final snapshot = await document.get();
+      if (!snapshot.exists) {
+        throw const LeadException('Unable to load lead.');
+      }
+
+      final lead = LeadModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, lead: lead);
+
+      await document.update({
+        'isArchived': true,
+        'archivedAt': FieldValue.serverTimestamp(),
+        'archivedBy': archivedBy,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': archivedBy,
+      });
+    } on LeadException {
+      rethrow;
+    } on FirebaseException catch (error) {
+      throw LeadException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const LeadException('Unable to archive lead. Please try again.');
+    }
+  }
+
+  @override
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
     int limit = 30,
@@ -115,12 +148,15 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
         .limit(limit)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((document) {
-        final lead = LeadModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, lead: lead);
-        return lead;
-      }).toList();
-    });
+          return snapshot.docs
+              .map((document) {
+                final lead = LeadModel.fromFirestore(document);
+                _ensureSameCompany(companyId: companyId, lead: lead);
+                return lead;
+              })
+              .where((lead) => !lead.isArchived)
+              .toList();
+        });
   }
 
   CollectionReference<Map<String, dynamic>> _leadsCollection(String companyId) {
@@ -128,12 +164,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   }
 }
 
-void _ensureSameCompany({
-  required String companyId,
-  required LeadModel lead,
-}) {
+void _ensureSameCompany({required String companyId, required LeadModel lead}) {
   if (companyId.isEmpty || lead.companyId != companyId) {
-    throw const LeadException('You do not have permission to access this lead.');
+    throw const LeadException(
+      'You do not have permission to access this lead.',
+    );
   }
 }
 

@@ -22,6 +22,9 @@ class LeadModel extends Lead {
     required super.updatedAt,
     required super.createdBy,
     required super.updatedBy,
+    super.isArchived,
+    super.archivedAt,
+    super.archivedBy,
   });
 
   factory LeadModel.fromEntity(Lead lead) {
@@ -44,6 +47,9 @@ class LeadModel extends Lead {
       updatedAt: lead.updatedAt,
       createdBy: lead.createdBy,
       updatedBy: lead.updatedBy,
+      isArchived: lead.isArchived,
+      archivedAt: lead.archivedAt,
+      archivedBy: lead.archivedBy,
     );
   }
 
@@ -74,6 +80,9 @@ class LeadModel extends Lead {
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       createdBy: data['createdBy'] as String? ?? '',
       updatedBy: data['updatedBy'] as String? ?? '',
+      isArchived: data['isArchived'] as bool? ?? false,
+      archivedAt: _nullableDateTimeFromValue(data['archivedAt']),
+      archivedBy: data['archivedBy'] as String?,
     );
   }
 
@@ -97,6 +106,9 @@ class LeadModel extends Lead {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'createdBy': createdBy,
       'updatedBy': updatedBy,
+      'isArchived': isArchived,
+      'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
+      'archivedBy': archivedBy,
     };
   }
 }
@@ -215,4 +227,12 @@ DateTime _dateTimeFromValue(Object? value) {
   }
 
   return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+DateTime? _nullableDateTimeFromValue(Object? value) {
+  if (value == null) {
+    return null;
+  }
+
+  return _dateTimeFromValue(value);
 }

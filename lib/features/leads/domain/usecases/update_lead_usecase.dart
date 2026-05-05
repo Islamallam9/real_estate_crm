@@ -6,13 +6,7 @@ class UpdateLeadUseCase {
 
   final LeadsRepository _repository;
 
-  Future<Lead> call({
-    required String companyId,
-    required Lead lead,
-  }) {
-    return _repository.updateLead(
-      companyId: companyId,
-      lead: lead,
-    );
+  Future<Lead> call({required String companyId, required Lead lead}) {
+    return _repository.updateLead(companyId: companyId, lead: lead);
   }
 }

@@ -1,23 +1,17 @@
 import '../entities/lead.dart';
 
 abstract interface class LeadsRepository {
-  Future<Lead> createLead({
-    required String companyId,
-    required Lead lead,
-  });
+  Future<Lead> createLead({required String companyId, required Lead lead});
 
-  Future<Lead> updateLead({
-    required String companyId,
-    required Lead lead,
-  });
+  Future<Lead> updateLead({required String companyId, required Lead lead});
 
-  Future<Lead> getLeadById({
+  Future<Lead> getLeadById({required String companyId, required String leadId});
+
+  Future<void> archiveLead({
     required String companyId,
     required String leadId,
+    required String archivedBy,
   });
 
-  Stream<List<Lead>> watchLeads({
-    required String companyId,
-    int limit,
-  });
+  Stream<List<Lead>> watchLeads({required String companyId, int limit});
 }
