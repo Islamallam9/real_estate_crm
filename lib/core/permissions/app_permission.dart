@@ -1,0 +1,18 @@
+enum AppPermission {
+  viewDashboard,
+  viewUsers,
+  manageUsers,
+  viewLeads,
+  createLead,
+  editLead,
+  deleteLead,
+  assignLead,
+  viewProperties,
+  createProperty,
+  editProperty,
+  deleteProperty,
+  viewClients,
+  viewDeals,
+  viewReports,
+  viewTasks,
+}
