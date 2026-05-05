@@ -343,9 +343,13 @@ class _TopBar extends StatelessWidget {
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: Row(
-        children: [
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+
+          return Row(
+            children: [
+              Expanded(
             child: Text(
               title,
               maxLines: 1,
@@ -355,8 +359,8 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 280,
+          if (!compact)
+            Flexible(
             child: TextField(
               decoration: InputDecoration(
                 hintText: AppLocalizations.of(context)!.searchCrm,
@@ -368,7 +372,7 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           IconButton(
             tooltip: AppLocalizations.of(context)!.notifications,
             onPressed: () {},
@@ -378,7 +382,9 @@ class _TopBar extends StatelessWidget {
           const _LogoutIconButton(),
           const SizedBox(width: AppSpacing.sm),
           const _UserAvatar(),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
