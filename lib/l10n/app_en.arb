@@ -31,4 +31,12 @@
   "availableProperties": "Available properties",
   "authScreenPlaceholder": "Authentication screen placeholder",
   "openDashboard": "Open dashboard"
+  ,
+  "welcomeBack": "Welcome back",
+  "loginSubtitle": "Sign in to continue to your CRM workspace.",
+  "emailRequired": "Email is required.",
+  "passwordRequired": "Password is required.",
+  "invalidEmail": "Enter a valid email address.",
+  "forgotPassword": "Forgot password?",
+  "signingIn": "Signing in..."
 }

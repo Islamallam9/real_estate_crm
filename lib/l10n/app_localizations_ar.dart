@@ -98,4 +98,26 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get openDashboard => 'فتح لوحة التحكم';
+
+  @override
+  String get welcomeBack => 'مرحباً بعودتك';
+
+  @override
+  String get loginSubtitle =>
+      'سجل الدخول للمتابعة إلى مساحة عمل إدارة العقارات.';
+
+  @override
+  String get emailRequired => 'البريد الإلكتروني مطلوب.';
+
+  @override
+  String get passwordRequired => 'كلمة المرور مطلوبة.';
+
+  @override
+  String get invalidEmail => 'أدخل بريداً إلكترونياً صحيحاً.';
+
+  @override
+  String get forgotPassword => 'نسيت كلمة المرور؟';
+
+  @override
+  String get signingIn => 'جاري تسجيل الدخول...';
 }

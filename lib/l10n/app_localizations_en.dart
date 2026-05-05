@@ -98,4 +98,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openDashboard => 'Open dashboard';
+
+  @override
+  String get welcomeBack => 'Welcome back';
+
+  @override
+  String get loginSubtitle => 'Sign in to continue to your CRM workspace.';
+
+  @override
+  String get emailRequired => 'Email is required.';
+
+  @override
+  String get passwordRequired => 'Password is required.';
+
+  @override
+  String get invalidEmail => 'Enter a valid email address.';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+
+  @override
+  String get signingIn => 'Signing in...';
 }

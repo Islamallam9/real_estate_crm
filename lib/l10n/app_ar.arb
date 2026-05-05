@@ -31,4 +31,12 @@
   "availableProperties": "العقارات المتاحة",
   "authScreenPlaceholder": "شاشة تسجيل دخول مؤقتة",
   "openDashboard": "فتح لوحة التحكم"
+  ,
+  "welcomeBack": "مرحباً بعودتك",
+  "loginSubtitle": "سجل الدخول للمتابعة إلى مساحة عمل إدارة العقارات.",
+  "emailRequired": "البريد الإلكتروني مطلوب.",
+  "passwordRequired": "كلمة المرور مطلوبة.",
+  "invalidEmail": "أدخل بريداً إلكترونياً صحيحاً.",
+  "forgotPassword": "نسيت كلمة المرور؟",
+  "signingIn": "جاري تسجيل الدخول..."
 }
