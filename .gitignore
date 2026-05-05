@@ -43,3 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Firebase / Google admin secrets
+serviceAccountKey.json
+firebase-adminsdk*.json
+*-firebase-adminsdk-*.json
+google-cloud-service-account*.json
+
+# Android signing secrets
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+*.jks
+*.keystore
+
+# iOS signing secrets
+ios/Runner/*.p8
+ios/Runner/*.cer
+ios/Runner/*.mobileprovision
+
+# Local generated folders
+android/build/
+build/
+.dart_tool/
