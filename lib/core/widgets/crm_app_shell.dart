@@ -1,0 +1,469 @@
+import 'package:flutter/material.dart';
+
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import 'responsive_layout.dart';
+
+enum CrmNavigationItem { dashboard, leads, properties, clients, tasks }
+
+class CrmAppShell extends StatelessWidget {
+  const CrmAppShell({
+    super.key,
+    required this.selectedItem,
+    required this.child,
+    this.title,
+    this.onItemSelected,
+  });
+
+  final CrmNavigationItem selectedItem;
+  final Widget child;
+  final String? title;
+  final ValueChanged<CrmNavigationItem>? onItemSelected;
+
+  static const _items = <_CrmShellItem>[
+    _CrmShellItem(
+      item: CrmNavigationItem.dashboard,
+      label: 'Dashboard',
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.leads,
+      label: 'Leads',
+      icon: Icons.people_alt_outlined,
+      selectedIcon: Icons.people_alt,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.properties,
+      label: 'Properties',
+      icon: Icons.business_outlined,
+      selectedIcon: Icons.business,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.clients,
+      label: 'Clients',
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.tasks,
+      label: 'Tasks',
+      icon: Icons.checklist_outlined,
+      selectedIcon: Icons.checklist,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveLayout(
+      mobile: _MobileShell(
+        selectedItem: selectedItem,
+        title: title,
+        items: _items,
+        onItemSelected: onItemSelected,
+        child: child,
+      ),
+      tablet: _DesktopShell(
+        selectedItem: selectedItem,
+        title: title,
+        items: _items,
+        onItemSelected: onItemSelected,
+        child: child,
+      ),
+      desktop: _DesktopShell(
+        selectedItem: selectedItem,
+        title: title,
+        items: _items,
+        onItemSelected: onItemSelected,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _DesktopShell extends StatelessWidget {
+  const _DesktopShell({
+    required this.selectedItem,
+    required this.items,
+    required this.child,
+    this.title,
+    this.onItemSelected,
+  });
+
+  final CrmNavigationItem selectedItem;
+  final List<_CrmShellItem> items;
+  final Widget child;
+  final String? title;
+  final ValueChanged<CrmNavigationItem>? onItemSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Row(
+        children: [
+          _Sidebar(
+            selectedItem: selectedItem,
+            items: items,
+            onItemSelected: onItemSelected,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                _TopBar(title: title ?? _labelFor(selectedItem)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: child,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileShell extends StatelessWidget {
+  const _MobileShell({
+    required this.selectedItem,
+    required this.items,
+    required this.child,
+    this.title,
+    this.onItemSelected,
+  });
+
+  final CrmNavigationItem selectedItem;
+  final List<_CrmShellItem> items;
+  final Widget child;
+  final String? title;
+  final ValueChanged<CrmNavigationItem>? onItemSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(title ?? _labelFor(selectedItem)),
+        centerTitle: false,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: child,
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: items.indexWhere((item) => item.item == selectedItem),
+        onDestinationSelected: (index) =>
+            onItemSelected?.call(items[index].item),
+        destinations: [
+          for (final item in items)
+            NavigationDestination(
+              icon: Icon(item.icon),
+              selectedIcon: Icon(item.selectedIcon),
+              label: item.label,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({
+    required this.selectedItem,
+    required this.items,
+    this.onItemSelected,
+  });
+
+  final CrmNavigationItem selectedItem;
+  final List<_CrmShellItem> items;
+  final ValueChanged<CrmNavigationItem>? onItemSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 248,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(right: BorderSide(color: AppColors.border)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _BrandHeader(),
+              const SizedBox(height: AppSpacing.lg),
+              for (final item in items)
+                _SidebarItem(
+                  item: item,
+                  selected: item.item == selectedItem,
+                  onTap: () => onItemSelected?.call(item.item),
+                ),
+              const Spacer(),
+              const _ProfileSummary(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.apartment, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Real Estate CRM',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                'Sales workspace',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  const _SidebarItem({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _CrmShellItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  color: color,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: color,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 280,
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search CRM',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const _UserAvatar(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSummary extends StatelessWidget {
+  const _ProfileSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const _UserAvatar(),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CRM User',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  'Workspace',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CircleAvatar(
+      radius: 18,
+      backgroundColor: AppColors.primary,
+      child: Text(
+        'U',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _CrmShellItem {
+  const _CrmShellItem({
+    required this.item,
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final CrmNavigationItem item;
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+String _labelFor(CrmNavigationItem item) {
+  switch (item) {
+    case CrmNavigationItem.dashboard:
+      return 'Dashboard';
+    case CrmNavigationItem.leads:
+      return 'Leads';
+    case CrmNavigationItem.properties:
+      return 'Properties';
+    case CrmNavigationItem.clients:
+      return 'Clients';
+    case CrmNavigationItem.tasks:
+      return 'Tasks';
+  }
+}
