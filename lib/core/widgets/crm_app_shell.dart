@@ -169,7 +169,11 @@ class _MobileShell extends StatelessWidget {
       appBar: AppBar(
         title: Text(title ?? _labelFor(context, selectedItem)),
         centerTitle: false,
-        actions: const [_LogoutIconButton()],
+        actions: const [
+          _NotificationIconButton(),
+          _LanguageMenuButton(),
+          _LogoutIconButton(),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -390,11 +394,7 @@ class _TopBar extends StatelessWidget {
                   ),
                 ),
               const SizedBox(width: AppSpacing.sm),
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.notifications,
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_none),
-              ),
+              const _NotificationIconButton(),
               const SizedBox(width: AppSpacing.xs),
               const _LanguageMenuButton(),
               const _LogoutIconButton(),
@@ -437,6 +437,19 @@ class _LogoutIconButton extends StatelessWidget {
         context.read<AuthBloc>().add(const AuthSignOutRequested());
       },
       icon: const Icon(Icons.logout),
+    );
+  }
+}
+
+class _NotificationIconButton extends StatelessWidget {
+  const _NotificationIconButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: AppLocalizations.of(context)!.notifications,
+      onPressed: () {},
+      icon: const Icon(Icons.notifications_none),
     );
   }
 }

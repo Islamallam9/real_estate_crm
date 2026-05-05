@@ -8,6 +8,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/leads/presentation/pages/create_lead_page.dart';
+import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
 import '../../features/leads/presentation/pages/leads_list_page.dart';
 import 'route_names.dart';
@@ -54,6 +55,12 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.leadsCreate,
           builder: (context, state) => const CreateLeadPage(),
+        ),
+        GoRoute(
+          path: '/leads/:leadId/edit',
+          builder: (context, state) {
+            return EditLeadPage(leadId: state.pathParameters['leadId'] ?? '');
+          },
         ),
         GoRoute(
           path: '/leads/:leadId',

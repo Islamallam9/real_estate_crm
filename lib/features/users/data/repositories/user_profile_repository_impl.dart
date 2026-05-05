@@ -16,4 +16,9 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   }) {
     return _remoteDataSource.getUserProfile(companyId: companyId, uid: uid);
   }
+
+  @override
+  Stream<List<UserProfile>> watchActiveUsers({required String companyId}) {
+    return _remoteDataSource.watchActiveUsers(companyId: companyId);
+  }
 }

@@ -6,7 +6,15 @@ class WatchLeadsUseCase {
 
   final LeadsRepository _repository;
 
-  Stream<List<Lead>> call({required String companyId, int limit = 30}) {
-    return _repository.watchLeads(companyId: companyId, limit: limit);
+  Stream<List<Lead>> call({
+    required String companyId,
+    String? assignedTo,
+    int limit = 30,
+  }) {
+    return _repository.watchLeads(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      limit: limit,
+    );
   }
 }

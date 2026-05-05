@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -9,6 +11,10 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/lead_form.dart';
@@ -28,65 +34,96 @@ class _CreateLeadView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context)!;
     final authState = context.read<AuthBloc>().state;
-    final companyId =
-        authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
-    final uid = authState.user?.uid ?? '';
+    final userProfile = authState.userProfile;
+    final user = authState.user;
+
+    if (userProfile == null || user == null) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.leads,
+        title: l.createLead,
+        child: AppErrorView(message: l.missingCompanyProfile),
+      );
+    }
+
+    final companyId = userProfile.companyId;
+    final uid = user.uid;
+    final role = userProfile.role;
+    final actorName = userProfile.fullName.isEmpty
+        ? l.unknownUser
+        : userProfile.fullName;
+    final canCreate = PermissionService.can(role, AppPermission.createLead);
+    final canAssign = PermissionService.can(role, AppPermission.assignLead);
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,
-      title: localizations.createLead,
-      child: BlocListener<LeadsCubit, LeadsState>(
-        listenWhen: (previous, current) {
-          return previous.status != current.status &&
-              current.status == LeadsStatus.saved;
-        },
-        listener: (context, state) => context.go(RouteNames.leads),
-        child: companyId.isEmpty || uid.isEmpty
-            ? AppErrorView(message: localizations.authErrorProfileMissing)
-            : _CreateLeadFormContent(companyId: companyId, uid: uid),
-      ),
+      title: l.createLead,
+      child: !canCreate
+          ? AppErrorView(message: l.permissionDenied)
+          : BlocListener<LeadsCubit, LeadsState>(
+              listenWhen: (previous, current) =>
+                  previous.status != current.status &&
+                  current.status == LeadsStatus.saved,
+              listener: (context, state) => context.go(RouteNames.leads),
+              child: _CreateLeadFormContent(
+                companyId: companyId,
+                uid: uid,
+                canAssign: canAssign,
+                roleName: role.name,
+                actorName: actorName,
+              ),
+            ),
     );
   }
 }
 
 class _CreateLeadFormContent extends StatelessWidget {
-  const _CreateLeadFormContent({required this.companyId, required this.uid});
+  const _CreateLeadFormContent({
+    required this.companyId,
+    required this.uid,
+    required this.canAssign,
+    required this.roleName,
+    required this.actorName,
+  });
 
   final String companyId;
   final String uid;
+  final bool canAssign;
+  final String roleName;
+  final String actorName;
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context)!;
 
-    return ScrollConfiguration(
-      behavior: const _LeadFormScrollBehavior(),
-      child: ListView(
-        primary: true,
-        physics: const ClampingScrollPhysics(),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        children: [
-          Align(
-            alignment: AlignmentDirectional.topStart,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: TextButton.icon(
-                      onPressed: () => context.go(RouteNames.leads),
-                      icon: const Icon(Icons.arrow_back),
-                      label: Text(localizations.back),
-                    ),
+    return ListView(
+      primary: true,
+      physics: const ClampingScrollPhysics(),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      children: [
+        Align(
+          alignment: AlignmentDirectional.topStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: () => context.go(RouteNames.leads),
+                    icon: const Icon(Icons.arrow_back),
+                    label: Text(l.back),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  RepaintBoundary(
-                    child: BlocSelector<LeadsCubit, LeadsState, bool>(
+                ),
+                const SizedBox(height: AppSpacing.md),
+                StreamBuilder<List<UserProfile>>(
+                  stream: canAssign ? _watchActiveUsers(companyId) : null,
+                  builder: (context, snapshot) {
+                    final users = snapshot.data ?? const <UserProfile>[];
+                    return BlocSelector<LeadsCubit, LeadsState, bool>(
                       selector: (state) => state.status == LeadsStatus.saving,
                       builder: (context, isSaving) {
                         return Column(
@@ -96,16 +133,23 @@ class _CreateLeadFormContent extends StatelessWidget {
                               companyId: companyId,
                               createdBy: uid,
                               isSaving: isSaving,
+                              canAssign: canAssign,
+                              assignmentUsers: users,
+                              lead: null,
                               onSubmit: (lead) {
+                                final leadToCreate = roleName == 'salesAgent'
+                                    ? lead.copyWith(assignedTo: uid)
+                                    : lead;
                                 context.read<LeadsCubit>().createLead(
                                   companyId: companyId,
-                                  lead: lead,
+                                  lead: leadToCreate,
+                                  actorName: actorName,
                                 );
                               },
                             ),
                             const SizedBox(height: AppSpacing.md),
                             AppButton(
-                              label: localizations.cancel,
+                              label: l.cancel,
                               onPressed: isSaving
                                   ? null
                                   : () => context.go(RouteNames.leads),
@@ -113,23 +157,21 @@ class _CreateLeadFormContent extends StatelessWidget {
                           ],
                         );
                       },
-                    ),
-                  ),
-                ],
-              ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _LeadFormScrollBehavior extends ScrollBehavior {
-  const _LeadFormScrollBehavior();
-
-  @override
-  ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const ClampingScrollPhysics();
-  }
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

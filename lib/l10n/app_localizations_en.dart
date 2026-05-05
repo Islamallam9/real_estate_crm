@@ -207,22 +207,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newLead => 'New';
 
   @override
+  String get newLeadStatus => 'New';
+
+  @override
   String get contacted => 'Contacted';
+
+  @override
+  String get contactedLeadStatus => 'Contacted';
 
   @override
   String get interested => 'Interested';
 
   @override
+  String get interestedLeadStatus => 'Interested';
+
+  @override
   String get visitScheduled => 'Visit scheduled';
+
+  @override
+  String get visitScheduledLeadStatus => 'Visit scheduled';
 
   @override
   String get negotiation => 'Negotiation';
 
   @override
+  String get negotiationLeadStatus => 'Negotiation';
+
+  @override
   String get won => 'Won';
 
   @override
+  String get wonLeadStatus => 'Won';
+
+  @override
   String get lost => 'Lost';
+
+  @override
+  String get lostLeadStatus => 'Lost';
 
   @override
   String get low => 'Low';
@@ -296,4 +317,190 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get missingCompanyProfile =>
       'Unable to load your company profile. Please sign in again.';
+
+  @override
+  String get editLead => 'Edit lead';
+
+  @override
+  String get updateLead => 'Update lead';
+
+  @override
+  String get leadUpdated => 'Lead updated successfully.';
+
+  @override
+  String get searchLeads => 'Search leads';
+
+  @override
+  String get allStatuses => 'All statuses';
+
+  @override
+  String get allSources => 'All sources';
+
+  @override
+  String get allPriorities => 'All priorities';
+
+  @override
+  String get allAgents => 'All agents';
+
+  @override
+  String get changeStatus => 'Change status';
+
+  @override
+  String get addNote => 'Add note';
+
+  @override
+  String get note => 'Note';
+
+  @override
+  String get notesHistory => 'Notes history';
+
+  @override
+  String get noNotes => 'No notes yet.';
+
+  @override
+  String get saveNote => 'Save note';
+
+  @override
+  String get unableToLoadNotes => 'Unable to load notes. Please try again.';
+
+  @override
+  String get unableToAddNote => 'Unable to add note. Please try again.';
+
+  @override
+  String get activeUsers => 'Active users';
+
+  @override
+  String get unassigned => 'Unassigned';
+
+  @override
+  String get onlyAdminsManagersCanAssign =>
+      'Only admins and managers can assign leads.';
+
+  @override
+  String get cannotAssignAcrossCompanies =>
+      'Cannot assign a lead outside your company.';
+
+  @override
+  String get accessDenied => 'Access denied';
+
+  @override
+  String get assignedUser => 'Assigned user';
+
+  @override
+  String get assignedUserUnavailable => 'Assigned user unavailable';
+
+  @override
+  String get youDoNotHavePermissionToViewLead =>
+      'You do not have permission to view this lead.';
+
+  @override
+  String get youDoNotHavePermissionToEditLead =>
+      'You do not have permission to edit this lead.';
+
+  @override
+  String get timeline => 'Timeline';
+
+  @override
+  String get leadCreatedEvent => 'Lead created';
+
+  @override
+  String get leadAssignedEvent => 'Lead assigned';
+
+  @override
+  String get leadReassignedEvent => 'Lead reassigned';
+
+  @override
+  String get statusChangedEvent => 'Status changed';
+
+  @override
+  String get noteAddedEvent => 'Note added';
+
+  @override
+  String get archivedEvent => 'Lead archived';
+
+  @override
+  String get updatedEvent => 'Lead updated';
+
+  @override
+  String get changedFrom => 'Changed from';
+
+  @override
+  String get changedTo => 'Changed to';
+
+  @override
+  String get unknownUser => 'Unknown user';
+
+  @override
+  String leadCreatedBy(Object user) {
+    return 'Lead created by $user';
+  }
+
+  @override
+  String statusChangedToBy(Object status, Object user) {
+    return 'Status changed to $status by $user';
+  }
+
+  @override
+  String noteAddedBy(Object user) {
+    return 'Note added by $user';
+  }
+
+  @override
+  String leadReassignedBy(Object user) {
+    return 'Lead reassigned by $user';
+  }
+
+  @override
+  String leadArchivedBy(Object user) {
+    return 'Lead archived by $user';
+  }
+
+  @override
+  String get noLeadsAvailable => 'No leads available.';
+
+  @override
+  String get noNotesAvailable => 'No notes available.';
+
+  @override
+  String get noTimelineEvents => 'No timeline events yet.';
+
+  @override
+  String fieldChangedBy(Object field, Object user) {
+    return '$field changed by $user';
+  }
+
+  @override
+  String changedFromTo(Object oldValue, Object newValue) {
+    return 'Changed from $oldValue to $newValue';
+  }
+
+  @override
+  String get assignedToLabel => 'Assigned to';
+
+  @override
+  String get fullNameUpdated => 'Full name';
+
+  @override
+  String get phoneUpdated => 'Phone';
+
+  @override
+  String get emailUpdated => 'Email';
+
+  @override
+  String get sourceUpdated => 'Source';
+
+  @override
+  String get statusUpdated => 'Status';
+
+  @override
+  String get priorityUpdated => 'Priority';
+
+  @override
+  String get budgetUpdated => 'Budget';
+
+  @override
+  String get preferredLocationUpdated => 'Preferred location';
+
+  @override
+  String get preferredPropertyTypeUpdated => 'Preferred property type';
 }

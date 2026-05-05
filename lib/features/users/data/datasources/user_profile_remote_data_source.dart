@@ -8,6 +8,8 @@ abstract interface class UserProfileRemoteDataSource {
     required String companyId,
     required String uid,
   });
+
+  Stream<List<UserProfileModel>> watchActiveUsers({required String companyId});
 }
 
 class FirestoreUserProfileRemoteDataSource
@@ -42,6 +44,23 @@ class FirestoreUserProfileRemoteDataSource
     } catch (_) {
       throw const UserProfileException('Unable to load your user profile.');
     }
+  }
+
+  @override
+  Stream<List<UserProfileModel>> watchActiveUsers({required String companyId}) {
+    return _firestore
+        .collection('companies')
+        .doc(companyId)
+        .collection('users')
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map(UserProfileModel.fromFirestore).where((
+            user,
+          ) {
+            return user.companyId == companyId && user.isActive;
+          }).toList();
+        });
   }
 }
 

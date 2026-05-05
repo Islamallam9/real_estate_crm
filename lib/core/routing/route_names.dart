@@ -5,4 +5,5 @@ abstract final class RouteNames {
   static const leadsCreate = '/leads/create';
 
   static String leadDetails(String leadId) => '/leads/$leadId';
+  static String leadEdit(String leadId) => '/leads/$leadId/edit';
 }

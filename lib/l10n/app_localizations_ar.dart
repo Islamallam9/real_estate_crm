@@ -210,22 +210,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get newLead => 'جديد';
 
   @override
+  String get newLeadStatus => 'جديد';
+
+  @override
   String get contacted => 'تم التواصل';
+
+  @override
+  String get contactedLeadStatus => 'تم التواصل';
 
   @override
   String get interested => 'مهتم';
 
   @override
+  String get interestedLeadStatus => 'مهتم';
+
+  @override
   String get visitScheduled => 'تم تحديد زيارة';
+
+  @override
+  String get visitScheduledLeadStatus => 'تم تحديد زيارة';
 
   @override
   String get negotiation => 'تفاوض';
 
   @override
+  String get negotiationLeadStatus => 'تفاوض';
+
+  @override
   String get won => 'تم الفوز';
 
   @override
-  String get lost => 'مفقود';
+  String get wonLeadStatus => 'تم البيع';
+
+  @override
+  String get lost => 'خاسر';
+
+  @override
+  String get lostLeadStatus => 'خاسر';
 
   @override
   String get low => 'منخفضة';
@@ -299,4 +320,190 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get missingCompanyProfile =>
       'تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى.';
+
+  @override
+  String get editLead => 'تعديل العميل المحتمل';
+
+  @override
+  String get updateLead => 'تحديث العميل المحتمل';
+
+  @override
+  String get leadUpdated => 'تم تحديث العميل المحتمل بنجاح.';
+
+  @override
+  String get searchLeads => 'البحث في العملاء المحتملين';
+
+  @override
+  String get allStatuses => 'كل الحالات';
+
+  @override
+  String get allSources => 'كل المصادر';
+
+  @override
+  String get allPriorities => 'كل الأولويات';
+
+  @override
+  String get allAgents => 'كل الموظفين';
+
+  @override
+  String get changeStatus => 'تغيير الحالة';
+
+  @override
+  String get addNote => 'إضافة ملاحظة';
+
+  @override
+  String get note => 'ملاحظة';
+
+  @override
+  String get notesHistory => 'سجل الملاحظات';
+
+  @override
+  String get noNotes => 'لا توجد ملاحظات بعد.';
+
+  @override
+  String get saveNote => 'حفظ الملاحظة';
+
+  @override
+  String get unableToLoadNotes => 'تعذر تحميل الملاحظات. حاول مرة أخرى.';
+
+  @override
+  String get unableToAddNote => 'تعذر إضافة الملاحظة. حاول مرة أخرى.';
+
+  @override
+  String get activeUsers => 'المستخدمون النشطون';
+
+  @override
+  String get unassigned => 'غير مسند';
+
+  @override
+  String get onlyAdminsManagersCanAssign =>
+      'يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.';
+
+  @override
+  String get cannotAssignAcrossCompanies =>
+      'لا يمكن إسناد عميل محتمل خارج شركتك.';
+
+  @override
+  String get accessDenied => 'تم رفض الوصول';
+
+  @override
+  String get assignedUser => 'المستخدم المسند إليه';
+
+  @override
+  String get assignedUserUnavailable => 'المستخدم المسند غير متوفر';
+
+  @override
+  String get youDoNotHavePermissionToViewLead =>
+      'ليس لديك صلاحية لعرض هذا العميل المحتمل.';
+
+  @override
+  String get youDoNotHavePermissionToEditLead =>
+      'ليس لديك صلاحية لتعديل هذا العميل المحتمل.';
+
+  @override
+  String get timeline => 'الخط الزمني';
+
+  @override
+  String get leadCreatedEvent => 'تم إنشاء العميل المحتمل';
+
+  @override
+  String get leadAssignedEvent => 'تم إسناد العميل المحتمل';
+
+  @override
+  String get leadReassignedEvent => 'تم إعادة إسناد العميل المحتمل';
+
+  @override
+  String get statusChangedEvent => 'تم تغيير الحالة';
+
+  @override
+  String get noteAddedEvent => 'تمت إضافة ملاحظة';
+
+  @override
+  String get archivedEvent => 'تمت أرشفة العميل المحتمل';
+
+  @override
+  String get updatedEvent => 'تم تحديث العميل المحتمل';
+
+  @override
+  String get changedFrom => 'تم التغيير من';
+
+  @override
+  String get changedTo => 'تم التغيير إلى';
+
+  @override
+  String get unknownUser => 'مستخدم غير معروف';
+
+  @override
+  String leadCreatedBy(Object user) {
+    return 'تم إنشاء العميل المحتمل بواسطة $user';
+  }
+
+  @override
+  String statusChangedToBy(Object status, Object user) {
+    return 'تم تغيير الحالة إلى $status بواسطة $user';
+  }
+
+  @override
+  String noteAddedBy(Object user) {
+    return 'تمت إضافة ملاحظة بواسطة $user';
+  }
+
+  @override
+  String leadReassignedBy(Object user) {
+    return 'تمت إعادة إسناد العميل المحتمل بواسطة $user';
+  }
+
+  @override
+  String leadArchivedBy(Object user) {
+    return 'تمت أرشفة العميل المحتمل بواسطة $user';
+  }
+
+  @override
+  String get noLeadsAvailable => 'لا توجد عملاء محتملون متاحون.';
+
+  @override
+  String get noNotesAvailable => 'لا توجد ملاحظات متاحة.';
+
+  @override
+  String get noTimelineEvents => 'لا توجد أحداث في الخط الزمني بعد.';
+
+  @override
+  String fieldChangedBy(Object field, Object user) {
+    return 'تم تغيير $field بواسطة $user';
+  }
+
+  @override
+  String changedFromTo(Object oldValue, Object newValue) {
+    return 'تم التغيير من $oldValue إلى $newValue';
+  }
+
+  @override
+  String get assignedToLabel => 'مسند إلى';
+
+  @override
+  String get fullNameUpdated => 'الاسم الكامل';
+
+  @override
+  String get phoneUpdated => 'الهاتف';
+
+  @override
+  String get emailUpdated => 'البريد الإلكتروني';
+
+  @override
+  String get sourceUpdated => 'المصدر';
+
+  @override
+  String get statusUpdated => 'الحالة';
+
+  @override
+  String get priorityUpdated => 'الأولوية';
+
+  @override
+  String get budgetUpdated => 'الميزانية';
+
+  @override
+  String get preferredLocationUpdated => 'الموقع المفضل';
+
+  @override
+  String get preferredPropertyTypeUpdated => 'نوع العقار المفضل';
 }

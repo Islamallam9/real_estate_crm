@@ -86,6 +86,131 @@ The system should support both mobile and web.
 
 ---
 
+# Codex Operational Defaults
+
+These rules apply to every Codex task unless the user explicitly says otherwise.
+
+## Working Branch
+
+- Work on branch `dev`.
+- Do not work directly on `main`.
+- Do not assume changes are committed.
+- Keep each task small and focused.
+
+## Command Usage
+
+- Do not run CLI commands unless explicitly requested.
+- Do not run:
+  - flutter analyze
+  - flutter pub get
+  - flutter gen-l10n
+  - dart format
+  - flutter run
+  - firebase commands
+  - git commands
+- The user will run checks locally.
+- Only edit files and report changed files.
+
+## File Editing Rules
+
+- Do not touch unrelated files.
+- Do not format broad folders.
+- Do not run broad formatting like `dart format lib`.
+- If formatting is needed, format only the files changed by the task.
+- If a reusable widget API is unknown, inspect the existing widget file before using it.
+- Do not assume constructor names for existing widgets.
+- Do not create duplicate UI components if an existing reusable component can be used.
+
+## Reporting Format
+
+After every task, report only:
+
+```text
+Files changed:
+What was implemented:
+Assumptions:
+Issues:
+```
+
+Do not include long explanations unless there is a real problem.
+
+## Architecture Defaults
+
+- Use feature-first Clean Architecture.
+- Use BLoC/Cubit only.
+- Do not use Riverpod, Provider directly, GetX, or MobX.
+- UI must call BLoC/Cubit.
+- BLoC/Cubit must call use cases.
+- Use cases must call repositories.
+- Repositories must call data sources.
+- Firebase calls must stay inside data sources only.
+
+## Firebase and Company Isolation Defaults
+
+- Never create global CRM collections such as:
+  - `/leads`
+  - `/clients`
+  - `/properties`
+  - `/tasks`
+  - `/deals`
+- All company data must live under:
+
+```text
+companies/{companyId}
+companies/{companyId}/users/{userId}
+companies/{companyId}/leads/{leadId}
+companies/{companyId}/clients/{clientId}
+companies/{companyId}/properties/{propertyId}
+companies/{companyId}/tasks/{taskId}
+companies/{companyId}/deals/{dealId}
+companies/{companyId}/audit_logs/{auditLogId}
+```
+
+- Every CRM operation must require `companyId`.
+- Never allow cross-company access.
+- Never hard delete CRM business records unless explicitly requested.
+- Prefer archive/soft delete for leads, clients, properties, tasks, and deals.
+
+## Security Defaults
+
+- Do not add secrets.
+- Do not add `.env` files.
+- Do not add Firebase Admin SDK keys.
+- Do not add service account JSON files.
+- Do not store passwords in Firestore.
+- Do not store auth tokens in SharedPreferences.
+- SharedPreferences may only be used for non-sensitive preferences such as selected language.
+
+## Localization Defaults
+
+- The app supports Arabic and English.
+- Arabic must support RTL.
+- English must support LTR.
+- Do not hardcode visible UI text.
+- Add English and Arabic ARB keys for all new visible text.
+- Use localized labels, errors, empty states, buttons, and navigation text.
+- Keep layouts working in both RTL and LTR.
+
+## UI/UX Defaults
+
+- Design must look like a real CRM, not a generic AI-generated dashboard.
+- Avoid flashy gradients, glassmorphism, huge shadows, fake futuristic cards, and decorative clutter.
+- Web layout should use sidebar/top bar/content.
+- Mobile layout should use app bar/bottom navigation/card lists.
+- Tables/lists must not overflow on web resize.
+- Forms must be smooth, readable, and consistent.
+- Use existing core widgets before creating new widgets.
+
+## Package Defaults
+
+- Do not add packages unless required by the task.
+- If a package is needed, explain why in the report.
+- Approved current exception:
+  - `shared_preferences` for non-sensitive local preferences.
+  - `google_fonts` for El Messiri Arabic font.
+
+
+
 # State Management Rules
 
 Use BLoC / Cubit only.

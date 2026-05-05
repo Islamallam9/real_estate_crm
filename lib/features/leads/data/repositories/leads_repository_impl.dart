@@ -47,7 +47,15 @@ class LeadsRepositoryImpl implements LeadsRepository {
   }
 
   @override
-  Stream<List<Lead>> watchLeads({required String companyId, int limit = 30}) {
-    return _remoteDataSource.watchLeads(companyId: companyId, limit: limit);
+  Stream<List<Lead>> watchLeads({
+    required String companyId,
+    String? assignedTo,
+    int limit = 30,
+  }) {
+    return _remoteDataSource.watchLeads(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      limit: limit,
+    );
   }
 }

@@ -26,7 +26,11 @@ abstract interface class LeadsRemoteDataSource {
     required String archivedBy,
   });
 
-  Stream<List<LeadModel>> watchLeads({required String companyId, int limit});
+  Stream<List<LeadModel>> watchLeads({
+    required String companyId,
+    String? assignedTo,
+    int limit,
+  });
 }
 
 class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
@@ -41,7 +45,6 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required LeadModel lead,
   }) async {
     _ensureSameCompany(companyId: companyId, lead: lead);
-
     try {
       final collection = _leadsCollection(companyId);
       final document = lead.id.isEmpty
@@ -50,7 +53,6 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       final leadToSave = LeadModel.fromEntity(
         lead.copyWith(id: document.id, companyId: companyId, isArchived: false),
       );
-
       await document.set(leadToSave.toFirestore());
       return leadToSave;
     } on LeadException {
@@ -68,7 +70,6 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required LeadModel lead,
   }) async {
     _ensureSameCompany(companyId: companyId, lead: lead);
-
     try {
       final document = _leadsCollection(companyId).doc(lead.id);
       await document.update(lead.toFirestore());
@@ -93,7 +94,6 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       if (!snapshot.exists) {
         throw const LeadException('Unable to load lead.');
       }
-
       final lead = LeadModel.fromFirestore(snapshot);
       _ensureSameCompany(companyId: companyId, lead: lead);
       return lead;
@@ -118,10 +118,8 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       if (!snapshot.exists) {
         throw const LeadException('Unable to load lead.');
       }
-
       final lead = LeadModel.fromFirestore(snapshot);
       _ensureSameCompany(companyId: companyId, lead: lead);
-
       await document.update({
         'isArchived': true,
         'archivedAt': FieldValue.serverTimestamp(),
@@ -141,22 +139,28 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   @override
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
+    String? assignedTo,
     int limit = 30,
   }) {
-    return _leadsCollection(companyId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((document) {
-                final lead = LeadModel.fromFirestore(document);
-                _ensureSameCompany(companyId: companyId, lead: lead);
-                return lead;
-              })
-              .where((lead) => !lead.isArchived)
-              .toList();
-        });
+    return _leadsCollection(companyId).limit(limit).snapshots().map((snapshot) {
+      final leads = snapshot.docs
+          .map((document) {
+            final lead = LeadModel.fromFirestore(document);
+            _ensureSameCompany(companyId: companyId, lead: lead);
+            return lead;
+          })
+          .where((lead) {
+            final matchesAssignment =
+                assignedTo == null ||
+                assignedTo.isEmpty ||
+                lead.assignedTo == assignedTo;
+            return !lead.isArchived && matchesAssignment;
+          })
+          .toList();
+
+      leads.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return leads;
+    });
   }
 
   CollectionReference<Map<String, dynamic>> _leadsCollection(String companyId) {

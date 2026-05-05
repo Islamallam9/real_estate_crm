@@ -70,12 +70,19 @@
   "requiredField": "This field is required.",
   "notAvailable": "Not available",
   "newLead": "New",
+  "newLeadStatus": "New",
   "contacted": "Contacted",
+  "contactedLeadStatus": "Contacted",
   "interested": "Interested",
+  "interestedLeadStatus": "Interested",
   "visitScheduled": "Visit scheduled",
+  "visitScheduledLeadStatus": "Visit scheduled",
   "negotiation": "Negotiation",
+  "negotiationLeadStatus": "Negotiation",
   "won": "Won",
+  "wonLeadStatus": "Won",
   "lost": "Lost",
+  "lostLeadStatus": "Lost",
   "low": "Low",
   "medium": "Medium",
   "high": "High",
@@ -101,4 +108,103 @@
   "leadAssignment": "Assignment and notes"
   ,
   "missingCompanyProfile": "Unable to load your company profile. Please sign in again."
+  ,
+  "editLead": "Edit lead",
+  "updateLead": "Update lead",
+  "leadUpdated": "Lead updated successfully.",
+  "searchLeads": "Search leads",
+  "allStatuses": "All statuses",
+  "allSources": "All sources",
+  "allPriorities": "All priorities",
+  "allAgents": "All agents",
+  "changeStatus": "Change status",
+  "addNote": "Add note",
+  "note": "Note",
+  "notesHistory": "Notes history",
+  "noNotes": "No notes yet.",
+  "saveNote": "Save note",
+  "unableToLoadNotes": "Unable to load notes. Please try again.",
+  "unableToAddNote": "Unable to add note. Please try again.",
+  "activeUsers": "Active users",
+  "unassigned": "Unassigned",
+  "onlyAdminsManagersCanAssign": "Only admins and managers can assign leads.",
+  "cannotAssignAcrossCompanies": "Cannot assign a lead outside your company."
+  ,
+  "accessDenied": "Access denied",
+  "assignedUser": "Assigned user",
+  "assignedUserUnavailable": "Assigned user unavailable",
+  "youDoNotHavePermissionToViewLead": "You do not have permission to view this lead.",
+  "youDoNotHavePermissionToEditLead": "You do not have permission to edit this lead.",
+  "timeline": "Timeline",
+  "leadCreatedEvent": "Lead created",
+  "leadAssignedEvent": "Lead assigned",
+  "leadReassignedEvent": "Lead reassigned",
+  "statusChangedEvent": "Status changed",
+  "noteAddedEvent": "Note added",
+  "archivedEvent": "Lead archived",
+  "updatedEvent": "Lead updated",
+  "changedFrom": "Changed from",
+  "changedTo": "Changed to"
+  ,
+  "unknownUser": "Unknown user",
+  "leadCreatedBy": "Lead created by {user}",
+  "@leadCreatedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "statusChangedToBy": "Status changed to {status} by {user}",
+  "@statusChangedToBy": {
+    "placeholders": {
+      "status": {},
+      "user": {}
+    }
+  },
+  "noteAddedBy": "Note added by {user}",
+  "@noteAddedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "leadReassignedBy": "Lead reassigned by {user}",
+  "@leadReassignedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "leadArchivedBy": "Lead archived by {user}",
+  "@leadArchivedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "noLeadsAvailable": "No leads available."
+  ,
+  "noNotesAvailable": "No notes available."
+  ,
+  "noTimelineEvents": "No timeline events yet.",
+  "fieldChangedBy": "{field} changed by {user}",
+  "@fieldChangedBy": {
+    "placeholders": {
+      "field": {},
+      "user": {}
+    }
+  },
+  "changedFromTo": "Changed from {oldValue} to {newValue}",
+  "@changedFromTo": {
+    "placeholders": {
+      "oldValue": {},
+      "newValue": {}
+    }
+  },
+  "assignedToLabel": "Assigned to",
+  "fullNameUpdated": "Full name",
+  "phoneUpdated": "Phone",
+  "emailUpdated": "Email",
+  "sourceUpdated": "Source",
+  "statusUpdated": "Status",
+  "priorityUpdated": "Priority",
+  "budgetUpdated": "Budget",
+  "preferredLocationUpdated": "Preferred location",
+  "preferredPropertyTypeUpdated": "Preferred property type"
 }

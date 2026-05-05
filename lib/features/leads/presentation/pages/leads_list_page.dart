@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -44,7 +47,12 @@ class LeadsListPage extends StatelessWidget {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
 
-          return LeadsScope(child: _LeadsListContent(companyId: companyId));
+          return LeadsScope(
+            child: _LeadsListContent(
+              companyId: companyId,
+              canCreate: _can(authState, AppPermission.createLead),
+            ),
+          );
         },
       ),
     );
@@ -52,9 +60,10 @@ class LeadsListPage extends StatelessWidget {
 }
 
 class _LeadsListContent extends StatefulWidget {
-  const _LeadsListContent({required this.companyId});
+  const _LeadsListContent({required this.companyId, required this.canCreate});
 
   final String companyId;
+  final bool canCreate;
 
   @override
   State<_LeadsListContent> createState() => _LeadsListContentState();
@@ -64,15 +73,14 @@ class _LeadsListContentState extends State<_LeadsListContent> {
   @override
   void initState() {
     super.initState();
-    context.read<LeadsCubit>().watchLeads(companyId: widget.companyId);
-  }
-
-  @override
-  void didUpdateWidget(covariant _LeadsListContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.companyId != widget.companyId) {
-      context.read<LeadsCubit>().watchLeads(companyId: widget.companyId);
-    }
+    final authState = context.read<AuthBloc>().state;
+    final role = authState.userProfile?.role ?? authState.user?.role;
+    final uid = authState.user?.uid ?? '';
+    final assignedTo = role?.name == 'salesAgent' ? uid : null;
+    context.read<LeadsCubit>().watchLeads(
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
   }
 
   @override
@@ -99,12 +107,91 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                 const SizedBox(width: AppSpacing.md),
                 AppButton(
                   label: localizations.createLead,
-                  onPressed: () => context.go(RouteNames.leadsCreate),
+                  onPressed: widget.canCreate
+                      ? () => context.go(RouteNames.leadsCreate)
+                      : null,
                 ),
               ],
             ),
+            const SizedBox(height: AppSpacing.md),
+            const _LeadFilters(),
             const SizedBox(height: AppSpacing.lg),
             Expanded(child: _LeadsBody(state: state)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LeadFilters extends StatelessWidget {
+  const _LeadFilters();
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return BlocBuilder<LeadsCubit, LeadsState>(
+      buildWhen: (previous, current) {
+        return previous.searchQuery != current.searchQuery ||
+            previous.statusFilter != current.statusFilter ||
+            previous.sourceFilter != current.sourceFilter ||
+            previous.priorityFilter != current.priorityFilter;
+      },
+      builder: (context, state) {
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            SizedBox(
+              width: 260,
+              child: TextField(
+                decoration: InputDecoration(
+                  labelText: localizations.searchLeads,
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onChanged: context.read<LeadsCubit>().setSearchQuery,
+              ),
+            ),
+            SizedBox(
+              width: 190,
+              child: AppDropdown<LeadStatus?>(
+                label: localizations.status,
+                value: state.statusFilter,
+                items: <LeadStatus?>[null, ...LeadStatus.values],
+                itemLabelBuilder: (status) => status == null
+                    ? localizations.allStatuses
+                    : _statusLabel(localizations, status),
+                onChanged: context.read<LeadsCubit>().setStatusFilter,
+              ),
+            ),
+            SizedBox(
+              width: 190,
+              child: AppDropdown<LeadSource?>(
+                label: localizations.source,
+                value: state.sourceFilter,
+                items: <LeadSource?>[null, ...LeadSource.values],
+                itemLabelBuilder: (source) => source == null
+                    ? localizations.allSources
+                    : _sourceLabel(localizations, source),
+                onChanged: context.read<LeadsCubit>().setSourceFilter,
+              ),
+            ),
+            SizedBox(
+              width: 190,
+              child: AppDropdown<LeadPriority?>(
+                label: localizations.priority,
+                value: state.priorityFilter,
+                items: <LeadPriority?>[null, ...LeadPriority.values],
+                itemLabelBuilder: (priority) => priority == null
+                    ? localizations.allPriorities
+                    : _priorityLabel(localizations, priority),
+                onChanged: context.read<LeadsCubit>().setPriorityFilter,
+              ),
+            ),
           ],
         );
       },
@@ -130,7 +217,7 @@ class _LeadsBody extends StatelessWidget {
       return AppErrorView(message: localizations.unableToLoadLeads);
     }
 
-    if (state.leads.isEmpty) {
+    if (state.filteredLeads.isEmpty) {
       return AppEmptyState(
         title: localizations.noLeads,
         message: localizations.leadsSubtitle,
@@ -140,22 +227,15 @@ class _LeadsBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 720;
-
-        if (compact) {
-          return ListView.separated(
-            itemCount: state.leads.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) =>
-                _LeadCard(lead: state.leads[index]),
-          );
-        }
-
         return ListView.separated(
-          itemCount: state.leads.length,
-          separatorBuilder: (context, index) =>
-              const Divider(height: AppSpacing.lg),
-          itemBuilder: (context, index) => _LeadRow(lead: state.leads[index]),
+          itemCount: state.filteredLeads.length,
+          separatorBuilder: (context, index) => compact
+              ? const SizedBox(height: AppSpacing.sm)
+              : const Divider(height: AppSpacing.lg),
+          itemBuilder: (context, index) {
+            final lead = state.filteredLeads[index];
+            return compact ? _LeadCard(lead: lead) : _LeadRow(lead: lead);
+          },
         );
       },
     );
@@ -255,6 +335,11 @@ class _LeadTitle extends StatelessWidget {
   }
 }
 
+bool _can(AuthState state, AppPermission permission) {
+  final role = state.userProfile?.role ?? state.user?.role;
+  return role != null && PermissionService.can(role, permission);
+}
+
 String _statusLabel(AppLocalizations localizations, LeadStatus status) {
   switch (status) {
     case LeadStatus.newLead:
@@ -271,5 +356,35 @@ String _statusLabel(AppLocalizations localizations, LeadStatus status) {
       return localizations.won;
     case LeadStatus.lost:
       return localizations.lost;
+  }
+}
+
+String _sourceLabel(AppLocalizations localizations, LeadSource source) {
+  switch (source) {
+    case LeadSource.facebook:
+      return localizations.facebook;
+    case LeadSource.website:
+      return localizations.website;
+    case LeadSource.phoneCall:
+      return localizations.phoneCall;
+    case LeadSource.whatsapp:
+      return localizations.whatsapp;
+    case LeadSource.referral:
+      return localizations.referral;
+    case LeadSource.walkIn:
+      return localizations.walkIn;
+    case LeadSource.other:
+      return localizations.other;
+  }
+}
+
+String _priorityLabel(AppLocalizations localizations, LeadPriority priority) {
+  switch (priority) {
+    case LeadPriority.low:
+      return localizations.low;
+    case LeadPriority.medium:
+      return localizations.medium;
+    case LeadPriority.high:
+      return localizations.high;
   }
 }

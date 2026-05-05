@@ -70,12 +70,19 @@
   "requiredField": "هذا الحقل مطلوب.",
   "notAvailable": "غير متوفر",
   "newLead": "جديد",
+  "newLeadStatus": "جديد",
   "contacted": "تم التواصل",
+  "contactedLeadStatus": "تم التواصل",
   "interested": "مهتم",
+  "interestedLeadStatus": "مهتم",
   "visitScheduled": "تم تحديد زيارة",
+  "visitScheduledLeadStatus": "تم تحديد زيارة",
   "negotiation": "تفاوض",
+  "negotiationLeadStatus": "تفاوض",
   "won": "تم الفوز",
-  "lost": "مفقود",
+  "wonLeadStatus": "تم البيع",
+  "lost": "خاسر",
+  "lostLeadStatus": "خاسر",
   "low": "منخفضة",
   "medium": "متوسطة",
   "high": "عالية",
@@ -101,4 +108,103 @@
   "leadAssignment": "الإسناد والملاحظات"
   ,
   "missingCompanyProfile": "تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى."
+  ,
+  "editLead": "تعديل العميل المحتمل",
+  "updateLead": "تحديث العميل المحتمل",
+  "leadUpdated": "تم تحديث العميل المحتمل بنجاح.",
+  "searchLeads": "البحث في العملاء المحتملين",
+  "allStatuses": "كل الحالات",
+  "allSources": "كل المصادر",
+  "allPriorities": "كل الأولويات",
+  "allAgents": "كل الموظفين",
+  "changeStatus": "تغيير الحالة",
+  "addNote": "إضافة ملاحظة",
+  "note": "ملاحظة",
+  "notesHistory": "سجل الملاحظات",
+  "noNotes": "لا توجد ملاحظات بعد.",
+  "saveNote": "حفظ الملاحظة",
+  "unableToLoadNotes": "تعذر تحميل الملاحظات. حاول مرة أخرى.",
+  "unableToAddNote": "تعذر إضافة الملاحظة. حاول مرة أخرى.",
+  "activeUsers": "المستخدمون النشطون",
+  "unassigned": "غير مسند",
+  "onlyAdminsManagersCanAssign": "يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.",
+  "cannotAssignAcrossCompanies": "لا يمكن إسناد عميل محتمل خارج شركتك."
+  ,
+  "accessDenied": "تم رفض الوصول",
+  "assignedUser": "المستخدم المسند إليه",
+  "assignedUserUnavailable": "المستخدم المسند غير متوفر",
+  "youDoNotHavePermissionToViewLead": "ليس لديك صلاحية لعرض هذا العميل المحتمل.",
+  "youDoNotHavePermissionToEditLead": "ليس لديك صلاحية لتعديل هذا العميل المحتمل.",
+  "timeline": "الخط الزمني",
+  "leadCreatedEvent": "تم إنشاء العميل المحتمل",
+  "leadAssignedEvent": "تم إسناد العميل المحتمل",
+  "leadReassignedEvent": "تم إعادة إسناد العميل المحتمل",
+  "statusChangedEvent": "تم تغيير الحالة",
+  "noteAddedEvent": "تمت إضافة ملاحظة",
+  "archivedEvent": "تمت أرشفة العميل المحتمل",
+  "updatedEvent": "تم تحديث العميل المحتمل",
+  "changedFrom": "تم التغيير من",
+  "changedTo": "تم التغيير إلى"
+  ,
+  "unknownUser": "مستخدم غير معروف",
+  "leadCreatedBy": "تم إنشاء العميل المحتمل بواسطة {user}",
+  "@leadCreatedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "statusChangedToBy": "تم تغيير الحالة إلى {status} بواسطة {user}",
+  "@statusChangedToBy": {
+    "placeholders": {
+      "status": {},
+      "user": {}
+    }
+  },
+  "noteAddedBy": "تمت إضافة ملاحظة بواسطة {user}",
+  "@noteAddedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "leadReassignedBy": "تمت إعادة إسناد العميل المحتمل بواسطة {user}",
+  "@leadReassignedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "leadArchivedBy": "تمت أرشفة العميل المحتمل بواسطة {user}",
+  "@leadArchivedBy": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "noLeadsAvailable": "لا توجد عملاء محتملون متاحون."
+  ,
+  "noNotesAvailable": "لا توجد ملاحظات متاحة."
+  ,
+  "noTimelineEvents": "لا توجد أحداث في الخط الزمني بعد.",
+  "fieldChangedBy": "تم تغيير {field} بواسطة {user}",
+  "@fieldChangedBy": {
+    "placeholders": {
+      "field": {},
+      "user": {}
+    }
+  },
+  "changedFromTo": "تم التغيير من {oldValue} إلى {newValue}",
+  "@changedFromTo": {
+    "placeholders": {
+      "oldValue": {},
+      "newValue": {}
+    }
+  },
+  "assignedToLabel": "مسند إلى",
+  "fullNameUpdated": "الاسم الكامل",
+  "phoneUpdated": "الهاتف",
+  "emailUpdated": "البريد الإلكتروني",
+  "sourceUpdated": "المصدر",
+  "statusUpdated": "الحالة",
+  "priorityUpdated": "الأولوية",
+  "budgetUpdated": "الميزانية",
+  "preferredLocationUpdated": "الموقع المفضل",
+  "preferredPropertyTypeUpdated": "نوع العقار المفضل"
 }

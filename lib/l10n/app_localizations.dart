@@ -488,11 +488,23 @@ abstract class AppLocalizations {
   /// **'New'**
   String get newLead;
 
+  /// No description provided for @newLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newLeadStatus;
+
   /// No description provided for @contacted.
   ///
   /// In en, this message translates to:
   /// **'Contacted'**
   String get contacted;
+
+  /// No description provided for @contactedLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted'**
+  String get contactedLeadStatus;
 
   /// No description provided for @interested.
   ///
@@ -500,11 +512,23 @@ abstract class AppLocalizations {
   /// **'Interested'**
   String get interested;
 
+  /// No description provided for @interestedLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Interested'**
+  String get interestedLeadStatus;
+
   /// No description provided for @visitScheduled.
   ///
   /// In en, this message translates to:
   /// **'Visit scheduled'**
   String get visitScheduled;
+
+  /// No description provided for @visitScheduledLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit scheduled'**
+  String get visitScheduledLeadStatus;
 
   /// No description provided for @negotiation.
   ///
@@ -512,17 +536,35 @@ abstract class AppLocalizations {
   /// **'Negotiation'**
   String get negotiation;
 
+  /// No description provided for @negotiationLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiation'**
+  String get negotiationLeadStatus;
+
   /// No description provided for @won.
   ///
   /// In en, this message translates to:
   /// **'Won'**
   String get won;
 
+  /// No description provided for @wonLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Won'**
+  String get wonLeadStatus;
+
   /// No description provided for @lost.
   ///
   /// In en, this message translates to:
   /// **'Lost'**
   String get lost;
+
+  /// No description provided for @lostLeadStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost'**
+  String get lostLeadStatus;
 
   /// No description provided for @low.
   ///
@@ -661,6 +703,342 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your company profile. Please sign in again.'**
   String get missingCompanyProfile;
+
+  /// No description provided for @editLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit lead'**
+  String get editLead;
+
+  /// No description provided for @updateLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Update lead'**
+  String get updateLead;
+
+  /// No description provided for @leadUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead updated successfully.'**
+  String get leadUpdated;
+
+  /// No description provided for @searchLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Search leads'**
+  String get searchLeads;
+
+  /// No description provided for @allStatuses.
+  ///
+  /// In en, this message translates to:
+  /// **'All statuses'**
+  String get allStatuses;
+
+  /// No description provided for @allSources.
+  ///
+  /// In en, this message translates to:
+  /// **'All sources'**
+  String get allSources;
+
+  /// No description provided for @allPriorities.
+  ///
+  /// In en, this message translates to:
+  /// **'All priorities'**
+  String get allPriorities;
+
+  /// No description provided for @allAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'All agents'**
+  String get allAgents;
+
+  /// No description provided for @changeStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Change status'**
+  String get changeStatus;
+
+  /// No description provided for @addNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Add note'**
+  String get addNote;
+
+  /// No description provided for @note.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get note;
+
+  /// No description provided for @notesHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes history'**
+  String get notesHistory;
+
+  /// No description provided for @noNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet.'**
+  String get noNotes;
+
+  /// No description provided for @saveNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Save note'**
+  String get saveNote;
+
+  /// No description provided for @unableToLoadNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load notes. Please try again.'**
+  String get unableToLoadNotes;
+
+  /// No description provided for @unableToAddNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to add note. Please try again.'**
+  String get unableToAddNote;
+
+  /// No description provided for @activeUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active users'**
+  String get activeUsers;
+
+  /// No description provided for @unassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned'**
+  String get unassigned;
+
+  /// No description provided for @onlyAdminsManagersCanAssign.
+  ///
+  /// In en, this message translates to:
+  /// **'Only admins and managers can assign leads.'**
+  String get onlyAdminsManagersCanAssign;
+
+  /// No description provided for @cannotAssignAcrossCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot assign a lead outside your company.'**
+  String get cannotAssignAcrossCompanies;
+
+  /// No description provided for @accessDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied'**
+  String get accessDenied;
+
+  /// No description provided for @assignedUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned user'**
+  String get assignedUser;
+
+  /// No description provided for @assignedUserUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned user unavailable'**
+  String get assignedUserUnavailable;
+
+  /// No description provided for @youDoNotHavePermissionToViewLead.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to view this lead.'**
+  String get youDoNotHavePermissionToViewLead;
+
+  /// No description provided for @youDoNotHavePermissionToEditLead.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to edit this lead.'**
+  String get youDoNotHavePermissionToEditLead;
+
+  /// No description provided for @timeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get timeline;
+
+  /// No description provided for @leadCreatedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead created'**
+  String get leadCreatedEvent;
+
+  /// No description provided for @leadAssignedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead assigned'**
+  String get leadAssignedEvent;
+
+  /// No description provided for @leadReassignedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead reassigned'**
+  String get leadReassignedEvent;
+
+  /// No description provided for @statusChangedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Status changed'**
+  String get statusChangedEvent;
+
+  /// No description provided for @noteAddedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added'**
+  String get noteAddedEvent;
+
+  /// No description provided for @archivedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead archived'**
+  String get archivedEvent;
+
+  /// No description provided for @updatedEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead updated'**
+  String get updatedEvent;
+
+  /// No description provided for @changedFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed from'**
+  String get changedFrom;
+
+  /// No description provided for @changedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed to'**
+  String get changedTo;
+
+  /// No description provided for @unknownUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user'**
+  String get unknownUser;
+
+  /// No description provided for @leadCreatedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead created by {user}'**
+  String leadCreatedBy(Object user);
+
+  /// No description provided for @statusChangedToBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Status changed to {status} by {user}'**
+  String statusChangedToBy(Object status, Object user);
+
+  /// No description provided for @noteAddedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added by {user}'**
+  String noteAddedBy(Object user);
+
+  /// No description provided for @leadReassignedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead reassigned by {user}'**
+  String leadReassignedBy(Object user);
+
+  /// No description provided for @leadArchivedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead archived by {user}'**
+  String leadArchivedBy(Object user);
+
+  /// No description provided for @noLeadsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No leads available.'**
+  String get noLeadsAvailable;
+
+  /// No description provided for @noNotesAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes available.'**
+  String get noNotesAvailable;
+
+  /// No description provided for @noTimelineEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'No timeline events yet.'**
+  String get noTimelineEvents;
+
+  /// No description provided for @fieldChangedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'{field} changed by {user}'**
+  String fieldChangedBy(Object field, Object user);
+
+  /// No description provided for @changedFromTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed from {oldValue} to {newValue}'**
+  String changedFromTo(Object oldValue, Object newValue);
+
+  /// No description provided for @assignedToLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to'**
+  String get assignedToLabel;
+
+  /// No description provided for @fullNameUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name'**
+  String get fullNameUpdated;
+
+  /// No description provided for @phoneUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get phoneUpdated;
+
+  /// No description provided for @emailUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get emailUpdated;
+
+  /// No description provided for @sourceUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get sourceUpdated;
+
+  /// No description provided for @statusUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get statusUpdated;
+
+  /// No description provided for @priorityUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get priorityUpdated;
+
+  /// No description provided for @budgetUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get budgetUpdated;
+
+  /// No description provided for @preferredLocationUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred location'**
+  String get preferredLocationUpdated;
+
+  /// No description provided for @preferredPropertyTypeUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred property type'**
+  String get preferredPropertyTypeUpdated;
 }
 
 class _AppLocalizationsDelegate

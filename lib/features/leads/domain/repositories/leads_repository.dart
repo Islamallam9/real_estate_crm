@@ -13,5 +13,9 @@ abstract interface class LeadsRepository {
     required String archivedBy,
   });
 
-  Stream<List<Lead>> watchLeads({required String companyId, int limit});
+  Stream<List<Lead>> watchLeads({
+    required String companyId,
+    String? assignedTo,
+    int limit,
+  });
 }
