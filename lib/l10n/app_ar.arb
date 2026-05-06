@@ -15,6 +15,9 @@
   "reports": "التقارير",
   "settings": "الإعدادات",
   "language": "اللغة",
+  "theme": "المظهر",
+  "lightMode": "الوضع الفاتح",
+  "darkMode": "الوضع الداكن",
   "arabic": "العربية",
   "english": "الإنجليزية"
   ,
@@ -120,6 +123,8 @@
   "allSources": "كل المصادر",
   "allPriorities": "كل الأولويات",
   "allAgents": "كل الموظفين",
+  "assignee": "المسؤول",
+  "allAssignees": "كل المسؤولين",
   "changeStatus": "تغيير الحالة",
   "addNote": "إضافة ملاحظة",
   "note": "ملاحظة",

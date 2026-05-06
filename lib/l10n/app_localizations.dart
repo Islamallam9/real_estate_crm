@@ -188,6 +188,24 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get language;
 
+  /// No description provided for @theme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get theme;
+
+  /// No description provided for @lightMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Light mode'**
+  String get lightMode;
+
+  /// No description provided for @darkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get darkMode;
+
   /// No description provided for @arabic.
   ///
   /// In en, this message translates to:
@@ -769,6 +787,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All agents'**
   String get allAgents;
+
+  /// No description provided for @assignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignee'**
+  String get assignee;
+
+  /// No description provided for @allAssignees.
+  ///
+  /// In en, this message translates to:
+  /// **'All assignees'**
+  String get allAssignees;
 
   /// No description provided for @changeStatus.
   ///

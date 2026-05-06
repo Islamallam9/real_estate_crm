@@ -98,6 +98,7 @@ class LeadsCubit extends Cubit<LeadsState> {
               statusFilter: state.statusFilter,
               sourceFilter: state.sourceFilter,
               priorityFilter: state.priorityFilter,
+              assignedToFilter: state.assignedToFilter,
             );
             emit(
               state.copyWith(
@@ -134,6 +135,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           statusFilter: state.statusFilter,
           sourceFilter: state.sourceFilter,
           priorityFilter: state.priorityFilter,
+          assignedToFilter: state.assignedToFilter,
         ),
       ),
     );
@@ -150,6 +152,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           statusFilter: status,
           sourceFilter: state.sourceFilter,
           priorityFilter: state.priorityFilter,
+          assignedToFilter: state.assignedToFilter,
         ),
       ),
     );
@@ -166,6 +169,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           statusFilter: state.statusFilter,
           sourceFilter: source,
           priorityFilter: state.priorityFilter,
+          assignedToFilter: state.assignedToFilter,
         ),
       ),
     );
@@ -182,6 +186,24 @@ class LeadsCubit extends Cubit<LeadsState> {
           statusFilter: state.statusFilter,
           sourceFilter: state.sourceFilter,
           priorityFilter: priority,
+          assignedToFilter: state.assignedToFilter,
+        ),
+      ),
+    );
+  }
+
+  void setAssignedToFilter(String? assignedTo) {
+    emit(
+      state.copyWith(
+        assignedToFilter: assignedTo,
+        clearAssignedToFilter: assignedTo == null,
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: state.searchQuery,
+          statusFilter: state.statusFilter,
+          sourceFilter: state.sourceFilter,
+          priorityFilter: state.priorityFilter,
+          assignedToFilter: assignedTo,
         ),
       ),
     );
@@ -682,11 +704,13 @@ class LeadsCubit extends Cubit<LeadsState> {
     LeadStatus? statusFilter,
     LeadSource? sourceFilter,
     LeadPriority? priorityFilter,
+    String? assignedToFilter,
   }) {
     final query = (searchQuery ?? '').trim().toLowerCase();
     final status = statusFilter;
     final source = sourceFilter;
     final priority = priorityFilter;
+    final assignedTo = assignedToFilter;
 
     return leads.where((lead) {
       final matchesQuery =
@@ -697,7 +721,13 @@ class LeadsCubit extends Cubit<LeadsState> {
       final matchesStatus = status == null || lead.status == status;
       final matchesSource = source == null || lead.source == source;
       final matchesPriority = priority == null || lead.priority == priority;
-      return matchesQuery && matchesStatus && matchesSource && matchesPriority;
+      final matchesAssignee =
+          assignedTo == null || lead.assignedTo == assignedTo;
+      return matchesQuery &&
+          matchesStatus &&
+          matchesSource &&
+          matchesPriority &&
+          matchesAssignee;
     }).toList();
   }
 

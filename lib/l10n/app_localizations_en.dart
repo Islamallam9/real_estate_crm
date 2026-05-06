@@ -54,6 +54,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
+  String get theme => 'Theme';
+
+  @override
+  String get lightMode => 'Light mode';
+
+  @override
+  String get darkMode => 'Dark mode';
+
+  @override
   String get arabic => 'Arabic';
 
   @override
@@ -350,6 +359,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allAgents => 'All agents';
+
+  @override
+  String get assignee => 'Assignee';
+
+  @override
+  String get allAssignees => 'All assignees';
 
   @override
   String get changeStatus => 'Change status';

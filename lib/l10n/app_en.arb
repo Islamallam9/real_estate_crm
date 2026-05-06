@@ -15,6 +15,9 @@
   "reports": "Reports",
   "settings": "Settings",
   "language": "Language",
+  "theme": "Theme",
+  "lightMode": "Light mode",
+  "darkMode": "Dark mode",
   "arabic": "Arabic",
   "english": "English"
   ,
@@ -120,6 +123,8 @@
   "allSources": "All sources",
   "allPriorities": "All priorities",
   "allAgents": "All agents",
+  "assignee": "Assignee",
+  "allAssignees": "All assignees",
   "changeStatus": "Change status",
   "addNote": "Add note",
   "note": "Note",

@@ -54,6 +54,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get language => 'اللغة';
 
   @override
+  String get theme => 'المظهر';
+
+  @override
+  String get lightMode => 'الوضع الفاتح';
+
+  @override
+  String get darkMode => 'الوضع الداكن';
+
+  @override
   String get arabic => 'العربية';
 
   @override
@@ -353,6 +362,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get allAgents => 'كل الموظفين';
+
+  @override
+  String get assignee => 'المسؤول';
+
+  @override
+  String get allAssignees => 'كل المسؤولين';
 
   @override
   String get changeStatus => 'تغيير الحالة';

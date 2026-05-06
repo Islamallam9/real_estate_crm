@@ -119,7 +119,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryColor(context),
                     ),
                   ),
                 ),
@@ -133,16 +133,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            const _LeadFilters(),
-            const SizedBox(height: AppSpacing.lg),
             Expanded(
               child: StreamBuilder<List<UserProfile>>(
                 stream: _watchActiveUsers(widget.companyId),
                 builder: (context, usersSnapshot) {
-                  if (usersSnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
                   if (usersSnapshot.hasError) {
                     return AppErrorView(
                       message: localizations.unableToConnect,
@@ -154,13 +148,28 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                       },
                     );
                   }
-                  return _LeadsBody(
-                    state: state,
-                    companyId: widget.companyId,
-                    assignedTo: _assignedToFilter,
-                    users: usersSnapshot.data ?? const <UserProfile>[],
-                    roleName: widget.roleName,
-                    canEdit: widget.canEdit,
+
+                  final users = usersSnapshot.data ?? const <UserProfile>[];
+                  final showAssignee =
+                      widget.roleName == 'admin' ||
+                      widget.roleName == 'manager';
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _LeadFilters(showAssignee: showAssignee, users: users),
+                      const SizedBox(height: AppSpacing.lg),
+                      Expanded(
+                        child: _LeadsBody(
+                          state: state,
+                          companyId: widget.companyId,
+                          assignedTo: _assignedToFilter,
+                          users: users,
+                          roleName: widget.roleName,
+                          canEdit: widget.canEdit,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -173,7 +182,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 }
 
 class _LeadFilters extends StatelessWidget {
-  const _LeadFilters();
+  const _LeadFilters({required this.showAssignee, required this.users});
+
+  final bool showAssignee;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -184,13 +196,18 @@ class _LeadFilters extends StatelessWidget {
         return previous.searchQuery != current.searchQuery ||
             previous.statusFilter != current.statusFilter ||
             previous.sourceFilter != current.sourceFilter ||
-            previous.priorityFilter != current.priorityFilter;
+            previous.priorityFilter != current.priorityFilter ||
+            previous.assignedToFilter != current.assignedToFilter;
       },
       builder: (context, state) {
         return LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 720) {
-              return _MobileLeadFilters(state: state);
+              return _MobileLeadFilters(
+                state: state,
+                showAssignee: showAssignee,
+                users: users,
+              );
             }
 
             return Wrap(
@@ -203,33 +220,60 @@ class _LeadFilters extends StatelessWidget {
                     onChanged: context.read<LeadsCubit>().setSearchQuery,
                   ),
                 ),
-                _DesktopFilterDropdown<LeadStatus?>(
+                _DesktopFilterDropdown<_LeadFilterOption<LeadStatus>>(
                   label: localizations.status,
-                  value: state.statusFilter,
-                  items: <LeadStatus?>[null, ...LeadStatus.values],
-                  itemLabelBuilder: (status) => status == null
+                  value: _LeadFilterOption.fromValue(state.statusFilter),
+                  items: _leadFilterOptions(LeadStatus.values),
+                  itemLabelBuilder: (option) => option.isAll
                       ? localizations.allStatuses
-                      : _statusLabel(localizations, status),
-                  onChanged: context.read<LeadsCubit>().setStatusFilter,
+                      : _statusLabel(localizations, option.value!),
+                  onChanged: (option) {
+                    context.read<LeadsCubit>().setStatusFilter(option.value);
+                  },
                 ),
-                _DesktopFilterDropdown<LeadSource?>(
+                _DesktopFilterDropdown<_LeadFilterOption<LeadSource>>(
                   label: localizations.source,
-                  value: state.sourceFilter,
-                  items: <LeadSource?>[null, ...LeadSource.values],
-                  itemLabelBuilder: (source) => source == null
+                  value: _LeadFilterOption.fromValue(state.sourceFilter),
+                  items: _leadFilterOptions(LeadSource.values),
+                  itemLabelBuilder: (option) => option.isAll
                       ? localizations.allSources
-                      : _sourceLabel(localizations, source),
-                  onChanged: context.read<LeadsCubit>().setSourceFilter,
+                      : _sourceLabel(localizations, option.value!),
+                  onChanged: (option) {
+                    context.read<LeadsCubit>().setSourceFilter(option.value);
+                  },
                 ),
-                _DesktopFilterDropdown<LeadPriority?>(
+                _DesktopFilterDropdown<_LeadFilterOption<LeadPriority>>(
                   label: localizations.priority,
-                  value: state.priorityFilter,
-                  items: <LeadPriority?>[null, ...LeadPriority.values],
-                  itemLabelBuilder: (priority) => priority == null
+                  value: _LeadFilterOption.fromValue(state.priorityFilter),
+                  items: _leadFilterOptions(LeadPriority.values),
+                  itemLabelBuilder: (option) => option.isAll
                       ? localizations.allPriorities
-                      : _priorityLabel(localizations, priority),
-                  onChanged: context.read<LeadsCubit>().setPriorityFilter,
+                      : _priorityLabel(localizations, option.value!),
+                  onChanged: (option) {
+                    context.read<LeadsCubit>().setPriorityFilter(option.value);
+                  },
                 ),
+                if (showAssignee)
+                  _DesktopFilterDropdown<_LeadFilterOption<String>>(
+                    label: localizations.assignee,
+                    value: _LeadFilterOption.fromValue(
+                      state.assignedToFilter,
+                    ),
+                    items: _assigneeFilterOptions(users, state.leads),
+                    itemLabelBuilder: (option) => option.isAll
+                        ? localizations.allAssignees
+                        : _userNameForFilter(
+                            localizations,
+                            users,
+                            state.leads,
+                            option.value!,
+                          ),
+                    onChanged: (option) {
+                      context.read<LeadsCubit>().setAssignedToFilter(
+                        option.value,
+                      );
+                    },
+                  ),
               ],
             );
           },
@@ -290,9 +334,15 @@ class _DesktopFilterDropdown<T> extends StatelessWidget {
 }
 
 class _MobileLeadFilters extends StatelessWidget {
-  const _MobileLeadFilters({required this.state});
+  const _MobileLeadFilters({
+    required this.state,
+    required this.showAssignee,
+    required this.users,
+  });
 
   final LeadsState state;
+  final bool showAssignee;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +363,12 @@ class _MobileLeadFilters extends StatelessWidget {
             label: localizations.filters,
             icon: Icons.tune,
             variant: AppButtonVariant.secondary,
-            onPressed: () => _showLeadFiltersSheet(context, state),
+            onPressed: () => _showLeadFiltersSheet(
+              context,
+              state,
+              showAssignee: showAssignee,
+              users: users,
+            ),
           ),
         ),
       ],
@@ -321,7 +376,82 @@ class _MobileLeadFilters extends StatelessWidget {
   }
 }
 
-void _showLeadFiltersSheet(BuildContext context, LeadsState state) {
+class _LeadFilterOption<T> {
+  const _LeadFilterOption._({required this.value, required this.isAll});
+
+  const _LeadFilterOption.all() : this._(value: null, isAll: true);
+
+  const _LeadFilterOption.value(T value)
+    : this._(value: value, isAll: false);
+
+  factory _LeadFilterOption.fromValue(T? value) {
+    return value == null
+        ? _LeadFilterOption<T>.all()
+        : _LeadFilterOption<T>.value(value);
+  }
+
+  final T? value;
+  final bool isAll;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _LeadFilterOption<T> &&
+        other.isAll == isAll &&
+        other.value == value;
+  }
+
+  @override
+  int get hashCode => Object.hash(value, isAll);
+}
+
+List<_LeadFilterOption<T>> _leadFilterOptions<T>(List<T> values) {
+  return [
+    _LeadFilterOption<T>.all(),
+    for (final value in values) _LeadFilterOption<T>.value(value),
+  ];
+}
+
+List<_LeadFilterOption<String>> _assigneeFilterOptions(
+  List<UserProfile> users,
+  List<Lead> leads,
+) {
+  final userIds = <String>{
+    for (final user in users) user.uid,
+    for (final lead in leads)
+      if (lead.assignedTo.isNotEmpty) lead.assignedTo,
+  };
+
+  return [
+    _LeadFilterOption<String>.all(),
+    for (final uid in userIds) _LeadFilterOption<String>.value(uid),
+  ];
+}
+
+String _userNameForFilter(
+  AppLocalizations localizations,
+  List<UserProfile> users,
+  List<Lead> leads,
+  String uid,
+) {
+  for (final user in users) {
+    if (user.uid == uid) {
+      return user.fullName;
+    }
+  }
+  for (final lead in leads) {
+    if (lead.assignedTo == uid && lead.assignedToName.isNotEmpty) {
+      return lead.assignedToName;
+    }
+  }
+  return _looksLikeUid(uid) ? localizations.assignedUserUnavailable : uid;
+}
+
+void _showLeadFiltersSheet(
+  BuildContext context,
+  LeadsState state, {
+  required bool showAssignee,
+  required List<UserProfile> users,
+}) {
   final cubit = context.read<LeadsCubit>();
 
   showModalBottomSheet<void>(
@@ -332,6 +462,7 @@ void _showLeadFiltersSheet(BuildContext context, LeadsState state) {
       LeadStatus? status = state.statusFilter;
       LeadSource? source = state.sourceFilter;
       LeadPriority? priority = state.priorityFilter;
+      String? assignee = state.assignedToFilter;
 
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -356,35 +487,60 @@ void _showLeadFiltersSheet(BuildContext context, LeadsState state) {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  AppDropdown<LeadStatus?>(
+                  AppDropdown<_LeadFilterOption<LeadStatus>>(
                     label: localizations.status,
-                    value: status,
-                    items: <LeadStatus?>[null, ...LeadStatus.values],
-                    itemLabelBuilder: (item) => item == null
+                    value: _LeadFilterOption.fromValue(status),
+                    items: _leadFilterOptions(LeadStatus.values),
+                    itemLabelBuilder: (item) => item.isAll
                         ? localizations.allStatuses
-                        : _statusLabel(localizations, item),
-                    onChanged: (value) => setSheetState(() => status = value),
+                        : _statusLabel(localizations, item.value!),
+                    onChanged: (option) {
+                      setSheetState(() => status = option.value);
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  AppDropdown<LeadSource?>(
+                  AppDropdown<_LeadFilterOption<LeadSource>>(
                     label: localizations.source,
-                    value: source,
-                    items: <LeadSource?>[null, ...LeadSource.values],
-                    itemLabelBuilder: (item) => item == null
+                    value: _LeadFilterOption.fromValue(source),
+                    items: _leadFilterOptions(LeadSource.values),
+                    itemLabelBuilder: (item) => item.isAll
                         ? localizations.allSources
-                        : _sourceLabel(localizations, item),
-                    onChanged: (value) => setSheetState(() => source = value),
+                        : _sourceLabel(localizations, item.value!),
+                    onChanged: (option) {
+                      setSheetState(() => source = option.value);
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  AppDropdown<LeadPriority?>(
+                  AppDropdown<_LeadFilterOption<LeadPriority>>(
                     label: localizations.priority,
-                    value: priority,
-                    items: <LeadPriority?>[null, ...LeadPriority.values],
-                    itemLabelBuilder: (item) => item == null
+                    value: _LeadFilterOption.fromValue(priority),
+                    items: _leadFilterOptions(LeadPriority.values),
+                    itemLabelBuilder: (item) => item.isAll
                         ? localizations.allPriorities
-                        : _priorityLabel(localizations, item),
-                    onChanged: (value) => setSheetState(() => priority = value),
+                        : _priorityLabel(localizations, item.value!),
+                    onChanged: (option) {
+                      setSheetState(() => priority = option.value);
+                    },
                   ),
+                  if (showAssignee) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    AppDropdown<_LeadFilterOption<String>>(
+                      label: localizations.assignee,
+                      value: _LeadFilterOption.fromValue(assignee),
+                      items: _assigneeFilterOptions(users, state.leads),
+                      itemLabelBuilder: (item) => item.isAll
+                          ? localizations.allAssignees
+                          : _userNameForFilter(
+                              localizations,
+                              users,
+                              state.leads,
+                              item.value!,
+                            ),
+                      onChanged: (option) {
+                        setSheetState(() => assignee = option.value);
+                      },
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     children: [
@@ -396,6 +552,7 @@ void _showLeadFiltersSheet(BuildContext context, LeadsState state) {
                             cubit.setStatusFilter(null);
                             cubit.setSourceFilter(null);
                             cubit.setPriorityFilter(null);
+                            cubit.setAssignedToFilter(null);
                             Navigator.of(sheetContext).pop();
                           },
                         ),
@@ -408,6 +565,7 @@ void _showLeadFiltersSheet(BuildContext context, LeadsState state) {
                             cubit.setStatusFilter(status);
                             cubit.setSourceFilter(source);
                             cubit.setPriorityFilter(priority);
+                            cubit.setAssignedToFilter(assignee);
                             Navigator.of(sheetContext).pop();
                           },
                         ),
@@ -574,7 +732,9 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
           Positioned.fill(
             child: IgnorePointer(
               child: Container(
-                color: AppColors.surface.withValues(alpha: 0.38),
+                color: _LeadListColors.of(
+                  context,
+                ).cardSurface.withValues(alpha: 0.70),
                 alignment: Alignment.topCenter,
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: const SizedBox(
@@ -637,8 +797,8 @@ class _LeadSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: _LeadListColors.of(context).cardSurface,
+        border: Border.all(color: _LeadListColors.of(context).border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -650,7 +810,7 @@ class _LeadSummaryCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryColor(context),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -659,7 +819,7 @@ class _LeadSummaryCard extends StatelessWidget {
             value.toString(),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: AppColors.textPrimaryColor(context),
             ),
           ),
         ],
@@ -686,16 +846,24 @@ class _LeadsWebTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final colors = _LeadListColors.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: colors.cardSurface,
+        border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+      clipBehavior: Clip.antiAlias,
+      child: DataTableTheme(
+        data: Theme.of(context).dataTableTheme.copyWith(
+          decoration: BoxDecoration(color: colors.cardSurface),
+        ),
+        child: ColoredBox(
+          color: colors.cardSurface,
+          child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
           horizontalMargin: 16,
           columnSpacing: 22,
           headingRowHeight: 44,
@@ -723,7 +891,7 @@ class _LeadsWebTable extends StatelessWidget {
               selected: selected,
               color: WidgetStateProperty.resolveWith((states) {
                 if (selected || states.contains(WidgetState.hovered)) {
-                  return AppColors.primary.withValues(alpha: 0.06);
+                  return _LeadListColors.of(context).selectedSurface;
                 }
                 return null;
               }),
@@ -784,6 +952,8 @@ class _LeadsWebTable extends StatelessWidget {
               ],
             );
           }).toList(),
+            ),
+          ),
         ),
       ),
     );
@@ -823,8 +993,8 @@ class _LeadPreviewPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: _LeadListColors.of(context).cardSurface,
+        border: Border.all(color: _LeadListColors.of(context).border),
         borderRadius: BorderRadius.circular(10),
       ),
       child: selectedLead == null
@@ -927,7 +1097,7 @@ class _LeadPreviewContact extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondary),
+        Icon(icon, size: 18, color: AppColors.textSecondaryColor(context)),
         const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Text(
@@ -958,7 +1128,7 @@ class _LeadPreviewField extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryColor(context),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1003,8 +1173,8 @@ class _LeadCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.border),
+          color: AppColors.cardSurface(context),
+          border: Border.all(color: AppColors.borderColor(context)),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -1062,8 +1232,8 @@ class _LeadMetaChip extends StatelessWidget {
         vertical: 5,
       ),
       decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border.all(color: AppColors.border),
+        color: _LeadListColors.of(context).inputSurface,
+        border: Border.all(color: _LeadListColors.of(context).border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -1071,7 +1241,7 @@ class _LeadMetaChip extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: AppColors.textSecondary,
+          color: AppColors.textSecondaryColor(context),
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -1100,6 +1270,48 @@ class _LeadTitle extends StatelessWidget {
 bool _can(AuthState state, AppPermission permission) {
   final role = state.userProfile?.role ?? state.user?.role;
   return role != null && PermissionService.can(role, permission);
+}
+
+class _LeadListColors {
+  const _LeadListColors({
+    required this.cardSurface,
+    required this.inputSurface,
+    required this.selectedSurface,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  final Color cardSurface;
+  final Color inputSurface;
+  final Color selectedSurface;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  factory _LeadListColors.of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (!isDark) {
+      return const _LeadListColors(
+        cardSurface: AppColors.surface,
+        inputSurface: AppColors.background,
+        selectedSurface: Color(0x0F123047),
+        border: AppColors.border,
+        textPrimary: AppColors.textPrimary,
+        textSecondary: AppColors.textSecondary,
+      );
+    }
+
+    return const _LeadListColors(
+      cardSurface: AppColors.darkCardSurface,
+      inputSurface: AppColors.darkSurfaceAlt,
+      selectedSurface: AppColors.darkSelectedSurface,
+      border: AppColors.darkBorder,
+      textPrimary: AppColors.darkTextPrimary,
+      textSecondary: AppColors.darkTextSecondary,
+    );
+  }
 }
 
 String _statusLabel(AppLocalizations localizations, LeadStatus status) {
