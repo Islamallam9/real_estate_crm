@@ -99,8 +99,10 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
 }
 
 ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
-  const fallback = [
-    'El Messiri',
+  final elMessiriFamily = GoogleFonts.elMessiri().fontFamily;
+
+  final fallback = <String>[
+    ?elMessiriFamily,
     'Noto Sans Arabic',
     'Segoe UI',
     'Tahoma',

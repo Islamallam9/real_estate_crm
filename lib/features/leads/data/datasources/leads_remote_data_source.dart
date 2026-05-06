@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/lead_exception.dart';
 import '../models/lead_model.dart';
 
@@ -178,10 +179,18 @@ void _ensureSameCompany({required String companyId, required LeadModel lead}) {
 
 String _mapFirestoreError(FirebaseException error) {
   switch (error.code) {
-    case 'permission-denied':
-      return 'You do not have permission to access leads.';
     case 'unavailable':
-      return 'Connection error. Check your internet connection.';
+    case 'network-request-failed':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    case 'cancelled':
+      return AppErrorMessages.cancelled;
     default:
       return 'Unable to load leads. Please try again.';
   }

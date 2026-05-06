@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -146,7 +147,10 @@ String _localizedAuthError(
       return localizations.authErrorInactiveAccount;
     case AuthErrorCode.unknown:
     case null:
-      return fallback ?? localizations.authErrorSignInFailed;
+      return localizeErrorMessage(
+        localizations,
+        fallback ?? localizations.authErrorSignInFailed,
+      );
   }
 }
 

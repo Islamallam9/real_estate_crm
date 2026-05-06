@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../users/domain/errors/user_profile_exception.dart';
 import '../../../users/domain/usecases/get_current_user_profile_usecase.dart';
 import '../../domain/entities/app_user.dart';
@@ -197,11 +198,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await _signOutUseCase();
       }
 
+      final errorCode = error.message == AppErrorMessages.unableToConnect
+          ? AuthErrorCode.connection
+          : AuthErrorCode.profileMissing;
+
       emit(
         AuthState(
           status: AuthStatus.failure,
           message: error.message,
-          errorCode: AuthErrorCode.profileMissing,
+          errorCode: errorCode,
         ),
       );
     } on AuthException catch (error) {

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/lead_exception.dart';
 import '../models/lead_timeline_event_model.dart';
 
@@ -49,8 +50,8 @@ class FirestoreLeadTimelineRemoteDataSource
       );
       await document.set(eventToSave.toFirestore());
       return eventToSave;
-    } on FirebaseException {
-      throw const LeadException('Unable to update lead timeline.');
+    } on FirebaseException catch (error) {
+      throw LeadException(_mapFirestoreError(error));
     } catch (_) {
       throw const LeadException('Unable to update lead timeline.');
     }
@@ -80,6 +81,25 @@ class FirestoreLeadTimelineRemoteDataSource
     return _firestore.collection(
       '${FirebasePaths.companyLeads(companyId)}/$leadId/timeline',
     );
+  }
+}
+
+String _mapFirestoreError(FirebaseException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'network-request-failed':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    case 'cancelled':
+      return AppErrorMessages.cancelled;
+    default:
+      return AppErrorMessages.unknown;
   }
 }
 

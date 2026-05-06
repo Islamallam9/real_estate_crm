@@ -12,7 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../routing/route_names.dart';
 import 'responsive_layout.dart';
 
-enum CrmNavigationItem { dashboard, leads, properties, clients, tasks }
+enum CrmNavigationItem { dashboard, leads, properties, clients, tasks, more }
 
 class CrmAppShell extends StatelessWidget {
   const CrmAppShell({
@@ -56,6 +56,34 @@ class CrmAppShell extends StatelessWidget {
     ),
   ];
 
+  static const _mobileItems = <_CrmShellItem>[
+    _CrmShellItem(
+      item: CrmNavigationItem.dashboard,
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.leads,
+      icon: Icons.people_alt_outlined,
+      selectedIcon: Icons.people_alt,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.properties,
+      icon: Icons.business_outlined,
+      selectedIcon: Icons.business,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.clients,
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.more,
+      icon: Icons.more_horiz,
+      selectedIcon: Icons.more,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final effectiveOnItemSelected =
@@ -66,7 +94,7 @@ class CrmAppShell extends StatelessWidget {
         mobile: _MobileShell(
           selectedItem: selectedItem,
           title: title,
-          items: _items,
+          items: _mobileItems,
           onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
@@ -98,6 +126,7 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
     case CrmNavigationItem.properties:
     case CrmNavigationItem.clients:
     case CrmNavigationItem.tasks:
+    case CrmNavigationItem.more:
       break;
   }
 }
@@ -167,33 +196,456 @@ class _MobileShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(title ?? _labelFor(context, selectedItem)),
+        backgroundColor: AppColors.background,
+        surfaceTintColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        titleSpacing: 0,
+        toolbarHeight: 100,
+        automaticallyImplyLeading: false,
+        title: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            0,
+          ),
+          child: _MobileHeaderCard(
+            title: title ?? _labelFor(context, selectedItem),
+          ),
+        ),
         centerTitle: false,
-        actions: const [
-          _NotificationIconButton(),
-          _LanguageMenuButton(),
-          _LogoutIconButton(),
-        ],
       ),
       body: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
           child: child,
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: items.indexWhere((item) => item.item == selectedItem),
-        onDestinationSelected: (index) =>
-            onItemSelected?.call(items[index].item),
-        destinations: [
-          for (final item in items)
-            NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon),
-              label: item.label(context),
-            ),
-        ],
+      bottomNavigationBar: _MobileBottomNavigation(
+        selectedItem: selectedItem,
+        items: items,
+        onItemSelected: (item) {
+          if (item == CrmNavigationItem.more) {
+            _showMobileMoreSheet(context);
+            return;
+          }
+          onItemSelected?.call(item);
+        },
       ),
+    );
+  }
+}
+
+class _MobileHeaderCard extends StatelessWidget {
+  const _MobileHeaderCard({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (previous, current) =>
+          previous.userProfile?.fullName != current.userProfile?.fullName ||
+          previous.user?.fullName != current.user?.fullName,
+      builder: (context, state) {
+        final localizations = AppLocalizations.of(context)!;
+        final fullName = _resolvedUserName(state, localizations.crmUser);
+
+        return Material(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(26),
+          ),
+          child: Container(
+            height: 88,
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.md,
+            ),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+            ),
+            child: Row(
+              children: [
+                _UserAvatar(name: fullName),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                const _NotificationIconButton(compact: true),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileBottomNavigation extends StatelessWidget {
+  const _MobileBottomNavigation({
+    required this.selectedItem,
+    required this.items,
+    required this.onItemSelected,
+  });
+
+  final CrmNavigationItem selectedItem;
+  final List<_CrmShellItem> items;
+  final ValueChanged<CrmNavigationItem> onItemSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.sm,
+              AppSpacing.xs,
+              AppSpacing.sm,
+              AppSpacing.xs,
+            ),
+            child: Row(
+              children: [
+                for (final item in items)
+                  Expanded(
+                    child: _MobileNavItemButton(
+                      item: item,
+                      selected: _isMobileItemSelected(item.item),
+                      onTap: () => onItemSelected(item.item),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isMobileItemSelected(CrmNavigationItem item) {
+    if (item == selectedItem) {
+      return true;
+    }
+    return item == CrmNavigationItem.more &&
+        selectedItem == CrmNavigationItem.tasks;
+  }
+}
+
+class _MobileNavItemButton extends StatelessWidget {
+  const _MobileNavItemButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _CrmShellItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            scale: selected ? 1.03 : 1,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  size: 21,
+                  color: color,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.label(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _showMobileMoreSheet(BuildContext context) {
+  final authBloc = context.read<AuthBloc>();
+  final localeCubit = context.read<LocaleCubit>();
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      final localizations = AppLocalizations.of(sheetContext)!;
+      final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.85;
+
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(28),
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.md + MediaQuery.paddingOf(sheetContext).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.textSecondary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                _MoreSheetTile(
+                  icon: Icons.checklist_outlined,
+                  label: localizations.tasks,
+                  onTap: () => Navigator.of(sheetContext).pop(),
+                ),
+                _MoreSheetTile(
+                  icon: Icons.handshake_outlined,
+                  label: localizations.deals,
+                  onTap: () => Navigator.of(sheetContext).pop(),
+                ),
+                _MoreSheetTile(
+                  icon: Icons.bar_chart_outlined,
+                  label: localizations.reports,
+                  onTap: () => Navigator.of(sheetContext).pop(),
+                ),
+                _MoreSheetTile(
+                  icon: Icons.notifications_none,
+                  label: localizations.notifications,
+                  onTap: () => Navigator.of(sheetContext).pop(),
+                ),
+                const Divider(height: AppSpacing.lg),
+              _LanguageSheetActions(localeCubit: localeCubit),
+                const Divider(height: AppSpacing.lg),
+                _MoreSheetTile(
+                  icon: Icons.logout,
+                  label: localizations.logout,
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    authBloc.add(const AuthSignOutRequested());
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _MoreSheetTile extends StatelessWidget {
+  const _MoreSheetTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? AppColors.error : AppColors.textPrimary;
+
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+      ),
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+}
+
+class _LanguageSheetActions extends StatelessWidget {
+  const _LanguageSheetActions({required this.localeCubit});
+
+  final LocaleCubit localeCubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return BlocBuilder<LocaleCubit, Locale?>(
+      bloc: localeCubit,
+      builder: (context, locale) {
+        final selectedLanguage = locale?.languageCode ?? 'en';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                localizations.language,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: _LanguageChoiceButton(
+                    label: localizations.english,
+                    selected: selectedLanguage == 'en',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      localeCubit.setEnglish();
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _LanguageChoiceButton(
+                    label: localizations.arabic,
+                    selected: selectedLanguage == 'ar',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      localeCubit.setArabic();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+class _LanguageChoiceButton extends StatelessWidget {
+  const _LanguageChoiceButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: selected
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : AppColors.surface,
+        foregroundColor: selected ? AppColors.primary : AppColors.textPrimary,
+        side: BorderSide(
+          color: selected ? AppColors.primary : AppColors.border,
+        ),
+      ),
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }
@@ -442,14 +894,29 @@ class _LogoutIconButton extends StatelessWidget {
 }
 
 class _NotificationIconButton extends StatelessWidget {
-  const _NotificationIconButton();
+  const _NotificationIconButton({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    final button = IconButton(
       tooltip: AppLocalizations.of(context)!.notifications,
       onPressed: () {},
       icon: const Icon(Icons.notifications_none),
+    );
+
+    if (!compact) {
+      return button;
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: button,
     );
   }
 }
@@ -492,59 +959,98 @@ class _ProfileSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const _UserAvatar(),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.crmUser,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  AppLocalizations.of(context)!.workspace,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+    return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (previous, current) =>
+          previous.userProfile?.fullName != current.userProfile?.fullName ||
+          previous.user?.fullName != current.user?.fullName,
+      builder: (context, state) {
+        final localizations = AppLocalizations.of(context)!;
+        final fullName = _resolvedUserName(state, localizations.crmUser);
+
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              _UserAvatar(name: fullName),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      localizations.workspace,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _UserAvatar extends StatelessWidget {
-  const _UserAvatar();
+  const _UserAvatar({this.name});
+
+  final String? name;
 
   @override
   Widget build(BuildContext context) {
-    return const CircleAvatar(
+    final initial = _initialFor(name ?? AppLocalizations.of(context)!.crmUser);
+
+    return CircleAvatar(
       radius: 18,
       backgroundColor: AppColors.primary,
       child: Text(
-        'U',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        initial,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
+}
+
+String _initialFor(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return 'U';
+  }
+  return trimmed.substring(0, 1).toUpperCase();
+}
+
+String _resolvedUserName(AuthState state, String fallback) {
+  final profileName = (state.userProfile?.fullName ?? '').trim();
+  if (profileName.isNotEmpty) {
+    return profileName;
+  }
+
+  final userName = (state.user?.fullName ?? '').trim();
+  if (userName.isNotEmpty) {
+    return userName;
+  }
+
+  return fallback;
 }
 
 class _CrmShellItem {
@@ -575,5 +1081,7 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.clients;
     case CrmNavigationItem.tasks:
       return localizations.tasks;
+    case CrmNavigationItem.more:
+      return localizations.more;
   }
 }

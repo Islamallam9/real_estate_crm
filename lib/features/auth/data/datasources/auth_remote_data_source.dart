@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/auth_exception.dart';
 import '../models/app_user_model.dart';
 
@@ -86,9 +87,17 @@ AuthException _mapFirebaseAuthError(FirebaseAuthException error) {
         code: AuthErrorCode.invalidCredentials,
       );
     case 'network-request-failed':
+    case 'unavailable':
+    case 'deadline-exceeded':
       return const AuthException(
-        AuthErrorMessages.connection,
+        AppErrorMessages.unableToConnect,
         code: AuthErrorCode.connection,
+      );
+    case 'permission-denied':
+    case 'unauthenticated':
+      return const AuthException(
+        AppErrorMessages.unauthenticated,
+        code: AuthErrorCode.profileMissing,
       );
     default:
       return const AuthException(

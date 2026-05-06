@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/lead_exception.dart';
 import '../models/lead_note_model.dart';
 
@@ -51,8 +52,8 @@ class FirestoreLeadNotesRemoteDataSource implements LeadNotesRemoteDataSource {
       return noteToSave;
     } on LeadException {
       rethrow;
-    } on FirebaseException catch (_) {
-      throw const LeadException('Unable to add note. Please try again.');
+    } on FirebaseException catch (error) {
+      throw LeadException(_mapFirestoreError(error));
     } catch (_) {
       throw const LeadException('Unable to add note. Please try again.');
     }
@@ -80,6 +81,25 @@ class FirestoreLeadNotesRemoteDataSource implements LeadNotesRemoteDataSource {
     return _firestore.collection(
       '${FirebasePaths.companyLeads(companyId)}/$leadId/notes',
     );
+  }
+}
+
+String _mapFirestoreError(FirebaseException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'network-request-failed':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    case 'cancelled':
+      return AppErrorMessages.cancelled;
+    default:
+      return 'Unable to add note. Please try again.';
   }
 }
 

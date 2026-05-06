@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
@@ -61,18 +62,41 @@ class _CreateLeadView extends StatelessWidget {
       title: l.createLead,
       child: !canCreate
           ? AppErrorView(message: l.permissionDenied)
-          : BlocListener<LeadsCubit, LeadsState>(
+          : BlocConsumer<LeadsCubit, LeadsState>(
               listenWhen: (previous, current) =>
                   previous.status != current.status &&
-                  current.status == LeadsStatus.saved,
-              listener: (context, state) => context.go(RouteNames.leads),
-              child: _CreateLeadFormContent(
-                companyId: companyId,
-                uid: uid,
-                canAssign: canAssign,
-                roleName: role.name,
-                actorName: actorName,
-              ),
+                  (current.status == LeadsStatus.saved ||
+                      current.status == LeadsStatus.failure),
+              listener: (context, state) {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.hideCurrentSnackBar();
+                if (state.status == LeadsStatus.failure) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(localizeErrorMessage(l, state.message)),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _successMessageForAction(l, state.lastAction),
+                    ),
+                  ),
+                );
+                context.go(RouteNames.leads);
+              },
+              builder: (context, state) {
+                return _CreateLeadFormContent(
+                  companyId: companyId,
+                  uid: uid,
+                  canAssign: canAssign,
+                  roleName: role.name,
+                  actorName: actorName,
+                );
+              },
             ),
     );
   }
@@ -122,6 +146,20 @@ class _CreateLeadFormContent extends StatelessWidget {
                 StreamBuilder<List<UserProfile>>(
                   stream: canAssign ? _watchActiveUsers(companyId) : null,
                   builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        canAssign) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return AppErrorView(
+                        message: l.unableToConnect,
+                        onRetry: () {
+                          context.read<LeadsCubit>().watchLeads(
+                            companyId: companyId,
+                          );
+                        },
+                      );
+                    }
                     final users = snapshot.data ?? const <UserProfile>[];
                     return BlocSelector<LeadsCubit, LeadsState, bool>(
                       selector: (state) => state.status == LeadsStatus.saving,
@@ -166,6 +204,25 @@ class _CreateLeadFormContent extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+String _successMessageForAction(AppLocalizations l, LeadsAction action) {
+  switch (action) {
+    case LeadsAction.assignLead:
+      return l.leadAssignedSuccessfully;
+    case LeadsAction.createLead:
+      return l.leadCreatedSuccessfully;
+    case LeadsAction.updateLead:
+      return l.leadUpdatedSuccessfully;
+    case LeadsAction.updateStatus:
+      return l.leadStatusUpdatedSuccessfully;
+    case LeadsAction.archiveLead:
+      return l.leadArchivedSuccessfully;
+    case LeadsAction.addNote:
+      return l.noteAddedSuccessfully;
+    case LeadsAction.none:
+      return l.leadCreatedSuccessfully;
   }
 }
 

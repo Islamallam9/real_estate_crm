@@ -6,6 +6,16 @@ import '../../domain/entities/lead_timeline_event.dart';
 
 enum LeadsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
+enum LeadsAction {
+  none,
+  createLead,
+  updateLead,
+  archiveLead,
+  updateStatus,
+  assignLead,
+  addNote,
+}
+
 class LeadsState extends Equatable {
   const LeadsState({
     required this.status,
@@ -20,6 +30,7 @@ class LeadsState extends Equatable {
     this.priorityFilter,
     this.assignedToFilter,
     this.message,
+    this.lastAction = LeadsAction.none,
   });
 
   const LeadsState.initial()
@@ -34,7 +45,8 @@ class LeadsState extends Equatable {
       sourceFilter = null,
       priorityFilter = null,
       assignedToFilter = null,
-      message = null;
+      message = null,
+      lastAction = LeadsAction.none;
 
   final LeadsStatus status;
   final List<Lead> leads;
@@ -48,6 +60,7 @@ class LeadsState extends Equatable {
   final LeadPriority? priorityFilter;
   final String? assignedToFilter;
   final String? message;
+  final LeadsAction lastAction;
 
   LeadsState copyWith({
     LeadsStatus? status,
@@ -62,8 +75,10 @@ class LeadsState extends Equatable {
     LeadPriority? priorityFilter,
     String? assignedToFilter,
     String? message,
+    LeadsAction? lastAction,
     bool clearSelectedLead = false,
     bool clearMessage = false,
+    bool clearLastAction = false,
     bool clearStatusFilter = false,
     bool clearSourceFilter = false,
     bool clearPriorityFilter = false,
@@ -92,6 +107,9 @@ class LeadsState extends Equatable {
           ? null
           : assignedToFilter ?? this.assignedToFilter,
       message: clearMessage ? null : message ?? this.message,
+      lastAction: clearLastAction
+          ? LeadsAction.none
+          : lastAction ?? this.lastAction,
     );
   }
 
@@ -109,5 +127,6 @@ class LeadsState extends Equatable {
     priorityFilter,
     assignedToFilter,
     message,
+    lastAction,
   ];
 }

@@ -1,11 +1,12 @@
 import 'dart:async';
 
+import '../../../../core/errors/error_mapper.dart';
+import '../../domain/errors/lead_exception.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../domain/entities/lead.dart';
 import '../../domain/entities/lead_note.dart';
 import '../../domain/entities/lead_timeline_event.dart';
-import '../../domain/errors/lead_exception.dart';
 import '../../domain/usecases/add_lead_note_usecase.dart';
 import '../../domain/usecases/add_lead_timeline_event_usecase.dart';
 import '../../domain/usecases/archive_lead_usecase.dart';
@@ -52,6 +53,35 @@ class LeadsCubit extends Cubit<LeadsState> {
   StreamSubscription<List<Lead>>? _leadsSubscription;
   StreamSubscription<List<LeadNote>>? _notesSubscription;
   StreamSubscription<List<LeadTimelineEvent>>? _timelineSubscription;
+  static const Duration _firebaseTimeout = Duration(seconds: 10);
+
+  Future<bool> _hasConnection() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
+  }
+
+  Future<T> _guardFirebaseAction<T>(Future<T> Function() action) async {
+    final connected = await _hasConnection();
+
+    if (!connected) {
+      throw const LeadException(AppErrorMessages.unableToConnect);
+    }
+
+    return action().timeout(
+      _firebaseTimeout,
+      onTimeout: () {
+        throw const LeadException(AppErrorMessages.unableToConnect);
+      },
+    );
+  }
+
+  String _leadErrorMessage(Object error, String fallback) {
+    if (error is LeadException) {
+      return error.message;
+    }
+
+    return fallback;
+  }
 
   void watchLeads({required String companyId, String? assignedTo}) {
     emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
@@ -59,7 +89,16 @@ class LeadsCubit extends Cubit<LeadsState> {
     _leadsSubscription =
         _watchLeadsUseCase(companyId: companyId, assignedTo: assignedTo).listen(
           (leads) {
-            final filtered = _applyFilters(leads);
+            if (isClosed) {
+              return;
+            }
+            final filtered = _applyFilters(
+              leads,
+              searchQuery: state.searchQuery,
+              statusFilter: state.statusFilter,
+              sourceFilter: state.sourceFilter,
+              priorityFilter: state.priorityFilter,
+            );
             emit(
               state.copyWith(
                 status: filtered.isEmpty
@@ -72,6 +111,9 @@ class LeadsCubit extends Cubit<LeadsState> {
             );
           },
           onError: (_) {
+            if (isClosed) {
+              return;
+            }
             emit(
               state.copyWith(
                 status: LeadsStatus.failure,
@@ -86,7 +128,13 @@ class LeadsCubit extends Cubit<LeadsState> {
     emit(
       state.copyWith(
         searchQuery: query,
-        filteredLeads: _applyFilters(state.leads, searchQuery: query),
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: query,
+          statusFilter: state.statusFilter,
+          sourceFilter: state.sourceFilter,
+          priorityFilter: state.priorityFilter,
+        ),
       ),
     );
   }
@@ -96,7 +144,13 @@ class LeadsCubit extends Cubit<LeadsState> {
       state.copyWith(
         statusFilter: status,
         clearStatusFilter: status == null,
-        filteredLeads: _applyFilters(state.leads, statusFilter: status),
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: state.searchQuery,
+          statusFilter: status,
+          sourceFilter: state.sourceFilter,
+          priorityFilter: state.priorityFilter,
+        ),
       ),
     );
   }
@@ -106,7 +160,13 @@ class LeadsCubit extends Cubit<LeadsState> {
       state.copyWith(
         sourceFilter: source,
         clearSourceFilter: source == null,
-        filteredLeads: _applyFilters(state.leads, sourceFilter: source),
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: state.searchQuery,
+          statusFilter: state.statusFilter,
+          sourceFilter: source,
+          priorityFilter: state.priorityFilter,
+        ),
       ),
     );
   }
@@ -116,7 +176,13 @@ class LeadsCubit extends Cubit<LeadsState> {
       state.copyWith(
         priorityFilter: priority,
         clearPriorityFilter: priority == null,
-        filteredLeads: _applyFilters(state.leads, priorityFilter: priority),
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: state.searchQuery,
+          statusFilter: state.statusFilter,
+          sourceFilter: state.sourceFilter,
+          priorityFilter: priority,
+        ),
       ),
     );
   }
@@ -128,9 +194,8 @@ class LeadsCubit extends Cubit<LeadsState> {
   }) async {
     emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
     try {
-      final createdLead = await _createLeadUseCase(
-        companyId: companyId,
-        lead: lead,
+      final createdLead = await _guardFirebaseAction(
+        () => _createLeadUseCase(companyId: companyId, lead: lead),
       );
       await _addTimelineEvent(
         companyId: companyId,
@@ -158,14 +223,35 @@ class LeadsCubit extends Cubit<LeadsState> {
           createdByName: actorName,
         );
       }
-      emit(state.copyWith(status: LeadsStatus.saved, clearMessage: true));
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.saved,
+          clearMessage: true,
+          lastAction: createdLead.assignedTo.isNotEmpty
+              ? LeadsAction.assignLead
+              : LeadsAction.createLead,
+        ),
+      );
     } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
-    } catch (_) {
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.failure,
-          message: 'Unable to create lead. Please try again.',
+          message: _leadErrorMessage(
+            error,
+            'Unable to create lead. Please try again.',
+          ),
+          lastAction: LeadsAction.createLead,
         ),
       );
     }
@@ -175,16 +261,15 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String companyId,
     required Lead lead,
     required String actorName,
+    LeadsAction? successAction,
   }) async {
     emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
     try {
-      final current = await _getLeadByIdUseCase(
-        companyId: companyId,
-        leadId: lead.id,
+      final current = await _guardFirebaseAction(
+        () => _getLeadByIdUseCase(companyId: companyId, leadId: lead.id),
       );
-      final updated = await _updateLeadUseCase(
-        companyId: companyId,
-        lead: lead,
+      final updated = await _guardFirebaseAction(
+        () => _updateLeadUseCase(companyId: companyId, lead: lead),
       );
       await _addLeadUpdateEvents(
         companyId: companyId,
@@ -192,14 +277,38 @@ class LeadsCubit extends Cubit<LeadsState> {
         newLead: updated,
         actorName: actorName,
       );
-      emit(state.copyWith(status: LeadsStatus.saved, clearMessage: true));
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.saved,
+          selectedLead: updated,
+          clearMessage: true,
+          lastAction:
+              successAction ??
+              (current.assignedTo != updated.assignedTo
+                  ? LeadsAction.assignLead
+                  : LeadsAction.updateLead),
+        ),
+      );
     } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
-    } catch (_) {
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.failure,
-          message: 'Unable to update lead. Please try again.',
+          message: _leadErrorMessage(
+            error,
+            'Unable to update lead. Please try again.',
+          ),
+          lastAction: LeadsAction.updateLead,
         ),
       );
     }
@@ -223,8 +332,8 @@ class LeadsCubit extends Cubit<LeadsState> {
         updatedBy: updatedBy,
       ),
       actorName: actorName,
+      successAction: LeadsAction.updateStatus,
     );
-    await loadLead(companyId: companyId, leadId: lead.id);
   }
 
   Future<void> archiveLead({
@@ -235,10 +344,12 @@ class LeadsCubit extends Cubit<LeadsState> {
   }) async {
     emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
     try {
-      await _archiveLeadUseCase(
-        companyId: companyId,
-        leadId: leadId,
-        archivedBy: archivedBy,
+      await _guardFirebaseAction(
+        () => _archiveLeadUseCase(
+          companyId: companyId,
+          leadId: leadId,
+          archivedBy: archivedBy,
+        ),
       );
       await _addTimelineEvent(
         companyId: companyId,
@@ -251,14 +362,33 @@ class LeadsCubit extends Cubit<LeadsState> {
         createdBy: archivedBy,
         createdByName: actorName,
       );
-      emit(state.copyWith(status: LeadsStatus.saved, clearMessage: true));
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.saved,
+          clearMessage: true,
+          lastAction: LeadsAction.archiveLead,
+        ),
+      );
     } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
-    } catch (_) {
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.failure,
-          message: 'Unable to archive lead. Please try again.',
+          message: _leadErrorMessage(
+            error,
+            'Unable to archive lead. Please try again.',
+          ),
+          lastAction: LeadsAction.archiveLead,
         ),
       );
     }
@@ -274,6 +404,9 @@ class LeadsCubit extends Cubit<LeadsState> {
         companyId: companyId,
         leadId: leadId,
       );
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.loaded,
@@ -282,8 +415,14 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
     } catch (_) {
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.failure,
@@ -297,8 +436,16 @@ class LeadsCubit extends Cubit<LeadsState> {
     _notesSubscription?.cancel();
     _notesSubscription =
         _watchLeadNotesUseCase(companyId: companyId, leadId: leadId).listen(
-          (notes) => emit(state.copyWith(notes: notes)),
+          (notes) {
+            if (isClosed) {
+              return;
+            }
+            emit(state.copyWith(notes: notes));
+          },
           onError: (_) {
+            if (isClosed) {
+              return;
+            }
             emit(
               state.copyWith(
                 status: LeadsStatus.failure,
@@ -313,8 +460,16 @@ class LeadsCubit extends Cubit<LeadsState> {
     _timelineSubscription?.cancel();
     _timelineSubscription =
         _watchLeadTimelineUseCase(companyId: companyId, leadId: leadId).listen(
-          (events) => emit(state.copyWith(timeline: events)),
+          (events) {
+            if (isClosed) {
+              return;
+            }
+            emit(state.copyWith(timeline: events));
+          },
           onError: (_) {
+            if (isClosed) {
+              return;
+            }
             emit(
               state.copyWith(
                 status: LeadsStatus.failure,
@@ -336,36 +491,61 @@ class LeadsCubit extends Cubit<LeadsState> {
       return;
     }
     try {
-      await _addLeadNoteUseCase(
-        companyId: companyId,
-        leadId: leadId,
-        note: LeadNote(
-          id: '',
-          leadId: leadId,
+      await _guardFirebaseAction(
+        () => _addLeadNoteUseCase(
           companyId: companyId,
-          text: text.trim(),
-          createdAt: DateTime.now(),
-          createdBy: createdBy,
+          leadId: leadId,
+          note: LeadNote(
+            id: '',
+            leadId: leadId,
+            companyId: companyId,
+            text: text.trim(),
+            createdAt: DateTime.now(),
+            createdBy: createdBy,
+          ),
         ),
       );
-      await _addTimelineEvent(
-        companyId: companyId,
-        leadId: leadId,
-        type: 'noteAdded',
-        title: 'note_added',
-        description: text.trim(),
-        oldValue: '',
-        newValue: '',
-        createdBy: createdBy,
-        createdByName: actorName,
+
+      await _guardFirebaseAction(
+        () => _addTimelineEvent(
+          companyId: companyId,
+          leadId: leadId,
+          type: 'noteAdded',
+          title: 'note_added',
+          description: text.trim(),
+          oldValue: '',
+          newValue: '',
+          createdBy: createdBy,
+          createdByName: actorName,
+        ),
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.saved,
+          clearMessage: true,
+          lastAction: LeadsAction.addNote,
+        ),
       );
     } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
-    } catch (_) {
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
       emit(
         state.copyWith(
           status: LeadsStatus.failure,
-          message: 'Unable to add note. Please try again.',
+          message: _leadErrorMessage(
+            error,
+            'Unable to add note. Please try again.',
+          ),
+          lastAction: LeadsAction.addNote,
         ),
       );
     }
@@ -503,10 +683,10 @@ class LeadsCubit extends Cubit<LeadsState> {
     LeadSource? sourceFilter,
     LeadPriority? priorityFilter,
   }) {
-    final query = (searchQuery ?? state.searchQuery).trim().toLowerCase();
-    final status = statusFilter ?? state.statusFilter;
-    final source = sourceFilter ?? state.sourceFilter;
-    final priority = priorityFilter ?? state.priorityFilter;
+    final query = (searchQuery ?? '').trim().toLowerCase();
+    final status = statusFilter;
+    final source = sourceFilter;
+    final priority = priorityFilter;
 
     return leads.where((lead) {
       final matchesQuery =

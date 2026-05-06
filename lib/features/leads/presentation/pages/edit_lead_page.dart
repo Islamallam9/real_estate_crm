@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
@@ -76,9 +77,35 @@ class _EditLeadViewState extends State<_EditLeadView> {
           : BlocConsumer<LeadsCubit, LeadsState>(
               listenWhen: (previous, current) {
                 return previous.status != current.status &&
-                    current.status == LeadsStatus.saved;
+                    (current.status == LeadsStatus.saved ||
+                        current.status == LeadsStatus.failure);
               },
               listener: (context, state) {
+                if (state.status == LeadsStatus.failure) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          localizeErrorMessage(localizations, state.message),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  return;
+                }
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _successMessageForAction(
+                          localizations,
+                          state.lastAction,
+                        ),
+                      ),
+                    ),
+                  );
                 context.go(RouteNames.leadDetails(widget.leadId));
               },
               builder: (context, state) {
@@ -89,12 +116,37 @@ class _EditLeadViewState extends State<_EditLeadView> {
 
                 final lead = state.selectedLead;
                 if (lead == null || companyId.isEmpty || uid.isEmpty) {
-                  return AppErrorView(message: localizations.unableToLoadLeads);
+                  return AppErrorView(
+                    message: localizeErrorMessage(
+                      localizations,
+                      state.message ?? localizations.unableToLoadLeads,
+                    ),
+                    onRetry: () {
+                      context.read<LeadsCubit>().loadLead(
+                        companyId: companyId,
+                        leadId: widget.leadId,
+                      );
+                    },
+                  );
                 }
 
                 return StreamBuilder<List<UserProfile>>(
-                  stream: canAssign ? _watchActiveUsers(companyId) : null,
+                  stream: _watchActiveUsers(companyId),
                   builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return AppErrorView(
+                        message: localizations.unableToConnect,
+                        onRetry: () {
+                          context.read<LeadsCubit>().loadLead(
+                            companyId: companyId,
+                            leadId: widget.leadId,
+                          );
+                        },
+                      );
+                    }
                     final users = snapshot.data ?? const <UserProfile>[];
                     return ListView(
                       primary: true,
@@ -141,6 +193,25 @@ class _EditLeadViewState extends State<_EditLeadView> {
               },
             ),
     );
+  }
+}
+
+String _successMessageForAction(AppLocalizations l, LeadsAction action) {
+  switch (action) {
+    case LeadsAction.assignLead:
+      return l.leadAssignedSuccessfully;
+    case LeadsAction.updateLead:
+      return l.leadUpdatedSuccessfully;
+    case LeadsAction.updateStatus:
+      return l.leadStatusUpdatedSuccessfully;
+    case LeadsAction.createLead:
+      return l.leadCreatedSuccessfully;
+    case LeadsAction.archiveLead:
+      return l.leadArchivedSuccessfully;
+    case LeadsAction.addNote:
+      return l.noteAddedSuccessfully;
+    case LeadsAction.none:
+      return l.leadUpdatedSuccessfully;
   }
 }
 

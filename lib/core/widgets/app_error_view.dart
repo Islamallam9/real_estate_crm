@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/app_spacing.dart';
 import 'app_button.dart';
 
@@ -7,7 +8,7 @@ class AppErrorView extends StatelessWidget {
   const AppErrorView({
     super.key,
     required this.message,
-    this.title = 'Something went wrong',
+    this.title = '',
     this.onRetry,
   });
 
@@ -17,7 +18,11 @@ class AppErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final effectiveTitle = title.isEmpty
+        ? localizations.somethingWentWrong
+        : title;
 
     return Center(
       child: ConstrainedBox(
@@ -34,7 +39,7 @@ class AppErrorView extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                title,
+                effectiveTitle,
                 style: theme.textTheme.titleMedium,
                 textAlign: TextAlign.center,
               ),
@@ -46,7 +51,7 @@ class AppErrorView extends StatelessWidget {
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: AppSpacing.lg),
-                AppButton(label: 'Try again', onPressed: onRetry),
+                AppButton(label: localizations.tryAgain, onPressed: onRetry),
               ],
             ],
           ),
