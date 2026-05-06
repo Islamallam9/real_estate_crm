@@ -722,6 +722,18 @@ abstract class AppLocalizations {
   /// **'Contact information'**
   String get contactInformation;
 
+  /// No description provided for @lastContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Last contact'**
+  String get lastContact;
+
+  /// No description provided for @nextFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Next follow-up'**
+  String get nextFollowUp;
+
   /// No description provided for @leadPreferences.
   ///
   /// In en, this message translates to:

@@ -327,6 +327,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactInformation => 'Contact information';
 
   @override
+  String get lastContact => 'Last contact';
+
+  @override
+  String get nextFollowUp => 'Next follow-up';
+
+  @override
   String get leadPreferences => 'Lead preferences';
 
   @override

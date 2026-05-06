@@ -330,6 +330,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get contactInformation => 'بيانات التواصل';
 
   @override
+  String get lastContact => 'آخر تواصل';
+
+  @override
+  String get nextFollowUp => 'المتابعة القادمة';
+
+  @override
   String get leadPreferences => 'تفضيلات العميل المحتمل';
 
   @override

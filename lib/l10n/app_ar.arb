@@ -110,6 +110,8 @@
   "unableToArchiveLead": "تعذرت أرشفة العميل المحتمل. حاول مرة أخرى.",
   "permissionDenied": "ليس لديك صلاحية لتنفيذ هذا الإجراء.",
   "contactInformation": "بيانات التواصل",
+  "lastContact": "آخر تواصل",
+  "nextFollowUp": "المتابعة القادمة",
   "leadPreferences": "تفضيلات العميل المحتمل",
   "leadAssignment": "الإسناد والملاحظات"
   ,

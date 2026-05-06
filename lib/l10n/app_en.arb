@@ -110,6 +110,8 @@
   "unableToArchiveLead": "Unable to archive lead. Please try again.",
   "permissionDenied": "You do not have permission to perform this action.",
   "contactInformation": "Contact information",
+  "lastContact": "Last contact",
+  "nextFollowUp": "Next follow-up",
   "leadPreferences": "Lead preferences",
   "leadAssignment": "Assignment and notes"
   ,

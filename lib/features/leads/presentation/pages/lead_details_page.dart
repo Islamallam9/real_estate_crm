@@ -375,6 +375,8 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         children: [
           _detail(l.phone, widget.lead.phone, l),
           _detail(l.email, widget.lead.email, l),
+          _detail(l.lastContact, _formatNullableDate(widget.lead.lastContactAt), l),
+          _detail(l.nextFollowUp, _formatNullableDate(widget.lead.nextFollowUpAt), l),
         ],
       ),
       const SizedBox(height: AppSpacing.md),
@@ -877,4 +879,15 @@ String _priorityValueLabel(AppLocalizations l, String value) {
     default:
       return value;
   }
+}
+
+String _formatNullableDate(DateTime? value) {
+  if (value == null) {
+    return '';
+  }
+
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }
