@@ -45,7 +45,9 @@ class _DashboardIntro extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           localizations.dashboardPlaceholderDescription,
-          style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.textSecondaryColor(context),
+          ),
         ),
       ],
     );
@@ -126,8 +128,8 @@ class _DashboardMetricCard extends StatelessWidget {
       child: Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -138,10 +140,10 @@ class _DashboardMetricCard extends StatelessWidget {
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: AppColors.selectedSurface(context),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: AppColors.primary, size: 22),
+            child: Icon(icon, color: AppColors.primaryColor(context), size: 22),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -163,7 +165,7 @@ class _DashboardMetricCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryColor(context),
                   ),
                 ),
               ],

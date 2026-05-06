@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_radius.dart';
+import '../theme/app_colors.dart';
 
 enum AppStatusTone { neutral, success, warning, error, info }
 
@@ -39,6 +40,37 @@ class AppStatusBadge extends StatelessWidget {
 
   _BadgeColors _colorsFor(BuildContext context, AppStatusTone tone) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (isDark) {
+      return switch (tone) {
+        AppStatusTone.success => const _BadgeColors(
+          background: Color(0xFF123A28),
+          foreground: AppColors.darkSuccess,
+          border: Color(0xFF1F6B42),
+        ),
+        AppStatusTone.warning => const _BadgeColors(
+          background: Color(0xFF3B2A10),
+          foreground: AppColors.darkWarning,
+          border: Color(0xFF78570F),
+        ),
+        AppStatusTone.error => const _BadgeColors(
+          background: Color(0xFF3B1D1D),
+          foreground: AppColors.darkError,
+          border: Color(0xFF7F2D2D),
+        ),
+        AppStatusTone.info => const _BadgeColors(
+          background: Color(0xFF172D4D),
+          foreground: AppColors.darkInfo,
+          border: Color(0xFF315A8E),
+        ),
+        AppStatusTone.neutral => const _BadgeColors(
+          background: AppColors.darkSurfaceAlt,
+          foreground: AppColors.darkTextSecondary,
+          border: AppColors.darkBorder,
+        ),
+      };
+    }
 
     return switch (tone) {
       AppStatusTone.success => const _BadgeColors(

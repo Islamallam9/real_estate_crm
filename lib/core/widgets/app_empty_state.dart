@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
+import '../theme/app_colors.dart';
 import 'app_button.dart';
 
 class AppEmptyState extends StatelessWidget {
@@ -31,17 +32,21 @@ class AppEmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 44, color: theme.colorScheme.primary),
+              Icon(icon, size: 44, color: AppColors.primaryColor(context)),
               const SizedBox(height: AppSpacing.md),
               Text(
                 title,
-                style: theme.textTheme.titleMedium,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimaryColor(context),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 message,
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                ),
                 textAlign: TextAlign.center,
               ),
               if (actionLabel != null && onActionPressed != null) ...[

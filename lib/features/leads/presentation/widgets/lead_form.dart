@@ -226,8 +226,8 @@ class _LeadFormState extends State<LeadForm> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

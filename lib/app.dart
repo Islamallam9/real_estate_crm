@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/localization/locale_cubit.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_cubit.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/auth_state_changes_usecase.dart';
@@ -32,6 +33,7 @@ class RealEstateCrmApp extends StatefulWidget {
 class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
   late final AuthBloc _authBloc;
   late final LocaleCubit _localeCubit;
+  late final ThemeCubit _themeCubit;
   late final GoRouter _router;
 
   @override
@@ -58,7 +60,9 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
     )..add(const AuthStarted());
 
     _router = AppRouter.createRouter(_authBloc);
-    _localeCubit = LocaleCubit(initialLocale: widget.initialLocale);
+    _localeCubit = LocaleCubit(initialLocale: widget.initialLocale)
+      ..loadSavedLocale();
+    _themeCubit = ThemeCubit()..loadSavedThemeMode();
   }
 
   @override
@@ -66,6 +70,7 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
     _router.dispose();
     _authBloc.close();
     _localeCubit.close();
+    _themeCubit.close();
     super.dispose();
   }
 
@@ -75,22 +80,30 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
       providers: [
         BlocProvider.value(value: _authBloc),
         BlocProvider.value(value: _localeCubit),
+        BlocProvider.value(value: _themeCubit),
       ],
       child: BlocBuilder<LocaleCubit, Locale?>(
         builder: (context, locale) {
-          return MaterialApp.router(
-            locale: locale,
-            onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
-            debugShowCheckedModeBanner: false,
-            theme: _localizedTheme(AppTheme.light, locale),
-            routerConfig: _router,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-            ],
-            supportedLocales: AppLocalizations.supportedLocales,
+          return BlocBuilder<ThemeCubit, ThemeMode>(
+            builder: (context, themeMode) {
+              return MaterialApp.router(
+                locale: locale,
+                onGenerateTitle: (context) =>
+                    AppLocalizations.of(context)!.appName,
+                debugShowCheckedModeBanner: false,
+                theme: _localizedTheme(AppTheme.light, locale),
+                darkTheme: _localizedTheme(AppTheme.dark, locale),
+                themeMode: themeMode,
+                routerConfig: _router,
+                localizationsDelegates: const [
+                  AppLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                ],
+                supportedLocales: AppLocalizations.supportedLocales,
+              );
+            },
           );
         },
       ),

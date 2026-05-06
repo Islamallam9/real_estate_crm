@@ -8,6 +8,7 @@ import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../localization/locale_cubit.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import '../theme/theme_cubit.dart';
 import '../../l10n/app_localizations.dart';
 import '../routing/route_names.dart';
 import 'responsive_layout.dart';
@@ -148,8 +149,10 @@ class _DesktopShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       body: Row(
         children: [
           _Sidebar(
@@ -193,11 +196,13 @@ class _MobileShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: AppColors.background,
+        backgroundColor: colors.background,
+        surfaceTintColor: colors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
         shadowColor: Colors.transparent,
@@ -224,7 +229,7 @@ class _MobileShell extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.md,
             AppSpacing.md,
-            AppSpacing.md,
+            AppSpacing.xl,
           ),
           child: child,
         ),
@@ -252,6 +257,7 @@ class _MobileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colors = _CrmShellColors.of(context);
 
     return BlocBuilder<AuthBloc, AuthState>(
       buildWhen: (previous, current) =>
@@ -262,7 +268,7 @@ class _MobileHeaderCard extends StatelessWidget {
         final fullName = _resolvedUserName(state, localizations.crmUser);
 
         return Material(
-          color: AppColors.surface,
+          color: colors.chromeSurface,
           borderRadius: const BorderRadius.vertical(
             bottom: Radius.circular(26),
           ),
@@ -274,9 +280,11 @@ class _MobileHeaderCard extends StatelessWidget {
               AppSpacing.sm,
               AppSpacing.md,
             ),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.border)),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.border)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(26),
+              ),
             ),
             child: Row(
               children: [
@@ -294,7 +302,7 @@ class _MobileHeaderCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -303,7 +311,7 @@ class _MobileHeaderCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: colors.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -334,6 +342,8 @@ class _MobileBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -345,8 +355,8 @@ class _MobileBottomNavigation extends StatelessWidget {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(color: AppColors.border),
+            color: colors.chromeSurface,
+            border: Border.all(color: colors.border),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
@@ -397,7 +407,8 @@ class _MobileNavItemButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    final colors = _CrmShellColors.of(context);
+    final color = selected ? colors.primary : colors.textSecondary;
 
     return Semantics(
       button: true,
@@ -412,7 +423,7 @@ class _MobileNavItemButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.primary.withValues(alpha: 0.08)
+                ? colors.selectedSurface
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
@@ -451,6 +462,7 @@ class _MobileNavItemButton extends StatelessWidget {
 void _showMobileMoreSheet(BuildContext context) {
   final authBloc = context.read<AuthBloc>();
   final localeCubit = context.read<LocaleCubit>();
+  final themeCubit = context.read<ThemeCubit>();
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -465,9 +477,9 @@ void _showMobileMoreSheet(BuildContext context) {
         alignment: Alignment.bottomCenter,
         child: Container(
           constraints: BoxConstraints(maxHeight: maxHeight),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(
+          decoration: BoxDecoration(
+            color: _CrmShellColors.of(sheetContext).chromeSurface,
+            borderRadius: const BorderRadius.vertical(
               top: Radius.circular(28),
             ),
           ),
@@ -486,7 +498,7 @@ void _showMobileMoreSheet(BuildContext context) {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                   decoration: BoxDecoration(
-                    color: AppColors.textSecondary,
+                    color: _CrmShellColors.of(sheetContext).textSecondary,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -512,6 +524,8 @@ void _showMobileMoreSheet(BuildContext context) {
                 ),
                 const Divider(height: AppSpacing.lg),
               _LanguageSheetActions(localeCubit: localeCubit),
+                const SizedBox(height: AppSpacing.sm),
+                _ThemeSheetAction(themeCubit: themeCubit),
                 const Divider(height: AppSpacing.lg),
                 _MoreSheetTile(
                   icon: Icons.logout,
@@ -546,15 +560,16 @@ class _MoreSheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? AppColors.error : AppColors.textPrimary;
+    final colors = _CrmShellColors.of(context);
+    final effectiveColor = isDestructive ? colors.error : colors.textPrimary;
 
     return ListTile(
-      leading: Icon(icon, color: color),
+      leading: Icon(icon, color: effectiveColor),
       title: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w600),
       ),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
@@ -584,7 +599,7 @@ class _LanguageSheetActions extends StatelessWidget {
               child: Text(
                 localizations.language,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: _CrmShellColors.of(context).textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -638,11 +653,15 @@ class _LanguageChoiceButton extends StatelessWidget {
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         backgroundColor: selected
-            ? AppColors.primary.withValues(alpha: 0.08)
-            : AppColors.surface,
-        foregroundColor: selected ? AppColors.primary : AppColors.textPrimary,
+            ? _CrmShellColors.of(context).selectedSurface
+            : _CrmShellColors.of(context).cardSurface,
+        foregroundColor: selected
+            ? _CrmShellColors.of(context).primary
+            : _CrmShellColors.of(context).textPrimary,
         side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
+          color: selected
+              ? _CrmShellColors.of(context).primary
+              : _CrmShellColors.of(context).border,
         ),
       ),
       child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -663,11 +682,13 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+
     return Container(
       width: 248,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(right: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        color: colors.chromeSurface,
+        border: BorderDirectional(end: BorderSide(color: colors.border)),
       ),
       child: SafeArea(
         child: Padding(
@@ -730,7 +751,7 @@ class _BrandHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: _CrmShellColors.of(context).textSecondary,
                 ),
               ),
             ],
@@ -755,13 +776,14 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    final colors = _CrmShellColors.of(context);
+    final color = selected ? colors.primary : colors.textSecondary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Material(
         color: selected
-            ? AppColors.primary.withValues(alpha: 0.08)
+            ? colors.selectedSurface
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
@@ -808,13 +830,14 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colors = _CrmShellColors.of(context);
 
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        color: colors.chromeSurface,
+        border: Border(bottom: BorderSide(color: colors.border)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -849,6 +872,7 @@ class _TopBar extends StatelessWidget {
               const _NotificationIconButton(),
               const SizedBox(width: AppSpacing.xs),
               const _LanguageMenuButton(),
+              const _ThemeToggleButton(),
               const _LogoutIconButton(),
               const SizedBox(width: AppSpacing.sm),
               const _UserAvatar(),
@@ -856,6 +880,58 @@ class _TopBar extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _ThemeSheetAction extends StatelessWidget {
+  const _ThemeSheetAction({required this.themeCubit});
+
+  final ThemeCubit themeCubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      bloc: themeCubit,
+      builder: (context, themeMode) {
+        final isDark = themeMode == ThemeMode.dark;
+
+        return SwitchListTile(
+          value: isDark,
+          onChanged: (_) => themeCubit.toggle(),
+          secondary: Icon(
+            isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+          ),
+          title: Text(localizations.theme),
+          subtitle: Text(isDark ? localizations.darkMode : localizations.lightMode),
+          contentPadding: EdgeInsets.zero,
+        );
+      },
+    );
+  }
+}
+
+class _ThemeToggleButton extends StatelessWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        final isDark = themeMode == ThemeMode.dark;
+
+        return IconButton(
+          tooltip: isDark ? localizations.lightMode : localizations.darkMode,
+          onPressed: () => context.read<ThemeCubit>().toggle(),
+          icon: Icon(
+            isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          ),
+        );
+      },
     );
   }
 }
@@ -900,6 +976,7 @@ class _NotificationIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
     final button = IconButton(
       tooltip: AppLocalizations.of(context)!.notifications,
       onPressed: () {},
@@ -912,8 +989,8 @@ class _NotificationIconButton extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border.all(color: AppColors.border),
+        color: colors.inputSurface,
+        border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(12),
       ),
       child: button,
@@ -958,6 +1035,7 @@ class _ProfileSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colors = _CrmShellColors.of(context);
 
     return BlocBuilder<AuthBloc, AuthState>(
       buildWhen: (previous, current) =>
@@ -970,7 +1048,8 @@ class _ProfileSummary extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
+            color: colors.cardSurface,
+            border: Border.all(color: colors.border),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -994,7 +1073,7 @@ class _ProfileSummary extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -1016,10 +1095,11 @@ class _UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initial = _initialFor(name ?? AppLocalizations.of(context)!.crmUser);
+    final colors = _CrmShellColors.of(context);
 
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppColors.primary,
+      backgroundColor: colors.primary,
       child: Text(
         initial,
         style: const TextStyle(
@@ -1051,6 +1131,65 @@ String _resolvedUserName(AuthState state, String fallback) {
   }
 
   return fallback;
+}
+
+class _CrmShellColors {
+  const _CrmShellColors({
+    required this.background,
+    required this.chromeSurface,
+    required this.cardSurface,
+    required this.inputSurface,
+    required this.selectedSurface,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.primary,
+    required this.error,
+  });
+
+  final Color background;
+  final Color chromeSurface;
+  final Color cardSurface;
+  final Color inputSurface;
+  final Color selectedSurface;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color primary;
+  final Color error;
+
+  factory _CrmShellColors.of(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (!isDark) {
+      return const _CrmShellColors(
+        background: AppColors.background,
+        chromeSurface: AppColors.surface,
+        cardSurface: AppColors.surface,
+        inputSurface: AppColors.background,
+        selectedSurface: Color(0x14123047),
+        border: AppColors.border,
+        textPrimary: AppColors.textPrimary,
+        textSecondary: AppColors.textSecondary,
+        primary: AppColors.primary,
+        error: AppColors.error,
+      );
+    }
+
+    return const _CrmShellColors(
+      background: AppColors.darkBackground,
+      chromeSurface: AppColors.darkSurface,
+      cardSurface: AppColors.darkCardSurface,
+      inputSurface: AppColors.darkSurfaceAlt,
+      selectedSurface: AppColors.darkSelectedSurface,
+      border: AppColors.darkBorder,
+      textPrimary: AppColors.darkTextPrimary,
+      textSecondary: AppColors.darkTextSecondary,
+      primary: AppColors.darkPrimary,
+      error: AppColors.darkError,
+    );
+  }
 }
 
 class _CrmShellItem {

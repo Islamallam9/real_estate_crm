@@ -186,7 +186,9 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                     Positioned.fill(
                       child: AbsorbPointer(
                         child: Container(
-                          color: AppColors.background.withValues(alpha: 0.35),
+                          color: AppColors.appBackground(
+                            context,
+                          ).withValues(alpha: 0.70),
                           child: const Center(
                             child: CircularProgressIndicator(),
                           ),
@@ -521,8 +523,8 @@ class _TimelineSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: LayoutBuilder(
@@ -563,8 +565,8 @@ class _DetailsSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -615,7 +617,12 @@ class _TimelineItem extends StatelessWidget {
                 ),
               ),
               if (!isLast)
-                Expanded(child: Container(width: 2, color: AppColors.border)),
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: AppColors.borderColor(context),
+                  ),
+                ),
             ],
           ),
           const SizedBox(width: AppSpacing.md),
