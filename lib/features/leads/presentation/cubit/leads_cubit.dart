@@ -748,7 +748,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     final assignedTo = assignedToFilter;
     final followUp = followUpFilter;
 
-    return leads.where((lead) {
+    final filtered = leads.where((lead) {
       final matchesQuery =
           query.isEmpty ||
           lead.fullName.toLowerCase().contains(query) ||
@@ -768,6 +768,9 @@ class LeadsCubit extends Cubit<LeadsState> {
           matchesAssignee &&
           matchesFollowUp;
     }).toList();
+
+    filtered.sort(_compareByFollowUpUrgency);
+    return filtered;
   }
 
   @override
@@ -800,6 +803,58 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
     LeadFollowUpFilter.upcoming => followUpOnly.isAfter(todayOnly),
     LeadFollowUpFilter.notScheduled => false,
   };
+}
+
+int _compareByFollowUpUrgency(Lead a, Lead b) {
+  final rankComparison = _followUpUrgencyRank(
+    a,
+  ).compareTo(_followUpUrgencyRank(b));
+  if (rankComparison != 0) {
+    return rankComparison;
+  }
+
+  final rank = _followUpUrgencyRank(a);
+  final aNext = a.nextFollowUpAt;
+  final bNext = b.nextFollowUpAt;
+  if (rank == 3 && aNext != null && bNext != null) {
+    final aDate = _dateOnly(aNext.toLocal());
+    final bDate = _dateOnly(bNext.toLocal());
+    final dateComparison = aDate.compareTo(bDate);
+    if (dateComparison != 0) {
+      return dateComparison;
+    }
+  }
+
+  return b.updatedAt.compareTo(a.updatedAt);
+}
+
+int _followUpUrgencyRank(Lead lead) {
+  final today = _dateOnly(DateTime.now());
+  final nextFollowUpAt = lead.nextFollowUpAt;
+  if (nextFollowUpAt != null) {
+    final followUpDate = _dateOnly(nextFollowUpAt.toLocal());
+    if (followUpDate.isBefore(today)) {
+      return 0;
+    }
+    if (followUpDate == today) {
+      return 2;
+    }
+    return 3;
+  }
+
+  final lastContactAt = lead.lastContactAt;
+  if (lastContactAt != null) {
+    final staleBefore = today.subtract(const Duration(days: 7));
+    if (_dateOnly(lastContactAt.toLocal()).isBefore(staleBefore)) {
+      return 1;
+    }
+  }
+
+  return 4;
+}
+
+DateTime _dateOnly(DateTime value) {
+  return DateTime(value.year, value.month, value.day);
 }
 
 String _timelineDateValue(DateTime? value) {
