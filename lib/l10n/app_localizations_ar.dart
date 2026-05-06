@@ -632,6 +632,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get allFollowUps => 'كل المتابعات';
 
   @override
+  String get needsAttention => 'يحتاج اهتمام';
+
+  @override
+  String get staleLead => 'عميل خامد';
+
+  @override
+  String get markContactedToday => 'تسجيل التواصل اليوم';
+
+  @override
+  String get scheduleFollowUp => 'جدولة متابعة';
+
+  @override
   String get duplicateLeadFound =>
       'يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.';
 }

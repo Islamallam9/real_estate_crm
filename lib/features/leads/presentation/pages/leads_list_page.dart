@@ -55,6 +55,11 @@ class LeadsListPage extends StatelessWidget {
           return LeadsScope(
             child: _LeadsListContent(
               companyId: companyId,
+              uid: authState.user?.uid ?? '',
+              actorName:
+                  authState.userProfile?.fullName ??
+                  authState.user?.fullName ??
+                  localizations.unknownUser,
               canCreate: _can(authState, AppPermission.createLead),
               canEdit: _can(authState, AppPermission.editLead),
               roleName:
@@ -71,12 +76,16 @@ class LeadsListPage extends StatelessWidget {
 class _LeadsListContent extends StatefulWidget {
   const _LeadsListContent({
     required this.companyId,
+    required this.uid,
+    required this.actorName,
     required this.canCreate,
     required this.canEdit,
     required this.roleName,
   });
 
   final String companyId;
+  final String uid;
+  final String actorName;
   final bool canCreate;
   final bool canEdit;
   final String roleName;
@@ -167,6 +176,8 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                           users: users,
                           roleName: widget.roleName,
                           canEdit: widget.canEdit,
+                          uid: widget.uid,
+                          actorName: widget.actorName,
                         ),
                       ),
                     ],
@@ -227,7 +238,7 @@ class _LeadFilters extends StatelessWidget {
                   items: _leadFilterOptions(LeadStatus.values),
                   itemLabelBuilder: (option) => option.isAll
                       ? localizations.allStatuses
-                      : _statusLabel(localizations, option.value!),
+                      : _statusLabel(localizations, option.value),
                   onChanged: (option) {
                     context.read<LeadsCubit>().setStatusFilter(option.value);
                   },
@@ -238,7 +249,7 @@ class _LeadFilters extends StatelessWidget {
                   items: _leadFilterOptions(LeadSource.values),
                   itemLabelBuilder: (option) => option.isAll
                       ? localizations.allSources
-                      : _sourceLabel(localizations, option.value!),
+                      : _sourceLabel(localizations, option.value),
                   onChanged: (option) {
                     context.read<LeadsCubit>().setSourceFilter(option.value);
                   },
@@ -249,7 +260,7 @@ class _LeadFilters extends StatelessWidget {
                   items: _leadFilterOptions(LeadPriority.values),
                   itemLabelBuilder: (option) => option.isAll
                       ? localizations.allPriorities
-                      : _priorityLabel(localizations, option.value!),
+                      : _priorityLabel(localizations, option.value),
                   onChanged: (option) {
                     context.read<LeadsCubit>().setPriorityFilter(option.value);
                   },
@@ -260,7 +271,7 @@ class _LeadFilters extends StatelessWidget {
                   items: _leadFilterOptions(LeadFollowUpFilter.values),
                   itemLabelBuilder: (option) => option.isAll
                       ? localizations.allFollowUps
-                      : _followUpFilterLabel(localizations, option.value!),
+                      : _followUpFilterLabel(localizations, option.value),
                   onChanged: (option) {
                     context.read<LeadsCubit>().setFollowUpFilter(option.value);
                   },
@@ -278,7 +289,7 @@ class _LeadFilters extends StatelessWidget {
                             localizations,
                             users,
                             state.leads,
-                            option.value!,
+                            option.value,
                           ),
                     onChanged: (option) {
                       context.read<LeadsCubit>().setAssignedToFilter(
@@ -443,8 +454,11 @@ String _userNameForFilter(
   AppLocalizations localizations,
   List<UserProfile> users,
   List<Lead> leads,
-  String uid,
+  String? uid,
 ) {
+  if (uid == null || uid.isEmpty) {
+    return localizations.unassigned;
+  }
   for (final user in users) {
     if (user.uid == uid) {
       return user.fullName;
@@ -506,7 +520,7 @@ void _showLeadFiltersSheet(
                     items: _leadFilterOptions(LeadStatus.values),
                     itemLabelBuilder: (item) => item.isAll
                         ? localizations.allStatuses
-                        : _statusLabel(localizations, item.value!),
+                        : _statusLabel(localizations, item.value),
                     onChanged: (option) {
                       setSheetState(() => status = option.value);
                     },
@@ -518,7 +532,7 @@ void _showLeadFiltersSheet(
                     items: _leadFilterOptions(LeadSource.values),
                     itemLabelBuilder: (item) => item.isAll
                         ? localizations.allSources
-                        : _sourceLabel(localizations, item.value!),
+                        : _sourceLabel(localizations, item.value),
                     onChanged: (option) {
                       setSheetState(() => source = option.value);
                     },
@@ -530,7 +544,7 @@ void _showLeadFiltersSheet(
                     items: _leadFilterOptions(LeadPriority.values),
                     itemLabelBuilder: (item) => item.isAll
                         ? localizations.allPriorities
-                        : _priorityLabel(localizations, item.value!),
+                        : _priorityLabel(localizations, item.value),
                     onChanged: (option) {
                       setSheetState(() => priority = option.value);
                     },
@@ -547,7 +561,7 @@ void _showLeadFiltersSheet(
                               localizations,
                               users,
                               state.leads,
-                              item.value!,
+                              item.value,
                             ),
                       onChanged: (option) {
                         setSheetState(() => assignee = option.value);
@@ -561,7 +575,7 @@ void _showLeadFiltersSheet(
                     items: _leadFilterOptions(LeadFollowUpFilter.values),
                     itemLabelBuilder: (item) => item.isAll
                         ? localizations.allFollowUps
-                        : _followUpFilterLabel(localizations, item.value!),
+                        : _followUpFilterLabel(localizations, item.value),
                     onChanged: (option) {
                       setSheetState(() => followUp = option.value);
                     },
@@ -617,6 +631,8 @@ class _LeadsBody extends StatelessWidget {
     required this.users,
     required this.roleName,
     required this.canEdit,
+    required this.uid,
+    required this.actorName,
   });
 
   final LeadsState state;
@@ -625,6 +641,8 @@ class _LeadsBody extends StatelessWidget {
   final List<UserProfile> users;
   final String roleName;
   final bool canEdit;
+  final String uid;
+  final String actorName;
 
   @override
   Widget build(BuildContext context) {
@@ -664,17 +682,20 @@ class _LeadsBody extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, index) {
               final lead = state.filteredLeads[index];
-              return _LeadCard(lead: lead, users: users);
+              return _LeadCard(lead: lead, users: users, position: index + 1);
             },
           );
         }
         return _LeadsWebWorkspace(
           leads: state.filteredLeads,
-          allLeads: state.leads,
           users: users,
           showAssignee: roleName == 'admin' || roleName == 'manager',
+          companyId: companyId,
           canEdit: canEdit,
+          uid: uid,
+          actorName: actorName,
           isRefreshing: state.status == LeadsStatus.loading,
+          isSaving: state.status == LeadsStatus.saving,
         );
       },
     );
@@ -684,19 +705,25 @@ class _LeadsBody extends StatelessWidget {
 class _LeadsWebWorkspace extends StatefulWidget {
   const _LeadsWebWorkspace({
     required this.leads,
-    required this.allLeads,
     required this.users,
     required this.showAssignee,
+    required this.companyId,
     required this.canEdit,
+    required this.uid,
+    required this.actorName,
     required this.isRefreshing,
+    required this.isSaving,
   });
 
   final List<Lead> leads;
-  final List<Lead> allLeads;
   final List<UserProfile> users;
   final bool showAssignee;
+  final String companyId;
   final bool canEdit;
+  final String uid;
+  final String actorName;
   final bool isRefreshing;
+  final bool isSaving;
 
   @override
   State<_LeadsWebWorkspace> createState() => _LeadsWebWorkspaceState();
@@ -714,50 +741,64 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
         Column(
           children: [
             _LeadSummaryCards(
-              leads: widget.allLeads,
+              leads: widget.leads,
               showAssignee: widget.showAssignee,
             ),
             const SizedBox(height: AppSpacing.md),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 68,
-                    child: widget.leads.isEmpty
-                        ? AppEmptyState(
-                            title: AppLocalizations.of(context)!.noLeads,
-                            message:
-                                AppLocalizations.of(context)!.leadsSubtitle,
-                          )
-                        : _LeadsWebTable(
-                            leads: widget.leads,
-                            users: widget.users,
-                            showAssignee: widget.showAssignee,
-                            selectedLeadId: selectedLead?.id,
-                            onLeadSelected: (lead) {
-                              setState(() => _selectedLeadId = lead.id);
-                            },
-                          ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    flex: 32,
-                    child: _LeadPreviewPanel(
-                      lead: selectedLead,
-                      users: widget.users,
-                      showAssignee: widget.showAssignee,
-                      canEdit: widget.canEdit,
-                    ),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final table = widget.leads.isEmpty
+                      ? AppEmptyState(
+                          title: AppLocalizations.of(context)!.noLeads,
+                          message: AppLocalizations.of(context)!.leadsSubtitle,
+                        )
+                      : _LeadsWebTable(
+                          leads: widget.leads,
+                          users: widget.users,
+                          showAssignee: widget.showAssignee,
+                          selectedLeadId: selectedLead?.id,
+                          onLeadSelected: (lead) {
+                            setState(() => _selectedLeadId = lead.id);
+                          },
+                        );
+                  final preview = _LeadPreviewPanel(
+                    lead: selectedLead,
+                    users: widget.users,
+                    showAssignee: widget.showAssignee,
+                    companyId: widget.companyId,
+                    canEdit: widget.canEdit,
+                    uid: widget.uid,
+                    actorName: widget.actorName,
+                    isSaving: widget.isSaving,
+                  );
+
+                  if (constraints.maxWidth < 1180) {
+                    return Column(
+                      children: [
+                        Expanded(flex: 3, child: table),
+                        const SizedBox(height: AppSpacing.md),
+                        SizedBox(height: 260, child: preview),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(flex: 62, child: table),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(flex: 38, child: preview),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
-        if (widget.isRefreshing)
+        if (widget.isRefreshing || widget.isSaving)
           Positioned.fill(
-            child: IgnorePointer(
+            child: AbsorbPointer(
               child: Container(
                 color: _LeadListColors.of(
                   context,
@@ -889,101 +930,79 @@ class _LeadsWebTable extends StatelessWidget {
         child: ColoredBox(
           color: colors.cardSurface,
           child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-          horizontalMargin: 16,
-          columnSpacing: 22,
-          headingRowHeight: 44,
-          dataRowMinHeight: 46,
-          dataRowMaxHeight: 54,
-          columns: [
-            DataColumn(label: Text(l.leadName)),
-            DataColumn(label: Text(l.phone)),
-            DataColumn(label: Text(l.status)),
-            DataColumn(label: Text(l.priority)),
-            DataColumn(label: Text(l.source)),
-            if (showAssignee) DataColumn(label: Text(l.assignedToLabel)),
-            DataColumn(label: Text(l.nextFollowUp)),
-            DataColumn(label: Text(l.updated)),
-            DataColumn(label: Text(l.details)),
-          ],
-          rows: leads.map((lead) {
-            final selected = lead.id == selectedLeadId;
-            final assignee = _resolvedAssigneeName(
-              l,
-              lead.assignedTo,
-              lead.assignedToName,
-              users,
-            );
-            return DataRow(
-              selected: selected,
-              color: WidgetStateProperty.resolveWith((states) {
-                if (selected || states.contains(WidgetState.hovered)) {
-                  return _LeadListColors.of(context).selectedSurface;
-                }
-                return null;
-              }),
-              cells: [
-                DataCell(
-                  Text(
-                    lead.fullName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  Text(
-                    lead.phone,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  AppStatusBadge(label: _statusLabel(l, lead.status)),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  AppStatusBadge(label: _priorityLabel(l, lead.priority)),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  Text(
-                    _sourceDisplayLabel(l, lead),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => onLeadSelected(lead),
-                ),
+            child: DataTable(
+              horizontalMargin: 8,
+              columnSpacing: 10,
+              headingRowHeight: 44,
+              dataRowMinHeight: 46,
+              dataRowMaxHeight: 68,
+              columns: [
+                const DataColumn(label: _TableText('#', maxWidth: 28)),
+                DataColumn(label: _TableText(l.leadName, maxWidth: 180)),
+                DataColumn(label: _TableText(l.status, maxWidth: 84)),
+                DataColumn(label: _TableText(l.priority, maxWidth: 76)),
+                DataColumn(label: _TableText(l.source, maxWidth: 110)),
                 if (showAssignee)
-                  DataCell(
-                    Text(
-                      assignee,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => onLeadSelected(lead),
-                  ),
-                DataCell(
-                  _FollowUpCell(lead: lead),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  Text(_shortDate(lead.updatedAt)),
-                  onTap: () => onLeadSelected(lead),
-                ),
-                DataCell(
-                  IconButton(
-                    tooltip: l.details,
-                    onPressed: () =>
-                        context.go(RouteNames.leadDetails(lead.id)),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                  ),
-                ),
+                  DataColumn(label: _TableText(l.assignedToLabel, maxWidth: 120)),
+                DataColumn(label: _TableText(l.nextFollowUp, maxWidth: 128)),
               ],
-            );
-          }).toList(),
+              rows: leads.asMap().entries.map((entry) {
+                final index = entry.key;
+                final lead = entry.value;
+                final selected = lead.id == selectedLeadId;
+                final assignee = _resolvedAssigneeName(
+                  l,
+                  lead.assignedTo,
+                  lead.assignedToName,
+                  users,
+                );
+                return DataRow(
+                  selected: selected,
+                  color: WidgetStateProperty.resolveWith((states) {
+                    if (selected || states.contains(WidgetState.hovered)) {
+                      return _LeadListColors.of(context).selectedSurface;
+                    }
+                    return null;
+                  }),
+                  cells: [
+                    DataCell(
+                      _TableText((index + 1).toString(), maxWidth: 28),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                    DataCell(
+                      _LeadNameTableCell(lead: lead),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                    DataCell(
+                      _TableStatusBadge(label: _statusLabel(l, lead.status)),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                    DataCell(
+                      _TableStatusBadge(label: _priorityLabel(l, lead.priority)),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                    DataCell(
+                      _TableText(
+                        _sourceDisplayLabel(l, lead),
+                        maxWidth: 110,
+                      ),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                    if (showAssignee)
+                      DataCell(
+                        _TableText(
+                          assignee,
+                          maxWidth: 120,
+                        ),
+                        onTap: () => onLeadSelected(lead),
+                      ),
+                    DataCell(
+                      _FollowUpCell(lead: lead),
+                      onTap: () => onLeadSelected(lead),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         ),
@@ -1009,18 +1028,34 @@ class _LeadPreviewPanel extends StatelessWidget {
     required this.lead,
     required this.users,
     required this.showAssignee,
+    required this.companyId,
     required this.canEdit,
+    required this.uid,
+    required this.actorName,
+    required this.isSaving,
   });
 
   final Lead? lead;
   final List<UserProfile> users;
   final bool showAssignee;
+  final String companyId;
   final bool canEdit;
+  final String uid;
+  final String actorName;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final selectedLead = lead;
+    final assignee = selectedLead == null
+        ? ''
+        : _resolvedAssigneeName(
+            l,
+            selectedLead.assignedTo,
+            selectedLead.assignedToName,
+            users,
+          );
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1051,6 +1086,17 @@ class _LeadPreviewPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      AppStatusBadge(label: _statusLabel(l, selectedLead.status)),
+                      AppStatusBadge(
+                        label: _priorityLabel(l, selectedLead.priority),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   _LeadPreviewContact(
                     icon: Icons.phone_outlined,
                     value: selectedLead.phone.isEmpty
@@ -1065,17 +1111,6 @@ class _LeadPreviewPanel extends StatelessWidget {
                         : selectedLead.email,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      AppStatusBadge(label: _statusLabel(l, selectedLead.status)),
-                      AppStatusBadge(
-                        label: _priorityLabel(l, selectedLead.priority),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
                   _LeadPreviewField(
                     label: l.source,
                     value: _sourceDisplayLabel(l, selectedLead),
@@ -1083,39 +1118,121 @@ class _LeadPreviewPanel extends StatelessWidget {
                   if (showAssignee)
                     _LeadPreviewField(
                       label: l.assignedToLabel,
-                      value: _resolvedAssigneeName(
-                        l,
-                        selectedLead.assignedTo,
-                        selectedLead.assignedToName,
-                        users,
-                      ),
+                      value: assignee,
                     ),
                   _LeadPreviewField(
-                    label: l.updated,
-                    value: _shortDate(selectedLead.updatedAt),
+                    label: l.nextFollowUp,
+                    value: _followUpDateLabel(l, selectedLead.nextFollowUpAt),
+                  ),
+                  _LeadPreviewField(
+                    label: l.lastContact,
+                    value: _followUpDateLabel(l, selectedLead.lastContactAt),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           AppButton(
             label: l.viewDetails,
             icon: Icons.open_in_new,
+            isExpanded: true,
             onPressed: () => context.go(RouteNames.leadDetails(selectedLead.id)),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: l.editLead,
-            icon: Icons.edit_outlined,
-            variant: AppButtonVariant.secondary,
-            onPressed: canEdit
-                ? () => context.go(RouteNames.leadEdit(selectedLead.id))
-                : null,
-          ),
+          if (canEdit) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _PreviewActionIcon(
+                  tooltip: l.markContactedToday,
+                  icon: Icons.today_outlined,
+                  onPressed: isSaving
+                      ? null
+                      : () => _markContactedToday(context, selectedLead),
+                ),
+                _PreviewActionIcon(
+                  tooltip: l.scheduleFollowUp,
+                  icon: Icons.event_available_outlined,
+                  onPressed: isSaving
+                      ? null
+                      : () => _scheduleFollowUp(context, selectedLead),
+                ),
+                _PreviewActionIcon(
+                  tooltip: l.editLead,
+                  icon: Icons.edit_outlined,
+                  onPressed: () => context.go(RouteNames.leadEdit(selectedLead.id)),
+                ),
+              ],
+            ),
+          ],
         ],
       )
 );
+  }
+
+  void _markContactedToday(BuildContext context, Lead lead) {
+    final now = DateTime.now();
+    context.read<LeadsCubit>().updateLead(
+      companyId: companyId,
+      lead: lead.copyWith(lastContactAt: now, updatedAt: now, updatedBy: uid),
+      actorName: actorName,
+    );
+  }
+
+  Future<void> _scheduleFollowUp(BuildContext context, Lead lead) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final current = lead.nextFollowUpAt;
+    final initialDate = current == null
+        ? today
+        : DateUtils.dateOnly(current.toLocal()).isBefore(today)
+            ? today
+            : DateUtils.dateOnly(current.toLocal());
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: today,
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (pickedDate == null || !context.mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    context.read<LeadsCubit>().updateLead(
+      companyId: companyId,
+      lead: lead.copyWith(
+        nextFollowUpAt: DateUtils.dateOnly(pickedDate),
+        updatedAt: now,
+        updatedBy: uid,
+      ),
+      actorName: actorName,
+    );
+  }
+}
+
+class _PreviewActionIcon extends StatelessWidget {
+  const _PreviewActionIcon({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.outlined(
+        icon: Icon(icon, size: 18),
+        onPressed: onPressed,
+      ),
+    );
   }
 }
 
@@ -1180,10 +1297,15 @@ class _LeadPreviewField extends StatelessWidget {
 }
 
 class _LeadCard extends StatelessWidget {
-  const _LeadCard({required this.lead, required this.users});
+  const _LeadCard({
+    required this.lead,
+    required this.users,
+    required this.position,
+  });
 
   final Lead lead;
   final List<UserProfile> users;
+  final int position;
 
   @override
   Widget build(BuildContext context) {
@@ -1214,6 +1336,14 @@ class _LeadCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                Text(
+                  position.toString(),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(child: _LeadTitle(lead: lead)),
                 AppStatusBadge(label: _statusLabel(localizations, lead.status)),
               ],
@@ -1246,6 +1376,14 @@ class _LeadCard extends StatelessWidget {
                   label: _followUpStatusLabel(localizations, lead),
                   tone: _followUpStatusTone(lead),
                 ),
+                if (_needsStaleLeadAttention(lead))
+                  Tooltip(
+                    message: _staleLeadLabel(localizations, lead),
+                    child: AppStatusBadge(
+                      label: _staleLeadLabel(localizations, lead),
+                      tone: AppStatusTone.warning,
+                    ),
+                  ),
                 _LeadMetaChip(
                   label:
                       '${localizations.updated}: ${_shortDate(lead.updatedAt)}',
@@ -1297,23 +1435,217 @@ class _FollowUpCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    if (lead.nextFollowUpAt == null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TableStatusBadge(
+            label: _followUpStatusLabel(localizations, lead),
+            tone: _followUpStatusTone(lead),
+          ),
+          if (_needsStaleLeadAttention(lead)) ...[
+            const SizedBox(height: 2),
+            _TableStatusBadge(
+              label: _staleLeadLabel(localizations, lead),
+              tone: AppStatusTone.warning,
+            ),
+          ],
+        ],
+      );
+    }
 
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           _followUpDateLabel(localizations, lead.nextFollowUpAt),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(width: AppSpacing.xs),
-        AppStatusBadge(
+        const SizedBox(height: 2),
+        _TableStatusBadge(
           label: _followUpStatusLabel(localizations, lead),
           tone: _followUpStatusTone(lead),
         ),
+        if (_needsStaleLeadAttention(lead)) ...[
+          const SizedBox(height: 2),
+          _TableStatusBadge(
+            label: _staleLeadLabel(localizations, lead),
+            tone: AppStatusTone.warning,
+          ),
+        ],
       ],
     );
   }
+}
+
+class _TableStatusBadge extends StatelessWidget {
+  const _TableStatusBadge({
+    required this.label,
+    this.tone = AppStatusTone.neutral,
+  });
+
+  final String label;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _badgeColorsFor(context, tone);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 104),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.background,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _TableText extends StatelessWidget {
+  const _TableText(this.value, {required this.maxWidth});
+
+  final String value;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+      ),
+    );
+  }
+}
+
+class _LeadNameTableCell extends StatelessWidget {
+  const _LeadNameTableCell({required this.lead});
+
+  final Lead lead;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = lead.phone.isNotEmpty ? lead.phone : lead.email;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 180),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            lead.fullName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
+          if (secondary.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              secondary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+_TableBadgeColors _badgeColorsFor(BuildContext context, AppStatusTone tone) {
+  final scheme = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  if (isDark) {
+    return switch (tone) {
+      AppStatusTone.success => const _TableBadgeColors(
+        background: Color(0xFF123A28),
+        foreground: AppColors.darkSuccess,
+        border: Color(0xFF1F6B42),
+      ),
+      AppStatusTone.warning => const _TableBadgeColors(
+        background: Color(0xFF3B2A10),
+        foreground: AppColors.darkWarning,
+        border: Color(0xFF78570F),
+      ),
+      AppStatusTone.error => const _TableBadgeColors(
+        background: Color(0xFF3B1D1D),
+        foreground: AppColors.darkError,
+        border: Color(0xFF7F2D2D),
+      ),
+      AppStatusTone.info => const _TableBadgeColors(
+        background: Color(0xFF172D4D),
+        foreground: AppColors.darkInfo,
+        border: Color(0xFF315A8E),
+      ),
+      AppStatusTone.neutral => const _TableBadgeColors(
+        background: AppColors.darkSurfaceAlt,
+        foreground: AppColors.darkTextSecondary,
+        border: AppColors.darkBorder,
+      ),
+    };
+  }
+
+  return switch (tone) {
+    AppStatusTone.success => const _TableBadgeColors(
+      background: Color(0xFFEAF7EF),
+      foreground: Color(0xFF15803D),
+      border: Color(0xFFC8EAD3),
+    ),
+    AppStatusTone.warning => const _TableBadgeColors(
+      background: Color(0xFFFFF7E6),
+      foreground: Color(0xFF9A5B00),
+      border: Color(0xFFF2D49B),
+    ),
+    AppStatusTone.error => const _TableBadgeColors(
+      background: Color(0xFFFFEDEA),
+      foreground: Color(0xFFB42318),
+      border: Color(0xFFF4C7C1),
+    ),
+    AppStatusTone.info => const _TableBadgeColors(
+      background: Color(0xFFEFF6FF),
+      foreground: Color(0xFF2563EB),
+      border: Color(0xFFC8DDFF),
+    ),
+    AppStatusTone.neutral => _TableBadgeColors(
+      background: scheme.surface,
+      foreground: scheme.onSurfaceVariant,
+      border: scheme.outlineVariant,
+    ),
+  };
+}
+
+class _TableBadgeColors {
+  const _TableBadgeColors({
+    required this.background,
+    required this.foreground,
+    required this.border,
+  });
+
+  final Color background;
+  final Color foreground;
+  final Color border;
 }
 
 class _LeadTitle extends StatelessWidget {
@@ -1381,7 +1713,10 @@ class _LeadListColors {
   }
 }
 
-String _statusLabel(AppLocalizations localizations, LeadStatus status) {
+String _statusLabel(AppLocalizations localizations, LeadStatus? status) {
+  if (status == null) {
+    return localizations.notAvailable;
+  }
   switch (status) {
     case LeadStatus.newLead:
       return localizations.newLead;
@@ -1400,7 +1735,10 @@ String _statusLabel(AppLocalizations localizations, LeadStatus status) {
   }
 }
 
-String _sourceLabel(AppLocalizations localizations, LeadSource source) {
+String _sourceLabel(AppLocalizations localizations, LeadSource? source) {
+  if (source == null) {
+    return localizations.notAvailable;
+  }
   switch (source) {
     case LeadSource.facebook:
       return localizations.facebook;
@@ -1428,7 +1766,10 @@ String _sourceDisplayLabel(AppLocalizations localizations, Lead lead) {
   return '$sourceLabel - ${lead.sourceDetails.trim()}';
 }
 
-String _priorityLabel(AppLocalizations localizations, LeadPriority priority) {
+String _priorityLabel(AppLocalizations localizations, LeadPriority? priority) {
+  if (priority == null) {
+    return localizations.notAvailable;
+  }
   switch (priority) {
     case LeadPriority.low:
       return localizations.low;
@@ -1488,10 +1829,35 @@ AppStatusTone _followUpStatusTone(Lead lead) {
   return AppStatusTone.info;
 }
 
+bool _needsStaleLeadAttention(Lead lead) {
+  final nextFollowUpAt = lead.nextFollowUpAt;
+  final today = DateUtils.dateOnly(DateTime.now());
+  if (nextFollowUpAt != null) {
+    return DateUtils.dateOnly(nextFollowUpAt.toLocal()).isBefore(today);
+  }
+
+  final lastContactAt = lead.lastContactAt;
+  if (lastContactAt == null) {
+    return false;
+  }
+
+  final staleBefore = today.subtract(const Duration(days: 7));
+  return DateUtils.dateOnly(lastContactAt.toLocal()).isBefore(staleBefore);
+}
+
+String _staleLeadLabel(AppLocalizations localizations, Lead lead) {
+  return lead.nextFollowUpAt == null
+      ? localizations.staleLead
+      : localizations.needsAttention;
+}
+
 String _followUpFilterLabel(
   AppLocalizations localizations,
-  LeadFollowUpFilter filter,
+  LeadFollowUpFilter? filter,
 ) {
+  if (filter == null) {
+    return localizations.allFollowUps;
+  }
   return switch (filter) {
     LeadFollowUpFilter.overdue => localizations.overdue,
     LeadFollowUpFilter.dueToday => localizations.dueToday,

@@ -1274,6 +1274,30 @@ abstract class AppLocalizations {
   /// **'All follow-ups'**
   String get allFollowUps;
 
+  /// No description provided for @needsAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get needsAttention;
+
+  /// No description provided for @staleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Stale lead'**
+  String get staleLead;
+
+  /// No description provided for @markContactedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark contacted today'**
+  String get markContactedToday;
+
+  /// No description provided for @scheduleFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule follow-up'**
+  String get scheduleFollowUp;
+
   /// No description provided for @duplicateLeadFound.
   ///
   /// In en, this message translates to:

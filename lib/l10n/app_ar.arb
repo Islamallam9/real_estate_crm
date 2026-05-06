@@ -261,5 +261,9 @@
   "upcoming": "قادمة",
   "notScheduled": "غير مجدولة",
   "allFollowUps": "كل المتابعات",
+  "needsAttention": "يحتاج اهتمام",
+  "staleLead": "عميل خامد",
+  "markContactedToday": "تسجيل التواصل اليوم",
+  "scheduleFollowUp": "جدولة متابعة",
   "duplicateLeadFound": "يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني."
 }

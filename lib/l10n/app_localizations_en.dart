@@ -629,6 +629,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allFollowUps => 'All follow-ups';
 
   @override
+  String get needsAttention => 'Needs attention';
+
+  @override
+  String get staleLead => 'Stale lead';
+
+  @override
+  String get markContactedToday => 'Mark contacted today';
+
+  @override
+  String get scheduleFollowUp => 'Schedule follow-up';
+
+  @override
   String get duplicateLeadFound =>
       'A lead with this phone or email already exists.';
 }

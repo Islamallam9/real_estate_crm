@@ -338,6 +338,34 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
               label: l.editLead,
               onPressed: () => context.go(RouteNames.leadEdit(widget.lead.id)),
             ),
+          if (widget.canEdit)
+            BlocBuilder<LeadsCubit, LeadsState>(
+              buildWhen: (previous, current) =>
+                  previous.status != current.status,
+              builder: (context, state) {
+                final isSaving = state.status == LeadsStatus.saving;
+                return Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    AppButton(
+                      label: l.markContactedToday,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: isSaving
+                          ? null
+                          : () => _markContactedToday(context),
+                    ),
+                    AppButton(
+                      label: l.scheduleFollowUp,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: isSaving
+                          ? null
+                          : () => _scheduleFollowUp(context),
+                    ),
+                  ],
+                );
+              },
+            ),
           if (widget.canArchive)
             AppButton(label: l.archiveLead, onPressed: () => _archive(context)),
         ],
@@ -477,6 +505,49 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
     if (context.mounted && cubit.state.status == LeadsStatus.saved) {
       context.go(RouteNames.leads);
     }
+  }
+
+  void _markContactedToday(BuildContext context) {
+    final now = DateTime.now();
+    context.read<LeadsCubit>().updateLead(
+      companyId: widget.companyId,
+      lead: widget.lead.copyWith(
+        lastContactAt: now,
+        updatedAt: now,
+        updatedBy: widget.uid,
+      ),
+      actorName: widget.actorName,
+    );
+  }
+
+  Future<void> _scheduleFollowUp(BuildContext context) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final current = widget.lead.nextFollowUpAt;
+    final initialDate = current == null
+        ? today
+        : DateUtils.dateOnly(current.toLocal()).isBefore(today)
+            ? today
+            : DateUtils.dateOnly(current.toLocal());
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: today,
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (pickedDate == null || !context.mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    context.read<LeadsCubit>().updateLead(
+      companyId: widget.companyId,
+      lead: widget.lead.copyWith(
+        nextFollowUpAt: DateUtils.dateOnly(pickedDate),
+        updatedAt: now,
+        updatedBy: widget.uid,
+      ),
+      actorName: widget.actorName,
+    );
   }
 }
 

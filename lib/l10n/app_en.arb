@@ -258,5 +258,9 @@
   "upcoming": "Upcoming",
   "notScheduled": "Not scheduled",
   "allFollowUps": "All follow-ups",
+  "needsAttention": "Needs attention",
+  "staleLead": "Stale lead",
+  "markContactedToday": "Mark contacted today",
+  "scheduleFollowUp": "Schedule follow-up",
   "duplicateLeadFound": "A lead with this phone or email already exists."
 }
