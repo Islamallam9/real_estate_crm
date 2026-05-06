@@ -43,6 +43,8 @@ class Lead extends Equatable {
     required this.updatedAt,
     required this.createdBy,
     required this.updatedBy,
+    this.lastContactAt,
+    this.nextFollowUpAt,
     this.isArchived = false,
     this.archivedAt,
     this.archivedBy,
@@ -67,6 +69,8 @@ class Lead extends Equatable {
   final DateTime updatedAt;
   final String createdBy;
   final String updatedBy;
+  final DateTime? lastContactAt;
+  final DateTime? nextFollowUpAt;
   final bool isArchived;
   final DateTime? archivedAt;
   final String? archivedBy;
@@ -91,6 +95,8 @@ class Lead extends Equatable {
     DateTime? updatedAt,
     String? createdBy,
     String? updatedBy,
+    DateTime? lastContactAt,
+    DateTime? nextFollowUpAt,
     bool? isArchived,
     DateTime? archivedAt,
     String? archivedBy,
@@ -116,6 +122,8 @@ class Lead extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      lastContactAt: lastContactAt ?? this.lastContactAt,
+      nextFollowUpAt: nextFollowUpAt ?? this.nextFollowUpAt,
       isArchived: isArchived ?? this.isArchived,
       archivedAt: archivedAt ?? this.archivedAt,
       archivedBy: archivedBy ?? this.archivedBy,
@@ -143,6 +151,8 @@ class Lead extends Equatable {
     updatedAt,
     createdBy,
     updatedBy,
+    lastContactAt,
+    nextFollowUpAt,
     isArchived,
     archivedAt,
     archivedBy,

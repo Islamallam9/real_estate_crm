@@ -23,6 +23,8 @@ class LeadModel extends Lead {
     required super.updatedAt,
     required super.createdBy,
     required super.updatedBy,
+    super.lastContactAt,
+    super.nextFollowUpAt,
     super.isArchived,
     super.archivedAt,
     super.archivedBy,
@@ -49,6 +51,8 @@ class LeadModel extends Lead {
       updatedAt: lead.updatedAt,
       createdBy: lead.createdBy,
       updatedBy: lead.updatedBy,
+      lastContactAt: lead.lastContactAt,
+      nextFollowUpAt: lead.nextFollowUpAt,
       isArchived: lead.isArchived,
       archivedAt: lead.archivedAt,
       archivedBy: lead.archivedBy,
@@ -83,6 +87,8 @@ class LeadModel extends Lead {
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       createdBy: data['createdBy'] as String? ?? '',
       updatedBy: data['updatedBy'] as String? ?? '',
+      lastContactAt: _nullableDateTimeFromValue(data['lastContactAt']),
+      nextFollowUpAt: _nullableDateTimeFromValue(data['nextFollowUpAt']),
       isArchived: data['isArchived'] as bool? ?? false,
       archivedAt: _nullableDateTimeFromValue(data['archivedAt']),
       archivedBy: data['archivedBy'] as String?,
@@ -110,6 +116,12 @@ class LeadModel extends Lead {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'createdBy': createdBy,
       'updatedBy': updatedBy,
+      'lastContactAt': lastContactAt == null
+          ? null
+          : Timestamp.fromDate(lastContactAt!),
+      'nextFollowUpAt': nextFollowUpAt == null
+          ? null
+          : Timestamp.fromDate(nextFollowUpAt!),
       'isArchived': isArchived,
       'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
       'archivedBy': archivedBy,
