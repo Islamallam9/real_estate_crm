@@ -466,6 +466,8 @@ void _showMobileMoreSheet(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
     useSafeArea: true,
     showDragHandle: false,
     backgroundColor: Colors.transparent,
@@ -517,11 +519,7 @@ void _showMobileMoreSheet(BuildContext context) {
                   label: localizations.reports,
                   onTap: () => Navigator.of(sheetContext).pop(),
                 ),
-                _MoreSheetTile(
-                  icon: Icons.notifications_none,
-                  label: localizations.notifications,
-                  onTap: () => Navigator.of(sheetContext).pop(),
-                ),
+
                 const Divider(height: AppSpacing.lg),
               _LanguageSheetActions(localeCubit: localeCubit),
                 const SizedBox(height: AppSpacing.sm),
@@ -892,27 +890,44 @@ class _ThemeSheetAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final colors = _CrmShellColors.of(context);
 
     return BlocBuilder<ThemeCubit, ThemeMode>(
       bloc: themeCubit,
       builder: (context, themeMode) {
         final isDark = themeMode == ThemeMode.dark;
 
-        return SwitchListTile(
-          value: isDark,
-          onChanged: (_) => themeCubit.toggle(),
-          secondary: Icon(
-            isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-          ),
-          title: Text(localizations.theme),
-          subtitle: Text(isDark ? localizations.darkMode : localizations.lightMode),
+        return ListTile(
           contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+            color: colors.textPrimary,
+          ),
+          title: Text(
+            localizations.theme,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            isDark ? localizations.darkMode : localizations.lightMode,
+            style: TextStyle(color: colors.textSecondary),
+          ),
+          trailing: Switch(
+            value: isDark,
+            activeThumbColor: colors.primary,
+            activeTrackColor: colors.primary.withValues(alpha: 0.35),
+            inactiveThumbColor: colors.textSecondary,
+            inactiveTrackColor: colors.border,
+            onChanged: (_) => themeCubit.toggle(),
+          ),
+          onTap: themeCubit.toggle,
         );
       },
     );
   }
 }
-
 class _ThemeToggleButton extends StatelessWidget {
   const _ThemeToggleButton();
 
