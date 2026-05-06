@@ -470,9 +470,9 @@ void _showLeadFiltersSheet(
 
           return SafeArea(
             child: Padding(
-              padding: EdgeInsets.only(
-                left: AppSpacing.md,
-                right: AppSpacing.md,
+              padding: EdgeInsetsDirectional.only(
+                start: AppSpacing.md,
+                end: AppSpacing.md,
                 bottom:
                     MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
               ),

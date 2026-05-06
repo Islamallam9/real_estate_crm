@@ -6,6 +6,7 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -74,7 +75,7 @@ class _CreateLeadView extends StatelessWidget {
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(localizeErrorMessage(l, state.message)),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                   return;
