@@ -32,7 +32,10 @@ class LeadsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,
@@ -113,7 +116,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return BlocBuilder<LeadsCubit, LeadsState>(
       builder: (context, state) {
@@ -200,7 +206,10 @@ class _LeadFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return BlocBuilder<LeadsCubit, LeadsState>(
       buildWhen: (previous, current) {
@@ -313,7 +322,10 @@ class _LeadSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return TextField(
       decoration: InputDecoration(
@@ -369,7 +381,10 @@ class _MobileLeadFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,7 +508,10 @@ void _showLeadFiltersSheet(
 
       return StatefulBuilder(
         builder: (context, setSheetState) {
-          final localizations = AppLocalizations.of(context)!;
+          final localizations = AppLocalizations.of(context);
+          if (localizations == null) {
+            return const SizedBox.shrink();
+          }
 
           return SafeArea(
             child: Padding(
@@ -646,7 +664,10 @@ class _LeadsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     if ((state.status == LeadsStatus.loading ||
             state.status == LeadsStatus.initial) &&
@@ -735,6 +756,10 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
   @override
   Widget build(BuildContext context) {
     final selectedLead = _selectedLead(widget.leads, _selectedLeadId);
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
 
     return Stack(
       children: [
@@ -750,8 +775,8 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                 builder: (context, constraints) {
                   final table = widget.leads.isEmpty
                       ? AppEmptyState(
-                          title: AppLocalizations.of(context)!.noLeads,
-                          message: AppLocalizations.of(context)!.leadsSubtitle,
+                          title: localizations.noLeads,
+                          message: localizations.leadsSubtitle,
                         )
                       : _LeadsWebTable(
                           leads: widget.leads,
@@ -773,22 +798,19 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                     isSaving: widget.isSaving,
                   );
 
-                  if (constraints.maxWidth < 1180) {
-                    return Column(
-                      children: [
-                        Expanded(flex: 3, child: table),
-                        const SizedBox(height: AppSpacing.md),
-                        SizedBox(height: 260, child: preview),
-                      ],
-                    );
+                  if (constraints.maxWidth < 1200) {
+                    return table;
                   }
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(flex: 62, child: table),
+                      Expanded(child: table),
                       const SizedBox(width: AppSpacing.md),
-                      Expanded(flex: 38, child: preview),
+                      SizedBox(
+                        width: 360,
+                        child: preview,
+                      ),
                     ],
                   );
                 },
@@ -826,7 +848,10 @@ class _LeadSummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
+    if (l == null) {
+      return const SizedBox.shrink();
+    }
     final newLeads = leads.where((lead) => lead.status == LeadStatus.newLead);
     final activeLeads = leads.where((lead) {
       return lead.status == LeadStatus.contacted ||
@@ -913,7 +938,10 @@ class _LeadsWebTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
+    if (l == null) {
+      return const SizedBox.shrink();
+    }
     final colors = _LeadListColors.of(context);
 
     return Container(
@@ -957,10 +985,10 @@ class _LeadsWebTable extends StatelessWidget {
                   users,
                 );
                 return DataRow(
-                  selected: selected,
+                  selected: false,
                   color: WidgetStateProperty.resolveWith((states) {
                     if (selected || states.contains(WidgetState.hovered)) {
-                      return _LeadListColors.of(context).selectedSurface;
+                      return colors.selectedSurface;
                     }
                     return null;
                   }),
@@ -974,11 +1002,15 @@ class _LeadsWebTable extends StatelessWidget {
                       onTap: () => onLeadSelected(lead),
                     ),
                     DataCell(
-                      _TableStatusBadge(label: _statusLabel(l, lead.status)),
+                      _TableStatusBadge(
+                        label: _statusLabel(l, lead.status),
+                      ),
                       onTap: () => onLeadSelected(lead),
                     ),
                     DataCell(
-                      _TableStatusBadge(label: _priorityLabel(l, lead.priority)),
+                      _TableStatusBadge(
+                        label: _priorityLabel(l, lead.priority),
+                      ),
                       onTap: () => onLeadSelected(lead),
                     ),
                     DataCell(
@@ -1046,7 +1078,10 @@ class _LeadPreviewPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
+    if (l == null) {
+      return const SizedBox.shrink();
+    }
     final selectedLead = lead;
     final assignee = selectedLead == null
         ? ''
@@ -1309,7 +1344,10 @@ class _LeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
     final contact = lead.phone.isNotEmpty
         ? lead.phone
         : lead.email.isNotEmpty
@@ -1434,7 +1472,10 @@ class _FollowUpCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return const SizedBox.shrink();
+    }
     if (lead.nextFollowUpAt == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
