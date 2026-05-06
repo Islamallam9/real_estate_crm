@@ -26,6 +26,9 @@
   "crmOverview": "CRM overview",
   "dashboardPlaceholderDescription": "Key sales, leads, follow-ups, and property activity will appear here.",
   "totalLeads": "Total leads",
+  "newLeads": "New leads",
+  "activeLeads": "Contacted / active leads",
+  "unassignedLeads": "Unassigned leads",
   "followUpsDue": "Follow-ups due",
   "openDeals": "Open deals",
   "availableProperties": "Available properties",
@@ -172,6 +175,14 @@
       "user": {}
     }
   },
+  "leadReassignedFromToBy": "Lead reassigned from {fromUser} to {toUser} by {actor}",
+  "@leadReassignedFromToBy": {
+    "placeholders": {
+      "fromUser": {},
+      "toUser": {},
+      "actor": {}
+    }
+  },
   "leadArchivedBy": "Lead archived by {user}",
   "@leadArchivedBy": {
     "placeholders": {
@@ -198,6 +209,12 @@
     }
   },
   "assignedToLabel": "Assigned to",
+  "leadAssignedTo": "Assigned to: {name}",
+  "@leadAssignedTo": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "fullNameUpdated": "Full name",
   "phoneUpdated": "Phone",
   "emailUpdated": "Email",
@@ -206,5 +223,25 @@
   "priorityUpdated": "Priority",
   "budgetUpdated": "Budget",
   "preferredLocationUpdated": "Preferred location",
-  "preferredPropertyTypeUpdated": "Preferred property type"
+  "preferredPropertyTypeUpdated": "Preferred property type",
+  "more": "More",
+  "filters": "Filters",
+  "applyFilters": "Apply filters",
+  "clearFilters": "Clear filters",
+  "updated": "Updated",
+  "details": "Details",
+  "viewDetails": "View details",
+  "selectLeadPreview": "Select a lead",
+  "selectLeadPreviewMessage": "Choose a lead from the list to preview contact, status, and next actions.",
+  "somethingWentWrong": "Something went wrong",
+  "tryAgain": "Try again",
+  "unableToConnect": "Unable to connect. Check your internet connection and try again.",
+  "leadUpdateFailed": "Unable to update lead. Please try again.",
+  "noData": "No data available.",
+  "leadCreatedSuccessfully": "Lead created successfully.",
+  "leadUpdatedSuccessfully": "Lead updated successfully.",
+  "leadArchivedSuccessfully": "Lead archived successfully.",
+  "leadStatusUpdatedSuccessfully": "Lead status updated successfully.",
+  "leadAssignedSuccessfully": "Lead assigned successfully.",
+  "noteAddedSuccessfully": "Note added successfully."
 }

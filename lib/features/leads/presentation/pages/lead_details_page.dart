@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
@@ -47,6 +48,18 @@ class _LeadDetailsView extends StatefulWidget {
 }
 
 class _LeadDetailsViewState extends State<_LeadDetailsView> {
+  Stream<List<UserProfile>>? _activeUsersStream;
+  String? _activeUsersCompanyId;
+
+  Stream<List<UserProfile>> _activeUsers(String companyId) {
+    if (_activeUsersStream == null || _activeUsersCompanyId != companyId) {
+      _activeUsersCompanyId = companyId;
+      _activeUsersStream = _watchActiveUsers(companyId);
+    }
+
+    return _activeUsersStream!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -73,19 +86,57 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,
       title: l.leadDetails,
-      child: BlocBuilder<LeadsCubit, LeadsState>(
+      child: BlocConsumer<LeadsCubit, LeadsState>(
+        listenWhen: (previous, current) =>
+            previous.status != current.status &&
+            (current.status == LeadsStatus.saved ||
+                current.status == LeadsStatus.failure),
+        listener: (context, state) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          if (state.status == LeadsStatus.saved) {
+            final message = _successMessageForAction(l, state.lastAction);
+            if (message.isNotEmpty) {
+              messenger.showSnackBar(SnackBar(content: Text(message)));
+            }
+            return;
+          }
+          if (state.status == LeadsStatus.failure) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(localizeErrorMessage(l, state.message)),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        },
         builder: (context, state) {
-          if (state.status == LeadsStatus.loading ||
-              state.status == LeadsStatus.initial) {
+          final lead = state.selectedLead;
+
+          if (lead == null &&
+              (state.status == LeadsStatus.loading ||
+                  state.status == LeadsStatus.initial)) {
             return const AppLoading();
           }
 
-          final lead = state.selectedLead;
           if (lead == null ||
               companyId.isEmpty ||
               uid.isEmpty ||
               role == null) {
-            return AppErrorView(message: l.unableToLoadLeads);
+            return AppErrorView(
+              message: localizeErrorMessage(
+                l,
+                state.message ?? l.unableToLoadLeads,
+              ),
+              onRetry: () {
+                final cubit = context.read<LeadsCubit>();
+                cubit.loadLead(companyId: companyId, leadId: widget.leadId);
+                cubit.watchTimeline(
+                  companyId: companyId,
+                  leadId: widget.leadId,
+                );
+              },
+            );
           }
 
           final isSalesAgent = role.name == 'salesAgent';
@@ -103,14 +154,14 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
           final canStatus = canEdit || (isSalesAgent && lead.assignedTo == uid);
 
           return StreamBuilder<List<UserProfile>>(
-            stream: _watchActiveUsers(companyId),
+            stream: _activeUsers(companyId),
             builder: (context, usersSnapshot) {
               final users = usersSnapshot.data ?? const <UserProfile>[];
               final assigneeName = lead.assignedToName.isNotEmpty
                   ? lead.assignedToName
                   : _assigneeName(users, lead.assignedTo, l);
 
-              return _LeadDetailsContent(
+              final content = _LeadDetailsContent(
                 lead: lead,
                 timeline: state.timeline,
                 companyId: companyId,
@@ -122,11 +173,52 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                 assigneeName: assigneeName,
                 activeUsers: users,
               );
+
+              final isBusy =
+                  state.status == LeadsStatus.saving ||
+                  (usersSnapshot.connectionState == ConnectionState.waiting &&
+                      users.isEmpty);
+
+              return Stack(
+                children: [
+                  content,
+                  if (isBusy)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        child: Container(
+                          color: AppColors.background.withValues(alpha: 0.35),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           );
         },
       ),
     );
+  }
+}
+
+String _successMessageForAction(AppLocalizations l, LeadsAction action) {
+  switch (action) {
+    case LeadsAction.createLead:
+      return l.leadCreatedSuccessfully;
+    case LeadsAction.updateLead:
+      return l.leadUpdatedSuccessfully;
+    case LeadsAction.archiveLead:
+      return l.leadArchivedSuccessfully;
+    case LeadsAction.updateStatus:
+      return l.leadStatusUpdatedSuccessfully;
+    case LeadsAction.assignLead:
+      return l.leadAssignedSuccessfully;
+    case LeadsAction.addNote:
+      return l.noteAddedSuccessfully;
+    case LeadsAction.none:
+      return '';
   }
 }
 
@@ -172,113 +264,168 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return ListView(
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useDesktopLayout = constraints.maxWidth >= 1024;
+        if (!useDesktopLayout) {
+          return ListView(
+            children: [
+              ..._mainContent(l),
+              const SizedBox(height: AppSpacing.lg),
+              _TimelineSection(
+                timeline: widget.timeline,
+                users: widget.activeUsers,
+                scrollable: false,
+              ),
+            ],
+          );
+        }
+
+        final timelineWidth = constraints.maxWidth >= 1120 ? 360.0 : 320.0;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                widget.lead.fullName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+            Expanded(child: ListView(children: _mainContent(l))),
+            const SizedBox(width: AppSpacing.lg),
+            SizedBox(
+              width: timelineWidth,
+              child: SizedBox(
+                height: constraints.hasBoundedHeight
+                    ? constraints.maxHeight
+                    : null,
+                child: _TimelineSection(
+                  timeline: widget.timeline,
+                  users: widget.activeUsers,
+                  scrollable: true,
                 ),
               ),
             ),
-            AppStatusBadge(label: _statusLabel(l, widget.lead.status)),
           ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text('${l.assignedToLabel}: ${widget.assigneeName}'),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: [
-            if (widget.canEdit)
-              AppButton(
-                label: l.editLead,
-                onPressed: () =>
-                    context.go(RouteNames.leadEdit(widget.lead.id)),
-              ),
-            if (widget.canArchive)
-              AppButton(
-                label: l.archiveLead,
-                onPressed: () => _archive(context),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        if (widget.canStatus)
-          AppDropdown<LeadStatus>(
-            label: l.changeStatus,
-            value: widget.lead.status,
-            items: LeadStatus.values,
-            itemLabelBuilder: (status) => _statusLabel(l, status),
-            onChanged: (status) {
-              context.read<LeadsCubit>().updateStatus(
-                companyId: widget.companyId,
-                updatedBy: widget.uid,
-                actorName: widget.actorName,
-                status: status,
-              );
-            },
-          ),
-        const SizedBox(height: AppSpacing.lg),
-        _detail(l.phone, widget.lead.phone, l),
-        _detail(l.email, widget.lead.email, l),
-        _detail(l.preferredLocation, widget.lead.preferredLocation, l),
-        _detail(l.preferredPropertyType, widget.lead.preferredPropertyType, l),
-        _detail(l.notes, widget.lead.notes, l),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          l.addNote,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        AppTextField(controller: _noteController, label: l.note),
-        const SizedBox(height: AppSpacing.sm),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: AppButton(
-            label: l.saveNote,
-            onPressed: () {
-              context.read<LeadsCubit>().addNote(
-                companyId: widget.companyId,
-                leadId: widget.lead.id,
-                text: _noteController.text,
-                createdBy: widget.uid,
-                actorName: widget.actorName,
-              );
-              _noteController.clear();
-            },
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          l.timeline,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        if (widget.timeline.isEmpty) Text(l.noTimelineEvents),
-        for (int i = 0; i < widget.timeline.length; i++)
-          _TimelineItem(
-            event: widget.timeline[i],
-            isLast: i == widget.timeline.length - 1,
-            users: widget.activeUsers,
-          ),
-      ],
+        );
+      },
     );
+  }
+
+  List<Widget> _mainContent(AppLocalizations l) {
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.lead.fullName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          AppStatusBadge(label: _statusLabel(l, widget.lead.status)),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Text(l.leadAssignedTo(widget.assigneeName)),
+      const SizedBox(height: AppSpacing.md),
+      Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          if (widget.canEdit)
+            AppButton(
+              label: l.editLead,
+              onPressed: () => context.go(RouteNames.leadEdit(widget.lead.id)),
+            ),
+          if (widget.canArchive)
+            AppButton(label: l.archiveLead, onPressed: () => _archive(context)),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      if (widget.canStatus)
+        BlocBuilder<LeadsCubit, LeadsState>(
+          buildWhen: (previous, current) => previous.status != current.status,
+          builder: (context, state) {
+            final isSaving = state.status == LeadsStatus.saving;
+
+            return AppDropdown<LeadStatus>(
+              label: l.changeStatus,
+              value: widget.lead.status,
+              items: LeadStatus.values,
+              itemLabelBuilder: (status) => _statusLabel(l, status),
+              onChanged: (status) {
+                if (isSaving) {
+                  return;
+                }
+
+                context.read<LeadsCubit>().updateStatus(
+                  companyId: widget.companyId,
+                  updatedBy: widget.uid,
+                  actorName: widget.actorName,
+                  status: status,
+                );
+              },
+            );
+          },
+        ),
+      const SizedBox(height: AppSpacing.md),
+      _DetailsSection(
+        title: l.contactInformation,
+        children: [
+          _detail(l.phone, widget.lead.phone, l),
+          _detail(l.email, widget.lead.email, l),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      _DetailsSection(
+        title: l.leadPreferences,
+        children: [
+          _detail(l.source, _sourceValueLabel(l, widget.lead.source.name), l),
+          _detail(l.priority, _priorityValueLabel(l, widget.lead.priority.name), l),
+          _detail(l.preferredLocation, widget.lead.preferredLocation, l),
+          _detail(
+            l.preferredPropertyType,
+            widget.lead.preferredPropertyType,
+            l,
+          ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      _DetailsSection(
+        title: l.leadAssignment,
+        children: [_detail(l.assignedToLabel, widget.assigneeName, l)],
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      Text(
+        l.addNote,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      AppTextField(controller: _noteController, label: l.note),
+      const SizedBox(height: AppSpacing.sm),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: AppButton(
+          label: l.saveNote,
+          onPressed: () {
+            context.read<LeadsCubit>().addNote(
+              companyId: widget.companyId,
+              leadId: widget.lead.id,
+              text: _noteController.text,
+              createdBy: widget.uid,
+              actorName: widget.actorName,
+            );
+            _noteController.clear();
+          },
+        ),
+      ),
+    ];
   }
 
   Widget _detail(String label, String value, AppLocalizations l) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,6 +476,114 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   }
 }
 
+class _TimelineSection extends StatelessWidget {
+  const _TimelineSection({
+    required this.timeline,
+    required this.users,
+    required this.scrollable,
+  });
+
+  final List<LeadTimelineEvent> timeline;
+  final List<UserProfile> users;
+  final bool scrollable;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final content = <Widget>[
+      if (timeline.isEmpty) Text(l.noTimelineEvents),
+      for (int i = 0; i < timeline.length; i++)
+        _TimelineItem(
+          event: timeline[i],
+          isLast: i == timeline.length - 1,
+          users: users,
+        ),
+    ];
+
+    Widget buildTimelineBody() {
+      final body = SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: content,
+        ),
+      );
+
+      if (!scrollable) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: content,
+        );
+      }
+
+      return body;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final body = buildTimelineBody();
+          final timelineBody = scrollable && constraints.hasBoundedHeight
+              ? Expanded(child: body)
+              : body;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: scrollable ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              Text(
+                l.timeline,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              timelineBody,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DetailsSection extends StatelessWidget {
+  const _DetailsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
 class _TimelineItem extends StatelessWidget {
   const _TimelineItem({
     required this.event,
@@ -343,7 +598,7 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final description = _timelineDescription(l, event);
+    final description = _timelineDescription(l, event, users);
 
     return IntrinsicHeight(
       child: Row(
@@ -407,7 +662,11 @@ String _timelineTitle(
     case 'lead_assigned':
       return l.leadReassignedBy(actor);
     case 'lead_reassigned':
-      return l.leadReassignedBy(actor);
+      return l.leadReassignedFromToBy(
+        _timelineValueLabel(l, event.description, event.oldValue, users),
+        _timelineValueLabel(l, event.description, event.newValue, users),
+        actor,
+      );
     case 'status_changed':
       return l.statusChangedToBy(_statusValueLabel(l, event.newValue), actor);
     case 'note_added':
@@ -421,16 +680,23 @@ String _timelineTitle(
   }
 }
 
-String _timelineDescription(AppLocalizations l, LeadTimelineEvent event) {
+String _timelineDescription(
+  AppLocalizations l,
+  LeadTimelineEvent event,
+  List<UserProfile> users,
+) {
   if (event.title == 'note_added') {
     return event.description;
   }
   if (event.oldValue.isEmpty && event.newValue.isEmpty) {
     return '';
   }
+  if (event.title == 'lead_reassigned') {
+    return '';
+  }
   return l.changedFromTo(
-    _timelineValueLabel(l, event.description, event.oldValue),
-    _timelineValueLabel(l, event.description, event.newValue),
+    _timelineValueLabel(l, event.description, event.oldValue, users),
+    _timelineValueLabel(l, event.description, event.newValue, users),
   );
 }
 
@@ -479,7 +745,12 @@ String _fieldLabel(AppLocalizations l, String field) {
   }
 }
 
-String _timelineValueLabel(AppLocalizations l, String field, String value) {
+String _timelineValueLabel(
+  AppLocalizations l,
+  String field,
+  String value,
+  List<UserProfile> users,
+) {
   if (field == 'status') {
     return _statusValueLabel(l, value);
   }
@@ -488,6 +759,9 @@ String _timelineValueLabel(AppLocalizations l, String field, String value) {
   }
   if (field == 'priority') {
     return _priorityValueLabel(l, value);
+  }
+  if (field == 'assignedTo') {
+    return _assigneeName(users, value, l);
   }
   return value.isEmpty ? l.notAvailable : value;
 }
@@ -501,7 +775,14 @@ String _assigneeName(List<UserProfile> users, String uid, AppLocalizations l) {
       return user.fullName;
     }
   }
+  if (!_looksLikeUid(uid)) {
+    return uid;
+  }
   return l.assignedUserUnavailable;
+}
+
+bool _looksLikeUid(String value) {
+  return RegExp(r'^[A-Za-z0-9_-]{20,}$').hasMatch(value);
 }
 
 String _companyId(BuildContext context) {

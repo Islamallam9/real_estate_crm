@@ -248,6 +248,24 @@ abstract class AppLocalizations {
   /// **'Total leads'**
   String get totalLeads;
 
+  /// No description provided for @newLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'New leads'**
+  String get newLeads;
+
+  /// No description provided for @activeLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted / active leads'**
+  String get activeLeads;
+
+  /// No description provided for @unassignedLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned leads'**
+  String get unassignedLeads;
+
   /// No description provided for @followUpsDue.
   ///
   /// In en, this message translates to:
@@ -944,6 +962,12 @@ abstract class AppLocalizations {
   /// **'Lead reassigned by {user}'**
   String leadReassignedBy(Object user);
 
+  /// No description provided for @leadReassignedFromToBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead reassigned from {fromUser} to {toUser} by {actor}'**
+  String leadReassignedFromToBy(Object fromUser, Object toUser, Object actor);
+
   /// No description provided for @leadArchivedBy.
   ///
   /// In en, this message translates to:
@@ -985,6 +1009,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Assigned to'**
   String get assignedToLabel;
+
+  /// No description provided for @leadAssignedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to: {name}'**
+  String leadAssignedTo(Object name);
 
   /// No description provided for @fullNameUpdated.
   ///
@@ -1039,6 +1069,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preferred property type'**
   String get preferredPropertyTypeUpdated;
+
+  /// No description provided for @more.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get more;
+
+  /// No description provided for @filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filters;
+
+  /// No description provided for @applyFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply filters'**
+  String get applyFilters;
+
+  /// No description provided for @clearFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get clearFilters;
+
+  /// No description provided for @updated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get updated;
+
+  /// No description provided for @details.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get details;
+
+  /// No description provided for @viewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get viewDetails;
+
+  /// No description provided for @selectLeadPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a lead'**
+  String get selectLeadPreview;
+
+  /// No description provided for @selectLeadPreviewMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a lead from the list to preview contact, status, and next actions.'**
+  String get selectLeadPreviewMessage;
+
+  /// No description provided for @somethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get somethingWentWrong;
+
+  /// No description provided for @tryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get tryAgain;
+
+  /// No description provided for @unableToConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to connect. Check your internet connection and try again.'**
+  String get unableToConnect;
+
+  /// No description provided for @leadUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update lead. Please try again.'**
+  String get leadUpdateFailed;
+
+  /// No description provided for @noData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data available.'**
+  String get noData;
+
+  /// No description provided for @leadCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead created successfully.'**
+  String get leadCreatedSuccessfully;
+
+  /// No description provided for @leadUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead updated successfully.'**
+  String get leadUpdatedSuccessfully;
+
+  /// No description provided for @leadArchivedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead archived successfully.'**
+  String get leadArchivedSuccessfully;
+
+  /// No description provided for @leadStatusUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead status updated successfully.'**
+  String get leadStatusUpdatedSuccessfully;
+
+  /// No description provided for @leadAssignedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead assigned successfully.'**
+  String get leadAssignedSuccessfully;
+
+  /// No description provided for @noteAddedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added successfully.'**
+  String get noteAddedSuccessfully;
 }
 
 class _AppLocalizationsDelegate

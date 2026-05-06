@@ -85,6 +85,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalLeads => 'Total leads';
 
   @override
+  String get newLeads => 'New leads';
+
+  @override
+  String get activeLeads => 'Contacted / active leads';
+
+  @override
+  String get unassignedLeads => 'Unassigned leads';
+
+  @override
   String get followUpsDue => 'Follow-ups due';
 
   @override
@@ -451,6 +460,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String leadReassignedFromToBy(Object fromUser, Object toUser, Object actor) {
+    return 'Lead reassigned from $fromUser to $toUser by $actor';
+  }
+
+  @override
   String leadArchivedBy(Object user) {
     return 'Lead archived by $user';
   }
@@ -478,6 +492,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignedToLabel => 'Assigned to';
 
   @override
+  String leadAssignedTo(Object name) {
+    return 'Assigned to: $name';
+  }
+
+  @override
   String get fullNameUpdated => 'Full name';
 
   @override
@@ -503,4 +522,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get preferredPropertyTypeUpdated => 'Preferred property type';
+
+  @override
+  String get more => 'More';
+
+  @override
+  String get filters => 'Filters';
+
+  @override
+  String get applyFilters => 'Apply filters';
+
+  @override
+  String get clearFilters => 'Clear filters';
+
+  @override
+  String get updated => 'Updated';
+
+  @override
+  String get details => 'Details';
+
+  @override
+  String get viewDetails => 'View details';
+
+  @override
+  String get selectLeadPreview => 'Select a lead';
+
+  @override
+  String get selectLeadPreviewMessage =>
+      'Choose a lead from the list to preview contact, status, and next actions.';
+
+  @override
+  String get somethingWentWrong => 'Something went wrong';
+
+  @override
+  String get tryAgain => 'Try again';
+
+  @override
+  String get unableToConnect =>
+      'Unable to connect. Check your internet connection and try again.';
+
+  @override
+  String get leadUpdateFailed => 'Unable to update lead. Please try again.';
+
+  @override
+  String get noData => 'No data available.';
+
+  @override
+  String get leadCreatedSuccessfully => 'Lead created successfully.';
+
+  @override
+  String get leadUpdatedSuccessfully => 'Lead updated successfully.';
+
+  @override
+  String get leadArchivedSuccessfully => 'Lead archived successfully.';
+
+  @override
+  String get leadStatusUpdatedSuccessfully =>
+      'Lead status updated successfully.';
+
+  @override
+  String get leadAssignedSuccessfully => 'Lead assigned successfully.';
+
+  @override
+  String get noteAddedSuccessfully => 'Note added successfully.';
 }

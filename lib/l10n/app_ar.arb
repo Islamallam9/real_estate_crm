@@ -26,6 +26,9 @@
   "crmOverview": "نظرة عامة على النظام",
   "dashboardPlaceholderDescription": "ستظهر هنا بيانات المبيعات والعملاء المحتملين والمتابعات ونشاط العقارات.",
   "totalLeads": "إجمالي العملاء المحتملين",
+  "newLeads": "العملاء الجدد",
+  "activeLeads": "العملاء النشطون / تم التواصل",
+  "unassignedLeads": "عملاء غير مسندين",
   "followUpsDue": "المتابعات المستحقة",
   "openDeals": "الصفقات المفتوحة",
   "availableProperties": "العقارات المتاحة",
@@ -198,6 +201,12 @@
     }
   },
   "assignedToLabel": "مسند إلى",
+  "leadAssignedTo": "مسند إلى: {name}",
+  "@leadAssignedTo": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "fullNameUpdated": "الاسم الكامل",
   "phoneUpdated": "الهاتف",
   "emailUpdated": "البريد الإلكتروني",
@@ -207,4 +216,35 @@
   "budgetUpdated": "الميزانية",
   "preferredLocationUpdated": "الموقع المفضل",
   "preferredPropertyTypeUpdated": "نوع العقار المفضل"
+  ,
+  "more": "المزيد",
+  "filters": "الفلاتر",
+  "applyFilters": "تطبيق الفلاتر",
+  "clearFilters": "مسح الفلاتر",
+  "updated": "تم التحديث"
+  ,
+  "somethingWentWrong": "حدث خطأ ما",
+  "tryAgain": "حاول مرة أخرى",
+  "unableToConnect": "تعذر الاتصال. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
+  "leadUpdateFailed": "تعذر تحديث العميل المحتمل. حاول مرة أخرى.",
+  "noData": "لا توجد بيانات متاحة."
+  ,
+  "leadReassignedFromToBy": "تم إعادة إسناد العميل المحتمل من {fromUser} إلى {toUser} بواسطة {actor}",
+  "@leadReassignedFromToBy": {
+    "placeholders": {
+      "fromUser": {},
+      "toUser": {},
+      "actor": {}
+    }
+  },
+  "details": "التفاصيل",
+  "viewDetails": "عرض التفاصيل",
+  "selectLeadPreview": "اختر عميلاً محتملاً",
+  "selectLeadPreviewMessage": "اختر عميلاً من القائمة لمعاينة بيانات التواصل والحالة والإجراءات.",
+  "leadCreatedSuccessfully": "تم إنشاء العميل المحتمل بنجاح.",
+  "leadUpdatedSuccessfully": "تم تحديث العميل المحتمل بنجاح.",
+  "leadArchivedSuccessfully": "تمت أرشفة العميل المحتمل بنجاح.",
+  "leadStatusUpdatedSuccessfully": "تم تحديث حالة العميل المحتمل بنجاح.",
+  "leadAssignedSuccessfully": "تم إسناد العميل المحتمل بنجاح.",
+  "noteAddedSuccessfully": "تمت إضافة الملاحظة بنجاح."
 }

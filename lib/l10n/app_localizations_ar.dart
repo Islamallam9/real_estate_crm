@@ -85,6 +85,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get totalLeads => 'إجمالي العملاء المحتملين';
 
   @override
+  String get newLeads => 'العملاء الجدد';
+
+  @override
+  String get activeLeads => 'العملاء النشطون / تم التواصل';
+
+  @override
+  String get unassignedLeads => 'عملاء غير مسندين';
+
+  @override
   String get followUpsDue => 'المتابعات المستحقة';
 
   @override
@@ -454,6 +463,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String leadReassignedFromToBy(Object fromUser, Object toUser, Object actor) {
+    return 'تم إعادة إسناد العميل المحتمل من $fromUser إلى $toUser بواسطة $actor';
+  }
+
+  @override
   String leadArchivedBy(Object user) {
     return 'تمت أرشفة العميل المحتمل بواسطة $user';
   }
@@ -481,6 +495,11 @@ class AppLocalizationsAr extends AppLocalizations {
   String get assignedToLabel => 'مسند إلى';
 
   @override
+  String leadAssignedTo(Object name) {
+    return 'مسند إلى: $name';
+  }
+
+  @override
   String get fullNameUpdated => 'الاسم الكامل';
 
   @override
@@ -506,4 +525,67 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get preferredPropertyTypeUpdated => 'نوع العقار المفضل';
+
+  @override
+  String get more => 'المزيد';
+
+  @override
+  String get filters => 'الفلاتر';
+
+  @override
+  String get applyFilters => 'تطبيق الفلاتر';
+
+  @override
+  String get clearFilters => 'مسح الفلاتر';
+
+  @override
+  String get updated => 'تم التحديث';
+
+  @override
+  String get details => 'التفاصيل';
+
+  @override
+  String get viewDetails => 'عرض التفاصيل';
+
+  @override
+  String get selectLeadPreview => 'اختر عميلاً محتملاً';
+
+  @override
+  String get selectLeadPreviewMessage =>
+      'اختر عميلاً من القائمة لمعاينة بيانات التواصل والحالة والإجراءات.';
+
+  @override
+  String get somethingWentWrong => 'حدث خطأ ما';
+
+  @override
+  String get tryAgain => 'حاول مرة أخرى';
+
+  @override
+  String get unableToConnect =>
+      'تعذر الاتصال. تحقق من اتصال الإنترنت وحاول مرة أخرى.';
+
+  @override
+  String get leadUpdateFailed => 'تعذر تحديث العميل المحتمل. حاول مرة أخرى.';
+
+  @override
+  String get noData => 'لا توجد بيانات متاحة.';
+
+  @override
+  String get leadCreatedSuccessfully => 'تم إنشاء العميل المحتمل بنجاح.';
+
+  @override
+  String get leadUpdatedSuccessfully => 'تم تحديث العميل المحتمل بنجاح.';
+
+  @override
+  String get leadArchivedSuccessfully => 'تمت أرشفة العميل المحتمل بنجاح.';
+
+  @override
+  String get leadStatusUpdatedSuccessfully =>
+      'تم تحديث حالة العميل المحتمل بنجاح.';
+
+  @override
+  String get leadAssignedSuccessfully => 'تم إسناد العميل المحتمل بنجاح.';
+
+  @override
+  String get noteAddedSuccessfully => 'تمت إضافة الملاحظة بنجاح.';
 }
