@@ -11,6 +11,13 @@ abstract interface class LeadsRemoteDataSource {
     required LeadModel lead,
   });
 
+  Future<bool> hasDuplicateLead({
+    required String companyId,
+    required String phone,
+    required String email,
+    String? excludeLeadId,
+  });
+
   Future<LeadModel> updateLead({
     required String companyId,
     required LeadModel lead,
@@ -39,6 +46,54 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
+
+  @override
+  Future<bool> hasDuplicateLead({
+    required String companyId,
+    required String phone,
+    required String email,
+    String? excludeLeadId,
+  }) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final normalizedEmail = _normalizeEmail(email);
+    if (normalizedPhone.isEmpty && normalizedEmail.isEmpty) {
+      return false;
+    }
+
+    try {
+      final snapshot = await _leadsCollection(companyId).get();
+      for (final document in snapshot.docs) {
+        if (excludeLeadId != null && document.id == excludeLeadId) {
+          continue;
+        }
+        final lead = LeadModel.fromFirestore(document);
+        if (excludeLeadId != null && lead.id == excludeLeadId) {
+          continue;
+        }
+        _ensureSameCompany(companyId: companyId, lead: lead);
+        if (lead.isArchived) {
+          continue;
+        }
+
+        final hasSamePhone =
+            normalizedPhone.isNotEmpty &&
+            _normalizePhone(lead.phone) == normalizedPhone;
+        final hasSameEmail =
+            normalizedEmail.isNotEmpty &&
+            _normalizeEmail(lead.email) == normalizedEmail;
+        if (hasSamePhone || hasSameEmail) {
+          return true;
+        }
+      }
+      return false;
+    } on LeadException {
+      rethrow;
+    } on FirebaseException catch (error) {
+      throw LeadException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const LeadException('Unable to check duplicate lead.');
+    }
+  }
 
   @override
   Future<LeadModel> createLead({
@@ -167,6 +222,14 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   CollectionReference<Map<String, dynamic>> _leadsCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyLeads(companyId));
   }
+}
+
+String _normalizeEmail(String value) {
+  return value.trim().toLowerCase();
+}
+
+String _normalizePhone(String value) {
+  return value.replaceAll(RegExp(r'\s+'), '').trim();
 }
 
 void _ensureSameCompany({required String companyId, required LeadModel lead}) {

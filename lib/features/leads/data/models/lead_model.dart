@@ -17,6 +17,7 @@ class LeadModel extends Lead {
     required super.preferredLocation,
     required super.preferredPropertyType,
     required super.assignedTo,
+    super.sourceDetails,
     super.assignedToName,
     required super.notes,
     required super.createdAt,
@@ -45,6 +46,7 @@ class LeadModel extends Lead {
       preferredLocation: lead.preferredLocation,
       preferredPropertyType: lead.preferredPropertyType,
       assignedTo: lead.assignedTo,
+      sourceDetails: lead.sourceDetails,
       assignedToName: lead.assignedToName,
       notes: lead.notes,
       createdAt: lead.createdAt,
@@ -81,6 +83,7 @@ class LeadModel extends Lead {
       preferredLocation: data['preferredLocation'] as String? ?? '',
       preferredPropertyType: data['preferredPropertyType'] as String? ?? '',
       assignedTo: data['assignedTo'] as String? ?? '',
+      sourceDetails: data['sourceDetails'] as String? ?? '',
       assignedToName: data['assignedToName'] as String? ?? '',
       notes: data['notes'] as String? ?? '',
       createdAt: _dateTimeFromValue(data['createdAt']),
@@ -110,18 +113,15 @@ class LeadModel extends Lead {
       'preferredLocation': preferredLocation,
       'preferredPropertyType': preferredPropertyType,
       'assignedTo': assignedTo,
+      'sourceDetails': sourceDetails,
       'assignedToName': assignedToName,
       'notes': notes,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'createdBy': createdBy,
       'updatedBy': updatedBy,
-      'lastContactAt': lastContactAt == null
-          ? null
-          : Timestamp.fromDate(lastContactAt!),
-      'nextFollowUpAt': nextFollowUpAt == null
-          ? null
-          : Timestamp.fromDate(nextFollowUpAt!),
+      'lastContactAt': _nullableTimestampFromDate(lastContactAt),
+      'nextFollowUpAt': _nullableTimestampFromDate(nextFollowUpAt),
       'isArchived': isArchived,
       'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
       'archivedBy': archivedBy,
@@ -251,4 +251,12 @@ DateTime? _nullableDateTimeFromValue(Object? value) {
   }
 
   return _dateTimeFromValue(value);
+}
+
+Timestamp? _nullableTimestampFromDate(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+
+  return Timestamp.fromDate(value);
 }

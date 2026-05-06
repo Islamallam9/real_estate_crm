@@ -37,6 +37,7 @@ class Lead extends Equatable {
     required this.preferredLocation,
     required this.preferredPropertyType,
     required this.assignedTo,
+    this.sourceDetails = '',
     this.assignedToName = '',
     required this.notes,
     required this.createdAt,
@@ -63,6 +64,7 @@ class Lead extends Equatable {
   final String preferredLocation;
   final String preferredPropertyType;
   final String assignedTo;
+  final String sourceDetails;
   final String assignedToName;
   final String notes;
   final DateTime createdAt;
@@ -89,6 +91,7 @@ class Lead extends Equatable {
     String? preferredLocation,
     String? preferredPropertyType,
     String? assignedTo,
+    String? sourceDetails,
     String? assignedToName,
     String? notes,
     DateTime? createdAt,
@@ -116,6 +119,7 @@ class Lead extends Equatable {
       preferredPropertyType:
           preferredPropertyType ?? this.preferredPropertyType,
       assignedTo: assignedTo ?? this.assignedTo,
+      sourceDetails: sourceDetails ?? this.sourceDetails,
       assignedToName: assignedToName ?? this.assignedToName,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -145,6 +149,7 @@ class Lead extends Equatable {
     preferredLocation,
     preferredPropertyType,
     assignedTo,
+    sourceDetails,
     assignedToName,
     notes,
     createdAt,

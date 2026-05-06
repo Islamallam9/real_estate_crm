@@ -42,6 +42,7 @@ class _LeadFormState extends State<LeadForm> {
   final _emailController = TextEditingController();
   final _budgetMinController = TextEditingController();
   final _budgetMaxController = TextEditingController();
+  final _sourceDetailsController = TextEditingController();
   final _preferredLocationController = TextEditingController();
   final _preferredPropertyTypeController = TextEditingController();
   final _notesController = TextEditingController();
@@ -51,6 +52,8 @@ class _LeadFormState extends State<LeadForm> {
   LeadPriority _priority = LeadPriority.medium;
   String _assignedTo = '';
   String _assignedToName = '';
+  DateTime? _lastContactAt;
+  DateTime? _nextFollowUpAt;
 
   @override
   void initState() {
@@ -68,6 +71,7 @@ class _LeadFormState extends State<LeadForm> {
     _budgetMaxController.text = lead.budgetMax == 0
         ? ''
         : lead.budgetMax.toString();
+    _sourceDetailsController.text = lead.sourceDetails;
     _preferredLocationController.text = lead.preferredLocation;
     _preferredPropertyTypeController.text = lead.preferredPropertyType;
     _notesController.text = lead.notes;
@@ -76,6 +80,8 @@ class _LeadFormState extends State<LeadForm> {
     _priority = lead.priority;
     _assignedTo = lead.assignedTo;
     _assignedToName = lead.assignedToName;
+    _lastContactAt = lead.lastContactAt;
+    _nextFollowUpAt = lead.nextFollowUpAt;
   }
 
   @override
@@ -85,6 +91,7 @@ class _LeadFormState extends State<LeadForm> {
     _emailController.dispose();
     _budgetMinController.dispose();
     _budgetMaxController.dispose();
+    _sourceDetailsController.dispose();
     _preferredLocationController.dispose();
     _preferredPropertyTypeController.dispose();
     _notesController.dispose();
@@ -122,6 +129,24 @@ class _LeadFormState extends State<LeadForm> {
               keyboardType: TextInputType.emailAddress,
               enabled: !widget.isSaving,
             ),
+            const SizedBox(height: AppSpacing.md),
+            _LeadDateField(
+              label: l.lastContact,
+              value: _lastContactAt,
+              enabled: !widget.isSaving,
+              firstDate: DateTime(2000),
+              lastDate: DateTime.now(),
+              onChanged: (value) => setState(() => _lastContactAt = value),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _LeadDateField(
+              label: l.nextFollowUp,
+              value: _nextFollowUpAt,
+              enabled: !widget.isSaving,
+              firstDate: DateTime.now(),
+              lastDate: DateTime(2100, 12, 31),
+              onChanged: (value) => setState(() => _nextFollowUpAt = value),
+            ),
           ]),
           const SizedBox(height: AppSpacing.lg),
           _section(context, l.leadPreferences, [
@@ -131,8 +156,24 @@ class _LeadFormState extends State<LeadForm> {
               items: LeadSource.values,
               enabled: !widget.isSaving,
               itemLabelBuilder: (source) => _sourceLabel(l, source),
-              onChanged: (value) => setState(() => _source = value),
+              onChanged: (value) {
+                setState(() {
+                  _source = value;
+                  if (_source != LeadSource.other) {
+                    _sourceDetailsController.clear();
+                  }
+                });
+              },
             ),
+            if (_source == LeadSource.other) ...[
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _sourceDetailsController,
+                label: l.sourceDetails,
+                enabled: !widget.isSaving,
+                validator: (value) => _required(value, l),
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             AppDropdown<LeadStatus>(
               label: l.status,
@@ -282,7 +323,8 @@ class _LeadFormState extends State<LeadForm> {
   }
 
   void _submit() {
-    if (!_formKey.currentState!.validate()) {
+    final formState = _formKey.currentState;
+    if (formState == null || !formState.validate()) {
       return;
     }
 
@@ -295,6 +337,9 @@ class _LeadFormState extends State<LeadForm> {
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim(),
         source: _source,
+        sourceDetails: _source == LeadSource.other
+            ? _sourceDetailsController.text.trim()
+            : '',
         status: _status,
         priority: _priority,
         budgetMin: num.tryParse(_budgetMinController.text.trim()) ?? 0,
@@ -312,12 +357,124 @@ class _LeadFormState extends State<LeadForm> {
         updatedAt: now,
         createdBy: widget.lead?.createdBy ?? widget.createdBy,
         updatedBy: widget.createdBy,
+        lastContactAt: _lastContactAt,
+        nextFollowUpAt: _nextFollowUpAt,
         isArchived: widget.lead?.isArchived ?? false,
         archivedAt: widget.lead?.archivedAt,
         archivedBy: widget.lead?.archivedBy,
       ),
     );
   }
+}
+
+class _LeadDateField extends StatelessWidget {
+  const _LeadDateField({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.firstDate,
+    required this.lastDate,
+    required this.onChanged,
+  });
+
+  final String label;
+  final DateTime? value;
+  final bool enabled;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final selectedValue = value;
+
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        enabled: enabled,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              selectedValue == null ? l.notAvailable : _formatDate(selectedValue),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: enabled
+                    ? AppColors.textPrimaryColor(context)
+                    : AppColors.textSecondaryColor(context),
+              ),
+            ),
+          ),
+          if (selectedValue != null)
+            IconButton(
+              tooltip: l.clearDate,
+              onPressed: enabled ? () => onChanged(null) : null,
+              icon: const Icon(Icons.clear),
+            ),
+          IconButton(
+            tooltip: label,
+            onPressed: enabled ? () => _pickDate(context) : null,
+            icon: const Icon(Icons.calendar_today_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final initialDate = _initialDate();
+    final safeFirstDate = DateUtils.dateOnly(firstDate);
+    final safeLastDate = DateUtils.dateOnly(lastDate);
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: safeFirstDate,
+      lastDate: safeLastDate,
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    onChanged(pickedDate);
+  }
+
+  DateTime _initialDate() {
+    final safeFirstDate = DateUtils.dateOnly(firstDate);
+    final safeLastDate = DateUtils.dateOnly(lastDate);
+    final currentValue = value;
+    final selectedValue = currentValue == null
+        ? null
+        : DateUtils.dateOnly(currentValue);
+    if (selectedValue == null) {
+      final today = DateUtils.dateOnly(DateTime.now());
+      if (today.isBefore(safeFirstDate)) {
+        return safeFirstDate;
+      }
+      if (today.isAfter(safeLastDate)) {
+        return safeLastDate;
+      }
+      return today;
+    }
+    if (selectedValue.isBefore(safeFirstDate)) {
+      return safeFirstDate;
+    }
+    if (selectedValue.isAfter(safeLastDate)) {
+      return safeLastDate;
+    }
+    return selectedValue;
+  }
+}
+
+String _formatDate(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }
 
 String _sourceLabel(AppLocalizations l, LeadSource source) {

@@ -149,44 +149,67 @@ class _EditLeadViewState extends State<_EditLeadView> {
                       );
                     }
                     final users = snapshot.data ?? const <UserProfile>[];
-                    return ListView(
-                      primary: true,
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    final isSaving = state.status == LeadsStatus.saving;
+
+                    return Stack(
                       children: [
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 720),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              LeadForm(
-                                companyId: companyId,
-                                createdBy: uid,
-                                lead: lead,
-                                submitLabel: localizations.updateLead,
-                                isSaving: state.status == LeadsStatus.saving,
-                                canAssign: canAssign,
-                                assignmentUsers: users,
-                                onSubmit: (updatedLead) {
-                                  context.read<LeadsCubit>().updateLead(
-                                    companyId: companyId,
-                                    lead: updatedLead,
-                                    actorName: actorName,
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              AppButton(
-                                label: localizations.cancel,
-                                onPressed: state.status == LeadsStatus.saving
-                                    ? null
-                                    : () => context.go(
-                                        RouteNames.leadDetails(widget.leadId),
-                                      ),
-                              ),
-                            ],
+                        ListView(
+                          primary: true,
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.lg,
                           ),
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 720),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  LeadForm(
+                                    companyId: companyId,
+                                    createdBy: uid,
+                                    lead: lead,
+                                    submitLabel: localizations.updateLead,
+                                    isSaving: isSaving,
+                                    canAssign: canAssign,
+                                    assignmentUsers: users,
+                                    onSubmit: (updatedLead) {
+                                      context.read<LeadsCubit>().updateLead(
+                                        companyId: companyId,
+                                        lead: updatedLead,
+                                        actorName: actorName,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  AppButton(
+                                    label: localizations.cancel,
+                                    onPressed: isSaving
+                                        ? null
+                                        : () => context.go(
+                                            RouteNames.leadDetails(
+                                              widget.leadId,
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
+                        if (isSaving)
+                          Positioned.fill(
+                            child: AbsorbPointer(
+                              child: Container(
+                                color: AppColors.appBackground(
+                                  context,
+                                ).withValues(alpha: 0.70),
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     );
                   },

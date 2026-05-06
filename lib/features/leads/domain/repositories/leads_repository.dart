@@ -1,6 +1,13 @@
 import '../entities/lead.dart';
 
 abstract interface class LeadsRepository {
+  Future<bool> hasDuplicateLead({
+    required String companyId,
+    required String phone,
+    required String email,
+    String? excludeLeadId,
+  });
+
   Future<Lead> createLead({required String companyId, required Lead lead});
 
   Future<Lead> updateLead({required String companyId, required Lead lead});

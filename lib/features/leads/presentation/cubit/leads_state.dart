@@ -6,6 +6,8 @@ import '../../domain/entities/lead_timeline_event.dart';
 
 enum LeadsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
+enum LeadFollowUpFilter { overdue, dueToday, upcoming, notScheduled }
+
 enum LeadsAction {
   none,
   createLead,
@@ -29,6 +31,7 @@ class LeadsState extends Equatable {
     this.sourceFilter,
     this.priorityFilter,
     this.assignedToFilter,
+    this.followUpFilter,
     this.message,
     this.lastAction = LeadsAction.none,
   });
@@ -45,6 +48,7 @@ class LeadsState extends Equatable {
       sourceFilter = null,
       priorityFilter = null,
       assignedToFilter = null,
+      followUpFilter = null,
       message = null,
       lastAction = LeadsAction.none;
 
@@ -59,6 +63,7 @@ class LeadsState extends Equatable {
   final LeadSource? sourceFilter;
   final LeadPriority? priorityFilter;
   final String? assignedToFilter;
+  final LeadFollowUpFilter? followUpFilter;
   final String? message;
   final LeadsAction lastAction;
 
@@ -74,6 +79,7 @@ class LeadsState extends Equatable {
     LeadSource? sourceFilter,
     LeadPriority? priorityFilter,
     String? assignedToFilter,
+    LeadFollowUpFilter? followUpFilter,
     String? message,
     LeadsAction? lastAction,
     bool clearSelectedLead = false,
@@ -83,6 +89,7 @@ class LeadsState extends Equatable {
     bool clearSourceFilter = false,
     bool clearPriorityFilter = false,
     bool clearAssignedToFilter = false,
+    bool clearFollowUpFilter = false,
   }) {
     return LeadsState(
       status: status ?? this.status,
@@ -106,6 +113,9 @@ class LeadsState extends Equatable {
       assignedToFilter: clearAssignedToFilter
           ? null
           : assignedToFilter ?? this.assignedToFilter,
+      followUpFilter: clearFollowUpFilter
+          ? null
+          : followUpFilter ?? this.followUpFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
           ? LeadsAction.none
@@ -126,6 +136,7 @@ class LeadsState extends Equatable {
     sourceFilter,
     priorityFilter,
     assignedToFilter,
+    followUpFilter,
     message,
     lastAction,
   ];

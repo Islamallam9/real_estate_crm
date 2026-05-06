@@ -197,7 +197,8 @@ class _LeadFilters extends StatelessWidget {
             previous.statusFilter != current.statusFilter ||
             previous.sourceFilter != current.sourceFilter ||
             previous.priorityFilter != current.priorityFilter ||
-            previous.assignedToFilter != current.assignedToFilter;
+            previous.assignedToFilter != current.assignedToFilter ||
+            previous.followUpFilter != current.followUpFilter;
       },
       builder: (context, state) {
         return LayoutBuilder(
@@ -251,6 +252,17 @@ class _LeadFilters extends StatelessWidget {
                       : _priorityLabel(localizations, option.value!),
                   onChanged: (option) {
                     context.read<LeadsCubit>().setPriorityFilter(option.value);
+                  },
+                ),
+                _DesktopFilterDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
+                  label: localizations.nextFollowUp,
+                  value: _LeadFilterOption.fromValue(state.followUpFilter),
+                  items: _leadFilterOptions(LeadFollowUpFilter.values),
+                  itemLabelBuilder: (option) => option.isAll
+                      ? localizations.allFollowUps
+                      : _followUpFilterLabel(localizations, option.value!),
+                  onChanged: (option) {
+                    context.read<LeadsCubit>().setFollowUpFilter(option.value);
                   },
                 ),
                 if (showAssignee)
@@ -463,6 +475,7 @@ void _showLeadFiltersSheet(
       LeadSource? source = state.sourceFilter;
       LeadPriority? priority = state.priorityFilter;
       String? assignee = state.assignedToFilter;
+      LeadFollowUpFilter? followUp = state.followUpFilter;
 
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -541,6 +554,18 @@ void _showLeadFiltersSheet(
                       },
                     ),
                   ],
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
+                    label: localizations.nextFollowUp,
+                    value: _LeadFilterOption.fromValue(followUp),
+                    items: _leadFilterOptions(LeadFollowUpFilter.values),
+                    itemLabelBuilder: (item) => item.isAll
+                        ? localizations.allFollowUps
+                        : _followUpFilterLabel(localizations, item.value!),
+                    onChanged: (option) {
+                      setSheetState(() => followUp = option.value);
+                    },
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     children: [
@@ -553,6 +578,7 @@ void _showLeadFiltersSheet(
                             cubit.setSourceFilter(null);
                             cubit.setPriorityFilter(null);
                             cubit.setAssignedToFilter(null);
+                            cubit.setFollowUpFilter(null);
                             Navigator.of(sheetContext).pop();
                           },
                         ),
@@ -566,6 +592,7 @@ void _showLeadFiltersSheet(
                             cubit.setSourceFilter(source);
                             cubit.setPriorityFilter(priority);
                             cubit.setAssignedToFilter(assignee);
+                            cubit.setFollowUpFilter(followUp);
                             Navigator.of(sheetContext).pop();
                           },
                         ),
@@ -876,6 +903,7 @@ class _LeadsWebTable extends StatelessWidget {
             DataColumn(label: Text(l.priority)),
             DataColumn(label: Text(l.source)),
             if (showAssignee) DataColumn(label: Text(l.assignedToLabel)),
+            DataColumn(label: Text(l.nextFollowUp)),
             DataColumn(label: Text(l.updated)),
             DataColumn(label: Text(l.details)),
           ],
@@ -922,7 +950,7 @@ class _LeadsWebTable extends StatelessWidget {
                 ),
                 DataCell(
                   Text(
-                    _sourceLabel(l, lead.source),
+                    _sourceDisplayLabel(l, lead),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -937,6 +965,10 @@ class _LeadsWebTable extends StatelessWidget {
                     ),
                     onTap: () => onLeadSelected(lead),
                   ),
+                DataCell(
+                  _FollowUpCell(lead: lead),
+                  onTap: () => onLeadSelected(lead),
+                ),
                 DataCell(
                   Text(_shortDate(lead.updatedAt)),
                   onTap: () => onLeadSelected(lead),
@@ -1046,7 +1078,7 @@ class _LeadPreviewPanel extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                   _LeadPreviewField(
                     label: l.source,
-                    value: _sourceLabel(l, selectedLead.source),
+                    value: _sourceDisplayLabel(l, selectedLead),
                   ),
                   if (showAssignee)
                     _LeadPreviewField(
@@ -1202,9 +1234,17 @@ class _LeadCard extends StatelessWidget {
                 AppStatusBadge(
                   label: _priorityLabel(localizations, lead.priority),
                 ),
-                _LeadMetaChip(label: _sourceLabel(localizations, lead.source)),
+                _LeadMetaChip(label: _sourceDisplayLabel(localizations, lead)),
                 _LeadMetaChip(
                   label: '${localizations.assignedToLabel}: $assignee',
+                ),
+                _LeadMetaChip(
+                  label:
+                      '${localizations.nextFollowUp}: ${_followUpDateLabel(localizations, lead.nextFollowUpAt)}',
+                ),
+                AppStatusBadge(
+                  label: _followUpStatusLabel(localizations, lead),
+                  tone: _followUpStatusTone(lead),
                 ),
                 _LeadMetaChip(
                   label:
@@ -1245,6 +1285,33 @@ class _LeadMetaChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+}
+
+class _FollowUpCell extends StatelessWidget {
+  const _FollowUpCell({required this.lead});
+
+  final Lead lead;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _followUpDateLabel(localizations, lead.nextFollowUpAt),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        AppStatusBadge(
+          label: _followUpStatusLabel(localizations, lead),
+          tone: _followUpStatusTone(lead),
+        ),
+      ],
     );
   }
 }
@@ -1352,6 +1419,15 @@ String _sourceLabel(AppLocalizations localizations, LeadSource source) {
   }
 }
 
+String _sourceDisplayLabel(AppLocalizations localizations, Lead lead) {
+  final sourceLabel = _sourceLabel(localizations, lead.source);
+  if (lead.source != LeadSource.other || lead.sourceDetails.trim().isEmpty) {
+    return sourceLabel;
+  }
+
+  return '$sourceLabel - ${lead.sourceDetails.trim()}';
+}
+
 String _priorityLabel(AppLocalizations localizations, LeadPriority priority) {
   switch (priority) {
     case LeadPriority.low:
@@ -1368,6 +1444,60 @@ String _shortDate(DateTime value) {
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
   return '${local.year}-$month-$day';
+}
+
+String _followUpDateLabel(AppLocalizations localizations, DateTime? value) {
+  if (value == null) {
+    return localizations.notAvailable;
+  }
+
+  return _shortDate(value);
+}
+
+String _followUpStatusLabel(AppLocalizations localizations, Lead lead) {
+  final nextFollowUpAt = lead.nextFollowUpAt;
+  if (nextFollowUpAt == null) {
+    return localizations.notScheduled;
+  }
+
+  final today = DateUtils.dateOnly(DateTime.now());
+  final followUpDate = DateUtils.dateOnly(nextFollowUpAt.toLocal());
+  if (followUpDate.isBefore(today)) {
+    return localizations.overdue;
+  }
+  if (followUpDate == today) {
+    return localizations.dueToday;
+  }
+  return localizations.upcoming;
+}
+
+AppStatusTone _followUpStatusTone(Lead lead) {
+  final nextFollowUpAt = lead.nextFollowUpAt;
+  if (nextFollowUpAt == null) {
+    return AppStatusTone.neutral;
+  }
+
+  final today = DateUtils.dateOnly(DateTime.now());
+  final followUpDate = DateUtils.dateOnly(nextFollowUpAt.toLocal());
+  if (followUpDate.isBefore(today)) {
+    return AppStatusTone.error;
+  }
+  if (followUpDate == today) {
+    return AppStatusTone.warning;
+  }
+  return AppStatusTone.info;
+}
+
+String _followUpFilterLabel(
+  AppLocalizations localizations,
+  LeadFollowUpFilter filter,
+) {
+  return switch (filter) {
+    LeadFollowUpFilter.overdue => localizations.overdue,
+    LeadFollowUpFilter.dueToday => localizations.dueToday,
+    LeadFollowUpFilter.upcoming => localizations.upcoming,
+    LeadFollowUpFilter.notScheduled => localizations.notScheduled,
+  };
 }
 
 String _resolvedAssigneeName(

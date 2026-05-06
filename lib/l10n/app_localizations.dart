@@ -428,6 +428,12 @@ abstract class AppLocalizations {
   /// **'Source'**
   String get source;
 
+  /// No description provided for @sourceDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Source details'**
+  String get sourceDetails;
+
   /// No description provided for @status.
   ///
   /// In en, this message translates to:
@@ -733,6 +739,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next follow-up'**
   String get nextFollowUp;
+
+  /// No description provided for @clearDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear date'**
+  String get clearDate;
 
   /// No description provided for @leadPreferences.
   ///
@@ -1231,6 +1243,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Note added successfully.'**
   String get noteAddedSuccessfully;
+
+  /// No description provided for @overdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get overdue;
+
+  /// No description provided for @dueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today'**
+  String get dueToday;
+
+  /// No description provided for @upcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get upcoming;
+
+  /// No description provided for @notScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Not scheduled'**
+  String get notScheduled;
+
+  /// No description provided for @allFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'All follow-ups'**
+  String get allFollowUps;
+
+  /// No description provided for @duplicateLeadFound.
+  ///
+  /// In en, this message translates to:
+  /// **'A lead with this phone or email already exists.'**
+  String get duplicateLeadFound;
 }
 
 class _AppLocalizationsDelegate

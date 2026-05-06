@@ -60,6 +60,7 @@
   "leadName": "Lead name",
   "phone": "Phone",
   "source": "Source",
+  "sourceDetails": "Source details",
   "status": "Status",
   "priority": "Priority",
   "budgetMin": "Minimum budget",
@@ -112,6 +113,7 @@
   "contactInformation": "Contact information",
   "lastContact": "Last contact",
   "nextFollowUp": "Next follow-up",
+  "clearDate": "Clear date",
   "leadPreferences": "Lead preferences",
   "leadAssignment": "Assignment and notes"
   ,
@@ -250,5 +252,11 @@
   "leadArchivedSuccessfully": "Lead archived successfully.",
   "leadStatusUpdatedSuccessfully": "Lead status updated successfully.",
   "leadAssignedSuccessfully": "Lead assigned successfully.",
-  "noteAddedSuccessfully": "Note added successfully."
+  "noteAddedSuccessfully": "Note added successfully.",
+  "overdue": "Overdue",
+  "dueToday": "Due today",
+  "upcoming": "Upcoming",
+  "notScheduled": "Not scheduled",
+  "allFollowUps": "All follow-ups",
+  "duplicateLeadFound": "A lead with this phone or email already exists."
 }

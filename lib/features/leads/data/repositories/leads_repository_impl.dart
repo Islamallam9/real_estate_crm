@@ -10,6 +10,21 @@ class LeadsRepositoryImpl implements LeadsRepository {
   final LeadsRemoteDataSource _remoteDataSource;
 
   @override
+  Future<bool> hasDuplicateLead({
+    required String companyId,
+    required String phone,
+    required String email,
+    String? excludeLeadId,
+  }) {
+    return _remoteDataSource.hasDuplicateLead(
+      companyId: companyId,
+      phone: phone,
+      email: email,
+      excludeLeadId: excludeLeadId,
+    );
+  }
+
+  @override
   Future<Lead> createLead({required String companyId, required Lead lead}) {
     return _remoteDataSource.createLead(
       companyId: companyId,

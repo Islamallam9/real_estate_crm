@@ -383,7 +383,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       _DetailsSection(
         title: l.leadPreferences,
         children: [
-          _detail(l.source, _sourceValueLabel(l, widget.lead.source.name), l),
+          _detail(l.source, _sourceDisplayLabel(l, widget.lead), l),
           _detail(l.priority, _priorityValueLabel(l, widget.lead.priority.name), l),
           _detail(l.preferredLocation, widget.lead.preferredLocation, l),
           _detail(
@@ -749,6 +749,10 @@ String _fieldLabel(AppLocalizations l, String field) {
       return l.assignedToLabel;
     case 'notes':
       return l.notes;
+    case 'lastContactAt':
+      return l.lastContact;
+    case 'nextFollowUpAt':
+      return l.nextFollowUp;
     default:
       return field;
   }
@@ -866,6 +870,15 @@ String _sourceValueLabel(AppLocalizations l, String value) {
     default:
       return value;
   }
+}
+
+String _sourceDisplayLabel(AppLocalizations l, Lead lead) {
+  final sourceLabel = _sourceValueLabel(l, lead.source.name);
+  if (lead.source != LeadSource.other || lead.sourceDetails.trim().isEmpty) {
+    return sourceLabel;
+  }
+
+  return '$sourceLabel - ${lead.sourceDetails.trim()}';
 }
 
 String _priorityValueLabel(AppLocalizations l, String value) {

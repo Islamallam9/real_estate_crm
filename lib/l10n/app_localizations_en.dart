@@ -177,6 +177,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get source => 'Source';
 
   @override
+  String get sourceDetails => 'Source details';
+
+  @override
   String get status => 'Status';
 
   @override
@@ -331,6 +334,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nextFollowUp => 'Next follow-up';
+
+  @override
+  String get clearDate => 'Clear date';
 
   @override
   String get leadPreferences => 'Lead preferences';
@@ -606,4 +612,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noteAddedSuccessfully => 'Note added successfully.';
+
+  @override
+  String get overdue => 'Overdue';
+
+  @override
+  String get dueToday => 'Due today';
+
+  @override
+  String get upcoming => 'Upcoming';
+
+  @override
+  String get notScheduled => 'Not scheduled';
+
+  @override
+  String get allFollowUps => 'All follow-ups';
+
+  @override
+  String get duplicateLeadFound =>
+      'A lead with this phone or email already exists.';
 }

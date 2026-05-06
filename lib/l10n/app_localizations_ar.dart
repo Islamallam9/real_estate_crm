@@ -179,6 +179,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get source => 'المصدر';
 
   @override
+  String get sourceDetails => 'تفاصيل المصدر';
+
+  @override
   String get status => 'الحالة';
 
   @override
@@ -334,6 +337,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get nextFollowUp => 'المتابعة القادمة';
+
+  @override
+  String get clearDate => 'مسح التاريخ';
 
   @override
   String get leadPreferences => 'تفضيلات العميل المحتمل';
@@ -609,4 +615,23 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noteAddedSuccessfully => 'تمت إضافة الملاحظة بنجاح.';
+
+  @override
+  String get overdue => 'متأخرة';
+
+  @override
+  String get dueToday => 'مستحقة اليوم';
+
+  @override
+  String get upcoming => 'قادمة';
+
+  @override
+  String get notScheduled => 'غير مجدولة';
+
+  @override
+  String get allFollowUps => 'كل المتابعات';
+
+  @override
+  String get duplicateLeadFound =>
+      'يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.';
 }

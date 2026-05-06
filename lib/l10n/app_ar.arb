@@ -60,6 +60,7 @@
   "leadName": "اسم العميل المحتمل",
   "phone": "الهاتف",
   "source": "المصدر",
+  "sourceDetails": "تفاصيل المصدر",
   "status": "الحالة",
   "priority": "الأولوية",
   "budgetMin": "الحد الأدنى للميزانية",
@@ -112,6 +113,7 @@
   "contactInformation": "بيانات التواصل",
   "lastContact": "آخر تواصل",
   "nextFollowUp": "المتابعة القادمة",
+  "clearDate": "مسح التاريخ",
   "leadPreferences": "تفضيلات العميل المحتمل",
   "leadAssignment": "الإسناد والملاحظات"
   ,
@@ -253,5 +255,11 @@
   "leadArchivedSuccessfully": "تمت أرشفة العميل المحتمل بنجاح.",
   "leadStatusUpdatedSuccessfully": "تم تحديث حالة العميل المحتمل بنجاح.",
   "leadAssignedSuccessfully": "تم إسناد العميل المحتمل بنجاح.",
-  "noteAddedSuccessfully": "تمت إضافة الملاحظة بنجاح."
+  "noteAddedSuccessfully": "تمت إضافة الملاحظة بنجاح.",
+  "overdue": "متأخرة",
+  "dueToday": "مستحقة اليوم",
+  "upcoming": "قادمة",
+  "notScheduled": "غير مجدولة",
+  "allFollowUps": "كل المتابعات",
+  "duplicateLeadFound": "يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني."
 }

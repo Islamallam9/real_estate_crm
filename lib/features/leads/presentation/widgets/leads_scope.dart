@@ -36,9 +36,15 @@ class LeadsScope extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => LeadsCubit(
-        createLeadUseCase: CreateLeadUseCase(repository),
+        createLeadUseCase: CreateLeadUseCase(
+          repository,
+          CheckDuplicateLeadUseCase(repository),
+        ),
         archiveLeadUseCase: ArchiveLeadUseCase(repository),
-        updateLeadUseCase: UpdateLeadUseCase(repository),
+        updateLeadUseCase: UpdateLeadUseCase(
+          repository,
+          CheckDuplicateLeadUseCase(repository),
+        ),
         getLeadByIdUseCase: GetLeadByIdUseCase(repository),
         watchLeadsUseCase: WatchLeadsUseCase(repository),
         addLeadNoteUseCase: AddLeadNoteUseCase(notesRepository),

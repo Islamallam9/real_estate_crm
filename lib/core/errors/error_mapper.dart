@@ -31,6 +31,8 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
       return l.unableToLoadLeads;
     case 'Unable to create lead. Please try again.':
       return l.unableToCreateLead;
+    case 'A lead with this phone or email already exists.':
+      return l.duplicateLeadFound;
     case 'Unable to update lead. Please try again.':
       return l.leadUpdateFailed;
     case 'Unable to archive lead. Please try again.':
