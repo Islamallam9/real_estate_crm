@@ -54,13 +54,18 @@ class TasksPage extends StatelessWidget {
             return AppErrorView(message: l.permissionDenied);
           }
 
-          if (role == UserRole.salesAgent && (authState.user?.uid.isEmpty ?? true)) {
-            return AppErrorView(message: l.permissionDenied);
-          }
+          final currentUser = authState.user;
+          String? assignedTo;
 
-          final assignedTo = role == UserRole.salesAgent ? authState.user!.uid : null;
+          if (role == UserRole.salesAgent) {
+            if (currentUser == null || currentUser.uid.isEmpty) {
+              return AppErrorView(message: l.permissionDenied);
+            }
+
+            assignedTo = currentUser.uid;
+          }
           final canCreate =
-              PermissionService.can(role!, AppPermission.createTask) &&
+              PermissionService.can(role, AppPermission.createTask) &&
                   (role == UserRole.admin || role == UserRole.manager);
           final canManageTasks =
               role == UserRole.admin ||

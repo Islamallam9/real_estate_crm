@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/entities/crm_task.dart';
-import '../../domain/entities/task_related_record_option.dart';
 import '../../domain/errors/task_exception.dart';
 import '../../domain/usecases/create_task_usecase.dart';
 import '../../domain/usecases/get_task_related_record_options_usecase.dart';
