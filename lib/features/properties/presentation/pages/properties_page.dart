@@ -353,97 +353,230 @@ class _PropertiesFilters extends StatelessWidget {
     final cubit = context.read<PropertiesCubit>();
     final hasFilters =
         state.searchQuery.trim().isNotEmpty ||
-        state.propertyTypeFilter != null ||
-        state.listingTypeFilter != null ||
-        state.statusFilter != null;
+            state.propertyTypeFilter != null ||
+            state.listingTypeFilter != null ||
+            state.statusFilter != null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 720;
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      onChanged: cubit.setSearchQuery,
+                      decoration: InputDecoration(
+                        labelText: l.searchProperties,
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.filters,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () {
+                      _showPropertiesFiltersSheet(context, state: state);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.propertiesResultsCount(
+                        state.filteredProperties.length,
+                        state.properties.length,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                      ),
+                    ),
+                  ),
+                  if (hasFilters)
+                    TextButton(
+                      onPressed: cubit.clearFilters,
+                      child: Text(l.clearFilters),
+                    ),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: TextField(
-                onChanged: cubit.setSearchQuery,
-                decoration: InputDecoration(
-                  labelText: l.searchProperties,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: cubit.setSearchQuery,
+                    decoration: InputDecoration(
+                      labelText: l.searchProperties,
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                 ),
+                const SizedBox(width: AppSpacing.md),
+                AppButton(
+                  label: l.clearFilters,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: hasFilters ? cubit.clearFilters : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _PropertiesFilterControls(state: state),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l.propertiesResultsCount(
+                state.filteredProperties.length,
+                state.properties.length,
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            AppButton(
-              label: l.clearFilters,
-              variant: AppButtonVariant.secondary,
-              onPressed: hasFilters ? cubit.clearFilters : null,
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            SizedBox(
-              width: 210,
-              child: AppDropdown<_FilterOption<PropertyType>>(
-                label: l.propertyType,
-                value: _FilterOption.fromValue(state.propertyTypeFilter),
-                items: _filterOptions(PropertyType.values),
-                itemLabelBuilder: (option) => option.isAll
-                    ? l.allPropertyTypes
-                    : propertyTypeLabel(l, option.value!),
-                onChanged: (option) {
-                  cubit.setPropertyTypeFilter(option.value);
-                },
-              ),
-            ),
-            SizedBox(
-              width: 210,
-              child: AppDropdown<_FilterOption<PropertyListingType>>(
-                label: l.listingType,
-                value: _FilterOption.fromValue(state.listingTypeFilter),
-                items: _filterOptions(PropertyListingType.values),
-                itemLabelBuilder: (option) => option.isAll
-                    ? l.allListingTypes
-                    : propertyListingTypeLabel(l, option.value!),
-                onChanged: (option) {
-                  cubit.setListingTypeFilter(option.value);
-                },
-              ),
-            ),
-            SizedBox(
-              width: 210,
-              child: AppDropdown<_FilterOption<PropertyStatus>>(
-                label: l.status,
-                value: _FilterOption.fromValue(state.statusFilter),
-                items: _filterOptions(PropertyStatus.values),
-                itemLabelBuilder: (option) => option.isAll
-                    ? l.allStatuses
-                    : propertyStatusLabel(l, option.value!),
-                onChanged: (option) {
-                  cubit.setStatusFilter(option.value);
-                },
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          l.propertiesResultsCount(
-            state.filteredProperties.length,
-            state.properties.length,
+        );
+      },
+    );
+  }
+}
+
+class _PropertiesFilterControls extends StatelessWidget {
+  const _PropertiesFilterControls({required this.state});
+
+  final PropertiesState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<PropertiesCubit>();
+
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.md,
+      children: [
+        SizedBox(
+          width: 210,
+          child: AppDropdown<_FilterOption<PropertyType>>(
+            label: l.propertyType,
+            value: _FilterOption.fromValue(state.propertyTypeFilter),
+            items: _filterOptions(PropertyType.values),
+            itemLabelBuilder: (option) => option.isAll
+                ? l.allPropertyTypes
+                : propertyTypeLabel(l, option.value!),
+            onChanged: (option) {
+              cubit.setPropertyTypeFilter(option.value);
+            },
           ),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondaryColor(context),
+        ),
+        SizedBox(
+          width: 210,
+          child: AppDropdown<_FilterOption<PropertyListingType>>(
+            label: l.listingType,
+            value: _FilterOption.fromValue(state.listingTypeFilter),
+            items: _filterOptions(PropertyListingType.values),
+            itemLabelBuilder: (option) => option.isAll
+                ? l.allListingTypes
+                : propertyListingTypeLabel(l, option.value!),
+            onChanged: (option) {
+              cubit.setListingTypeFilter(option.value);
+            },
+          ),
+        ),
+        SizedBox(
+          width: 210,
+          child: AppDropdown<_FilterOption<PropertyStatus>>(
+            label: l.status,
+            value: _FilterOption.fromValue(state.statusFilter),
+            items: _filterOptions(PropertyStatus.values),
+            itemLabelBuilder: (option) => option.isAll
+                ? l.allStatuses
+                : propertyStatusLabel(l, option.value!),
+            onChanged: (option) {
+              cubit.setStatusFilter(option.value);
+            },
           ),
         ),
       ],
     );
   }
+}
+
+Future<void> _showPropertiesFiltersSheet(
+    BuildContext context, {
+      required PropertiesState state,
+    }) async {
+  final l = AppLocalizations.of(context)!;
+  final cubit = context.read<PropertiesCubit>();
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return BlocProvider.value(
+        value: cubit,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.filters,
+                        style: Theme.of(sheetContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _PropertiesFilterControls(state: state),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: l.clearFilters,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () {
+                    cubit.clearFilters();
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _FilterOption<T> {

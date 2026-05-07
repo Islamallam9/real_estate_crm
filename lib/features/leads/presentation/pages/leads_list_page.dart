@@ -553,16 +553,15 @@ String _userNameForFilter(
 }
 
 void _showLeadFiltersSheet(
-  BuildContext context,
-  LeadsState state, {
-  required bool showAssignee,
-  required List<UserProfile> users,
-}) {
+    BuildContext context,
+    LeadsState state, {
+      required bool showAssignee,
+      required List<UserProfile> users,
+    }) {
   final cubit = context.read<LeadsCubit>();
 
   showModalBottomSheet<void>(
     context: context,
-    showDragHandle: true,
     isScrollControlled: true,
     builder: (sheetContext) {
       LeadStatus? status = state.statusFilter;
@@ -580,121 +579,141 @@ void _showLeadFiltersSheet(
 
           return SafeArea(
             child: Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: AppSpacing.md,
-                end: AppSpacing.md,
-                bottom:
-                    MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+              padding: EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    localizations.filters,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          localizations.filters,
+                          style: Theme.of(sheetContext).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  AppDropdown<_LeadFilterOption<LeadStatus>>(
-                    label: localizations.status,
-                    value: _LeadFilterOption.fromValue(status),
-                    items: _leadFilterOptions(LeadStatus.values),
-                    itemLabelBuilder: (item) => item.isAll
-                        ? localizations.allStatuses
-                        : _statusLabel(localizations, item.value),
-                    onChanged: (option) {
-                      setSheetState(() => status = option.value);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  AppDropdown<_LeadFilterOption<LeadSource>>(
-                    label: localizations.source,
-                    value: _LeadFilterOption.fromValue(source),
-                    items: _leadFilterOptions(LeadSource.values),
-                    itemLabelBuilder: (item) => item.isAll
-                        ? localizations.allSources
-                        : _sourceLabel(localizations, item.value),
-                    onChanged: (option) {
-                      setSheetState(() => source = option.value);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  AppDropdown<_LeadFilterOption<LeadPriority>>(
-                    label: localizations.priority,
-                    value: _LeadFilterOption.fromValue(priority),
-                    items: _leadFilterOptions(LeadPriority.values),
-                    itemLabelBuilder: (item) => item.isAll
-                        ? localizations.allPriorities
-                        : _priorityLabel(localizations, item.value),
-                    onChanged: (option) {
-                      setSheetState(() => priority = option.value);
-                    },
-                  ),
-                  if (showAssignee) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    AppDropdown<_LeadFilterOption<String>>(
-                      label: localizations.assignee,
-                      value: _LeadFilterOption.fromValue(assignee),
-                      items: _assigneeFilterOptions(users, state.leads),
-                      itemLabelBuilder: (item) => item.isAll
-                          ? localizations.allAssignees
-                          : _userNameForFilter(
+                  Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.md,
+                    children: [
+                      SizedBox(
+                        width: 210,
+                        child: AppDropdown<_LeadFilterOption<LeadStatus>>(
+                          label: localizations.status,
+                          value: _LeadFilterOption.fromValue(status),
+                          items: _leadFilterOptions(LeadStatus.values),
+                          itemLabelBuilder: (item) => item.isAll
+                              ? localizations.allStatuses
+                              : _statusLabel(localizations, item.value),
+                          onChanged: (option) {
+                            setSheetState(() => status = option.value);
+                            cubit.setStatusFilter(option.value);
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 210,
+                        child: AppDropdown<_LeadFilterOption<LeadSource>>(
+                          label: localizations.source,
+                          value: _LeadFilterOption.fromValue(source),
+                          items: _leadFilterOptions(LeadSource.values),
+                          itemLabelBuilder: (item) => item.isAll
+                              ? localizations.allSources
+                              : _sourceLabel(localizations, item.value),
+                          onChanged: (option) {
+                            setSheetState(() => source = option.value);
+                            cubit.setSourceFilter(option.value);
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 210,
+                        child: AppDropdown<_LeadFilterOption<LeadPriority>>(
+                          label: localizations.priority,
+                          value: _LeadFilterOption.fromValue(priority),
+                          items: _leadFilterOptions(LeadPriority.values),
+                          itemLabelBuilder: (item) => item.isAll
+                              ? localizations.allPriorities
+                              : _priorityLabel(localizations, item.value),
+                          onChanged: (option) {
+                            setSheetState(() => priority = option.value);
+                            cubit.setPriorityFilter(option.value);
+                          },
+                        ),
+                      ),
+                      if (showAssignee)
+                        SizedBox(
+                          width: 210,
+                          child: AppDropdown<_LeadFilterOption<String>>(
+                            label: localizations.assignee,
+                            value: _LeadFilterOption.fromValue(assignee),
+                            items: _assigneeFilterOptions(users, state.leads),
+                            itemLabelBuilder: (item) => item.isAll
+                                ? localizations.allAssignees
+                                : _userNameForFilter(
                               localizations,
                               users,
                               state.leads,
                               item.value,
                             ),
-                      onChanged: (option) {
-                        setSheetState(() => assignee = option.value);
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                  AppDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
-                    label: localizations.nextFollowUp,
-                    value: _LeadFilterOption.fromValue(followUp),
-                    items: _leadFilterOptions(LeadFollowUpFilter.values),
-                    itemLabelBuilder: (item) => item.isAll
-                        ? localizations.allFollowUps
-                        : _followUpFilterLabel(localizations, item.value),
-                    onChanged: (option) {
-                      setSheetState(() => followUp = option.value);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          label: localizations.clearFilters,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () {
-                            cubit.setStatusFilter(null);
-                            cubit.setSourceFilter(null);
-                            cubit.setPriorityFilter(null);
-                            cubit.setAssignedToFilter(null);
-                            cubit.setFollowUpFilter(null);
-                            Navigator.of(sheetContext).pop();
-                          },
+                            onChanged: (option) {
+                              setSheetState(() => assignee = option.value);
+                              cubit.setAssignedToFilter(option.value);
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: AppButton(
-                          label: localizations.applyFilters,
-                          onPressed: () {
-                            cubit.setStatusFilter(status);
-                            cubit.setSourceFilter(source);
-                            cubit.setPriorityFilter(priority);
-                            cubit.setAssignedToFilter(assignee);
-                            cubit.setFollowUpFilter(followUp);
-                            Navigator.of(sheetContext).pop();
+                      SizedBox(
+                        width: 210,
+                        child:
+                        AppDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
+                          label: localizations.nextFollowUp,
+                          value: _LeadFilterOption.fromValue(followUp),
+                          items: _leadFilterOptions(LeadFollowUpFilter.values),
+                          itemLabelBuilder: (item) => item.isAll
+                              ? localizations.allFollowUps
+                              : _followUpFilterLabel(
+                            localizations,
+                            item.value,
+                          ),
+                          onChanged: (option) {
+                            setSheetState(() => followUp = option.value);
+                            cubit.setFollowUpFilter(option.value);
                           },
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  AppButton(
+                    label: localizations.clearFilters,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () {
+                      setSheetState(() {
+                        status = null;
+                        source = null;
+                        priority = null;
+                        assignee = null;
+                        followUp = null;
+                      });
+                      cubit.setStatusFilter(null);
+                      cubit.setSourceFilter(null);
+                      cubit.setPriorityFilter(null);
+                      cubit.setAssignedToFilter(null);
+                      cubit.setFollowUpFilter(null);
+                    },
                   ),
                 ],
               ),
