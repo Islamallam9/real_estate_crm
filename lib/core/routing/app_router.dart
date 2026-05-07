@@ -19,6 +19,8 @@ import '../../features/properties/presentation/pages/create_property_page.dart';
 import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/property_details_page.dart';
 import '../../features/properties/presentation/pages/properties_page.dart';
+import '../../features/tasks/presentation/pages/create_task_page.dart';
+import '../../features/tasks/presentation/pages/tasks_page.dart';
 import 'route_names.dart';
 
 abstract final class AppRouter {
@@ -67,6 +69,14 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.clients,
           builder: (context, state) => const ClientsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.tasks,
+          builder: (context, state) => const TasksPage(),
+        ),
+        GoRoute(
+          path: RouteNames.tasksCreate,
+          builder: (context, state) => const CreateTaskPage(),
         ),
         GoRoute(
           path: RouteNames.clientsCreate,

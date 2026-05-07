@@ -129,6 +129,7 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
     case CrmNavigationItem.clients:
       context.go(RouteNames.clients);
     case CrmNavigationItem.tasks:
+      context.go(RouteNames.tasks);
     case CrmNavigationItem.more:
       break;
   }
@@ -509,7 +510,10 @@ void _showMobileMoreSheet(BuildContext context) {
                 _MoreSheetTile(
                   icon: Icons.checklist_outlined,
                   label: localizations.tasks,
-                  onTap: () => Navigator.of(sheetContext).pop(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.tasks);
+                  },
                 ),
                 _MoreSheetTile(
                   icon: Icons.handshake_outlined,
