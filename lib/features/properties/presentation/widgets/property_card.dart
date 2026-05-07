@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
@@ -9,9 +11,14 @@ import '../../domain/entities/property.dart';
 import 'property_labels.dart';
 
 class PropertyCard extends StatelessWidget {
-  const PropertyCard({super.key, required this.property});
+  const PropertyCard({
+    super.key,
+    required this.property,
+    required this.canEdit,
+  });
 
   final Property property;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +81,17 @@ class PropertyCard extends StatelessWidget {
               _MetaChip(label: _displayText(localizations, property.location)),
             ],
           ),
+          if (canEdit) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                onPressed: () => context.go(RouteNames.propertyEdit(property.id)),
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(localizations.editProperty),
+              ),
+            ),
+          ],
         ],
       ),
     );

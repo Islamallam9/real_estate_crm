@@ -59,6 +59,9 @@ class PropertiesPage extends StatelessWidget {
             child: _PropertiesListContent(
               companyId: companyId,
               canCreate: canCreate,
+              canEdit: role != null
+                  ? PermissionService.can(role, AppPermission.editProperty)
+                  : false,
             ),
           );
         },
@@ -71,10 +74,12 @@ class _PropertiesListContent extends StatefulWidget {
   const _PropertiesListContent({
     required this.companyId,
     required this.canCreate,
+    required this.canEdit,
   });
 
   final String companyId;
   final bool canCreate;
+  final bool canEdit;
 
   @override
   State<_PropertiesListContent> createState() => _PropertiesListContentState();
@@ -139,6 +144,7 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
               child: _PropertiesBody(
                 companyId: widget.companyId,
                 state: state,
+                canEdit: widget.canEdit,
               ),
             ),
           ],
@@ -149,10 +155,15 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
 }
 
 class _PropertiesBody extends StatelessWidget {
-  const _PropertiesBody({required this.companyId, required this.state});
+  const _PropertiesBody({
+    required this.companyId,
+    required this.state,
+    required this.canEdit,
+  });
 
   final String companyId;
   final PropertiesState state;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -196,12 +207,18 @@ class _PropertiesBody extends StatelessWidget {
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: AppSpacing.sm),
                 itemBuilder: (context, index) {
-                  return PropertyCard(property: state.properties[index]);
+                  return PropertyCard(
+                    property: state.properties[index],
+                    canEdit: canEdit,
+                  );
                 },
               );
             }
 
-            return PropertyListTable(properties: state.properties);
+            return PropertyListTable(
+              properties: state.properties,
+              canEdit: canEdit,
+            );
           },
         ),
         if (state.status == PropertiesStatus.saving)

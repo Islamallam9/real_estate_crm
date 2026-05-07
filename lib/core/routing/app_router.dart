@@ -12,6 +12,7 @@ import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
 import '../../features/leads/presentation/pages/leads_list_page.dart';
 import '../../features/properties/presentation/pages/create_property_page.dart';
+import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/properties_page.dart';
 import 'route_names.dart';
 
@@ -61,6 +62,14 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.propertiesCreate,
           builder: (context, state) => const CreatePropertyPage(),
+        ),
+        GoRoute(
+          path: '/properties/:propertyId/edit',
+          builder: (context, state) {
+            return EditPropertyPage(
+              propertyId: state.pathParameters['propertyId'] ?? '',
+            );
+          },
         ),
         GoRoute(
           path: RouteNames.leadsCreate,

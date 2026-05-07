@@ -410,6 +410,18 @@ abstract class AppLocalizations {
   /// **'Create property'**
   String get createProperty;
 
+  /// No description provided for @editProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit property'**
+  String get editProperty;
+
+  /// No description provided for @updateProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Update property'**
+  String get updateProperty;
+
   /// No description provided for @leadDetails.
   ///
   /// In en, this message translates to:
@@ -757,6 +769,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Property created successfully.'**
   String get propertyCreatedSuccessfully;
+
+  /// No description provided for @propertyUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Property updated successfully.'**
+  String get propertyUpdatedSuccessfully;
+
+  /// No description provided for @unableToLoadPropertyForEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load property for editing. Open it from the properties list.'**
+  String get unableToLoadPropertyForEdit;
+
+  /// No description provided for @actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get actions;
 
   /// No description provided for @newLead.
   ///

@@ -8,4 +8,5 @@ abstract final class RouteNames {
 
   static String leadDetails(String leadId) => '/leads/$leadId';
   static String leadEdit(String leadId) => '/leads/$leadId/edit';
+  static String propertyEdit(String propertyId) => '/properties/$propertyId/edit';
 }

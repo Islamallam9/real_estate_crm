@@ -168,6 +168,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createProperty => 'Create property';
 
   @override
+  String get editProperty => 'Edit property';
+
+  @override
+  String get updateProperty => 'Update property';
+
+  @override
   String get leadDetails => 'Lead details';
 
   @override
@@ -342,6 +348,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get propertyCreatedSuccessfully => 'Property created successfully.';
+
+  @override
+  String get propertyUpdatedSuccessfully => 'Property updated successfully.';
+
+  @override
+  String get unableToLoadPropertyForEdit =>
+      'Unable to load property for editing. Open it from the properties list.';
+
+  @override
+  String get actions => 'Actions';
 
   @override
   String get newLead => 'New';

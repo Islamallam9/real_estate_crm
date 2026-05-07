@@ -170,6 +170,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get createProperty => 'إضافة عقار';
 
   @override
+  String get editProperty => 'تعديل العقار';
+
+  @override
+  String get updateProperty => 'حفظ التعديلات';
+
+  @override
   String get leadDetails => 'تفاصيل العميل المحتمل';
 
   @override
@@ -344,6 +350,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get propertyCreatedSuccessfully => 'تم إنشاء العقار بنجاح.';
+
+  @override
+  String get propertyUpdatedSuccessfully => 'تم تحديث العقار بنجاح.';
+
+  @override
+  String get unableToLoadPropertyForEdit =>
+      'تعذر تحميل بيانات العقار للتعديل. افتح التعديل من قائمة العقارات.';
+
+  @override
+  String get actions => 'الإجراءات';
 
   @override
   String get newLead => 'جديد';

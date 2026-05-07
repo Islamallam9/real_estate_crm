@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
@@ -9,9 +11,14 @@ import '../../domain/entities/property.dart';
 import 'property_labels.dart';
 
 class PropertyListTable extends StatelessWidget {
-  const PropertyListTable({super.key, required this.properties});
+  const PropertyListTable({
+    super.key,
+    required this.properties,
+    required this.canEdit,
+  });
 
   final List<Property> properties;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +35,7 @@ class PropertyListTable extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _TableHeader(localizations: localizations),
+          _TableHeader(localizations: localizations, canEdit: canEdit),
           Divider(height: 1, color: AppColors.borderColor(context)),
           Expanded(
             child: ListView.separated(
@@ -36,7 +43,10 @@ class PropertyListTable extends StatelessWidget {
               separatorBuilder: (context, index) =>
                   Divider(height: 1, color: AppColors.borderColor(context)),
               itemBuilder: (context, index) {
-                return _PropertyTableRow(property: properties[index]);
+                return _PropertyTableRow(
+                  property: properties[index],
+                  canEdit: canEdit,
+                );
               },
             ),
           ),
@@ -47,9 +57,10 @@ class PropertyListTable extends StatelessWidget {
 }
 
 class _TableHeader extends StatelessWidget {
-  const _TableHeader({required this.localizations});
+  const _TableHeader({required this.localizations, required this.canEdit});
 
   final AppLocalizations localizations;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +80,7 @@ class _TableHeader extends StatelessWidget {
           _HeaderText(localizations.area, flex: 1),
           _HeaderText(localizations.location, flex: 2),
           _HeaderText(localizations.status, flex: 2),
+          if (canEdit) _HeaderText(localizations.actions, flex: 1),
         ],
       ),
     );
@@ -76,9 +88,10 @@ class _TableHeader extends StatelessWidget {
 }
 
 class _PropertyTableRow extends StatelessWidget {
-  const _PropertyTableRow({required this.property});
+  const _PropertyTableRow({required this.property, required this.canEdit});
 
   final Property property;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +134,18 @@ class _PropertyTableRow extends StatelessWidget {
               ),
             ),
           ),
+          if (canEdit)
+            Expanded(
+              flex: 1,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: IconButton(
+                  tooltip: localizations.editProperty,
+                  onPressed: () => context.go(RouteNames.propertyEdit(property.id)),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                ),
+              ),
+            ),
         ],
       ),
     );
