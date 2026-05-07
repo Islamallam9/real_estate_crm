@@ -491,6 +491,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get archiveLead => 'Archive lead';
 
   @override
+  String get deactivate => 'Deactivate';
+
+  @override
+  String get deactivateProperty => 'Deactivate property';
+
+  @override
+  String get deactivatePropertyConfirmation =>
+      'This property will be marked as inactive.';
+
+  @override
+  String get propertyDeactivatedSuccessfully =>
+      'Property deactivated successfully.';
+
+  @override
+  String get unableToDeactivateProperty =>
+      'Unable to deactivate property. Please try again.';
+
+  @override
   String get archiveLeadConfirmation =>
       'This lead will be archived and hidden from the active leads list.';
 

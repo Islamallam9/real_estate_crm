@@ -15,10 +15,14 @@ class PropertyListTable extends StatelessWidget {
     super.key,
     required this.properties,
     required this.canEdit,
+    required this.canDeactivate,
+    required this.onDeactivate,
   });
 
   final List<Property> properties;
   final bool canEdit;
+  final bool canDeactivate;
+  final ValueChanged<Property> onDeactivate;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +39,11 @@ class PropertyListTable extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _TableHeader(localizations: localizations, canEdit: canEdit),
+          _TableHeader(
+            localizations: localizations,
+            canEdit: canEdit,
+            canDeactivate: canDeactivate,
+          ),
           Divider(height: 1, color: AppColors.borderColor(context)),
           Expanded(
             child: ListView.separated(
@@ -46,6 +54,8 @@ class PropertyListTable extends StatelessWidget {
                 return _PropertyTableRow(
                   property: properties[index],
                   canEdit: canEdit,
+                  canDeactivate: canDeactivate,
+                  onDeactivate: onDeactivate,
                 );
               },
             ),
@@ -57,10 +67,15 @@ class PropertyListTable extends StatelessWidget {
 }
 
 class _TableHeader extends StatelessWidget {
-  const _TableHeader({required this.localizations, required this.canEdit});
+  const _TableHeader({
+    required this.localizations,
+    required this.canEdit,
+    required this.canDeactivate,
+  });
 
   final AppLocalizations localizations;
   final bool canEdit;
+  final bool canDeactivate;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +95,10 @@ class _TableHeader extends StatelessWidget {
           _HeaderText(localizations.area, flex: 1),
           _HeaderText(localizations.location, flex: 2),
           _HeaderText(localizations.status, flex: 2),
-          _HeaderText(localizations.actions, flex: canEdit ? 2 : 1),
+          _HeaderText(
+            localizations.actions,
+            flex: (canEdit || canDeactivate) ? 2 : 1,
+          ),
         ],
       ),
     );
@@ -88,10 +106,17 @@ class _TableHeader extends StatelessWidget {
 }
 
 class _PropertyTableRow extends StatelessWidget {
-  const _PropertyTableRow({required this.property, required this.canEdit});
+  const _PropertyTableRow({
+    required this.property,
+    required this.canEdit,
+    required this.canDeactivate,
+    required this.onDeactivate,
+  });
 
   final Property property;
   final bool canEdit;
+  final bool canDeactivate;
+  final ValueChanged<Property> onDeactivate;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +160,7 @@ class _PropertyTableRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            flex: canEdit ? 2 : 1,
+            flex: (canEdit || canDeactivate) ? 2 : 1,
             child: Wrap(
               spacing: 4,
               children: [
@@ -151,6 +176,12 @@ class _PropertyTableRow extends StatelessWidget {
                     onPressed: () =>
                         context.go(RouteNames.propertyEdit(property.id)),
                     icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
+                if (canDeactivate && property.status != PropertyStatus.inactive)
+                  IconButton(
+                    tooltip: localizations.deactivateProperty,
+                    onPressed: () => onDeactivate(property),
+                    icon: const Icon(Icons.archive_outlined, size: 18),
                   ),
               ],
             ),

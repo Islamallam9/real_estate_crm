@@ -1040,6 +1040,36 @@ abstract class AppLocalizations {
   /// **'Archive lead'**
   String get archiveLead;
 
+  /// No description provided for @deactivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate'**
+  String get deactivate;
+
+  /// No description provided for @deactivateProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate property'**
+  String get deactivateProperty;
+
+  /// No description provided for @deactivatePropertyConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This property will be marked as inactive.'**
+  String get deactivatePropertyConfirmation;
+
+  /// No description provided for @propertyDeactivatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Property deactivated successfully.'**
+  String get propertyDeactivatedSuccessfully;
+
+  /// No description provided for @unableToDeactivateProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to deactivate property. Please try again.'**
+  String get unableToDeactivateProperty;
+
   /// No description provided for @archiveLeadConfirmation.
   ///
   /// In en, this message translates to:

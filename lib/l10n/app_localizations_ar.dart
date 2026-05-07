@@ -493,6 +493,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get archiveLead => 'أرشفة العميل المحتمل';
 
   @override
+  String get deactivate => 'إيقاف';
+
+  @override
+  String get deactivateProperty => 'إيقاف العقار';
+
+  @override
+  String get deactivatePropertyConfirmation =>
+      'سيتم تعيين هذا العقار كغير نشط.';
+
+  @override
+  String get propertyDeactivatedSuccessfully => 'تم إيقاف العقار بنجاح.';
+
+  @override
+  String get unableToDeactivateProperty => 'تعذر إيقاف العقار. حاول مرة أخرى.';
+
+  @override
   String get archiveLeadConfirmation =>
       'سيتم أرشفة هذا العميل المحتمل وإخفاؤه من قائمة العملاء النشطين.';
 

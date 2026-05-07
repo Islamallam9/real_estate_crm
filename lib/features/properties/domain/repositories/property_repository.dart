@@ -11,6 +11,12 @@ abstract interface class PropertyRepository {
     required Property property,
   });
 
+  Future<void> deactivateProperty({
+    required String companyId,
+    required String propertyId,
+    required String updatedBy,
+  });
+
   Stream<List<Property>> watchProperties({
     required String companyId,
     int limit,

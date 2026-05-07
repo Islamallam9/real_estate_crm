@@ -7,6 +7,7 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/errors/property_exception.dart';
 import '../../domain/usecases/create_property_usecase.dart';
+import '../../domain/usecases/deactivate_property_usecase.dart';
 import '../../domain/usecases/update_property_usecase.dart';
 import '../../domain/usecases/watch_properties_usecase.dart';
 import 'properties_state.dart';
@@ -16,14 +17,17 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     required WatchPropertiesUseCase watchPropertiesUseCase,
     required CreatePropertyUseCase createPropertyUseCase,
     required UpdatePropertyUseCase updatePropertyUseCase,
+    required DeactivatePropertyUseCase deactivatePropertyUseCase,
   }) : _watchPropertiesUseCase = watchPropertiesUseCase,
        _createPropertyUseCase = createPropertyUseCase,
        _updatePropertyUseCase = updatePropertyUseCase,
+       _deactivatePropertyUseCase = deactivatePropertyUseCase,
        super(const PropertiesState.initial());
 
   final WatchPropertiesUseCase _watchPropertiesUseCase;
   final CreatePropertyUseCase _createPropertyUseCase;
   final UpdatePropertyUseCase _updatePropertyUseCase;
+  final DeactivatePropertyUseCase _deactivatePropertyUseCase;
 
   StreamSubscription<List<Property>>? _propertiesSubscription;
   static const Duration _firebaseTimeout = Duration(seconds: 10);
@@ -277,6 +281,64 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             'Unable to update property. Please try again.',
           ),
           lastAction: PropertiesAction.updateProperty,
+        ),
+      );
+    }
+  }
+
+  Future<void> deactivateProperty({
+    required String companyId,
+    required String propertyId,
+    required String updatedBy,
+  }) async {
+    emit(
+      state.copyWith(
+        status: PropertiesStatus.saving,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    try {
+      await _guardFirebaseAction(
+        () => _deactivatePropertyUseCase(
+          companyId: companyId,
+          propertyId: propertyId,
+          updatedBy: updatedBy,
+        ),
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: PropertiesStatus.saved,
+          clearMessage: true,
+          lastAction: PropertiesAction.deactivateProperty,
+        ),
+      );
+    } on PropertyException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: PropertiesStatus.failure,
+          message: error.message,
+          lastAction: PropertiesAction.deactivateProperty,
+        ),
+      );
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: PropertiesStatus.failure,
+          message: _propertyErrorMessage(
+            error,
+            'Unable to deactivate property. Please try again.',
+          ),
+          lastAction: PropertiesAction.deactivateProperty,
         ),
       );
     }

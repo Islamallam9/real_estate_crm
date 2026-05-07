@@ -58,6 +58,9 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
     final role = authState.userProfile?.role ?? authState.user?.role;
     final canEdit =
         role != null && PermissionService.can(role, AppPermission.editProperty);
+    final canDeactivate =
+        role != null && PermissionService.can(role, AppPermission.editProperty);
+    final uid = authState.user?.uid ?? '';
     final companyId = _companyId(context);
 
     return CrmAppShell(
@@ -133,6 +136,18 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
                                 label: l.editProperty,
                                 onPressed: () => context.go(
                                   RouteNames.propertyEdit(property.id),
+                                ),
+                              ),
+                            if (canDeactivate &&
+                                property.status != PropertyStatus.inactive)
+                              AppButton(
+                                label: l.deactivateProperty,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () => _confirmDeactivateFromDetails(
+                                  context,
+                                  companyId: companyId,
+                                  propertyId: property.id,
+                                  updatedBy: uid,
                                 ),
                               ),
                           ],
@@ -264,6 +279,53 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
       ),
     );
   }
+}
+
+Future<void> _confirmDeactivateFromDetails(
+  BuildContext context, {
+  required String companyId,
+  required String propertyId,
+  required String updatedBy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(l.deactivateProperty),
+        content: Text(l.deactivatePropertyConfirmation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          AppButton(
+            label: l.deactivate,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed != true) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+
+  await context.read<PropertiesCubit>().deactivateProperty(
+    companyId: companyId,
+    propertyId: propertyId,
+    updatedBy: updatedBy,
+  );
+
+  if (!context.mounted) {
+    return;
+  }
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(l.propertyDeactivatedSuccessfully)));
 }
 
 class _DetailsSection extends StatelessWidget {

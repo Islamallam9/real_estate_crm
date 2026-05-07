@@ -4,7 +4,7 @@ import '../../domain/entities/property.dart';
 
 enum PropertiesStatus { initial, loading, loaded, saving, saved, empty, failure }
 
-enum PropertiesAction { none, createProperty, updateProperty }
+enum PropertiesAction { none, createProperty, updateProperty, deactivateProperty }
 
 class PropertiesState extends Equatable {
   const PropertiesState({

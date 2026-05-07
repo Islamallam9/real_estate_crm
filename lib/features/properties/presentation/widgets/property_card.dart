@@ -15,10 +15,14 @@ class PropertyCard extends StatelessWidget {
     super.key,
     required this.property,
     required this.canEdit,
+    required this.canDeactivate,
+    required this.onDeactivate,
   });
 
   final Property property;
   final bool canEdit;
+  final bool canDeactivate;
+  final ValueChanged<Property> onDeactivate;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +118,17 @@ class PropertyCard extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.edit_outlined),
                 label: Text(localizations.editProperty),
+              ),
+            ),
+          ],
+          if (canDeactivate && property.status != PropertyStatus.inactive) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                onPressed: () => onDeactivate(property),
+                icon: const Icon(Icons.archive_outlined),
+                label: Text(localizations.deactivateProperty),
               ),
             ),
           ],

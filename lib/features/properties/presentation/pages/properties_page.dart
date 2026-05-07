@@ -57,6 +57,9 @@ class PropertiesPage extends StatelessWidget {
           final canCreate = role != null
               ? PermissionService.can(role, AppPermission.createProperty)
               : false;
+          final canDeactivate = role != null
+              ? PermissionService.can(role, AppPermission.editProperty)
+              : false;
 
           return PropertiesScope(
             child: _PropertiesListContent(
@@ -65,6 +68,8 @@ class PropertiesPage extends StatelessWidget {
               canEdit: role != null
                   ? PermissionService.can(role, AppPermission.editProperty)
                   : false,
+              canDeactivate: canDeactivate,
+              uid: authState.user?.uid ?? '',
             ),
           );
         },
@@ -78,11 +83,15 @@ class _PropertiesListContent extends StatefulWidget {
     required this.companyId,
     required this.canCreate,
     required this.canEdit,
+    required this.canDeactivate,
+    required this.uid,
   });
 
   final String companyId;
   final bool canCreate;
   final bool canEdit;
+  final bool canDeactivate;
+  final String uid;
 
   @override
   State<_PropertiesListContent> createState() => _PropertiesListContentState();
@@ -104,8 +113,33 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
       return const SizedBox.shrink();
     }
 
-    return BlocBuilder<PropertiesCubit, PropertiesState>(
-      builder: (context, state) {
+    return BlocListener<PropertiesCubit, PropertiesState>(
+      listenWhen: (previous, current) =>
+          previous.status != current.status ||
+          previous.lastAction != current.lastAction ||
+          previous.message != current.message,
+      listener: (context, state) {
+        if (state.status == PropertiesStatus.saved &&
+            state.lastAction == PropertiesAction.deactivateProperty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(localizations.propertyDeactivatedSuccessfully)),
+          );
+          context.read<PropertiesCubit>().clearAction();
+          return;
+        }
+        if (state.status == PropertiesStatus.failure &&
+            state.lastAction == PropertiesAction.deactivateProperty &&
+            (state.message?.isNotEmpty ?? false)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(localizeErrorMessage(localizations, state.message)),
+            ),
+          );
+          context.read<PropertiesCubit>().clearAction();
+        }
+      },
+      child: BlocBuilder<PropertiesCubit, PropertiesState>(
+        builder: (context, state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -150,11 +184,14 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                 companyId: widget.companyId,
                 state: state,
                 canEdit: widget.canEdit,
+                canDeactivate: widget.canDeactivate,
+                uid: widget.uid,
               ),
             ),
           ],
         );
       },
+      ),
     );
   }
 }
@@ -164,11 +201,15 @@ class _PropertiesBody extends StatelessWidget {
     required this.companyId,
     required this.state,
     required this.canEdit,
+    required this.canDeactivate,
+    required this.uid,
   });
 
   final String companyId;
   final PropertiesState state;
   final bool canEdit;
+  final bool canDeactivate;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +264,13 @@ class _PropertiesBody extends StatelessWidget {
                   return PropertyCard(
                     property: state.filteredProperties[index],
                     canEdit: canEdit,
+                    canDeactivate: canDeactivate,
+                    onDeactivate: (property) => _confirmDeactivate(
+                      context,
+                      property: property,
+                      companyId: companyId,
+                      updatedBy: uid,
+                    ),
                   );
                 },
               );
@@ -231,6 +279,13 @@ class _PropertiesBody extends StatelessWidget {
             return PropertyListTable(
               properties: state.filteredProperties,
               canEdit: canEdit,
+              canDeactivate: canDeactivate,
+              onDeactivate: (property) => _confirmDeactivate(
+                context,
+                property: property,
+                companyId: companyId,
+                updatedBy: uid,
+              ),
             );
           },
         ),
@@ -246,6 +301,45 @@ class _PropertiesBody extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _confirmDeactivate(
+  BuildContext context, {
+  required Property property,
+  required String companyId,
+  required String updatedBy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(l.deactivateProperty),
+        content: Text(l.deactivatePropertyConfirmation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          AppButton(
+            label: l.deactivate,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed != true) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  await context.read<PropertiesCubit>().deactivateProperty(
+    companyId: companyId,
+    propertyId: property.id,
+    updatedBy: updatedBy,
+  );
 }
 
 class _PropertiesFilters extends StatelessWidget {

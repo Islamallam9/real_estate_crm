@@ -34,6 +34,19 @@ class PropertyRepositoryImpl implements PropertyRepository {
   }
 
   @override
+  Future<void> deactivateProperty({
+    required String companyId,
+    required String propertyId,
+    required String updatedBy,
+  }) {
+    return _remoteDataSource.deactivateProperty(
+      companyId: companyId,
+      propertyId: propertyId,
+      updatedBy: updatedBy,
+    );
+  }
+
+  @override
   Stream<List<Property>> watchProperties({
     required String companyId,
     int limit = 30,

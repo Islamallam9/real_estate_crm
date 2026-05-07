@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../domain/entities/property.dart';
 import '../../domain/errors/property_exception.dart';
 import '../models/property_model.dart';
 
@@ -14,6 +15,12 @@ abstract interface class PropertiesRemoteDataSource {
   Future<PropertyModel> updateProperty({
     required String companyId,
     required PropertyModel property,
+  });
+
+  Future<void> deactivateProperty({
+    required String companyId,
+    required String propertyId,
+    required String updatedBy,
   });
 
   Stream<List<PropertyModel>> watchProperties({
@@ -74,6 +81,28 @@ class FirestorePropertiesRemoteDataSource
     } catch (_) {
       throw const PropertyException(
         'Unable to update property. Please try again.',
+      );
+    }
+  }
+
+  @override
+  Future<void> deactivateProperty({
+    required String companyId,
+    required String propertyId,
+    required String updatedBy,
+  }) async {
+    try {
+      final document = _propertiesCollection(companyId).doc(propertyId);
+      await document.update({
+        'status': propertyStatusToValue(PropertyStatus.inactive),
+        'updatedAt': Timestamp.now(),
+        'updatedBy': updatedBy,
+      });
+    } on FirebaseException catch (error) {
+      throw PropertyException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const PropertyException(
+        'Unable to deactivate property. Please try again.',
       );
     }
   }
