@@ -16,4 +16,5 @@ abstract final class RouteNames {
   static String clientEdit(String clientId) => '/clients/$clientId/edit';
   static String propertyDetails(String propertyId) => '/properties/$propertyId';
   static String propertyEdit(String propertyId) => '/properties/$propertyId/edit';
+  static String taskEdit(String taskId) => '/tasks/$taskId/edit';
 }
