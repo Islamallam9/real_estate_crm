@@ -6,6 +6,7 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../domain/entities/client.dart';
 import '../../domain/errors/client_exception.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
+import '../../domain/usecases/assign_client_usecase.dart';
 import '../../domain/usecases/create_client_usecase.dart';
 import '../../domain/usecases/update_client_usecase.dart';
 import '../../domain/usecases/watch_client_usecase.dart';
@@ -18,11 +19,13 @@ class ClientsCubit extends Cubit<ClientsState> {
     required WatchClientUseCase watchClientUseCase,
     required CreateClientUseCase createClientUseCase,
     required UpdateClientUseCase updateClientUseCase,
+    required AssignClientUseCase assignClientUseCase,
     required ArchiveClientUseCase archiveClientUseCase,
   }) : _watchClientsUseCase = watchClientsUseCase,
        _watchClientUseCase = watchClientUseCase,
        _createClientUseCase = createClientUseCase,
        _updateClientUseCase = updateClientUseCase,
+       _assignClientUseCase = assignClientUseCase,
        _archiveClientUseCase = archiveClientUseCase,
       super(const ClientsState.initial());
 
@@ -30,6 +33,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   final WatchClientUseCase _watchClientUseCase;
   final CreateClientUseCase _createClientUseCase;
   final UpdateClientUseCase _updateClientUseCase;
+  final AssignClientUseCase _assignClientUseCase;
   final ArchiveClientUseCase _archiveClientUseCase;
 
   StreamSubscription<List<Client>>? _clientsSubscription;
@@ -59,6 +63,7 @@ class ClientsCubit extends Cubit<ClientsState> {
             filteredClients: _applyFilters(
               clients,
               searchQuery: state.searchQuery,
+              assignedToFilter: state.assignedToFilter,
             ),
             clearMessage: true,
           ),
@@ -126,6 +131,20 @@ class ClientsCubit extends Cubit<ClientsState> {
       state.copyWith(
         searchQuery: query,
         filteredClients: _applyFilters(state.clients, searchQuery: query),
+      ),
+    );
+  }
+
+  void setAssignedToFilter(String? assignedTo) {
+    emit(
+      state.copyWith(
+        assignedToFilter: assignedTo,
+        clearAssignedToFilter: assignedTo == null,
+        filteredClients: _applyFilters(
+          state.clients,
+          assignedToFilter: assignedTo,
+          overrideAssignedToFilter: true,
+        ),
       ),
     );
   }
@@ -226,6 +245,61 @@ class ClientsCubit extends Cubit<ClientsState> {
     }
   }
 
+  Future<void> assignClient({
+    required String companyId,
+    required String clientId,
+    required String assignedTo,
+    required String updatedBy,
+  }) async {
+    emit(
+      state.copyWith(
+        status: ClientsStatus.saving,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    try {
+      await _assignClientUseCase(
+        companyId: companyId,
+        clientId: clientId,
+        assignedTo: assignedTo,
+        updatedBy: updatedBy,
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.saved,
+          clearMessage: true,
+          lastAction: ClientsAction.assignClient,
+        ),
+      );
+    } on ClientException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: error.message,
+          lastAction: ClientsAction.assignClient,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: AppErrorMessages.unknown,
+          lastAction: ClientsAction.assignClient,
+        ),
+      );
+    }
+  }
+
   Future<void> archiveClient({
     required String companyId,
     required String clientId,
@@ -294,15 +368,25 @@ class ClientsCubit extends Cubit<ClientsState> {
   List<Client> _applyFilters(
     List<Client> clients, {
     String? searchQuery,
+    String? assignedToFilter,
+    bool overrideAssignedToFilter = false,
   }) {
     final query = (searchQuery ?? '').trim().toLowerCase();
+    final selectedAssignedTo = overrideAssignedToFilter
+        ? assignedToFilter?.trim()
+        : (assignedToFilter ?? state.assignedToFilter)?.trim();
     final filtered = clients.where((client) {
-      return query.isEmpty ||
+      final matchesSearch = query.isEmpty ||
           client.fullName.toLowerCase().contains(query) ||
           client.phone.toLowerCase().contains(query) ||
           client.email.toLowerCase().contains(query) ||
           client.preferredLocation.toLowerCase().contains(query) ||
           client.preferredPropertyType.toLowerCase().contains(query);
+      final matchesAssignee =
+          selectedAssignedTo == null ||
+          selectedAssignedTo.isEmpty ||
+          client.assignedTo == selectedAssignedTo;
+      return matchesSearch && matchesAssignee;
     }).toList();
 
     filtered.sort((a, b) {

@@ -103,6 +103,7 @@ const _adminPermissions = <AppPermission>{
   AppPermission.viewDeals,
   AppPermission.viewReports,
   AppPermission.viewTasks,
+  AppPermission.createTask,
 };
 
 const _managerPermissions = <AppPermission>{
@@ -123,6 +124,7 @@ const _managerPermissions = <AppPermission>{
   AppPermission.viewDeals,
   AppPermission.viewReports,
   AppPermission.viewTasks,
+  AppPermission.createTask,
 };
 
 const _salesAgentPermissions = <AppPermission>{

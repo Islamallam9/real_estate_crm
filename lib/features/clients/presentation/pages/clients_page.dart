@@ -17,9 +17,14 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
+import '../widgets/client_assignment_dropdown.dart';
 import '../widgets/clients_scope.dart';
 
 class ClientsPage extends StatelessWidget {
@@ -87,7 +92,10 @@ class ClientsPage extends StatelessWidget {
               canCreate: canCreate,
               canEdit: canEdit,
               canArchive: canArchive,
+              canAssign: role == UserRole.admin || role == UserRole.manager,
+              showAssigneeFilter: role != UserRole.salesAgent,
               uid: authState.user?.uid ?? '',
+              isSalesAgentView: role == UserRole.salesAgent,
             ),
           );
         },
@@ -102,7 +110,10 @@ class _ClientsListContent extends StatefulWidget {
     required this.canCreate,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
+    required this.showAssigneeFilter,
     required this.uid,
+    required this.isSalesAgentView,
     this.assignedTo,
   });
 
@@ -111,7 +122,10 @@ class _ClientsListContent extends StatefulWidget {
   final bool canCreate;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
+  final bool showAssigneeFilter;
   final String uid;
+  final bool isSalesAgentView;
 
   @override
   State<_ClientsListContent> createState() => _ClientsListContentState();
@@ -141,6 +155,14 @@ class _ClientsListContentState extends State<_ClientsListContent> {
           previous.message != current.message,
       listener: (context, state) {
         if (state.status == ClientsStatus.saved &&
+            state.lastAction == ClientsAction.assignClient) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(localizations.clientAssignedSuccessfully)),
+          );
+          context.read<ClientsCubit>().clearAction();
+          return;
+        }
+        if (state.status == ClientsStatus.saved &&
             state.lastAction == ClientsAction.archiveClient) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(localizations.clientArchivedSuccessfully)),
@@ -149,7 +171,8 @@ class _ClientsListContentState extends State<_ClientsListContent> {
           return;
         }
         if (state.status == ClientsStatus.failure &&
-            state.lastAction == ClientsAction.archiveClient &&
+            (state.lastAction == ClientsAction.archiveClient ||
+                state.lastAction == ClientsAction.assignClient) &&
             (state.message?.isNotEmpty ?? false)) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -161,55 +184,224 @@ class _ClientsListContentState extends State<_ClientsListContent> {
       },
       child: BlocBuilder<ClientsCubit, ClientsState>(
         builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                localizations.clients,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                ),
-              ),
-              if (widget.canCreate) ...[
-                const SizedBox(height: AppSpacing.md),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: AppButton(
-                    label: localizations.createClient,
-                    onPressed: () => context.go(RouteNames.clientsCreate),
+          return StreamBuilder<List<UserProfile>>(
+            stream: (widget.canAssign || widget.showAssigneeFilter)
+                ? _watchActiveUsers(widget.companyId)
+                : null,
+            builder: (context, usersSnapshot) {
+              if (usersSnapshot.hasError) {
+                return AppErrorView(message: localizations.unableToConnect);
+              }
+              final users = usersSnapshot.data ?? const [];
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    localizations.clients,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                onChanged: context.read<ClientsCubit>().setSearchQuery,
-                decoration: InputDecoration(
-                  labelText: localizations.searchCrm,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  if (widget.canCreate) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: AppButton(
+                        label: localizations.createClient,
+                        onPressed: () => context.go(RouteNames.clientsCreate),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  _ClientsFilters(
+                    state: state,
+                    users: users,
+                    showAssigneeFilter: widget.showAssigneeFilter,
                   ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Expanded(
-                child: _ClientsBody(
-                  companyId: widget.companyId,
-                  assignedTo: widget.assignedTo,
-                  state: state,
-                  canEdit: widget.canEdit,
-                  canArchive: widget.canArchive,
-                  uid: widget.uid,
-                ),
-              ),
-            ],
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: _ClientsBody(
+                      companyId: widget.companyId,
+                      assignedTo: widget.assignedTo,
+                      state: state,
+                      canEdit: widget.canEdit,
+                      canArchive: widget.canArchive,
+                      canAssign: widget.canAssign,
+                      uid: widget.uid,
+                      users: users,
+                      isSalesAgentView: widget.isSalesAgentView,
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
     );
   }
+}
+
+class _ClientsFilters extends StatelessWidget {
+  const _ClientsFilters({
+    required this.state,
+    required this.users,
+    required this.showAssigneeFilter,
+  });
+
+  final ClientsState state;
+  final List<UserProfile> users;
+  final bool showAssigneeFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<ClientsCubit>();
+    final hasFilters = state.assignedToFilter != null;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return Row(
+            children: [
+              Expanded(child: _ClientsSearchField(onChanged: cubit.setSearchQuery)),
+              if (showAssigneeFilter) ...[
+                const SizedBox(width: AppSpacing.sm),
+                AppButton(
+                  label: l.filters,
+                  icon: Icons.tune,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () => _showClientsFiltersSheet(
+                    context,
+                    state: state,
+                    users: users,
+                  ),
+                ),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: _ClientsSearchField(onChanged: cubit.setSearchQuery)),
+            if (showAssigneeFilter) ...[
+              const SizedBox(width: AppSpacing.md),
+              SizedBox(
+                width: 210,
+                child: ClientAssignmentDropdown(
+                  label: l.assignee,
+                  users: users,
+                  value: state.assignedToFilter,
+                  includeAllOption: true,
+                  onChanged: cubit.setAssignedToFilter,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              AppButton(
+                label: l.clearFilters,
+                icon: Icons.filter_alt_off_outlined,
+                variant: AppButtonVariant.secondary,
+                onPressed: hasFilters
+                    ? () => cubit.setAssignedToFilter(null)
+                    : null,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ClientsSearchField extends StatelessWidget {
+  const _ClientsSearchField({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return TextField(
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: l.searchCrm,
+        prefixIcon: const Icon(Icons.search),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+Future<void> _showClientsFiltersSheet(
+  BuildContext context, {
+  required ClientsState state,
+  required List<UserProfile> users,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final cubit = context.read<ClientsCubit>();
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return BlocProvider.value(
+        value: cubit,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.filters,
+                        style: Theme.of(sheetContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ClientAssignmentDropdown(
+                  label: l.assignee,
+                  users: users,
+                  value: state.assignedToFilter,
+                  includeAllOption: true,
+                  onChanged: cubit.setAssignedToFilter,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: l.clearFilters,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () {
+                    cubit.setAssignedToFilter(null);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _ClientsBody extends StatelessWidget {
@@ -218,7 +410,10 @@ class _ClientsBody extends StatelessWidget {
     required this.state,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
     required this.uid,
+    required this.users,
+    required this.isSalesAgentView,
     this.assignedTo,
   });
 
@@ -227,7 +422,10 @@ class _ClientsBody extends StatelessWidget {
   final ClientsState state;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
   final String uid;
+  final List<UserProfile> users;
+  final bool isSalesAgentView;
 
   @override
   Widget build(BuildContext context) {
@@ -253,16 +451,20 @@ class _ClientsBody extends StatelessWidget {
 
     if (state.clients.isEmpty) {
       return AppEmptyState(
-        title: localizations.noData,
-        message: localizations.noData,
+        title: isSalesAgentView
+            ? localizations.noAssignedClientsFound
+            : localizations.noClientsFound,
+        message: isSalesAgentView
+            ? localizations.noAssignedClientsFound
+            : localizations.noClientsFound,
         icon: Icons.person_outline,
       );
     }
 
     if (state.filteredClients.isEmpty) {
       return AppEmptyState(
-        title: localizations.noData,
-        message: localizations.noData,
+        title: localizations.noClientsFound,
+        message: localizations.noClientsFound,
         icon: Icons.search_off_outlined,
       );
     }
@@ -279,6 +481,10 @@ class _ClientsBody extends StatelessWidget {
                 client: state.filteredClients[index],
                 canEdit: canEdit,
                 canArchive: canArchive,
+                canAssign: canAssign,
+                users: users,
+                companyId: companyId,
+                updatedBy: uid,
                 onArchive: (client) => _confirmArchive(
                   context,
                   client: client,
@@ -294,6 +500,10 @@ class _ClientsBody extends StatelessWidget {
           clients: state.filteredClients,
           canEdit: canEdit,
           canArchive: canArchive,
+          canAssign: canAssign,
+          users: users,
+          companyId: companyId,
+          updatedBy: uid,
           onArchive: (client) => _confirmArchive(
             context,
             client: client,
@@ -311,12 +521,20 @@ class _ClientCard extends StatelessWidget {
     required this.client,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
+    required this.users,
+    required this.companyId,
+    required this.updatedBy,
     required this.onArchive,
   });
 
   final Client client;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
+  final List<UserProfile> users;
+  final String companyId;
+  final String updatedBy;
   final ValueChanged<Client> onArchive;
 
   @override
@@ -348,7 +566,7 @@ class _ClientCard extends StatelessWidget {
               icon: Icons.location_on_outlined,
               text: client.preferredLocation,
             ),
-            if (canEdit || canArchive) ...[
+            if (canEdit || canAssign || canArchive) ...[
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.xs,
@@ -360,6 +578,18 @@ class _ClientCard extends StatelessWidget {
                       onPressed: () =>
                           context.go(RouteNames.clientEdit(client.id)),
                       icon: const Icon(Icons.edit_outlined, size: 18),
+                    ),
+                  if (canAssign)
+                    IconButton(
+                      tooltip: l.assignClient,
+                      onPressed: () => _showAssignClientSheet(
+                        context,
+                        client: client,
+                        companyId: companyId,
+                        updatedBy: updatedBy,
+                        users: users,
+                      ),
+                      icon: const Icon(Icons.person_add_alt_outlined, size: 18),
                     ),
                   if (canArchive)
                     IconButton(
@@ -415,12 +645,20 @@ class _ClientsTable extends StatelessWidget {
     required this.clients,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
+    required this.users,
+    required this.companyId,
+    required this.updatedBy,
     required this.onArchive,
   });
 
   final List<Client> clients;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
+  final List<UserProfile> users;
+  final String companyId;
+  final String updatedBy;
   final ValueChanged<Client> onArchive;
 
   @override
@@ -440,6 +678,7 @@ class _ClientsTable extends StatelessWidget {
             localizations: l,
             canEdit: canEdit,
             canArchive: canArchive,
+            canAssign: canAssign,
           ),
           Divider(height: 1, color: AppColors.borderColor(context)),
           Expanded(
@@ -452,6 +691,10 @@ class _ClientsTable extends StatelessWidget {
                   client: clients[index],
                   canEdit: canEdit,
                   canArchive: canArchive,
+                  canAssign: canAssign,
+                  users: users,
+                  companyId: companyId,
+                  updatedBy: updatedBy,
                   onArchive: onArchive,
                 );
               },
@@ -468,11 +711,13 @@ class _ClientsTableHeader extends StatelessWidget {
     required this.localizations,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
   });
 
   final AppLocalizations localizations;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
 
   @override
   Widget build(BuildContext context) {
@@ -492,7 +737,7 @@ class _ClientsTableHeader extends StatelessWidget {
           _TableHeaderText(localizations.preferredPropertyType, flex: 3),
           _TableHeaderText(
             localizations.actions,
-            flex: (canEdit || canArchive) ? 2 : 1,
+            flex: (canEdit || canAssign || canArchive) ? 2 : 1,
           ),
         ],
       ),
@@ -505,12 +750,20 @@ class _ClientsTableRow extends StatelessWidget {
     required this.client,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
+    required this.users,
+    required this.companyId,
+    required this.updatedBy,
     required this.onArchive,
   });
 
   final Client client;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
+  final List<UserProfile> users;
+  final String companyId;
+  final String updatedBy;
   final ValueChanged<Client> onArchive;
 
   @override
@@ -538,7 +791,7 @@ class _ClientsTableRow extends StatelessWidget {
             flex: 3,
           ),
           Expanded(
-            flex: (canEdit || canArchive) ? 2 : 1,
+            flex: (canEdit || canAssign || canArchive) ? 2 : 1,
             child: Wrap(
               spacing: 4,
               children: [
@@ -547,6 +800,18 @@ class _ClientsTableRow extends StatelessWidget {
                     tooltip: l.editClient,
                     onPressed: () => context.go(RouteNames.clientEdit(client.id)),
                     icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
+                if (canAssign)
+                  IconButton(
+                    tooltip: l.assignClient,
+                    onPressed: () => _showAssignClientSheet(
+                      context,
+                      client: client,
+                      companyId: companyId,
+                      updatedBy: updatedBy,
+                      users: users,
+                    ),
+                    icon: const Icon(Icons.person_add_alt_outlined, size: 18),
                   ),
                 if (canArchive)
                   IconButton(
@@ -599,6 +864,83 @@ Future<void> _confirmArchive(
     companyId: companyId,
     clientId: client.id,
     updatedBy: updatedBy,
+  );
+}
+
+Future<void> _showAssignClientSheet(
+  BuildContext context, {
+  required Client client,
+  required String companyId,
+  required String updatedBy,
+  required List<UserProfile> users,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final cubit = context.read<ClientsCubit>();
+  var selectedUserId = client.assignedTo;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.assignClient,
+                          style: Theme.of(sheetContext).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ClientAssignmentField(
+                    users: users,
+                    value: selectedUserId,
+                    onChanged: (uid) {
+                      setSheetState(() => selectedUserId = uid);
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    label: l.assignClient,
+                    onPressed: () async {
+                      await cubit.assignClient(
+                        companyId: companyId,
+                        clientId: client.id,
+                        assignedTo: selectedUserId,
+                        updatedBy: updatedBy,
+                      );
+                      if (sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
   );
 }
 
@@ -658,4 +1000,11 @@ class _TableBodyText extends StatelessWidget {
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
+}
+
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

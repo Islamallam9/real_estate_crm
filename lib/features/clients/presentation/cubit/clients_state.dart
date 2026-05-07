@@ -4,7 +4,7 @@ import '../../domain/entities/client.dart';
 
 enum ClientsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
-enum ClientsAction { none, createClient, updateClient, archiveClient }
+enum ClientsAction { none, createClient, updateClient, assignClient, archiveClient }
 
 class ClientsState extends Equatable {
   const ClientsState({
@@ -13,6 +13,7 @@ class ClientsState extends Equatable {
     this.filteredClients = const [],
     this.selectedClient,
     this.searchQuery = '',
+    this.assignedToFilter,
     this.message,
     this.lastAction = ClientsAction.none,
   });
@@ -23,6 +24,7 @@ class ClientsState extends Equatable {
       filteredClients = const [],
       selectedClient = null,
       searchQuery = '',
+      assignedToFilter = null,
       message = null,
       lastAction = ClientsAction.none;
 
@@ -31,6 +33,7 @@ class ClientsState extends Equatable {
   final List<Client> filteredClients;
   final Client? selectedClient;
   final String searchQuery;
+  final String? assignedToFilter;
   final String? message;
   final ClientsAction lastAction;
 
@@ -40,11 +43,13 @@ class ClientsState extends Equatable {
     List<Client>? filteredClients,
     Client? selectedClient,
     String? searchQuery,
+    String? assignedToFilter,
     String? message,
     ClientsAction? lastAction,
     bool clearMessage = false,
     bool clearLastAction = false,
     bool clearSelectedClient = false,
+    bool clearAssignedToFilter = false,
   }) {
     return ClientsState(
       status: status ?? this.status,
@@ -54,6 +59,9 @@ class ClientsState extends Equatable {
           ? null
           : selectedClient ?? this.selectedClient,
       searchQuery: searchQuery ?? this.searchQuery,
+      assignedToFilter: clearAssignedToFilter
+          ? null
+          : assignedToFilter ?? this.assignedToFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
           ? ClientsAction.none
@@ -68,6 +76,7 @@ class ClientsState extends Equatable {
     filteredClients,
     selectedClient,
     searchQuery,
+    assignedToFilter,
     message,
     lastAction,
   ];

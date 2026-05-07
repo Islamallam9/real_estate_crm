@@ -15,6 +15,10 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/client_form.dart';
@@ -119,6 +123,46 @@ class _EditClientViewState extends State<_EditClientView> {
                 }
 
                 final isSaving = state.status == ClientsStatus.saving;
+                final canEditAssignment =
+                    role == UserRole.admin || role == UserRole.manager;
+                final form = canEditAssignment
+                    ? StreamBuilder<List<UserProfile>>(
+                        stream: _watchActiveUsers(companyId),
+                        builder: (context, usersSnapshot) {
+                          if (usersSnapshot.hasError) {
+                            return AppErrorView(message: l.unableToConnect);
+                          }
+                          final users = usersSnapshot.data ?? const [];
+                          return ClientForm(
+                            companyId: companyId,
+                            actorUid: uid,
+                            client: client,
+                            users: users,
+                            canEditAssignment: true,
+                            isSaving: isSaving,
+                            submitLabel: l.updateClient,
+                            onSubmit: (updatedClient) {
+                              context.read<ClientsCubit>().updateClient(
+                                companyId: companyId,
+                                client: updatedClient,
+                              );
+                            },
+                          );
+                        },
+                      )
+                    : ClientForm(
+                        companyId: companyId,
+                        actorUid: uid,
+                        client: client,
+                        isSaving: isSaving,
+                        submitLabel: l.updateClient,
+                        onSubmit: (updatedClient) {
+                          context.read<ClientsCubit>().updateClient(
+                            companyId: companyId,
+                            client: updatedClient,
+                          );
+                        },
+                      );
                 return Stack(
                   children: [
                     ListView(
@@ -137,19 +181,7 @@ class _EditClientViewState extends State<_EditClientView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                ClientForm(
-                                  companyId: companyId,
-                                  actorUid: uid,
-                                  client: client,
-                                  isSaving: isSaving,
-                                  submitLabel: l.updateClient,
-                                  onSubmit: (updatedClient) {
-                                    context.read<ClientsCubit>().updateClient(
-                                      companyId: companyId,
-                                      client: updatedClient,
-                                    );
-                                  },
-                                ),
+                                form,
                                 const SizedBox(height: AppSpacing.md),
                                 AppButton(
                                   label: l.cancel,
@@ -184,6 +216,13 @@ class _EditClientViewState extends State<_EditClientView> {
             ),
     );
   }
+}
+
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }
 
 String _companyId(BuildContext context) {

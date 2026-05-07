@@ -19,4 +19,5 @@ enum AppPermission {
   viewDeals,
   viewReports,
   viewTasks,
+  createTask,
 }

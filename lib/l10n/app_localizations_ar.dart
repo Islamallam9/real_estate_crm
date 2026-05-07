@@ -42,6 +42,76 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tasks => 'المهام';
 
   @override
+  String get tasksSubtitle =>
+      'نظم المتابعات ومهام الفريق حسب تاريخ الاستحقاق والحالة والأولوية.';
+
+  @override
+  String get createTask => 'إنشاء مهمة';
+
+  @override
+  String get taskCreatedSuccessfully => 'تم إنشاء المهمة بنجاح.';
+
+  @override
+  String get taskInformation => 'بيانات المهمة';
+
+  @override
+  String get taskTitle => 'عنوان المهمة';
+
+  @override
+  String get relatedType => 'نوع السجل المرتبط';
+
+  @override
+  String get relatedRecordId => 'معرف السجل المرتبط';
+
+  @override
+  String get scheduleAndPriority => 'الموعد والأولوية';
+
+  @override
+  String get selectDueDate => 'اختر تاريخ الاستحقاق';
+
+  @override
+  String get dueDate => 'تاريخ الاستحقاق';
+
+  @override
+  String get dueDateRequired => 'تاريخ الاستحقاق مطلوب.';
+
+  @override
+  String get pending => 'قيد الانتظار';
+
+  @override
+  String get inProgress => 'قيد التنفيذ';
+
+  @override
+  String get completed => 'مكتملة';
+
+  @override
+  String get cancelled => 'ملغاة';
+
+  @override
+  String get allPriorities => 'كل الأولويات';
+
+  @override
+  String get noTasksYet => 'لم يتم إنشاء مهام بعد.';
+
+  @override
+  String get noTasksMatchFilters => 'لا توجد مهام تطابق عوامل التصفية الحالية.';
+
+  @override
+  String get lead => 'عميل محتمل';
+
+  @override
+  String get client => 'عميل';
+
+  @override
+  String get property => 'عقار';
+
+  @override
+  String get deal => 'صفقة';
+
+  @override
+  String get general => 'عام';
+
+  @override
   String get deals => 'الصفقات';
 
   @override
@@ -183,6 +253,18 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get clientUpdatedSuccessfully => 'تم تحديث العميل بنجاح.';
+
+  @override
+  String get assignClient => 'تعيين العميل';
+
+  @override
+  String get clientAssignedSuccessfully => 'تم تعيين العميل بنجاح.';
+
+  @override
+  String get noClientsFound => 'لم يتم العثور على عملاء.';
+
+  @override
+  String get noAssignedClientsFound => 'لم يتم العثور على عملاء معينين.';
 
   @override
   String get archiveClient => 'أرشفة العميل';
@@ -603,9 +685,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get allSources => 'كل المصادر';
-
-  @override
-  String get allPriorities => 'كل الأولويات';
 
   @override
   String get allAgents => 'كل الموظفين';

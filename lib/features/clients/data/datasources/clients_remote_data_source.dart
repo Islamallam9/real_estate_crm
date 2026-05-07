@@ -16,6 +16,13 @@ abstract interface class ClientsRemoteDataSource {
     required ClientModel client,
   });
 
+  Future<void> assignClient({
+    required String companyId,
+    required String clientId,
+    required String assignedTo,
+    required String updatedBy,
+  });
+
   Future<void> archiveClient({
     required String companyId,
     required String clientId,
@@ -105,11 +112,42 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'preferredLocation': client.preferredLocation,
         'preferredPropertyType': client.preferredPropertyType,
         'notes': client.notes,
+        'assignedTo': client.assignedTo,
         'updatedAt': Timestamp.now(),
         'updatedBy': client.updatedBy,
       });
       final updatedSnapshot = await document.get();
       return ClientModel.fromFirestore(updatedSnapshot);
+    } on ClientException {
+      rethrow;
+    } on FirebaseException catch (error) {
+      throw ClientException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const ClientException(AppErrorMessages.unknown);
+    }
+  }
+
+  @override
+  Future<void> assignClient({
+    required String companyId,
+    required String clientId,
+    required String assignedTo,
+    required String updatedBy,
+  }) async {
+    try {
+      final document = _clientsCollection(companyId).doc(clientId);
+      final snapshot = await document.get();
+      if (!snapshot.exists) {
+        throw const ClientException(AppErrorMessages.notFound);
+      }
+
+      final existingClient = ClientModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, client: existingClient);
+      await document.update({
+        'assignedTo': assignedTo.trim(),
+        'updatedAt': Timestamp.now(),
+        'updatedBy': updatedBy,
+      });
     } on ClientException {
       rethrow;
     } on FirebaseException catch (error) {

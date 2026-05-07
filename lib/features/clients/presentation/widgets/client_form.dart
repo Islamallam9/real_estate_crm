@@ -5,7 +5,9 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/client.dart';
+import 'client_assignment_dropdown.dart';
 
 class ClientForm extends StatefulWidget {
   const ClientForm({
@@ -15,6 +17,8 @@ class ClientForm extends StatefulWidget {
     required this.onSubmit,
     this.client,
     this.assignedTo = '',
+    this.users = const [],
+    this.canEditAssignment = false,
     this.isSaving = false,
     this.submitLabel,
   });
@@ -22,6 +26,8 @@ class ClientForm extends StatefulWidget {
   final String companyId;
   final String actorUid;
   final String assignedTo;
+  final List<UserProfile> users;
+  final bool canEditAssignment;
   final ValueChanged<Client> onSubmit;
   final Client? client;
   final bool isSaving;
@@ -41,10 +47,12 @@ class _ClientFormState extends State<ClientForm> {
   final _preferredLocationController = TextEditingController();
   final _preferredPropertyTypeController = TextEditingController();
   final _notesController = TextEditingController();
+  late String _assignedTo;
 
   @override
   void initState() {
     super.initState();
+    _assignedTo = widget.client?.assignedTo ?? widget.assignedTo;
     final client = widget.client;
     if (client == null) {
       return;
@@ -151,6 +159,17 @@ class _ClientFormState extends State<ClientForm> {
                   enabled: !widget.isSaving,
                   maxLines: 3,
                 ),
+                if (widget.canEditAssignment) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  ClientAssignmentField(
+                    users: widget.users,
+                    value: _assignedTo,
+                    enabled: !widget.isSaving,
+                    onChanged: (uid) {
+                      setState(() => _assignedTo = uid);
+                    },
+                  ),
+                ],
               ]),
               const SizedBox(height: AppSpacing.lg),
               AppButton(
@@ -268,7 +287,9 @@ class _ClientFormState extends State<ClientForm> {
         preferredLocation: _preferredLocationController.text.trim(),
         preferredPropertyType: _preferredPropertyTypeController.text.trim(),
         notes: _notesController.text.trim(),
-        assignedTo: previous?.assignedTo ?? widget.assignedTo,
+        assignedTo: widget.canEditAssignment
+            ? _assignedTo
+            : previous?.assignedTo ?? widget.assignedTo,
         isActive: previous?.isActive ?? true,
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,

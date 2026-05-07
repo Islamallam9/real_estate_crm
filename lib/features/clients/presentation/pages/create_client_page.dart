@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -13,6 +14,10 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/client_form.dart';
@@ -49,6 +54,8 @@ class _CreateClientView extends StatelessWidget {
     final uid = user.uid;
     final role = userProfile.role;
     final canCreate = PermissionService.can(role, AppPermission.createClient);
+    final canEditAssignment = role == UserRole.admin || role == UserRole.manager;
+    final defaultAssignedTo = role == UserRole.salesAgent ? uid : '';
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.clients,
@@ -80,6 +87,44 @@ class _CreateClientView extends StatelessWidget {
               },
               builder: (context, state) {
                 final isSaving = state.status == ClientsStatus.saving;
+                final form = canEditAssignment
+                    ? StreamBuilder<List<UserProfile>>(
+                        stream: _watchActiveUsers(companyId),
+                        builder: (context, usersSnapshot) {
+                          if (usersSnapshot.hasError) {
+                            return AppErrorView(message: l.unableToConnect);
+                          }
+                          final users = usersSnapshot.data ?? const [];
+                          return ClientForm(
+                            companyId: companyId,
+                            actorUid: uid,
+                            assignedTo: defaultAssignedTo,
+                            users: users,
+                            canEditAssignment: true,
+                            isSaving: isSaving,
+                            submitLabel: l.createClient,
+                            onSubmit: (client) {
+                              context.read<ClientsCubit>().createClient(
+                                companyId: companyId,
+                                client: client,
+                              );
+                            },
+                          );
+                        },
+                      )
+                    : ClientForm(
+                        companyId: companyId,
+                        actorUid: uid,
+                        assignedTo: defaultAssignedTo,
+                        isSaving: isSaving,
+                        submitLabel: l.createClient,
+                        onSubmit: (client) {
+                          context.read<ClientsCubit>().createClient(
+                            companyId: companyId,
+                            client: client,
+                          );
+                        },
+                      );
                 return ListView(
                   primary: true,
                   physics: const ClampingScrollPhysics(),
@@ -103,18 +148,7 @@ class _CreateClientView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            ClientForm(
-                              companyId: companyId,
-                              actorUid: uid,
-                              isSaving: isSaving,
-                              submitLabel: l.createClient,
-                              onSubmit: (client) {
-                                context.read<ClientsCubit>().createClient(
-                                  companyId: companyId,
-                                  client: client,
-                                );
-                              },
-                            ),
+                            form,
                             const SizedBox(height: AppSpacing.md),
                             AppButton(
                               label: l.cancel,
@@ -132,4 +166,11 @@ class _CreateClientView extends StatelessWidget {
             ),
     );
   }
+}
+
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

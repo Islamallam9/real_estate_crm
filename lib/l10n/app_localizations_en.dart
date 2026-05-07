@@ -42,6 +42,76 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tasks => 'Tasks';
 
   @override
+  String get tasksSubtitle =>
+      'Plan follow-ups and internal task work by due date, status, and priority.';
+
+  @override
+  String get createTask => 'Create task';
+
+  @override
+  String get taskCreatedSuccessfully => 'Task created successfully.';
+
+  @override
+  String get taskInformation => 'Task information';
+
+  @override
+  String get taskTitle => 'Task title';
+
+  @override
+  String get relatedType => 'Related type';
+
+  @override
+  String get relatedRecordId => 'Related record ID';
+
+  @override
+  String get scheduleAndPriority => 'Schedule and priority';
+
+  @override
+  String get selectDueDate => 'Select due date';
+
+  @override
+  String get dueDate => 'Due date';
+
+  @override
+  String get dueDateRequired => 'Due date is required.';
+
+  @override
+  String get pending => 'Pending';
+
+  @override
+  String get inProgress => 'In progress';
+
+  @override
+  String get completed => 'Completed';
+
+  @override
+  String get cancelled => 'Cancelled';
+
+  @override
+  String get allPriorities => 'All priorities';
+
+  @override
+  String get noTasksYet => 'No tasks have been created yet.';
+
+  @override
+  String get noTasksMatchFilters => 'No tasks match the current filters.';
+
+  @override
+  String get lead => 'Lead';
+
+  @override
+  String get client => 'Client';
+
+  @override
+  String get property => 'Property';
+
+  @override
+  String get deal => 'Deal';
+
+  @override
+  String get general => 'General';
+
+  @override
   String get deals => 'Deals';
 
   @override
@@ -181,6 +251,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clientUpdatedSuccessfully => 'Client updated successfully.';
+
+  @override
+  String get assignClient => 'Assign client';
+
+  @override
+  String get clientAssignedSuccessfully => 'Client assigned successfully.';
+
+  @override
+  String get noClientsFound => 'No clients found.';
+
+  @override
+  String get noAssignedClientsFound => 'No assigned clients found.';
 
   @override
   String get archiveClient => 'Archive client';
@@ -603,9 +685,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allSources => 'All sources';
-
-  @override
-  String get allPriorities => 'All priorities';
 
   @override
   String get allAgents => 'All agents';

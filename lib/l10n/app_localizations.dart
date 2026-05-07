@@ -164,6 +164,144 @@ abstract class AppLocalizations {
   /// **'Tasks'**
   String get tasks;
 
+  /// No description provided for @tasksSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan follow-ups and internal task work by due date, status, and priority.'**
+  String get tasksSubtitle;
+
+  /// No description provided for @createTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Create task'**
+  String get createTask;
+
+  /// No description provided for @taskCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Task created successfully.'**
+  String get taskCreatedSuccessfully;
+
+  /// No description provided for @taskInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Task information'**
+  String get taskInformation;
+
+  /// No description provided for @taskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task title'**
+  String get taskTitle;
+
+  /// No description provided for @relatedType.
+  ///
+  /// In en, this message translates to:
+  /// **'Related type'**
+  String get relatedType;
+
+  /// No description provided for @relatedRecordId.
+  ///
+  /// In en, this message translates to:
+  /// **'Related record ID'**
+  String get relatedRecordId;
+
+  /// No description provided for @scheduleAndPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule and priority'**
+  String get scheduleAndPriority;
+
+  /// No description provided for @selectDueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select due date'**
+  String get selectDueDate;
+
+  /// No description provided for @dueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date'**
+  String get dueDate;
+
+  /// No description provided for @dueDateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date is required.'**
+  String get dueDateRequired;
+
+  /// No description provided for @pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pending;
+
+  /// No description provided for @inProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get inProgress;
+
+  /// No description provided for @completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completed;
+
+  /// No description provided for @cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get cancelled;
+
+  /// No description provided for @allPriorities.
+  ///
+  /// In en, this message translates to:
+  /// **'All priorities'**
+  String get allPriorities;
+
+  /// No description provided for @noTasksYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks have been created yet.'**
+  String get noTasksYet;
+
+  /// No description provided for @noTasksMatchFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks match the current filters.'**
+  String get noTasksMatchFilters;
+
+  /// No description provided for @lead.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead'**
+  String get lead;
+
+  /// No description provided for @client.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get client;
+
+  /// No description provided for @property.
+  ///
+  /// In en, this message translates to:
+  /// **'Property'**
+  String get property;
+
+  /// No description provided for @deal.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal'**
+  String get deal;
+
+  /// No description provided for @general.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get general;
+
   /// No description provided for @deals.
   ///
   /// In en, this message translates to:
@@ -439,6 +577,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Client updated successfully.'**
   String get clientUpdatedSuccessfully;
+
+  /// No description provided for @assignClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign client'**
+  String get assignClient;
+
+  /// No description provided for @clientAssignedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Client assigned successfully.'**
+  String get clientAssignedSuccessfully;
+
+  /// No description provided for @noClientsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No clients found.'**
+  String get noClientsFound;
+
+  /// No description provided for @noAssignedClientsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No assigned clients found.'**
+  String get noAssignedClientsFound;
 
   /// No description provided for @archiveClient.
   ///
@@ -1249,12 +1411,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All sources'**
   String get allSources;
-
-  /// No description provided for @allPriorities.
-  ///
-  /// In en, this message translates to:
-  /// **'All priorities'**
-  String get allPriorities;
 
   /// No description provided for @allAgents.
   ///

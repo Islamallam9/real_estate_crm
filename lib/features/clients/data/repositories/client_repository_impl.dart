@@ -32,6 +32,21 @@ class ClientRepositoryImpl implements ClientRepository {
   }
 
   @override
+  Future<void> assignClient({
+    required String companyId,
+    required String clientId,
+    required String assignedTo,
+    required String updatedBy,
+  }) {
+    return _remoteDataSource.assignClient(
+      companyId: companyId,
+      clientId: clientId,
+      assignedTo: assignedTo,
+      updatedBy: updatedBy,
+    );
+  }
+
+  @override
   Future<void> archiveClient({
     required String companyId,
     required String clientId,

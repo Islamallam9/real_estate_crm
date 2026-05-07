@@ -11,6 +11,13 @@ abstract interface class ClientRepository {
     required Client client,
   });
 
+  Future<void> assignClient({
+    required String companyId,
+    required String clientId,
+    required String assignedTo,
+    required String updatedBy,
+  });
+
   Future<void> archiveClient({
     required String companyId,
     required String clientId,
