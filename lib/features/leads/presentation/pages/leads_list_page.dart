@@ -579,11 +579,11 @@ void _showLeadFiltersSheet(
 
           return SafeArea(
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(
+              padding: const EdgeInsetsDirectional.fromSTEB(
                 AppSpacing.md,
                 AppSpacing.md,
                 AppSpacing.md,
-                MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+                AppSpacing.lg,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -713,6 +713,7 @@ void _showLeadFiltersSheet(
                       cubit.setPriorityFilter(null);
                       cubit.setAssignedToFilter(null);
                       cubit.setFollowUpFilter(null);
+                      Navigator.of(sheetContext).pop();
                     },
                   ),
                 ],

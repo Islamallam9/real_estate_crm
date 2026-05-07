@@ -382,6 +382,7 @@ class _PropertiesFilters extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   AppButton(
                     label: l.filters,
+                    icon: Icons.tune,
                     variant: AppButtonVariant.secondary,
                     onPressed: () {
                       _showPropertiesFiltersSheet(context, state: state);
