@@ -152,6 +152,41 @@ class TasksCubit extends Cubit<TasksState> {
     );
   }
 
+  void setDueDateFilter(TaskDueDateFilter? dueDateFilter) {
+    emit(
+      state.copyWith(
+        dueDateFilter: dueDateFilter,
+        clearDueDateFilter: dueDateFilter == null,
+        filteredTasks: _applyFilters(
+          state.tasks,
+          dueDateFilter: dueDateFilter,
+          overrideDueDateFilter: true,
+        ),
+      ),
+    );
+  }
+
+  void clearFilters() {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        clearStatusFilter: true,
+        clearPriorityFilter: true,
+        clearDueDateFilter: true,
+        filteredTasks: _applyFilters(
+          state.tasks,
+          searchQuery: '',
+          statusFilter: null,
+          priorityFilter: null,
+          dueDateFilter: null,
+          overrideStatusFilter: true,
+          overridePriorityFilter: true,
+          overrideDueDateFilter: true,
+        ),
+      ),
+    );
+  }
+
   void setAssignedToFilter(String assignedTo) {
     emit(
       state.copyWith(
@@ -369,9 +404,11 @@ class TasksCubit extends Cubit<TasksState> {
     String? searchQuery,
     TaskStatus? statusFilter,
     TaskPriority? priorityFilter,
+    TaskDueDateFilter? dueDateFilter,
     String? assignedToFilter,
     bool overrideStatusFilter = false,
     bool overridePriorityFilter = false,
+    bool overrideDueDateFilter = false,
   }) {
     final query = (searchQuery ?? state.searchQuery).trim().toLowerCase();
     final selectedStatus = overrideStatusFilter
@@ -380,29 +417,100 @@ class TasksCubit extends Cubit<TasksState> {
     final selectedPriority = overridePriorityFilter
         ? priorityFilter
         : priorityFilter ?? state.priorityFilter;
+    final selectedDueDateFilter = overrideDueDateFilter
+        ? dueDateFilter
+        : dueDateFilter ?? state.dueDateFilter;
     final selectedAssignedTo = (assignedToFilter ?? state.assignedToFilter).trim();
+    final today = _dateOnly(DateTime.now());
 
     final filtered = tasks.where((task) {
+      final assigneeLabel = _assigneeSearchText(task);
       final matchesSearch = query.isEmpty ||
           task.title.toLowerCase().contains(query) ||
           task.description.toLowerCase().contains(query) ||
           task.relatedTitle.toLowerCase().contains(query) ||
           task.relatedSubtitle.toLowerCase().contains(query) ||
-          task.relatedId.toLowerCase().contains(query);
+          assigneeLabel.contains(query);
       final matchesStatus = selectedStatus == null || task.status == selectedStatus;
       final matchesPriority =
           selectedPriority == null || task.priority == selectedPriority;
+      final matchesDueDate =
+          selectedDueDateFilter == null ||
+          _matchesDueDateFilter(task, selectedDueDateFilter, today);
       final matchesAssignedTo =
           selectedAssignedTo.isEmpty || task.assignedTo == selectedAssignedTo;
-      return matchesSearch && matchesStatus && matchesPriority && matchesAssignedTo;
+      return matchesSearch &&
+          matchesStatus &&
+          matchesPriority &&
+          matchesDueDate &&
+          matchesAssignedTo;
     }).toList();
 
-    filtered.sort((a, b) {
-      final aDate = a.dueDate ?? a.updatedAt ?? a.createdAt ?? DateTime(9999);
-      final bDate = b.dueDate ?? b.updatedAt ?? b.createdAt ?? DateTime(9999);
-      return aDate.compareTo(bDate);
-    });
+    filtered.sort((a, b) => _compareTasksByUrgency(a, b, today));
     return filtered;
+  }
+
+  bool _matchesDueDateFilter(
+    CrmTask task,
+    TaskDueDateFilter filter,
+    DateTime today,
+  ) {
+    final dueDate = task.dueDate;
+    if (dueDate == null) {
+      return false;
+    }
+    final dueDay = _dateOnly(dueDate);
+    switch (filter) {
+      case TaskDueDateFilter.overdue:
+        return _isIncomplete(task) && dueDay.isBefore(today);
+      case TaskDueDateFilter.today:
+        return dueDay == today;
+      case TaskDueDateFilter.upcoming:
+        return dueDay.isAfter(today);
+    }
+  }
+
+  int _compareTasksByUrgency(CrmTask a, CrmTask b, DateTime today) {
+    final groupCompare = _urgencyGroup(a, today).compareTo(
+      _urgencyGroup(b, today),
+    );
+    if (groupCompare != 0) {
+      return groupCompare;
+    }
+    final aDate = a.dueDate ?? DateTime(9999);
+    final bDate = b.dueDate ?? DateTime(9999);
+    return aDate.compareTo(bDate);
+  }
+
+  int _urgencyGroup(CrmTask task, DateTime today) {
+    final dueDate = task.dueDate;
+    if (!_isIncomplete(task)) {
+      return 3;
+    }
+    if (dueDate == null) {
+      return 2;
+    }
+    final dueDay = _dateOnly(dueDate);
+    if (dueDay.isBefore(today)) {
+      return 0;
+    }
+    if (dueDay == today) {
+      return 1;
+    }
+    return 2;
+  }
+
+  bool _isIncomplete(CrmTask task) {
+    return task.status != TaskStatus.completed &&
+        task.status != TaskStatus.cancelled;
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  String _assigneeSearchText(CrmTask task) {
+    return '${task.assignedToName} ${task.assignedToEmail}'.toLowerCase();
   }
 
   String _taskErrorMessage(Object error, String fallback) {

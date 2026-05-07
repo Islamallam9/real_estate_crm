@@ -379,6 +379,8 @@
   "overdue": "Overdue",
   "dueToday": "Due today",
   "upcoming": "Upcoming",
+  "allDueDates": "All due dates",
+  "dueDateFilter": "Due date",
   "notScheduled": "Not scheduled",
   "allFollowUps": "All follow-ups",
   "needsAttention": "Needs attention",

@@ -14,6 +14,10 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../cubit/tasks_cubit.dart';
 import '../cubit/tasks_state.dart';
 import '../widgets/task_form.dart';
@@ -103,17 +107,30 @@ class _CreateTaskView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            TaskForm(
-                              companyId: userProfile.companyId,
-                              actorUid: user.uid,
-                              relatedRecordsAssignedTo:
-                                  role == UserRole.salesAgent ? user.uid : null,
-                              isSaving: isSaving,
-                              submitLabel: l.createTask,
-                              onSubmit: (task) {
-                                context.read<TasksCubit>().createTask(
+                            StreamBuilder<List<UserProfile>>(
+                              stream: _watchActiveUsers(userProfile.companyId),
+                              builder: (context, usersSnapshot) {
+                                if (usersSnapshot.hasError) {
+                                  return AppErrorView(message: l.unableToConnect);
+                                }
+                                final users = usersSnapshot.data ?? const [];
+                                return TaskForm(
                                   companyId: userProfile.companyId,
-                                  task: task,
+                                  actorUid: user.uid,
+                                  users: users,
+                                  canEditAssignment:
+                                      role == UserRole.admin ||
+                                      role == UserRole.manager,
+                                  relatedRecordsAssignedTo:
+                                      role == UserRole.salesAgent ? user.uid : null,
+                                  isSaving: isSaving,
+                                  submitLabel: l.createTask,
+                                  onSubmit: (task) {
+                                    context.read<TasksCubit>().createTask(
+                                      companyId: userProfile.companyId,
+                                      task: task,
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -134,4 +151,11 @@ class _CreateTaskView extends StatelessWidget {
             ),
     );
   }
+}
+
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

@@ -18,6 +18,10 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../../domain/entities/crm_task.dart';
 import '../cubit/tasks_cubit.dart';
 import '../cubit/tasks_state.dart';
@@ -120,7 +124,12 @@ class _TasksListContentState extends State<_TasksListContent> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return BlocConsumer<TasksCubit, TasksState>(
+    return StreamBuilder<List<UserProfile>>(
+      stream: _watchActiveUsers(widget.companyId),
+      builder: (context, usersSnapshot) {
+        final users = usersSnapshot.data ?? const [];
+
+        return BlocConsumer<TasksCubit, TasksState>(
       listenWhen: (previous, current) =>
           previous.status != current.status ||
           previous.lastAction != current.lastAction ||
@@ -186,6 +195,7 @@ class _TasksListContentState extends State<_TasksListContent> {
                     state: state,
                     canManageTasks: widget.canManageTasks,
                     uid: widget.uid,
+                    users: users,
                   ),
                 ),
               ],
@@ -204,6 +214,8 @@ class _TasksListContentState extends State<_TasksListContent> {
           ],
         );
       },
+        );
+      },
     );
   }
 }
@@ -217,7 +229,9 @@ class _TasksFilters extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final cubit = context.read<TasksCubit>();
-    final hasFilters = state.statusFilter != null || state.priorityFilter != null;
+    final hasFilters = state.statusFilter != null ||
+        state.priorityFilter != null ||
+        state.dueDateFilter != null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -250,9 +264,7 @@ class _TasksFilters extends StatelessWidget {
                     label: l.clearFilters,
                     variant: AppButtonVariant.secondary,
                     onPressed: () {
-                      cubit.setSearchQuery('');
-                      cubit.setStatusFilter(null);
-                      cubit.setPriorityFilter(null);
+                      cubit.clearFilters();
                     },
                   ),
                 ),
@@ -274,9 +286,7 @@ class _TasksFilters extends StatelessWidget {
                   variant: AppButtonVariant.secondary,
                   onPressed: hasFilters
                       ? () {
-                          cubit.setSearchQuery('');
-                          cubit.setStatusFilter(null);
-                          cubit.setPriorityFilter(null);
+                          cubit.clearFilters();
                         }
                       : null,
                 ),
@@ -348,6 +358,18 @@ class _TasksFilterControls extends StatelessWidget {
             onChanged: (option) => cubit.setPriorityFilter(option.value),
           ),
         ),
+        SizedBox(
+          width: 210,
+          child: AppDropdown<_TaskFilterOption<TaskDueDateFilter>>(
+            label: l.dueDateFilter,
+            value: _TaskFilterOption.fromValue(state.dueDateFilter),
+            items: _taskFilterOptions(TaskDueDateFilter.values),
+            itemLabelBuilder: (option) => option.isAll
+                ? l.allDueDates
+                : _dueDateFilterLabel(l, option.value!),
+            onChanged: (option) => cubit.setDueDateFilter(option.value),
+          ),
+        ),
       ],
     );
   }
@@ -400,9 +422,7 @@ Future<void> _showTasksFiltersSheet(
                   label: l.clearFilters,
                   variant: AppButtonVariant.secondary,
                   onPressed: () {
-                    cubit.setSearchQuery('');
-                    cubit.setStatusFilter(null);
-                    cubit.setPriorityFilter(null);
+                    cubit.clearFilters();
                     Navigator.of(sheetContext).pop();
                   },
                 ),
@@ -421,6 +441,7 @@ class _TasksBody extends StatelessWidget {
     required this.state,
     required this.canManageTasks,
     required this.uid,
+    required this.users,
     this.assignedTo,
   });
 
@@ -429,6 +450,7 @@ class _TasksBody extends StatelessWidget {
   final TasksState state;
   final bool canManageTasks;
   final String uid;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -481,6 +503,7 @@ class _TasksBody extends StatelessWidget {
                 companyId: companyId,
                 canManageTasks: canManageTasks,
                 uid: uid,
+                users: users,
               );
             },
           );
@@ -491,6 +514,7 @@ class _TasksBody extends StatelessWidget {
           companyId: companyId,
           canManageTasks: canManageTasks,
           uid: uid,
+          users: users,
         );
       },
     );
@@ -503,12 +527,14 @@ class _TaskCard extends StatelessWidget {
     required this.companyId,
     required this.canManageTasks,
     required this.uid,
+    required this.users,
   });
 
   final CrmTask task;
   final String companyId;
   final bool canManageTasks;
   final String uid;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -552,8 +578,9 @@ class _TaskCard extends StatelessWidget {
               runSpacing: AppSpacing.xs,
               children: [
                 _Badge(label: _statusLabel(l, task.status)),
+                _Badge(label: _dueStateLabel(l, task)),
                 _Badge(label: _relatedRecordDisplayLabel(l, task)),
-                _Badge(label: _dueDateLabel(context, l, task.dueDate)),
+                _Badge(label: _assigneeDisplayLabel(l, task, users)),
               ],
             ),
             if (canManageTasks) ...[
@@ -577,12 +604,14 @@ class _TasksTable extends StatelessWidget {
     required this.companyId,
     required this.canManageTasks,
     required this.uid,
+    required this.users,
   });
 
   final List<CrmTask> tasks;
   final String companyId;
   final bool canManageTasks;
   final String uid;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -610,6 +639,7 @@ class _TasksTable extends StatelessWidget {
                 _TableHeaderText(l.status, flex: 2),
                 _TableHeaderText(l.priority, flex: 2),
                 _TableHeaderText(l.relatedRecord, flex: 2),
+                _TableHeaderText(l.assignedTo, flex: 2),
                 _TableHeaderText(l.dueDate, flex: 2),
                 _TableHeaderText(l.actions, flex: canManageTasks ? 2 : 1),
               ],
@@ -640,7 +670,11 @@ class _TasksTable extends StatelessWidget {
                         flex: 2,
                       ),
                       _TableBodyText(
-                        _dueDateLabel(context, l, task.dueDate),
+                        _assigneeDisplayLabel(l, task, users),
+                        flex: 2,
+                      ),
+                      _TableBodyText(
+                        _dueStateLabel(l, task),
                         flex: 2,
                       ),
                       Expanded(
@@ -893,6 +927,17 @@ String _priorityLabel(AppLocalizations l, TaskPriority priority) {
   }
 }
 
+String _dueDateFilterLabel(AppLocalizations l, TaskDueDateFilter filter) {
+  switch (filter) {
+    case TaskDueDateFilter.overdue:
+      return l.overdue;
+    case TaskDueDateFilter.today:
+      return l.dueToday;
+    case TaskDueDateFilter.upcoming:
+      return l.upcoming;
+  }
+}
+
 String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {
   switch (type) {
     case TaskRelatedType.lead:
@@ -917,14 +962,64 @@ String _relatedRecordDisplayLabel(AppLocalizations l, CrmTask task) {
   return '$typeLabel: $title';
 }
 
-String _dueDateLabel(BuildContext context, AppLocalizations l, DateTime? value) {
-  if (value == null) {
+String _dueStateLabel(AppLocalizations l, CrmTask task) {
+  if (task.status == TaskStatus.completed) {
+    return l.completed;
+  }
+  if (task.status == TaskStatus.cancelled) {
+    return l.cancelled;
+  }
+  final dueDate = task.dueDate;
+  if (dueDate == null) {
     return l.notAvailable;
   }
-  return MaterialLocalizations.of(context).formatMediumDate(value);
+  final today = _dateOnly(DateTime.now());
+  final dueDay = _dateOnly(dueDate);
+  if (dueDay.isBefore(today)) {
+    return l.overdue;
+  }
+  if (dueDay == today) {
+    return l.dueToday;
+  }
+  return l.upcoming;
+}
+
+String _assigneeDisplayLabel(
+  AppLocalizations l,
+  CrmTask task,
+  List<UserProfile> users,
+) {
+  if (task.assignedTo.trim().isEmpty) {
+    return l.unassigned;
+  }
+  final snapshotName = task.assignedToName.trim();
+  if (snapshotName.isNotEmpty) {
+    return snapshotName;
+  }
+  final snapshotEmail = task.assignedToEmail.trim();
+  if (snapshotEmail.isNotEmpty) {
+    return snapshotEmail;
+  }
+  for (final user in users) {
+    if (user.uid == task.assignedTo) {
+      return user.fullName.trim().isEmpty ? user.email : user.fullName;
+    }
+  }
+  return l.assignedUserUnavailable;
+}
+
+DateTime _dateOnly(DateTime value) {
+  return DateTime(value.year, value.month, value.day);
 }
 
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
+}
+
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

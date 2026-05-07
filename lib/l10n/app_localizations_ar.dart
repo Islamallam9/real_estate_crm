@@ -984,6 +984,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get upcoming => 'قادمة';
 
   @override
+  String get allDueDates => 'كل تواريخ الاستحقاق';
+
+  @override
+  String get dueDateFilter => 'تاريخ الاستحقاق';
+
+  @override
   String get notScheduled => 'غير مجدولة';
 
   @override

@@ -9,6 +9,8 @@ enum TasksAction { none, createTask, updateTask, markCompleted, cancelTask }
 
 enum TaskRelatedRecordsStatus { initial, loading, loaded, empty, failure }
 
+enum TaskDueDateFilter { overdue, today, upcoming }
+
 class TasksState extends Equatable {
   const TasksState({
     required this.status,
@@ -18,6 +20,7 @@ class TasksState extends Equatable {
     this.searchQuery = '',
     this.statusFilter,
     this.priorityFilter,
+    this.dueDateFilter,
     this.assignedToFilter = '',
     this.relatedRecordsStatus = TaskRelatedRecordsStatus.initial,
     this.relatedRecordOptions = const [],
@@ -35,6 +38,7 @@ class TasksState extends Equatable {
       searchQuery = '',
       statusFilter = null,
       priorityFilter = null,
+      dueDateFilter = null,
       assignedToFilter = '',
       relatedRecordsStatus = TaskRelatedRecordsStatus.initial,
       relatedRecordOptions = const [],
@@ -50,6 +54,7 @@ class TasksState extends Equatable {
   final String searchQuery;
   final TaskStatus? statusFilter;
   final TaskPriority? priorityFilter;
+  final TaskDueDateFilter? dueDateFilter;
   final String assignedToFilter;
   final TaskRelatedRecordsStatus relatedRecordsStatus;
   final List<TaskRelatedRecordOption> relatedRecordOptions;
@@ -66,6 +71,7 @@ class TasksState extends Equatable {
     String? searchQuery,
     TaskStatus? statusFilter,
     TaskPriority? priorityFilter,
+    TaskDueDateFilter? dueDateFilter,
     String? assignedToFilter,
     TaskRelatedRecordsStatus? relatedRecordsStatus,
     List<TaskRelatedRecordOption>? relatedRecordOptions,
@@ -75,6 +81,7 @@ class TasksState extends Equatable {
     TasksAction? lastAction,
     bool clearStatusFilter = false,
     bool clearPriorityFilter = false,
+    bool clearDueDateFilter = false,
     bool clearMessage = false,
     bool clearRelatedRecordsMessage = false,
     bool clearLastAction = false,
@@ -91,6 +98,9 @@ class TasksState extends Equatable {
       priorityFilter: clearPriorityFilter
           ? null
           : priorityFilter ?? this.priorityFilter,
+      dueDateFilter: clearDueDateFilter
+          ? null
+          : dueDateFilter ?? this.dueDateFilter,
       assignedToFilter: assignedToFilter ?? this.assignedToFilter,
       relatedRecordsStatus: clearRelatedRecords
           ? TaskRelatedRecordsStatus.initial
@@ -118,6 +128,7 @@ class TasksState extends Equatable {
     searchQuery,
     statusFilter,
     priorityFilter,
+    dueDateFilter,
     assignedToFilter,
     relatedRecordsStatus,
     relatedRecordOptions,

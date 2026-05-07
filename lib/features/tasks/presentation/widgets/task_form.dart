@@ -54,6 +54,8 @@ class _TaskFormState extends State<TaskForm> {
   TaskStatus _status = TaskStatus.pending;
   TaskPriority _priority = TaskPriority.medium;
   String _assignedTo = '';
+  String _assignedToName = '';
+  String _assignedToEmail = '';
   String _relatedId = '';
   String _relatedTitle = '';
   String _relatedSubtitle = '';
@@ -64,10 +66,13 @@ class _TaskFormState extends State<TaskForm> {
     super.initState();
     final task = widget.task;
     _assignedTo = task?.assignedTo ?? widget.assignedTo;
+    _syncAssignedSnapshot();
     if (task == null) {
       return;
     }
 
+    _assignedToName = task.assignedToName;
+    _assignedToEmail = task.assignedToEmail;
     _titleController.text = task.title;
     _descriptionController.text = task.description;
     _relatedId = task.relatedId;
@@ -155,7 +160,10 @@ class _TaskFormState extends State<TaskForm> {
                         : _assigneeLabel(l, widget.users, option.value),
                     enabled: !widget.isSaving,
                     onChanged: (option) {
-                      setState(() => _assignedTo = option.value ?? '');
+                      setState(() {
+                        _assignedTo = option.value ?? '';
+                        _syncAssignedSnapshot();
+                      });
                     },
                   ),
                 ],
@@ -293,15 +301,21 @@ class _TaskFormState extends State<TaskForm> {
     final selectedRelatedRecord = _selectedRelatedRecordFromState();
     final relatedTitle = selectedRelatedRecord?.title ?? _relatedTitle;
     final relatedSubtitle = selectedRelatedRecord?.subtitle ?? _relatedSubtitle;
+    final selectedAssignee = _selectedAssignee();
+    final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
+    final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
+    final assignedTo = widget.canEditAssignment
+        ? _assignedTo
+        : previous?.assignedTo ?? widget.assignedTo;
     widget.onSubmit(
       CrmTask(
         id: previous?.id ?? '',
         companyId: widget.companyId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        assignedTo: widget.canEditAssignment
-            ? _assignedTo
-            : previous?.assignedTo ?? widget.assignedTo,
+        assignedTo: assignedTo,
+        assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),
+        assignedToEmail: assignedTo.trim().isEmpty ? '' : assignedToEmail.trim(),
         relatedType: _relatedType,
         relatedId: _relatedType == TaskRelatedType.general
             ? ''
@@ -340,6 +354,32 @@ class _TaskFormState extends State<TaskForm> {
       }
     }
     return null;
+  }
+
+  UserProfile? _selectedAssignee() {
+    final uid = _assignedTo.trim();
+    if (uid.isEmpty) {
+      return null;
+    }
+    for (final user in widget.users) {
+      if (user.uid == uid) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  void _syncAssignedSnapshot() {
+    final user = _selectedAssignee();
+    if (user == null) {
+      if (_assignedTo.trim().isEmpty) {
+        _assignedToName = '';
+        _assignedToEmail = '';
+      }
+      return;
+    }
+    _assignedToName = user.fullName;
+    _assignedToEmail = user.email;
   }
 
   void _onRelatedTypeChanged(TaskRelatedType value) {

@@ -983,6 +983,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upcoming => 'Upcoming';
 
   @override
+  String get allDueDates => 'All due dates';
+
+  @override
+  String get dueDateFilter => 'Due date';
+
+  @override
   String get notScheduled => 'Not scheduled';
 
   @override

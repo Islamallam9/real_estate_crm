@@ -1952,6 +1952,18 @@ abstract class AppLocalizations {
   /// **'Upcoming'**
   String get upcoming;
 
+  /// No description provided for @allDueDates.
+  ///
+  /// In en, this message translates to:
+  /// **'All due dates'**
+  String get allDueDates;
+
+  /// No description provided for @dueDateFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Due date'**
+  String get dueDateFilter;
+
   /// No description provided for @notScheduled.
   ///
   /// In en, this message translates to:

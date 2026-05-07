@@ -382,6 +382,8 @@
   "overdue": "متأخرة",
   "dueToday": "مستحقة اليوم",
   "upcoming": "قادمة",
+  "allDueDates": "كل تواريخ الاستحقاق",
+  "dueDateFilter": "تاريخ الاستحقاق",
   "notScheduled": "غير مجدولة",
   "allFollowUps": "كل المتابعات",
   "needsAttention": "يحتاج اهتمام",
