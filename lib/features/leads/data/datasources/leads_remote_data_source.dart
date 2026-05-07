@@ -198,7 +198,12 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     String? assignedTo,
     int limit = 30,
   }) {
-    return _leadsCollection(companyId).limit(limit).snapshots().map((snapshot) {
+    Query<Map<String, dynamic>> query = _leadsCollection(companyId);
+    if (assignedTo != null && assignedTo.isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo);
+    }
+
+    return query.limit(limit).snapshots().map((snapshot) {
       final leads = snapshot.docs
           .map((document) {
             final lead = LeadModel.fromFirestore(document);
@@ -206,11 +211,7 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
             return lead;
           })
           .where((lead) {
-            final matchesAssignment =
-                assignedTo == null ||
-                assignedTo.isEmpty ||
-                lead.assignedTo == assignedTo;
-            return !lead.isArchived && matchesAssignment;
+            return !lead.isArchived;
           })
           .toList();
 

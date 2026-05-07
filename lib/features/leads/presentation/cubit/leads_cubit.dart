@@ -315,7 +315,11 @@ class LeadsCubit extends Cubit<LeadsState> {
         () => _getLeadByIdUseCase(companyId: companyId, leadId: lead.id),
       );
       final updated = await _guardFirebaseAction(
-        () => _updateLeadUseCase(companyId: companyId, lead: lead),
+        () => _updateLeadUseCase(
+          companyId: companyId,
+          lead: lead,
+          currentLead: current,
+        ),
       );
       await _addLeadUpdateEvents(
         companyId: companyId,
@@ -492,12 +496,7 @@ class LeadsCubit extends Cubit<LeadsState> {
             if (isClosed) {
               return;
             }
-            emit(
-              state.copyWith(
-                status: LeadsStatus.failure,
-                message: 'Unable to load notes. Please try again.',
-              ),
-            );
+            emit(state.copyWith(notes: const <LeadNote>[]));
           },
         );
   }
@@ -516,12 +515,7 @@ class LeadsCubit extends Cubit<LeadsState> {
             if (isClosed) {
               return;
             }
-            emit(
-              state.copyWith(
-                status: LeadsStatus.failure,
-                message: 'Unable to load lead timeline.',
-              ),
-            );
+            emit(state.copyWith(timeline: const <LeadTimelineEvent>[]));
           },
         );
   }
@@ -711,25 +705,30 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String newValue,
     required String createdBy,
     required String createdByName,
-  }) {
-    return _addLeadTimelineEventUseCase(
-      companyId: companyId,
-      leadId: leadId,
-      event: LeadTimelineEvent(
-        id: '',
-        leadId: leadId,
+  }) async {
+    try {
+      await _addLeadTimelineEventUseCase(
         companyId: companyId,
-        type: type,
-        title: title,
-        description: description,
-        oldValue: oldValue,
-        newValue: newValue,
-        createdAt: DateTime.now(),
-        createdBy: createdBy,
-        createdByName: createdByName,
-        metadata: const {},
-      ),
-    );
+        leadId: leadId,
+        event: LeadTimelineEvent(
+          id: '',
+          leadId: leadId,
+          companyId: companyId,
+          type: type,
+          title: title,
+          description: description,
+          oldValue: oldValue,
+          newValue: newValue,
+          createdAt: DateTime.now(),
+          createdBy: createdBy,
+          createdByName: createdByName,
+          metadata: const {},
+        ),
+      );
+    } catch (_) {
+      // Timeline logging is best-effort so a denied optional log write does not
+      // turn a successful lead action into a failed UI state.
+    }
   }
 
   List<Lead> _applyFilters(

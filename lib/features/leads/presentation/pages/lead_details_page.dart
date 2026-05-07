@@ -50,6 +50,8 @@ class _LeadDetailsView extends StatefulWidget {
 class _LeadDetailsViewState extends State<_LeadDetailsView> {
   Stream<List<UserProfile>>? _activeUsersStream;
   String? _activeUsersCompanyId;
+  String? _loadedCompanyId;
+  String? _timelineCompanyId;
 
   Stream<List<UserProfile>> _activeUsers(String companyId) {
     if (_activeUsersStream == null || _activeUsersCompanyId != companyId) {
@@ -63,17 +65,35 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
   @override
   void initState() {
     super.initState();
+    _loadLeadWhenReady();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadLeadWhenReady();
+  }
+
+  void _loadLeadWhenReady() {
     final companyId = _companyId(context);
-    if (companyId.isNotEmpty) {
-      final cubit = context.read<LeadsCubit>();
+    if (companyId.isEmpty || widget.leadId.isEmpty) {
+      return;
+    }
+
+    final cubit = context.read<LeadsCubit>();
+    if (_loadedCompanyId != companyId) {
+      _loadedCompanyId = companyId;
       cubit.loadLead(companyId: companyId, leadId: widget.leadId);
+    }
+    if (_timelineCompanyId != companyId) {
+      _timelineCompanyId = companyId;
       cubit.watchTimeline(companyId: companyId, leadId: widget.leadId);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
+    final authState = context.watch<AuthBloc>().state;
     final l = AppLocalizations.of(context)!;
     final role = authState.userProfile?.role ?? authState.user?.role;
     final uid = authState.user?.uid ?? '';
@@ -82,6 +102,13 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
         authState.user?.fullName ??
         l.unknownUser;
     final companyId = _companyId(context);
+    if (companyId.isNotEmpty && _loadedCompanyId != companyId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadLeadWhenReady();
+        }
+      });
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,

@@ -15,6 +15,7 @@ import 'auth_event.dart';
 import 'auth_state.dart';
 
 const _demoCompanyId = 'demo_company';
+const _profileLoadTimeout = Duration(seconds: 10);
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({
@@ -168,6 +169,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final profile = await _getCurrentUserProfileUseCase(
         companyId: _demoCompanyId,
         uid: user.uid,
+      ).timeout(
+        _profileLoadTimeout,
+        onTimeout: () {
+          throw const UserProfileException(AppErrorMessages.unableToConnect);
+        },
       );
 
       if (!profile.isActive) {
