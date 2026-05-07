@@ -231,81 +231,113 @@ class _LeadFilters extends StatelessWidget {
               );
             }
 
-            return Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
+            final cubit = context.read<LeadsCubit>();
+            final hasFilters =
+                state.searchQuery.trim().isNotEmpty ||
+                state.statusFilter != null ||
+                state.sourceFilter != null ||
+                state.priorityFilter != null ||
+                state.assignedToFilter != null ||
+                state.followUpFilter != null;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  width: 260,
-                  child: _LeadSearchField(
-                    onChanged: context.read<LeadsCubit>().setSearchQuery,
-                  ),
-                ),
-                _DesktopFilterDropdown<_LeadFilterOption<LeadStatus>>(
-                  label: localizations.status,
-                  value: _LeadFilterOption.fromValue(state.statusFilter),
-                  items: _leadFilterOptions(LeadStatus.values),
-                  itemLabelBuilder: (option) => option.isAll
-                      ? localizations.allStatuses
-                      : _statusLabel(localizations, option.value),
-                  onChanged: (option) {
-                    context.read<LeadsCubit>().setStatusFilter(option.value);
-                  },
-                ),
-                _DesktopFilterDropdown<_LeadFilterOption<LeadSource>>(
-                  label: localizations.source,
-                  value: _LeadFilterOption.fromValue(state.sourceFilter),
-                  items: _leadFilterOptions(LeadSource.values),
-                  itemLabelBuilder: (option) => option.isAll
-                      ? localizations.allSources
-                      : _sourceLabel(localizations, option.value),
-                  onChanged: (option) {
-                    context.read<LeadsCubit>().setSourceFilter(option.value);
-                  },
-                ),
-                _DesktopFilterDropdown<_LeadFilterOption<LeadPriority>>(
-                  label: localizations.priority,
-                  value: _LeadFilterOption.fromValue(state.priorityFilter),
-                  items: _leadFilterOptions(LeadPriority.values),
-                  itemLabelBuilder: (option) => option.isAll
-                      ? localizations.allPriorities
-                      : _priorityLabel(localizations, option.value),
-                  onChanged: (option) {
-                    context.read<LeadsCubit>().setPriorityFilter(option.value);
-                  },
-                ),
-                _DesktopFilterDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
-                  label: localizations.nextFollowUp,
-                  value: _LeadFilterOption.fromValue(state.followUpFilter),
-                  items: _leadFilterOptions(LeadFollowUpFilter.values),
-                  itemLabelBuilder: (option) => option.isAll
-                      ? localizations.allFollowUps
-                      : _followUpFilterLabel(localizations, option.value),
-                  onChanged: (option) {
-                    context.read<LeadsCubit>().setFollowUpFilter(option.value);
-                  },
-                ),
-                if (showAssignee)
-                  _DesktopFilterDropdown<_LeadFilterOption<String>>(
-                    label: localizations.assignee,
-                    value: _LeadFilterOption.fromValue(
-                      state.assignedToFilter,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _LeadSearchField(
+                        query: state.searchQuery,
+                        onChanged: cubit.setSearchQuery,
+                      ),
                     ),
-                    items: _assigneeFilterOptions(users, state.leads),
-                    itemLabelBuilder: (option) => option.isAll
-                        ? localizations.allAssignees
-                        : _userNameForFilter(
-                            localizations,
-                            users,
-                            state.leads,
-                            option.value,
-                          ),
-                    onChanged: (option) {
-                      context.read<LeadsCubit>().setAssignedToFilter(
-                        option.value,
-                      );
-                    },
-                  ),
+                    const SizedBox(width: AppSpacing.md),
+                    AppButton(
+                      label: localizations.clearFilters,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: hasFilters
+                          ? () {
+                              cubit.setSearchQuery('');
+                              cubit.setStatusFilter(null);
+                              cubit.setSourceFilter(null);
+                              cubit.setPriorityFilter(null);
+                              cubit.setAssignedToFilter(null);
+                              cubit.setFollowUpFilter(null);
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: [
+                    _DesktopFilterDropdown<_LeadFilterOption<LeadStatus>>(
+                      label: localizations.status,
+                      value: _LeadFilterOption.fromValue(state.statusFilter),
+                      items: _leadFilterOptions(LeadStatus.values),
+                      itemLabelBuilder: (option) => option.isAll
+                          ? localizations.allStatuses
+                          : _statusLabel(localizations, option.value),
+                      onChanged: (option) {
+                        cubit.setStatusFilter(option.value);
+                      },
+                    ),
+                    _DesktopFilterDropdown<_LeadFilterOption<LeadSource>>(
+                      label: localizations.source,
+                      value: _LeadFilterOption.fromValue(state.sourceFilter),
+                      items: _leadFilterOptions(LeadSource.values),
+                      itemLabelBuilder: (option) => option.isAll
+                          ? localizations.allSources
+                          : _sourceLabel(localizations, option.value),
+                      onChanged: (option) {
+                        cubit.setSourceFilter(option.value);
+                      },
+                    ),
+                    _DesktopFilterDropdown<_LeadFilterOption<LeadPriority>>(
+                      label: localizations.priority,
+                      value: _LeadFilterOption.fromValue(state.priorityFilter),
+                      items: _leadFilterOptions(LeadPriority.values),
+                      itemLabelBuilder: (option) => option.isAll
+                          ? localizations.allPriorities
+                          : _priorityLabel(localizations, option.value),
+                      onChanged: (option) {
+                        cubit.setPriorityFilter(option.value);
+                      },
+                    ),
+                    _DesktopFilterDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
+                      label: localizations.nextFollowUp,
+                      value: _LeadFilterOption.fromValue(state.followUpFilter),
+                      items: _leadFilterOptions(LeadFollowUpFilter.values),
+                      itemLabelBuilder: (option) => option.isAll
+                          ? localizations.allFollowUps
+                          : _followUpFilterLabel(localizations, option.value),
+                      onChanged: (option) {
+                        cubit.setFollowUpFilter(option.value);
+                      },
+                    ),
+                    if (showAssignee)
+                      _DesktopFilterDropdown<_LeadFilterOption<String>>(
+                        label: localizations.assignee,
+                        value: _LeadFilterOption.fromValue(
+                          state.assignedToFilter,
+                        ),
+                        items: _assigneeFilterOptions(users, state.leads),
+                        itemLabelBuilder: (option) => option.isAll
+                            ? localizations.allAssignees
+                            : _userNameForFilter(
+                                localizations,
+                                users,
+                                state.leads,
+                                option.value,
+                              ),
+                        onChanged: (option) {
+                          cubit.setAssignedToFilter(option.value);
+                        },
+                      ),
+                  ],
+                ),
               ],
             );
           },
@@ -315,10 +347,41 @@ class _LeadFilters extends StatelessWidget {
   }
 }
 
-class _LeadSearchField extends StatelessWidget {
-  const _LeadSearchField({required this.onChanged});
+class _LeadSearchField extends StatefulWidget {
+  const _LeadSearchField({required this.query, required this.onChanged});
 
+  final String query;
   final ValueChanged<String> onChanged;
+
+  @override
+  State<_LeadSearchField> createState() => _LeadSearchFieldState();
+}
+
+class _LeadSearchFieldState extends State<_LeadSearchField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.query);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LeadSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.query != widget.query && _controller.text != widget.query) {
+      _controller.text = widget.query;
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -328,12 +391,13 @@ class _LeadSearchField extends StatelessWidget {
     }
 
     return TextField(
+      controller: _controller,
       decoration: InputDecoration(
         labelText: localizations.searchLeads,
         prefixIcon: const Icon(Icons.search),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      onChanged: onChanged,
+      onChanged: widget.onChanged,
     );
   }
 }
@@ -391,6 +455,7 @@ class _MobileLeadFilters extends StatelessWidget {
       children: [
         Expanded(
           child: _LeadSearchField(
+            query: state.searchQuery,
             onChanged: context.read<LeadsCubit>().setSearchQuery,
           ),
         ),

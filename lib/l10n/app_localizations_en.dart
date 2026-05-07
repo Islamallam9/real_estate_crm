@@ -356,6 +356,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propertyDetails => 'Property details';
 
   @override
+  String get searchProperties => 'Search properties';
+
+  @override
+  String get clearFilters => 'Clear filters';
+
+  @override
+  String get noMatchingProperties => 'No properties match your filters.';
+
+  @override
+  String get adjustPropertyFiltersHint =>
+      'Try changing search text or filter values.';
+
+  @override
+  String get allPropertyTypes => 'All property types';
+
+  @override
+  String get allListingTypes => 'All listing types';
+
+  @override
+  String propertiesResultsCount(Object shown, Object total) {
+    return '$shown of $total properties';
+  }
+
+  @override
   String get propertyNotFoundMessage =>
       'Property not found. Open it from the properties list.';
 
@@ -712,9 +736,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get applyFilters => 'Apply filters';
-
-  @override
-  String get clearFilters => 'Clear filters';
 
   @override
   String get updated => 'Updated';

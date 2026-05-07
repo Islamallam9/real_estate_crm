@@ -782,6 +782,48 @@ abstract class AppLocalizations {
   /// **'Property details'**
   String get propertyDetails;
 
+  /// No description provided for @searchProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'Search properties'**
+  String get searchProperties;
+
+  /// No description provided for @clearFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get clearFilters;
+
+  /// No description provided for @noMatchingProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'No properties match your filters.'**
+  String get noMatchingProperties;
+
+  /// No description provided for @adjustPropertyFiltersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try changing search text or filter values.'**
+  String get adjustPropertyFiltersHint;
+
+  /// No description provided for @allPropertyTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All property types'**
+  String get allPropertyTypes;
+
+  /// No description provided for @allListingTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All listing types'**
+  String get allListingTypes;
+
+  /// No description provided for @propertiesResultsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{shown} of {total} properties'**
+  String propertiesResultsCount(Object shown, Object total);
+
   /// No description provided for @propertyNotFoundMessage.
   ///
   /// In en, this message translates to:
@@ -1441,12 +1483,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Apply filters'**
   String get applyFilters;
-
-  /// No description provided for @clearFilters.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear filters'**
-  String get clearFilters;
 
   /// No description provided for @updated.
   ///

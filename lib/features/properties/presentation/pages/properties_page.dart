@@ -9,6 +9,7 @@ import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -16,10 +17,12 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../domain/entities/property.dart';
 import '../cubit/properties_cubit.dart';
 import '../cubit/properties_state.dart';
 import '../widgets/properties_scope.dart';
 import '../widgets/property_card.dart';
+import '../widgets/property_labels.dart';
 import '../widgets/property_list_table.dart';
 
 class PropertiesPage extends StatelessWidget {
@@ -140,6 +143,8 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
+            _PropertiesFilters(state: state),
+            const SizedBox(height: AppSpacing.md),
             Expanded(
               child: _PropertiesBody(
                 companyId: widget.companyId,
@@ -197,18 +202,26 @@ class _PropertiesBody extends StatelessWidget {
       );
     }
 
+    if (state.filteredProperties.isEmpty) {
+      return AppEmptyState(
+        title: localizations.noMatchingProperties,
+        message: localizations.adjustPropertyFiltersHint,
+        icon: Icons.search_off_outlined,
+      );
+    }
+
     return Stack(
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 720) {
               return ListView.separated(
-                itemCount: state.properties.length,
+                itemCount: state.filteredProperties.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: AppSpacing.sm),
                 itemBuilder: (context, index) {
                   return PropertyCard(
-                    property: state.properties[index],
+                    property: state.filteredProperties[index],
                     canEdit: canEdit,
                   );
                 },
@@ -216,7 +229,7 @@ class _PropertiesBody extends StatelessWidget {
             }
 
             return PropertyListTable(
-              properties: state.properties,
+              properties: state.filteredProperties,
               canEdit: canEdit,
             );
           },
@@ -233,4 +246,142 @@ class _PropertiesBody extends StatelessWidget {
       ],
     );
   }
+}
+
+class _PropertiesFilters extends StatelessWidget {
+  const _PropertiesFilters({required this.state});
+
+  final PropertiesState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<PropertiesCubit>();
+    final hasFilters =
+        state.searchQuery.trim().isNotEmpty ||
+        state.propertyTypeFilter != null ||
+        state.listingTypeFilter != null ||
+        state.statusFilter != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                onChanged: cubit.setSearchQuery,
+                decoration: InputDecoration(
+                  labelText: l.searchProperties,
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            AppButton(
+              label: l.clearFilters,
+              variant: AppButtonVariant.secondary,
+              onPressed: hasFilters ? cubit.clearFilters : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            SizedBox(
+              width: 210,
+              child: AppDropdown<_FilterOption<PropertyType>>(
+                label: l.propertyType,
+                value: _FilterOption.fromValue(state.propertyTypeFilter),
+                items: _filterOptions(PropertyType.values),
+                itemLabelBuilder: (option) => option.isAll
+                    ? l.allPropertyTypes
+                    : propertyTypeLabel(l, option.value!),
+                onChanged: (option) {
+                  cubit.setPropertyTypeFilter(option.value);
+                },
+              ),
+            ),
+            SizedBox(
+              width: 210,
+              child: AppDropdown<_FilterOption<PropertyListingType>>(
+                label: l.listingType,
+                value: _FilterOption.fromValue(state.listingTypeFilter),
+                items: _filterOptions(PropertyListingType.values),
+                itemLabelBuilder: (option) => option.isAll
+                    ? l.allListingTypes
+                    : propertyListingTypeLabel(l, option.value!),
+                onChanged: (option) {
+                  cubit.setListingTypeFilter(option.value);
+                },
+              ),
+            ),
+            SizedBox(
+              width: 210,
+              child: AppDropdown<_FilterOption<PropertyStatus>>(
+                label: l.status,
+                value: _FilterOption.fromValue(state.statusFilter),
+                items: _filterOptions(PropertyStatus.values),
+                itemLabelBuilder: (option) => option.isAll
+                    ? l.allStatuses
+                    : propertyStatusLabel(l, option.value!),
+                onChanged: (option) {
+                  cubit.setStatusFilter(option.value);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          l.propertiesResultsCount(
+            state.filteredProperties.length,
+            state.properties.length,
+          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondaryColor(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterOption<T> {
+  const _FilterOption._({required this.value, required this.isAll});
+
+  const _FilterOption.all() : this._(value: null, isAll: true);
+
+  const _FilterOption.value(T value) : this._(value: value, isAll: false);
+
+  factory _FilterOption.fromValue(T? value) {
+    return value == null
+        ? _FilterOption<T>.all()
+        : _FilterOption<T>.value(value);
+  }
+
+  final T? value;
+  final bool isAll;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FilterOption<T> &&
+        other.isAll == isAll &&
+        other.value == value;
+  }
+
+  @override
+  int get hashCode => Object.hash(value, isAll);
+}
+
+List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
+  return [
+    _FilterOption<T>.all(),
+    for (final value in values) _FilterOption<T>.value(value),
+  ];
 }

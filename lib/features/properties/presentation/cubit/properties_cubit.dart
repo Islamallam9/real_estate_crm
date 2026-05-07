@@ -69,6 +69,13 @@ class PropertiesCubit extends Cubit<PropertiesState> {
                     ? PropertiesStatus.empty
                     : PropertiesStatus.loaded,
                 properties: properties,
+                filteredProperties: _applyFilters(
+                  properties,
+                  searchQuery: state.searchQuery,
+                  propertyTypeFilter: state.propertyTypeFilter,
+                  listingTypeFilter: state.listingTypeFilter,
+                  statusFilter: state.statusFilter,
+                ),
                 clearMessage: true,
               ),
             );
@@ -88,6 +95,81 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             );
           },
         );
+  }
+
+  void setSearchQuery(String query) {
+    emit(
+      state.copyWith(
+        searchQuery: query,
+        filteredProperties: _applyFilters(
+          state.properties,
+          searchQuery: query,
+          propertyTypeFilter: state.propertyTypeFilter,
+          listingTypeFilter: state.listingTypeFilter,
+          statusFilter: state.statusFilter,
+        ),
+      ),
+    );
+  }
+
+  void setPropertyTypeFilter(PropertyType? propertyType) {
+    emit(
+      state.copyWith(
+        propertyTypeFilter: propertyType,
+        clearPropertyTypeFilter: propertyType == null,
+        filteredProperties: _applyFilters(
+          state.properties,
+          searchQuery: state.searchQuery,
+          propertyTypeFilter: propertyType,
+          listingTypeFilter: state.listingTypeFilter,
+          statusFilter: state.statusFilter,
+        ),
+      ),
+    );
+  }
+
+  void setListingTypeFilter(PropertyListingType? listingType) {
+    emit(
+      state.copyWith(
+        listingTypeFilter: listingType,
+        clearListingTypeFilter: listingType == null,
+        filteredProperties: _applyFilters(
+          state.properties,
+          searchQuery: state.searchQuery,
+          propertyTypeFilter: state.propertyTypeFilter,
+          listingTypeFilter: listingType,
+          statusFilter: state.statusFilter,
+        ),
+      ),
+    );
+  }
+
+  void setStatusFilter(PropertyStatus? status) {
+    emit(
+      state.copyWith(
+        statusFilter: status,
+        clearStatusFilter: status == null,
+        filteredProperties: _applyFilters(
+          state.properties,
+          searchQuery: state.searchQuery,
+          propertyTypeFilter: state.propertyTypeFilter,
+          listingTypeFilter: state.listingTypeFilter,
+          statusFilter: status,
+        ),
+      ),
+    );
+  }
+
+  void clearFilters() {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        clearPropertyTypeFilter: true,
+        clearListingTypeFilter: true,
+        clearStatusFilter: true,
+        filteredProperties: _applyFilters(state.properties),
+      ),
+    );
   }
 
   Future<void> createProperty({
@@ -214,6 +296,35 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     }
 
     return fallback;
+  }
+
+  List<Property> _applyFilters(
+    List<Property> properties, {
+    String? searchQuery,
+    PropertyType? propertyTypeFilter,
+    PropertyListingType? listingTypeFilter,
+    PropertyStatus? statusFilter,
+  }) {
+    final query = (searchQuery ?? '').trim().toLowerCase();
+    final filtered = properties.where((property) {
+      final matchesQuery =
+          query.isEmpty ||
+          property.title.toLowerCase().contains(query) ||
+          property.location.toLowerCase().contains(query) ||
+          property.compound.toLowerCase().contains(query) ||
+          property.ownerName.toLowerCase().contains(query) ||
+          property.ownerPhone.toLowerCase().contains(query);
+      final matchesType =
+          propertyTypeFilter == null || property.propertyType == propertyTypeFilter;
+      final matchesListingType =
+          listingTypeFilter == null || property.listingType == listingTypeFilter;
+      final matchesStatus =
+          statusFilter == null || property.status == statusFilter;
+      return matchesQuery && matchesType && matchesListingType && matchesStatus;
+    }).toList();
+
+    filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return filtered;
   }
 
   @override

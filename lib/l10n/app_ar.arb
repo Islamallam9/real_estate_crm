@@ -119,6 +119,19 @@
   "propertyCreatedSuccessfully": "تم إنشاء العقار بنجاح.",
   "propertyUpdatedSuccessfully": "تم تحديث العقار بنجاح.",
   "propertyDetails": "تفاصيل العقار",
+  "searchProperties": "البحث في العقارات",
+  "clearFilters": "مسح الفلاتر",
+  "noMatchingProperties": "لا توجد عقارات مطابقة للفلاتر الحالية.",
+  "adjustPropertyFiltersHint": "غيّر نص البحث أو قيم الفلاتر ثم حاول مرة أخرى.",
+  "allPropertyTypes": "كل أنواع العقارات",
+  "allListingTypes": "كل أنواع الإعلان",
+  "propertiesResultsCount": "{shown} من {total} عقار",
+  "@propertiesResultsCount": {
+    "placeholders": {
+      "shown": {},
+      "total": {}
+    }
+  },
   "propertyNotFoundMessage": "العقار غير موجود. افتح التفاصيل من قائمة العقارات.",
   "backToProperties": "العودة إلى العقارات",
   "createdAt": "تاريخ الإنشاء",

@@ -358,6 +358,30 @@ class AppLocalizationsAr extends AppLocalizations {
   String get propertyDetails => 'تفاصيل العقار';
 
   @override
+  String get searchProperties => 'البحث في العقارات';
+
+  @override
+  String get clearFilters => 'مسح الفلاتر';
+
+  @override
+  String get noMatchingProperties => 'لا توجد عقارات مطابقة للفلاتر الحالية.';
+
+  @override
+  String get adjustPropertyFiltersHint =>
+      'غيّر نص البحث أو قيم الفلاتر ثم حاول مرة أخرى.';
+
+  @override
+  String get allPropertyTypes => 'كل أنواع العقارات';
+
+  @override
+  String get allListingTypes => 'كل أنواع الإعلان';
+
+  @override
+  String propertiesResultsCount(Object shown, Object total) {
+    return '$shown من $total عقار';
+  }
+
+  @override
   String get propertyNotFoundMessage =>
       'العقار غير موجود. افتح التفاصيل من قائمة العقارات.';
 
@@ -714,9 +738,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get applyFilters => 'تطبيق الفلاتر';
-
-  @override
-  String get clearFilters => 'مسح الفلاتر';
 
   @override
   String get updated => 'تم التحديث';

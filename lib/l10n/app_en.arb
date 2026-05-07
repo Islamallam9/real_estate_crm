@@ -119,6 +119,19 @@
   "propertyCreatedSuccessfully": "Property created successfully.",
   "propertyUpdatedSuccessfully": "Property updated successfully.",
   "propertyDetails": "Property details",
+  "searchProperties": "Search properties",
+  "clearFilters": "Clear filters",
+  "noMatchingProperties": "No properties match your filters.",
+  "adjustPropertyFiltersHint": "Try changing search text or filter values.",
+  "allPropertyTypes": "All property types",
+  "allListingTypes": "All listing types",
+  "propertiesResultsCount": "{shown} of {total} properties",
+  "@propertiesResultsCount": {
+    "placeholders": {
+      "shown": {},
+      "total": {}
+    }
+  },
   "propertyNotFoundMessage": "Property not found. Open it from the properties list.",
   "backToProperties": "Back to properties",
   "createdAt": "Created at",
