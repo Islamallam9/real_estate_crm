@@ -29,6 +29,8 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
       return l.authErrorProfileMissing;
     case 'Unable to load leads. Please try again.':
       return l.unableToLoadLeads;
+    case 'Unable to load properties. Please try again.':
+      return l.unableToLoadProperties;
     case 'Unable to create lead. Please try again.':
       return l.unableToCreateLead;
     case 'A lead with this phone or email already exists.':

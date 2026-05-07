@@ -222,6 +222,79 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unableToCreateLead => 'تعذر إنشاء العميل المحتمل. حاول مرة أخرى.';
 
   @override
+  String get propertiesSubtitle =>
+      'إدارة قوائم العقارات وحالتها في عرض عملي واحد.';
+
+  @override
+  String get noProperties => 'لا توجد عقارات بعد.';
+
+  @override
+  String get unableToLoadProperties => 'تعذر تحميل العقارات. حاول مرة أخرى.';
+
+  @override
+  String get propertyTitle => 'العنوان';
+
+  @override
+  String get propertyType => 'نوع العقار';
+
+  @override
+  String get listingType => 'نوع الإعلان';
+
+  @override
+  String get price => 'السعر';
+
+  @override
+  String get area => 'المساحة';
+
+  @override
+  String get location => 'الموقع';
+
+  @override
+  String get apartment => 'شقة';
+
+  @override
+  String get villa => 'فيلا';
+
+  @override
+  String get office => 'مكتب';
+
+  @override
+  String get shop => 'محل';
+
+  @override
+  String get land => 'أرض';
+
+  @override
+  String get studio => 'استوديو';
+
+  @override
+  String get duplex => 'دوبلكس';
+
+  @override
+  String get penthouse => 'بنتهاوس';
+
+  @override
+  String get sale => 'بيع';
+
+  @override
+  String get rent => 'إيجار';
+
+  @override
+  String get available => 'متاح';
+
+  @override
+  String get reserved => 'محجوز';
+
+  @override
+  String get sold => 'مباع';
+
+  @override
+  String get rented => 'مؤجر';
+
+  @override
+  String get inactive => 'غير نشط';
+
+  @override
   String get requiredField => 'هذا الحقل مطلوب.';
 
   @override

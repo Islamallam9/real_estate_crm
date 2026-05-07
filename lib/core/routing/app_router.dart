@@ -11,6 +11,7 @@ import '../../features/leads/presentation/pages/create_lead_page.dart';
 import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
 import '../../features/leads/presentation/pages/leads_list_page.dart';
+import '../../features/properties/presentation/pages/properties_page.dart';
 import 'route_names.dart';
 
 abstract final class AppRouter {
@@ -51,6 +52,10 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.leads,
           builder: (context, state) => const LeadsListPage(),
+        ),
+        GoRoute(
+          path: RouteNames.properties,
+          builder: (context, state) => const PropertiesPage(),
         ),
         GoRoute(
           path: RouteNames.leadsCreate,

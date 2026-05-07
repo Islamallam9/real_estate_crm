@@ -219,6 +219,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToCreateLead => 'Unable to create lead. Please try again.';
 
   @override
+  String get propertiesSubtitle =>
+      'Manage company listings and availability in one practical view.';
+
+  @override
+  String get noProperties => 'No properties yet.';
+
+  @override
+  String get unableToLoadProperties =>
+      'Unable to load properties. Please try again.';
+
+  @override
+  String get propertyTitle => 'Title';
+
+  @override
+  String get propertyType => 'Property type';
+
+  @override
+  String get listingType => 'Listing type';
+
+  @override
+  String get price => 'Price';
+
+  @override
+  String get area => 'Area';
+
+  @override
+  String get location => 'Location';
+
+  @override
+  String get apartment => 'Apartment';
+
+  @override
+  String get villa => 'Villa';
+
+  @override
+  String get office => 'Office';
+
+  @override
+  String get shop => 'Shop';
+
+  @override
+  String get land => 'Land';
+
+  @override
+  String get studio => 'Studio';
+
+  @override
+  String get duplex => 'Duplex';
+
+  @override
+  String get penthouse => 'Penthouse';
+
+  @override
+  String get sale => 'Sale';
+
+  @override
+  String get rent => 'Rent';
+
+  @override
+  String get available => 'Available';
+
+  @override
+  String get reserved => 'Reserved';
+
+  @override
+  String get sold => 'Sold';
+
+  @override
+  String get rented => 'Rented';
+
+  @override
+  String get inactive => 'Inactive';
+
+  @override
   String get requiredField => 'This field is required.';
 
   @override

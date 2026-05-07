@@ -512,6 +512,150 @@ abstract class AppLocalizations {
   /// **'Unable to create lead. Please try again.'**
   String get unableToCreateLead;
 
+  /// No description provided for @propertiesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage company listings and availability in one practical view.'**
+  String get propertiesSubtitle;
+
+  /// No description provided for @noProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'No properties yet.'**
+  String get noProperties;
+
+  /// No description provided for @unableToLoadProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load properties. Please try again.'**
+  String get unableToLoadProperties;
+
+  /// No description provided for @propertyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get propertyTitle;
+
+  /// No description provided for @propertyType.
+  ///
+  /// In en, this message translates to:
+  /// **'Property type'**
+  String get propertyType;
+
+  /// No description provided for @listingType.
+  ///
+  /// In en, this message translates to:
+  /// **'Listing type'**
+  String get listingType;
+
+  /// No description provided for @price.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get price;
+
+  /// No description provided for @area.
+  ///
+  /// In en, this message translates to:
+  /// **'Area'**
+  String get area;
+
+  /// No description provided for @location.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get location;
+
+  /// No description provided for @apartment.
+  ///
+  /// In en, this message translates to:
+  /// **'Apartment'**
+  String get apartment;
+
+  /// No description provided for @villa.
+  ///
+  /// In en, this message translates to:
+  /// **'Villa'**
+  String get villa;
+
+  /// No description provided for @office.
+  ///
+  /// In en, this message translates to:
+  /// **'Office'**
+  String get office;
+
+  /// No description provided for @shop.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get shop;
+
+  /// No description provided for @land.
+  ///
+  /// In en, this message translates to:
+  /// **'Land'**
+  String get land;
+
+  /// No description provided for @studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get studio;
+
+  /// No description provided for @duplex.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplex'**
+  String get duplex;
+
+  /// No description provided for @penthouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Penthouse'**
+  String get penthouse;
+
+  /// No description provided for @sale.
+  ///
+  /// In en, this message translates to:
+  /// **'Sale'**
+  String get sale;
+
+  /// No description provided for @rent.
+  ///
+  /// In en, this message translates to:
+  /// **'Rent'**
+  String get rent;
+
+  /// No description provided for @available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get available;
+
+  /// No description provided for @reserved.
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved'**
+  String get reserved;
+
+  /// No description provided for @sold.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold'**
+  String get sold;
+
+  /// No description provided for @rented.
+  ///
+  /// In en, this message translates to:
+  /// **'Rented'**
+  String get rented;
+
+  /// No description provided for @inactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get inactive;
+
   /// No description provided for @requiredField.
   ///
   /// In en, this message translates to:

@@ -1,0 +1,46 @@
+import '../../domain/entities/property.dart';
+import '../../domain/repositories/property_repository.dart';
+import '../datasources/properties_remote_data_source.dart';
+import '../models/property_model.dart';
+
+class PropertyRepositoryImpl implements PropertyRepository {
+  const PropertyRepositoryImpl({
+    required PropertiesRemoteDataSource remoteDataSource,
+  })
+    : _remoteDataSource = remoteDataSource;
+
+  final PropertiesRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<Property> createProperty({
+    required String companyId,
+    required Property property,
+  }) {
+    return _remoteDataSource.createProperty(
+      companyId: companyId,
+      property: PropertyModel.fromEntity(property),
+    );
+  }
+
+  @override
+  Future<Property> updateProperty({
+    required String companyId,
+    required Property property,
+  }) {
+    return _remoteDataSource.updateProperty(
+      companyId: companyId,
+      property: PropertyModel.fromEntity(property),
+    );
+  }
+
+  @override
+  Stream<List<Property>> watchProperties({
+    required String companyId,
+    int limit = 30,
+  }) {
+    return _remoteDataSource.watchProperties(
+      companyId: companyId,
+      limit: limit,
+    );
+  }
+}

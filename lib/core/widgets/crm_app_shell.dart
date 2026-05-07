@@ -125,6 +125,7 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
     case CrmNavigationItem.leads:
       context.go(RouteNames.leads);
     case CrmNavigationItem.properties:
+      context.go(RouteNames.properties);
     case CrmNavigationItem.clients:
     case CrmNavigationItem.tasks:
     case CrmNavigationItem.more:
