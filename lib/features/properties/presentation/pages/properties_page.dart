@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -45,8 +50,16 @@ class PropertiesPage extends StatelessWidget {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
 
+          final role = authState.userProfile?.role ?? authState.user?.role;
+          final canCreate = role != null
+              ? PermissionService.can(role, AppPermission.createProperty)
+              : false;
+
           return PropertiesScope(
-            child: _PropertiesListContent(companyId: companyId),
+            child: _PropertiesListContent(
+              companyId: companyId,
+              canCreate: canCreate,
+            ),
           );
         },
       ),
@@ -55,9 +68,13 @@ class PropertiesPage extends StatelessWidget {
 }
 
 class _PropertiesListContent extends StatefulWidget {
-  const _PropertiesListContent({required this.companyId});
+  const _PropertiesListContent({
+    required this.companyId,
+    required this.canCreate,
+  });
 
   final String companyId;
+  final bool canCreate;
 
   @override
   State<_PropertiesListContent> createState() => _PropertiesListContentState();
@@ -84,14 +101,39 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              localizations.propertiesSubtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryColor(context),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    localizations.propertiesSubtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                AppButton(
+                  label: localizations.createProperty,
+                  onPressed: widget.canCreate
+                      ? () => context.go(RouteNames.propertiesCreate)
+                      : null,
+                ),
+              ],
             ),
+            if (state.status == PropertiesStatus.failure &&
+                state.properties.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              AppErrorView(
+                message: localizeErrorMessage(localizations, state.message),
+                onRetry: () {
+                  context.read<PropertiesCubit>().watchProperties(
+                    companyId: widget.companyId,
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Expanded(
               child: _PropertiesBody(

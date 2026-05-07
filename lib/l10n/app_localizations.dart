@@ -404,6 +404,12 @@ abstract class AppLocalizations {
   /// **'Create lead'**
   String get createLead;
 
+  /// No description provided for @createProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Create property'**
+  String get createProperty;
+
   /// No description provided for @leadDetails.
   ///
   /// In en, this message translates to:
@@ -662,11 +668,95 @@ abstract class AppLocalizations {
   /// **'This field is required.'**
   String get requiredField;
 
+  /// No description provided for @enterValidNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid number.'**
+  String get enterValidNumber;
+
+  /// No description provided for @valueMustBePositive.
+  ///
+  /// In en, this message translates to:
+  /// **'Value must be greater than zero.'**
+  String get valueMustBePositive;
+
+  /// No description provided for @valueMustBeNonNegative.
+  ///
+  /// In en, this message translates to:
+  /// **'Value cannot be negative.'**
+  String get valueMustBeNonNegative;
+
   /// No description provided for @notAvailable.
   ///
   /// In en, this message translates to:
   /// **'Not available'**
   String get notAvailable;
+
+  /// No description provided for @description.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get description;
+
+  /// No description provided for @bedrooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bedrooms'**
+  String get bedrooms;
+
+  /// No description provided for @bathrooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bathrooms'**
+  String get bathrooms;
+
+  /// No description provided for @compound.
+  ///
+  /// In en, this message translates to:
+  /// **'Compound'**
+  String get compound;
+
+  /// No description provided for @ownerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner name'**
+  String get ownerName;
+
+  /// No description provided for @ownerPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner phone'**
+  String get ownerPhone;
+
+  /// No description provided for @propertyBasicInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Basic information'**
+  String get propertyBasicInformation;
+
+  /// No description provided for @propertyMetrics.
+  ///
+  /// In en, this message translates to:
+  /// **'Property metrics'**
+  String get propertyMetrics;
+
+  /// No description provided for @propertyLocationSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get propertyLocationSection;
+
+  /// No description provided for @propertyOwnerSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner information'**
+  String get propertyOwnerSection;
+
+  /// No description provided for @propertyCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Property created successfully.'**
+  String get propertyCreatedSuccessfully;
 
   /// No description provided for @newLead.
   ///

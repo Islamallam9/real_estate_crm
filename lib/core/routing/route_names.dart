@@ -4,6 +4,7 @@ abstract final class RouteNames {
   static const leads = '/leads';
   static const properties = '/properties';
   static const leadsCreate = '/leads/create';
+  static const propertiesCreate = '/properties/create';
 
   static String leadDetails(String leadId) => '/leads/$leadId';
   static String leadEdit(String leadId) => '/leads/$leadId/edit';

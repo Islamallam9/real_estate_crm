@@ -167,6 +167,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get createLead => 'إضافة عميل محتمل';
 
   @override
+  String get createProperty => 'إضافة عقار';
+
+  @override
   String get leadDetails => 'تفاصيل العميل المحتمل';
 
   @override
@@ -298,7 +301,49 @@ class AppLocalizationsAr extends AppLocalizations {
   String get requiredField => 'هذا الحقل مطلوب.';
 
   @override
+  String get enterValidNumber => 'أدخل رقمًا صالحًا.';
+
+  @override
+  String get valueMustBePositive => 'يجب أن تكون القيمة أكبر من صفر.';
+
+  @override
+  String get valueMustBeNonNegative => 'لا يمكن أن تكون القيمة سالبة.';
+
+  @override
   String get notAvailable => 'غير متوفر';
+
+  @override
+  String get description => 'الوصف';
+
+  @override
+  String get bedrooms => 'غرف النوم';
+
+  @override
+  String get bathrooms => 'الحمامات';
+
+  @override
+  String get compound => 'الكمبوند';
+
+  @override
+  String get ownerName => 'اسم المالك';
+
+  @override
+  String get ownerPhone => 'هاتف المالك';
+
+  @override
+  String get propertyBasicInformation => 'المعلومات الأساسية';
+
+  @override
+  String get propertyMetrics => 'بيانات العقار';
+
+  @override
+  String get propertyLocationSection => 'الموقع';
+
+  @override
+  String get propertyOwnerSection => 'بيانات المالك';
+
+  @override
+  String get propertyCreatedSuccessfully => 'تم إنشاء العقار بنجاح.';
 
   @override
   String get newLead => 'جديد';

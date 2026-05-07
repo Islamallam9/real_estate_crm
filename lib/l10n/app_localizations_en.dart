@@ -165,6 +165,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createLead => 'Create lead';
 
   @override
+  String get createProperty => 'Create property';
+
+  @override
   String get leadDetails => 'Lead details';
 
   @override
@@ -296,7 +299,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get requiredField => 'This field is required.';
 
   @override
+  String get enterValidNumber => 'Enter a valid number.';
+
+  @override
+  String get valueMustBePositive => 'Value must be greater than zero.';
+
+  @override
+  String get valueMustBeNonNegative => 'Value cannot be negative.';
+
+  @override
   String get notAvailable => 'Not available';
+
+  @override
+  String get description => 'Description';
+
+  @override
+  String get bedrooms => 'Bedrooms';
+
+  @override
+  String get bathrooms => 'Bathrooms';
+
+  @override
+  String get compound => 'Compound';
+
+  @override
+  String get ownerName => 'Owner name';
+
+  @override
+  String get ownerPhone => 'Owner phone';
+
+  @override
+  String get propertyBasicInformation => 'Basic information';
+
+  @override
+  String get propertyMetrics => 'Property metrics';
+
+  @override
+  String get propertyLocationSection => 'Location';
+
+  @override
+  String get propertyOwnerSection => 'Owner information';
+
+  @override
+  String get propertyCreatedSuccessfully => 'Property created successfully.';
 
   @override
   String get newLead => 'New';
