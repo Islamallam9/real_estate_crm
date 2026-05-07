@@ -49,7 +49,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createTask => 'Create task';
 
   @override
+  String get editTask => 'Edit task';
+
+  @override
+  String get updateTask => 'Update task';
+
+  @override
   String get taskCreatedSuccessfully => 'Task created successfully.';
+
+  @override
+  String get taskUpdatedSuccessfully => 'Task updated successfully.';
+
+  @override
+  String get taskCompletedSuccessfully => 'Task marked completed.';
+
+  @override
+  String get taskCancelledSuccessfully => 'Task cancelled successfully.';
+
+  @override
+  String get markTaskCompleted => 'Mark completed';
+
+  @override
+  String get cancelTask => 'Cancel task';
+
+  @override
+  String get cancelTaskConfirmation =>
+      'This task will be marked as cancelled and remain visible in task lists.';
+
+  @override
+  String get taskNotFound => 'Task not found. Open it from the tasks list.';
 
   @override
   String get taskInformation => 'Task information';
@@ -62,6 +90,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get relatedRecordId => 'Related record ID';
+
+  @override
+  String get relatedRecord => 'Related record';
+
+  @override
+  String get selectRelatedRecord => 'Select related record';
+
+  @override
+  String get relatedRecordRequired => 'Select a related record.';
+
+  @override
+  String get relatedRecordUnavailable => 'Related record unavailable';
+
+  @override
+  String get noLeadsFound => 'No leads found.';
+
+  @override
+  String get noPropertiesFound => 'No properties found.';
 
   @override
   String get scheduleAndPriority => 'Schedule and priority';

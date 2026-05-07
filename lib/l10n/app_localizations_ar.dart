@@ -49,7 +49,36 @@ class AppLocalizationsAr extends AppLocalizations {
   String get createTask => 'إنشاء مهمة';
 
   @override
+  String get editTask => 'تعديل المهمة';
+
+  @override
+  String get updateTask => 'تحديث المهمة';
+
+  @override
   String get taskCreatedSuccessfully => 'تم إنشاء المهمة بنجاح.';
+
+  @override
+  String get taskUpdatedSuccessfully => 'تم تحديث المهمة بنجاح.';
+
+  @override
+  String get taskCompletedSuccessfully => 'تم وضع علامة مكتملة على المهمة.';
+
+  @override
+  String get taskCancelledSuccessfully => 'تم إلغاء المهمة بنجاح.';
+
+  @override
+  String get markTaskCompleted => 'وضع علامة مكتملة';
+
+  @override
+  String get cancelTask => 'إلغاء المهمة';
+
+  @override
+  String get cancelTaskConfirmation =>
+      'سيتم وضع علامة ملغاة على هذه المهمة وستبقى ظاهرة في قوائم المهام.';
+
+  @override
+  String get taskNotFound =>
+      'لم يتم العثور على المهمة. افتحها من قائمة المهام.';
 
   @override
   String get taskInformation => 'بيانات المهمة';
@@ -62,6 +91,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get relatedRecordId => 'معرف السجل المرتبط';
+
+  @override
+  String get relatedRecord => 'السجل المرتبط';
+
+  @override
+  String get selectRelatedRecord => 'اختر السجل المرتبط';
+
+  @override
+  String get relatedRecordRequired => 'اختر سجلا مرتبطا.';
+
+  @override
+  String get relatedRecordUnavailable => 'السجل المرتبط غير متوفر';
+
+  @override
+  String get noLeadsFound => 'لا توجد عملاء محتملون.';
+
+  @override
+  String get noPropertiesFound => 'لا توجد عقارات.';
 
   @override
   String get scheduleAndPriority => 'الموعد والأولوية';

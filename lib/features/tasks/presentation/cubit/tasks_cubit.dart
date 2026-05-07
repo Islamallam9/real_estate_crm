@@ -4,23 +4,37 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/entities/crm_task.dart';
+import '../../domain/entities/task_related_record_option.dart';
 import '../../domain/errors/task_exception.dart';
 import '../../domain/usecases/create_task_usecase.dart';
+import '../../domain/usecases/get_task_related_record_options_usecase.dart';
+import '../../domain/usecases/update_task_usecase.dart';
+import '../../domain/usecases/watch_task_usecase.dart';
 import '../../domain/usecases/watch_tasks_usecase.dart';
 import 'tasks_state.dart';
 
 class TasksCubit extends Cubit<TasksState> {
   TasksCubit({
     required WatchTasksUseCase watchTasksUseCase,
+    required WatchTaskUseCase watchTaskUseCase,
     required CreateTaskUseCase createTaskUseCase,
+    required UpdateTaskUseCase updateTaskUseCase,
+    required GetTaskRelatedRecordOptionsUseCase getRelatedRecordOptionsUseCase,
   }) : _watchTasksUseCase = watchTasksUseCase,
+       _watchTaskUseCase = watchTaskUseCase,
        _createTaskUseCase = createTaskUseCase,
+       _updateTaskUseCase = updateTaskUseCase,
+       _getRelatedRecordOptionsUseCase = getRelatedRecordOptionsUseCase,
        super(const TasksState.initial());
 
   final WatchTasksUseCase _watchTasksUseCase;
+  final WatchTaskUseCase _watchTaskUseCase;
   final CreateTaskUseCase _createTaskUseCase;
+  final UpdateTaskUseCase _updateTaskUseCase;
+  final GetTaskRelatedRecordOptionsUseCase _getRelatedRecordOptionsUseCase;
 
   StreamSubscription<List<CrmTask>>? _tasksSubscription;
+  StreamSubscription<CrmTask?>? _taskSubscription;
 
   void watchTasks({required String companyId, String? assignedTo}) {
     emit(
@@ -44,6 +58,46 @@ class TasksCubit extends Cubit<TasksState> {
             status: tasks.isEmpty ? TasksStatus.empty : TasksStatus.loaded,
             tasks: tasks,
             filteredTasks: _applyFilters(tasks),
+            clearMessage: true,
+          ),
+        );
+      },
+      onError: (error) {
+        if (isClosed) {
+          return;
+        }
+        emit(
+          state.copyWith(
+            status: TasksStatus.failure,
+            message: _taskErrorMessage(error, AppErrorMessages.unknown),
+          ),
+        );
+      },
+    );
+  }
+
+  void watchTask({required String companyId, required String taskId}) {
+    emit(
+      state.copyWith(
+        status: TasksStatus.loading,
+        clearMessage: true,
+        clearLastAction: true,
+        clearSelectedTask: true,
+      ),
+    );
+    _taskSubscription?.cancel();
+    _taskSubscription = _watchTaskUseCase(
+      companyId: companyId,
+      taskId: taskId,
+    ).listen(
+      (task) {
+        if (isClosed) {
+          return;
+        }
+        emit(
+          state.copyWith(
+            status: task == null ? TasksStatus.empty : TasksStatus.loaded,
+            selectedTask: task,
             clearMessage: true,
           ),
         );
@@ -156,6 +210,157 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
+  Future<void> updateTask({
+    required String companyId,
+    required CrmTask task,
+    TasksAction action = TasksAction.updateTask,
+  }) async {
+    emit(
+      state.copyWith(
+        status: TasksStatus.saving,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    try {
+      await _updateTaskUseCase(companyId: companyId, task: task);
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: TasksStatus.saved,
+          clearMessage: true,
+          lastAction: action,
+        ),
+      );
+    } on TaskException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: TasksStatus.failure,
+          message: error.message,
+          lastAction: action,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: TasksStatus.failure,
+          message: AppErrorMessages.unknown,
+          lastAction: action,
+        ),
+      );
+    }
+  }
+
+  Future<void> markCompleted({
+    required String companyId,
+    required CrmTask task,
+    required String updatedBy,
+  }) {
+    return updateTask(
+      companyId: companyId,
+      task: task.copyWith(status: TaskStatus.completed, updatedBy: updatedBy),
+      action: TasksAction.markCompleted,
+    );
+  }
+
+  Future<void> cancelTask({
+    required String companyId,
+    required CrmTask task,
+    required String updatedBy,
+  }) {
+    return updateTask(
+      companyId: companyId,
+      task: task.copyWith(status: TaskStatus.cancelled, updatedBy: updatedBy),
+      action: TasksAction.cancelTask,
+    );
+  }
+
+  Future<void> loadRelatedRecordOptions({
+    required String companyId,
+    required TaskRelatedType type,
+    String? assignedTo,
+  }) async {
+    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+      emit(
+        state.copyWith(
+          clearRelatedRecords: true,
+          clearRelatedRecordsMessage: true,
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        relatedRecordsStatus: TaskRelatedRecordsStatus.loading,
+        relatedRecordsType: type,
+        relatedRecordOptions: const [],
+        clearRelatedRecordsMessage: true,
+      ),
+    );
+    try {
+      final options = await _getRelatedRecordOptionsUseCase(
+        companyId: companyId,
+        type: type,
+        assignedTo: assignedTo,
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          relatedRecordsStatus: options.isEmpty
+              ? TaskRelatedRecordsStatus.empty
+              : TaskRelatedRecordsStatus.loaded,
+          relatedRecordsType: type,
+          relatedRecordOptions: options,
+          clearRelatedRecordsMessage: true,
+        ),
+      );
+    } on TaskException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          relatedRecordsStatus: TaskRelatedRecordsStatus.failure,
+          relatedRecordsType: type,
+          relatedRecordOptions: const [],
+          relatedRecordsMessage: error.message,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          relatedRecordsStatus: TaskRelatedRecordsStatus.failure,
+          relatedRecordsType: type,
+          relatedRecordOptions: const [],
+          relatedRecordsMessage: AppErrorMessages.unknown,
+        ),
+      );
+    }
+  }
+
+  void clearRelatedRecordOptions() {
+    emit(
+      state.copyWith(
+        clearRelatedRecords: true,
+        clearRelatedRecordsMessage: true,
+      ),
+    );
+  }
+
   void clearAction() {
     emit(state.copyWith(clearLastAction: true));
   }
@@ -182,6 +387,8 @@ class TasksCubit extends Cubit<TasksState> {
       final matchesSearch = query.isEmpty ||
           task.title.toLowerCase().contains(query) ||
           task.description.toLowerCase().contains(query) ||
+          task.relatedTitle.toLowerCase().contains(query) ||
+          task.relatedSubtitle.toLowerCase().contains(query) ||
           task.relatedId.toLowerCase().contains(query);
       final matchesStatus = selectedStatus == null || task.status == selectedStatus;
       final matchesPriority =
@@ -209,6 +416,7 @@ class TasksCubit extends Cubit<TasksState> {
   @override
   Future<void> close() {
     _tasksSubscription?.cancel();
+    _taskSubscription?.cancel();
     return super.close();
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -6,7 +7,11 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/crm_task.dart';
+import '../../domain/entities/task_related_record_option.dart';
+import '../cubit/tasks_cubit.dart';
+import '../cubit/tasks_state.dart';
 
 class TaskForm extends StatefulWidget {
   const TaskForm({
@@ -14,6 +19,12 @@ class TaskForm extends StatefulWidget {
     required this.companyId,
     required this.actorUid,
     required this.onSubmit,
+    this.task,
+    this.users = const [],
+    this.canEditAssignment = false,
+    this.canEditStatus = false,
+    this.assignedTo = '',
+    this.relatedRecordsAssignedTo,
     this.isSaving = false,
     this.submitLabel,
   });
@@ -21,6 +32,12 @@ class TaskForm extends StatefulWidget {
   final String companyId;
   final String actorUid;
   final ValueChanged<CrmTask> onSubmit;
+  final CrmTask? task;
+  final List<UserProfile> users;
+  final bool canEditAssignment;
+  final bool canEditStatus;
+  final String assignedTo;
+  final String? relatedRecordsAssignedTo;
   final bool isSaving;
   final String? submitLabel;
 
@@ -32,17 +49,47 @@ class _TaskFormState extends State<TaskForm> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _relatedIdController = TextEditingController();
 
   TaskRelatedType _relatedType = TaskRelatedType.general;
+  TaskStatus _status = TaskStatus.pending;
   TaskPriority _priority = TaskPriority.medium;
+  String _assignedTo = '';
+  String _relatedId = '';
+  String _relatedTitle = '';
+  String _relatedSubtitle = '';
   DateTime? _dueDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final task = widget.task;
+    _assignedTo = task?.assignedTo ?? widget.assignedTo;
+    if (task == null) {
+      return;
+    }
+
+    _titleController.text = task.title;
+    _descriptionController.text = task.description;
+    _relatedId = task.relatedId;
+    _relatedTitle = task.relatedTitle;
+    _relatedSubtitle = task.relatedSubtitle;
+    _relatedType = task.relatedType;
+    _status = task.status;
+    _priority = task.priority;
+    _dueDate = task.dueDate;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadRelatedOptions(_relatedType);
+    });
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _relatedIdController.dispose();
     super.dispose();
   }
 
@@ -75,17 +122,43 @@ class _TaskFormState extends State<TaskForm> {
                 AppDropdown<TaskRelatedType>(
                   label: l.relatedType,
                   value: _relatedType,
-                  items: TaskRelatedType.values,
+                  items: const [
+                    TaskRelatedType.general,
+                    TaskRelatedType.lead,
+                    TaskRelatedType.client,
+                    TaskRelatedType.property,
+                  ],
                   itemLabelBuilder: (type) => _relatedTypeLabel(l, type),
                   enabled: !widget.isSaving,
-                  onChanged: (value) => setState(() => _relatedType = value),
+                  onChanged: _onRelatedTypeChanged,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                AppTextField(
-                  controller: _relatedIdController,
-                  label: l.relatedRecordId,
+                _RelatedRecordPicker(
+                  type: _relatedType,
+                  value: _relatedId,
                   enabled: !widget.isSaving,
+                  onChanged: (record) {
+                    setState(() {
+                      _relatedId = record?.id ?? '';
+                      _relatedTitle = record?.title ?? '';
+                      _relatedSubtitle = record?.subtitle ?? '';
+                    });
+                  },
                 ),
+                if (widget.canEditAssignment) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<_TaskAssigneeOption>(
+                    label: l.assignedTo,
+                    value: _TaskAssigneeOption.fromValue(_assignedTo),
+                    items: _taskAssigneeOptions(widget.users),
+                    itemLabelBuilder: (option) => option.isUnassigned
+                        ? l.unassigned
+                        : _assigneeLabel(l, widget.users, option.value),
+                    enabled: !widget.isSaving,
+                    onChanged: (option) {
+                      setState(() => _assignedTo = option.value ?? '');
+                    },
+                  ),
+                ],
               ]),
               const SizedBox(height: AppSpacing.lg),
               _section(context, l.scheduleAndPriority, [
@@ -106,6 +179,17 @@ class _TaskFormState extends State<TaskForm> {
                   enabled: !widget.isSaving,
                   onChanged: (value) => setState(() => _priority = value),
                 ),
+                if (widget.canEditStatus) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<TaskStatus>(
+                    label: l.status,
+                    value: _status,
+                    items: TaskStatus.values,
+                    itemLabelBuilder: (status) => _statusLabel(l, status),
+                    enabled: !widget.isSaving,
+                    onChanged: (value) => setState(() => _status = value),
+                  ),
+                ],
               ]),
               const SizedBox(height: AppSpacing.lg),
               AppButton(
@@ -195,28 +279,345 @@ class _TaskFormState extends State<TaskForm> {
       );
       return;
     }
+    if (_relatedType != TaskRelatedType.general && _relatedId.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.relatedRecordRequired),
+        ),
+      );
+      return;
+    }
 
     final now = DateTime.now();
+    final previous = widget.task;
+    final selectedRelatedRecord = _selectedRelatedRecordFromState();
+    final relatedTitle = selectedRelatedRecord?.title ?? _relatedTitle;
+    final relatedSubtitle = selectedRelatedRecord?.subtitle ?? _relatedSubtitle;
     widget.onSubmit(
       CrmTask(
-        id: '',
+        id: previous?.id ?? '',
         companyId: widget.companyId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        assignedTo: '',
+        assignedTo: widget.canEditAssignment
+            ? _assignedTo
+            : previous?.assignedTo ?? widget.assignedTo,
         relatedType: _relatedType,
-        relatedId: _relatedIdController.text.trim(),
+        relatedId: _relatedType == TaskRelatedType.general
+            ? ''
+            : _relatedId.trim(),
+        relatedTitle: _relatedType == TaskRelatedType.general
+            ? ''
+            : relatedTitle.trim(),
+        relatedSubtitle: _relatedType == TaskRelatedType.general
+            ? ''
+            : relatedSubtitle.trim(),
         dueDate: _dueDate,
-        status: TaskStatus.pending,
+        status: widget.canEditStatus
+            ? _status
+            : previous?.status ?? TaskStatus.pending,
         priority: _priority,
-        createdAt: now,
+        createdAt: previous?.createdAt ?? now,
         updatedAt: now,
-        createdBy: widget.actorUid,
+        createdBy: previous?.createdBy ?? widget.actorUid,
         updatedBy: widget.actorUid,
-        isActive: true,
+        isActive: previous?.isActive ?? true,
       ),
     );
   }
+
+  TaskRelatedRecordOption? _selectedRelatedRecordFromState() {
+    if (_relatedId.trim().isEmpty) {
+      return null;
+    }
+    final state = context.read<TasksCubit>().state;
+    if (state.relatedRecordsType != _relatedType) {
+      return null;
+    }
+    for (final option in state.relatedRecordOptions) {
+      if (option.id == _relatedId.trim()) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  void _onRelatedTypeChanged(TaskRelatedType value) {
+    setState(() {
+      _relatedType = value;
+      _relatedId = '';
+      _relatedTitle = '';
+      _relatedSubtitle = '';
+    });
+    _loadRelatedOptions(value);
+  }
+
+  void _loadRelatedOptions(TaskRelatedType type) {
+    final cubit = context.read<TasksCubit>();
+    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+      cubit.clearRelatedRecordOptions();
+      return;
+    }
+    cubit.loadRelatedRecordOptions(
+      companyId: widget.companyId,
+      type: type,
+      assignedTo: widget.relatedRecordsAssignedTo,
+    );
+  }
+}
+
+class _RelatedRecordPicker extends StatelessWidget {
+  const _RelatedRecordPicker({
+    required this.type,
+    required this.value,
+    required this.onChanged,
+    required this.enabled,
+  });
+
+  final TaskRelatedType type;
+  final String value;
+  final ValueChanged<TaskRelatedRecordOption?> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+      return const SizedBox.shrink();
+    }
+
+    final l = AppLocalizations.of(context)!;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: BlocBuilder<TasksCubit, TasksState>(
+        buildWhen: (previous, current) =>
+            previous.relatedRecordsStatus != current.relatedRecordsStatus ||
+            previous.relatedRecordOptions != current.relatedRecordOptions ||
+            previous.relatedRecordsType != current.relatedRecordsType ||
+            previous.relatedRecordsMessage != current.relatedRecordsMessage,
+        builder: (context, state) {
+          if (state.relatedRecordsType != type &&
+              state.relatedRecordsStatus != TaskRelatedRecordsStatus.initial) {
+            return _RelatedRecordLoading(label: l.relatedRecord);
+          }
+
+          if (state.relatedRecordsStatus == TaskRelatedRecordsStatus.loading) {
+            return _RelatedRecordLoading(label: l.relatedRecord);
+          }
+
+          if (state.relatedRecordsStatus == TaskRelatedRecordsStatus.failure) {
+            return Text(
+              l.unableToConnect,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.error,
+              ),
+            );
+          }
+
+          if (state.relatedRecordsStatus == TaskRelatedRecordsStatus.empty) {
+            if (value.trim().isNotEmpty) {
+              final options = _relatedRecordOptions(
+                const [],
+                selectedId: value,
+                selectedType: type,
+              );
+              final selectedOption = _relatedRecordSelectionFor(
+                value,
+                options,
+              );
+              return AppDropdown<_RelatedRecordSelection>(
+                key: ValueKey('${type.name}-${selectedOption.record?.id ?? ''}'),
+                label: l.relatedRecord,
+                value: selectedOption,
+                items: options,
+                itemLabelBuilder: (option) => option.isPlaceholder
+                    ? l.selectRelatedRecord
+                    : _relatedRecordLabel(l, option.record),
+                enabled: false,
+                onChanged: (option) => onChanged(option.record),
+              );
+            }
+            return Text(
+              _emptyRelatedRecordsLabel(l, type),
+              style: Theme.of(context).textTheme.bodySmall,
+            );
+          }
+
+          final options = _relatedRecordOptions(
+            state.relatedRecordOptions,
+            selectedId: value,
+            selectedType: type,
+          );
+          final selectedOption = _relatedRecordSelectionFor(
+            value,
+            options,
+          );
+
+          return AppDropdown<_RelatedRecordSelection>(
+            key: ValueKey('${type.name}-${selectedOption.record?.id ?? ''}'),
+            label: l.relatedRecord,
+            value: selectedOption,
+            items: options,
+            itemLabelBuilder: (option) => option.isPlaceholder
+                ? l.selectRelatedRecord
+                : _relatedRecordLabel(l, option.record),
+            enabled: enabled && options.length > 1,
+            onChanged: (option) => onChanged(option.record),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RelatedRecordLoading extends StatelessWidget {
+  const _RelatedRecordLoading({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+      ),
+      child: const SizedBox(
+        height: 28,
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RelatedRecordSelection {
+  const _RelatedRecordSelection._({
+    required this.record,
+    required this.isPlaceholder,
+  });
+
+  const _RelatedRecordSelection.placeholder()
+    : this._(record: null, isPlaceholder: true);
+
+  const _RelatedRecordSelection.value(TaskRelatedRecordOption record)
+    : this._(record: record, isPlaceholder: false);
+
+  final TaskRelatedRecordOption? record;
+  final bool isPlaceholder;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RelatedRecordSelection &&
+        other.isPlaceholder == isPlaceholder &&
+        other.record?.id == record?.id;
+  }
+
+  @override
+  int get hashCode => Object.hash(record?.id, isPlaceholder);
+}
+
+List<_RelatedRecordSelection> _relatedRecordOptions(
+  List<TaskRelatedRecordOption> records, {
+  required String selectedId,
+  required TaskRelatedType selectedType,
+}) {
+  final sortedRecords = [...records]
+    ..sort((a, b) => a.title.compareTo(b.title));
+  final hasSelected = selectedId.trim().isEmpty ||
+      sortedRecords.any((record) => record.id == selectedId.trim());
+
+  return [
+    const _RelatedRecordSelection.placeholder(),
+    for (final record in sortedRecords) _RelatedRecordSelection.value(record),
+    if (!hasSelected)
+      _RelatedRecordSelection.value(
+        TaskRelatedRecordOption(
+          id: selectedId.trim(),
+          type: selectedType,
+          title: '',
+          subtitle: '',
+        ),
+      ),
+  ];
+}
+
+_RelatedRecordSelection _relatedRecordSelectionFor(
+  String selectedId,
+  List<_RelatedRecordSelection> options,
+) {
+  final trimmed = selectedId.trim();
+  if (trimmed.isEmpty) {
+    return const _RelatedRecordSelection.placeholder();
+  }
+  for (final option in options) {
+    if (option.record?.id == trimmed) {
+      return option;
+    }
+  }
+  return const _RelatedRecordSelection.placeholder();
+}
+
+class _TaskAssigneeOption {
+  const _TaskAssigneeOption._({required this.value, required this.isUnassigned});
+
+  const _TaskAssigneeOption.unassigned()
+    : this._(value: null, isUnassigned: true);
+
+  const _TaskAssigneeOption.value(String value)
+    : this._(value: value, isUnassigned: false);
+
+  factory _TaskAssigneeOption.fromValue(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty
+        ? const _TaskAssigneeOption.unassigned()
+        : _TaskAssigneeOption.value(trimmed);
+  }
+
+  final String? value;
+  final bool isUnassigned;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TaskAssigneeOption &&
+        other.isUnassigned == isUnassigned &&
+        other.value == value;
+  }
+
+  @override
+  int get hashCode => Object.hash(value, isUnassigned);
+}
+
+List<_TaskAssigneeOption> _taskAssigneeOptions(List<UserProfile> users) {
+  final sortedUsers = [...users]
+    ..sort((a, b) => a.fullName.compareTo(b.fullName));
+  return [
+    const _TaskAssigneeOption.unassigned(),
+    for (final user in sortedUsers) _TaskAssigneeOption.value(user.uid),
+  ];
+}
+
+String _assigneeLabel(
+  AppLocalizations l,
+  List<UserProfile> users,
+  String? uid,
+) {
+  final value = uid?.trim() ?? '';
+  if (value.isEmpty) {
+    return l.unassigned;
+  }
+  for (final user in users) {
+    if (user.uid == value) {
+      return user.fullName.trim().isEmpty ? user.email : user.fullName;
+    }
+  }
+  return l.assignedUserUnavailable;
 }
 
 String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {
@@ -234,6 +635,35 @@ String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {
   }
 }
 
+String _emptyRelatedRecordsLabel(AppLocalizations l, TaskRelatedType type) {
+  switch (type) {
+    case TaskRelatedType.lead:
+      return l.noLeadsFound;
+    case TaskRelatedType.client:
+      return l.noClientsFound;
+    case TaskRelatedType.property:
+      return l.noPropertiesFound;
+    case TaskRelatedType.deal:
+    case TaskRelatedType.general:
+      return l.noData;
+  }
+}
+
+String _relatedRecordLabel(
+  AppLocalizations l,
+  TaskRelatedRecordOption? record,
+) {
+  if (record == null) {
+    return l.selectRelatedRecord;
+  }
+  final title = record.title.trim();
+  final subtitle = record.subtitle.trim();
+  if (title.isEmpty) {
+    return l.relatedRecordUnavailable;
+  }
+  return subtitle.isEmpty ? title : '$title - $subtitle';
+}
+
 String _priorityLabel(AppLocalizations l, TaskPriority priority) {
   switch (priority) {
     case TaskPriority.low:
@@ -242,5 +672,18 @@ String _priorityLabel(AppLocalizations l, TaskPriority priority) {
       return l.medium;
     case TaskPriority.high:
       return l.high;
+  }
+}
+
+String _statusLabel(AppLocalizations l, TaskStatus status) {
+  switch (status) {
+    case TaskStatus.pending:
+      return l.pending;
+    case TaskStatus.inProgress:
+      return l.inProgress;
+    case TaskStatus.completed:
+      return l.completed;
+    case TaskStatus.cancelled:
+      return l.cancelled;
   }
 }

@@ -106,6 +106,8 @@ class _CreateTaskView extends StatelessWidget {
                             TaskForm(
                               companyId: userProfile.companyId,
                               actorUid: user.uid,
+                              relatedRecordsAssignedTo:
+                                  role == UserRole.salesAgent ? user.uid : null,
                               isSaving: isSaving,
                               submitLabel: l.createTask,
                               onSubmit: (task) {

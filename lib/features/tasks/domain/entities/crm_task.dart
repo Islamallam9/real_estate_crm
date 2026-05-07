@@ -15,6 +15,8 @@ class CrmTask extends Equatable {
     required this.assignedTo,
     required this.relatedType,
     required this.relatedId,
+    required this.relatedTitle,
+    required this.relatedSubtitle,
     required this.dueDate,
     required this.status,
     required this.priority,
@@ -32,6 +34,8 @@ class CrmTask extends Equatable {
   final String assignedTo;
   final TaskRelatedType relatedType;
   final String relatedId;
+  final String relatedTitle;
+  final String relatedSubtitle;
   final DateTime? dueDate;
   final TaskStatus status;
   final TaskPriority priority;
@@ -40,6 +44,46 @@ class CrmTask extends Equatable {
   final String createdBy;
   final String updatedBy;
   final bool isActive;
+
+  CrmTask copyWith({
+    String? id,
+    String? companyId,
+    String? title,
+    String? description,
+    String? assignedTo,
+    TaskRelatedType? relatedType,
+    String? relatedId,
+    String? relatedTitle,
+    String? relatedSubtitle,
+    DateTime? dueDate,
+    TaskStatus? status,
+    TaskPriority? priority,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? createdBy,
+    String? updatedBy,
+    bool? isActive,
+  }) {
+    return CrmTask(
+      id: id ?? this.id,
+      companyId: companyId ?? this.companyId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      assignedTo: assignedTo ?? this.assignedTo,
+      relatedType: relatedType ?? this.relatedType,
+      relatedId: relatedId ?? this.relatedId,
+      relatedTitle: relatedTitle ?? this.relatedTitle,
+      relatedSubtitle: relatedSubtitle ?? this.relatedSubtitle,
+      dueDate: dueDate ?? this.dueDate,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -50,6 +94,8 @@ class CrmTask extends Equatable {
     assignedTo,
     relatedType,
     relatedId,
+    relatedTitle,
+    relatedSubtitle,
     dueDate,
     status,
     priority,

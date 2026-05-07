@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../domain/entities/crm_task.dart';
 import '../../domain/errors/task_exception.dart';
+import '../../domain/entities/task_related_record_option.dart';
 import '../models/crm_task_model.dart';
 
 abstract interface class TasksRemoteDataSource {
@@ -11,8 +13,25 @@ abstract interface class TasksRemoteDataSource {
     required CrmTaskModel task,
   });
 
+  Future<CrmTaskModel> updateTask({
+    required String companyId,
+    required CrmTaskModel task,
+  });
+
+  Stream<CrmTaskModel?> watchTask({
+    required String companyId,
+    required String taskId,
+  });
+
   Stream<List<CrmTaskModel>> watchTasks({
     required String companyId,
+    String? assignedTo,
+    int limit,
+  });
+
+  Future<List<TaskRelatedRecordOption>> getRelatedRecordOptions({
+    required String companyId,
+    required TaskRelatedType type,
     String? assignedTo,
     int limit,
   });
@@ -42,6 +61,8 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
         assignedTo: task.assignedTo,
         relatedType: task.relatedType,
         relatedId: task.relatedId,
+        relatedTitle: task.relatedTitle,
+        relatedSubtitle: task.relatedSubtitle,
         dueDate: task.dueDate,
         status: task.status,
         priority: task.priority,
@@ -60,6 +81,66 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
     } catch (_) {
       throw const TaskException(AppErrorMessages.unknown);
     }
+  }
+
+  @override
+  Future<CrmTaskModel> updateTask({
+    required String companyId,
+    required CrmTaskModel task,
+  }) async {
+    _ensureSameCompany(companyId: companyId, task: task);
+    try {
+      final document = _tasksCollection(companyId).doc(task.id);
+      final snapshot = await document.get();
+      if (!snapshot.exists) {
+        throw const TaskException(AppErrorMessages.notFound);
+      }
+
+      final existingTask = CrmTaskModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, task: existingTask);
+      await document.update({
+        'title': task.title,
+        'description': task.description,
+        'assignedTo': task.assignedTo,
+        'relatedType': task.relatedType.name,
+        'relatedId': task.relatedId,
+        'relatedTitle': task.relatedTitle,
+        'relatedSubtitle': task.relatedSubtitle,
+        'dueDate': task.dueDate == null ? null : Timestamp.fromDate(task.dueDate!),
+        'status': task.status.name,
+        'priority': task.priority.name,
+        'updatedAt': Timestamp.now(),
+        'updatedBy': task.updatedBy,
+      });
+      final updatedSnapshot = await document.get();
+      return CrmTaskModel.fromFirestore(updatedSnapshot);
+    } on TaskException {
+      rethrow;
+    } on FirebaseException catch (error) {
+      throw TaskException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const TaskException(AppErrorMessages.unknown);
+    }
+  }
+
+  @override
+  Stream<CrmTaskModel?> watchTask({
+    required String companyId,
+    required String taskId,
+  }) {
+    return _tasksCollection(companyId).doc(taskId).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return null;
+      }
+      final task = CrmTaskModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, task: task);
+      return task;
+    }).handleError((Object error) {
+      if (error is FirebaseException) {
+        throw TaskException(_mapFirestoreError(error));
+      }
+      throw const TaskException(AppErrorMessages.unknown);
+    });
   }
 
   @override
@@ -95,6 +176,151 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       }
       throw const TaskException(AppErrorMessages.unknown);
     });
+  }
+
+  @override
+  Future<List<TaskRelatedRecordOption>> getRelatedRecordOptions({
+    required String companyId,
+    required TaskRelatedType type,
+    String? assignedTo,
+    int limit = 30,
+  }) async {
+    try {
+      switch (type) {
+        case TaskRelatedType.lead:
+          return _getLeadOptions(
+            companyId: companyId,
+            assignedTo: assignedTo,
+            limit: limit,
+          );
+        case TaskRelatedType.client:
+          return _getClientOptions(
+            companyId: companyId,
+            assignedTo: assignedTo,
+            limit: limit,
+          );
+        case TaskRelatedType.property:
+          return _getPropertyOptions(
+            companyId: companyId,
+            assignedTo: assignedTo,
+            limit: limit,
+          );
+        case TaskRelatedType.general:
+        case TaskRelatedType.deal:
+          return const [];
+      }
+    } on FirebaseException catch (error) {
+      throw TaskException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const TaskException(AppErrorMessages.unknown);
+    }
+  }
+
+  Future<List<TaskRelatedRecordOption>> _getLeadOptions({
+    required String companyId,
+    String? assignedTo,
+    required int limit,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      FirebasePaths.companyLeads(companyId),
+    );
+    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
+    }
+
+    final snapshot = await query.limit(limit).get();
+    final options = <TaskRelatedRecordOption>[];
+    for (final document in snapshot.docs) {
+      final data = document.data();
+      if ((data['companyId'] as String? ?? '') != companyId) {
+        throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      if (data['isArchived'] as bool? ?? false) {
+        continue;
+      }
+      options.add(
+        TaskRelatedRecordOption(
+          id: document.id,
+          type: TaskRelatedType.lead,
+          title: data['fullName'] as String? ?? '',
+          subtitle:
+              (data['phone'] as String?) ?? (data['status'] as String?) ?? '',
+        ),
+      );
+    }
+    options.sort((a, b) => a.title.compareTo(b.title));
+    return options;
+  }
+
+  Future<List<TaskRelatedRecordOption>> _getClientOptions({
+    required String companyId,
+    String? assignedTo,
+    required int limit,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore
+        .collection(FirebasePaths.companyClients(companyId))
+        .where('isActive', isEqualTo: true);
+    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
+    }
+
+    final snapshot = await query.limit(limit).get();
+    final options = <TaskRelatedRecordOption>[];
+    for (final document in snapshot.docs) {
+      final data = document.data();
+      if ((data['companyId'] as String? ?? '') != companyId) {
+        throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      options.add(
+        TaskRelatedRecordOption(
+          id: document.id,
+          type: TaskRelatedType.client,
+          title: data['fullName'] as String? ?? '',
+          subtitle:
+              (data['phone'] as String?) ??
+              (data['preferredLocation'] as String?) ??
+              '',
+        ),
+      );
+    }
+    options.sort((a, b) => a.title.compareTo(b.title));
+    return options;
+  }
+
+  Future<List<TaskRelatedRecordOption>> _getPropertyOptions({
+    required String companyId,
+    String? assignedTo,
+    required int limit,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      FirebasePaths.companyProperties(companyId),
+    );
+    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
+    }
+    final snapshot = await query.limit(limit).get();
+    final options = <TaskRelatedRecordOption>[];
+    for (final document in snapshot.docs) {
+      final data = document.data();
+      if ((data['companyId'] as String? ?? '') != companyId) {
+        throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      if ((data['status'] as String? ?? '') == 'inactive') {
+        continue;
+      }
+      final location = data['location'] as String? ?? '';
+      final price = data['price'];
+      options.add(
+        TaskRelatedRecordOption(
+          id: document.id,
+          type: TaskRelatedType.property,
+          title: data['title'] as String? ?? '',
+          subtitle: location.isNotEmpty ? location : price?.toString() ?? '',
+        ),
+      );
+    }
+    options.sort((a, b) => a.title.compareTo(b.title));
+    return options;
   }
 
   CollectionReference<Map<String, dynamic>> _tasksCollection(String companyId) {

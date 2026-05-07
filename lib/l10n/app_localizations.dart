@@ -176,11 +176,65 @@ abstract class AppLocalizations {
   /// **'Create task'**
   String get createTask;
 
+  /// No description provided for @editTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit task'**
+  String get editTask;
+
+  /// No description provided for @updateTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Update task'**
+  String get updateTask;
+
   /// No description provided for @taskCreatedSuccessfully.
   ///
   /// In en, this message translates to:
   /// **'Task created successfully.'**
   String get taskCreatedSuccessfully;
+
+  /// No description provided for @taskUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Task updated successfully.'**
+  String get taskUpdatedSuccessfully;
+
+  /// No description provided for @taskCompletedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Task marked completed.'**
+  String get taskCompletedSuccessfully;
+
+  /// No description provided for @taskCancelledSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Task cancelled successfully.'**
+  String get taskCancelledSuccessfully;
+
+  /// No description provided for @markTaskCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark completed'**
+  String get markTaskCompleted;
+
+  /// No description provided for @cancelTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel task'**
+  String get cancelTask;
+
+  /// No description provided for @cancelTaskConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This task will be marked as cancelled and remain visible in task lists.'**
+  String get cancelTaskConfirmation;
+
+  /// No description provided for @taskNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Task not found. Open it from the tasks list.'**
+  String get taskNotFound;
 
   /// No description provided for @taskInformation.
   ///
@@ -205,6 +259,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Related record ID'**
   String get relatedRecordId;
+
+  /// No description provided for @relatedRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Related record'**
+  String get relatedRecord;
+
+  /// No description provided for @selectRelatedRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Select related record'**
+  String get selectRelatedRecord;
+
+  /// No description provided for @relatedRecordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a related record.'**
+  String get relatedRecordRequired;
+
+  /// No description provided for @relatedRecordUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Related record unavailable'**
+  String get relatedRecordUnavailable;
+
+  /// No description provided for @noLeadsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No leads found.'**
+  String get noLeadsFound;
+
+  /// No description provided for @noPropertiesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No properties found.'**
+  String get noPropertiesFound;
 
   /// No description provided for @scheduleAndPriority.
   ///

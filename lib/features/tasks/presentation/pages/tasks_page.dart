@@ -60,14 +60,20 @@ class TasksPage extends StatelessWidget {
 
           final assignedTo = role == UserRole.salesAgent ? authState.user!.uid : null;
           final canCreate =
-              PermissionService.can(role, AppPermission.createTask) &&
+              PermissionService.can(role!, AppPermission.createTask) &&
                   (role == UserRole.admin || role == UserRole.manager);
+          final canManageTasks =
+              role == UserRole.admin ||
+              role == UserRole.manager ||
+              role == UserRole.salesAgent;
 
           return TasksScope(
             child: _TasksListContent(
               companyId: companyId,
               assignedTo: assignedTo,
               canCreate: canCreate,
+              canManageTasks: canManageTasks,
+              uid: authState.user?.uid ?? '',
             ),
           );
         },
@@ -80,12 +86,16 @@ class _TasksListContent extends StatefulWidget {
   const _TasksListContent({
     required this.companyId,
     required this.canCreate,
+    required this.canManageTasks,
+    required this.uid,
     this.assignedTo,
   });
 
   final String companyId;
   final String? assignedTo;
   final bool canCreate;
+  final bool canManageTasks;
+  final String uid;
 
   @override
   State<_TasksListContent> createState() => _TasksListContentState();
@@ -105,39 +115,87 @@ class _TasksListContentState extends State<_TasksListContent> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return BlocBuilder<TasksCubit, TasksState>(
+    return BlocConsumer<TasksCubit, TasksState>(
+      listenWhen: (previous, current) =>
+          previous.status != current.status ||
+          previous.lastAction != current.lastAction ||
+          previous.message != current.message,
+      listener: (context, state) {
+        if (state.status == TasksStatus.saved &&
+            state.lastAction == TasksAction.markCompleted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.taskCompletedSuccessfully)),
+          );
+          context.read<TasksCubit>().clearAction();
+          return;
+        }
+        if (state.status == TasksStatus.saved &&
+            state.lastAction == TasksAction.cancelTask) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.taskCancelledSuccessfully)),
+          );
+          context.read<TasksCubit>().clearAction();
+          return;
+        }
+        if (state.status == TasksStatus.failure &&
+            (state.lastAction == TasksAction.markCompleted ||
+                state.lastAction == TasksAction.cancelTask) &&
+            (state.message?.isNotEmpty ?? false)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(localizeErrorMessage(l, state.message))),
+          );
+          context.read<TasksCubit>().clearAction();
+        }
+      },
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        return Stack(
           children: [
-            Text(
-              l.tasksSubtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryColor(context),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l.tasksSubtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                ),
+                if (widget.canCreate) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: AppButton(
+                      label: l.createTask,
+                      onPressed: () => context.go(RouteNames.tasksCreate),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                _TasksFilters(state: state),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: _TasksBody(
+                    companyId: widget.companyId,
+                    assignedTo: widget.assignedTo,
+                    state: state,
+                    canManageTasks: widget.canManageTasks,
+                    uid: widget.uid,
+                  ),
+                ),
+              ],
             ),
-            if (widget.canCreate) ...[
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: AppButton(
-                  label: l.createTask,
-                  onPressed: () => context.go(RouteNames.tasksCreate),
+            if (state.status == TasksStatus.saving)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: ColoredBox(
+                    color: AppColors.appBackground(
+                      context,
+                    ).withValues(alpha: 0.42),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
                 ),
               ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            _TasksFilters(state: state),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: _TasksBody(
-                companyId: widget.companyId,
-                assignedTo: widget.assignedTo,
-                state: state,
-              ),
-            ),
           ],
         );
       },
@@ -356,12 +414,16 @@ class _TasksBody extends StatelessWidget {
   const _TasksBody({
     required this.companyId,
     required this.state,
+    required this.canManageTasks,
+    required this.uid,
     this.assignedTo,
   });
 
   final String companyId;
   final String? assignedTo;
   final TasksState state;
+  final bool canManageTasks;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
@@ -409,21 +471,39 @@ class _TasksBody extends StatelessWidget {
             separatorBuilder: (context, index) =>
                 const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, index) {
-              return _TaskCard(task: state.filteredTasks[index]);
+              return _TaskCard(
+                task: state.filteredTasks[index],
+                companyId: companyId,
+                canManageTasks: canManageTasks,
+                uid: uid,
+              );
             },
           );
         }
 
-        return _TasksTable(tasks: state.filteredTasks);
+        return _TasksTable(
+          tasks: state.filteredTasks,
+          companyId: companyId,
+          canManageTasks: canManageTasks,
+          uid: uid,
+        );
       },
     );
   }
 }
 
 class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task});
+  const _TaskCard({
+    required this.task,
+    required this.companyId,
+    required this.canManageTasks,
+    required this.uid,
+  });
 
   final CrmTask task;
+  final String companyId;
+  final bool canManageTasks;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
@@ -467,10 +547,18 @@ class _TaskCard extends StatelessWidget {
               runSpacing: AppSpacing.xs,
               children: [
                 _Badge(label: _statusLabel(l, task.status)),
-                _Badge(label: _relatedTypeLabel(l, task.relatedType)),
+                _Badge(label: _relatedRecordDisplayLabel(l, task)),
                 _Badge(label: _dueDateLabel(context, l, task.dueDate)),
               ],
             ),
+            if (canManageTasks) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _TaskActions(
+                task: task,
+                companyId: companyId,
+                updatedBy: uid,
+              ),
+            ],
           ],
         ),
       ),
@@ -479,9 +567,17 @@ class _TaskCard extends StatelessWidget {
 }
 
 class _TasksTable extends StatelessWidget {
-  const _TasksTable({required this.tasks});
+  const _TasksTable({
+    required this.tasks,
+    required this.companyId,
+    required this.canManageTasks,
+    required this.uid,
+  });
 
   final List<CrmTask> tasks;
+  final String companyId;
+  final bool canManageTasks;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
@@ -508,8 +604,9 @@ class _TasksTable extends StatelessWidget {
                 _TableHeaderText(l.taskTitle, flex: 3),
                 _TableHeaderText(l.status, flex: 2),
                 _TableHeaderText(l.priority, flex: 2),
-                _TableHeaderText(l.relatedType, flex: 2),
+                _TableHeaderText(l.relatedRecord, flex: 2),
                 _TableHeaderText(l.dueDate, flex: 2),
+                _TableHeaderText(l.actions, flex: canManageTasks ? 2 : 1),
               ],
             ),
           ),
@@ -534,12 +631,22 @@ class _TasksTable extends StatelessWidget {
                       _TableBodyText(_statusLabel(l, task.status), flex: 2),
                       _TableBodyText(_priorityLabel(l, task.priority), flex: 2),
                       _TableBodyText(
-                        _relatedTypeLabel(l, task.relatedType),
+                        _relatedRecordDisplayLabel(l, task),
                         flex: 2,
                       ),
                       _TableBodyText(
                         _dueDateLabel(context, l, task.dueDate),
                         flex: 2,
+                      ),
+                      Expanded(
+                        flex: canManageTasks ? 2 : 1,
+                        child: canManageTasks
+                            ? _TaskActions(
+                                task: task,
+                                companyId: companyId,
+                                updatedBy: uid,
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ],
                   ),
@@ -551,6 +658,96 @@ class _TasksTable extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TaskActions extends StatelessWidget {
+  const _TaskActions({
+    required this.task,
+    required this.companyId,
+    required this.updatedBy,
+  });
+
+  final CrmTask task;
+  final String companyId;
+  final String updatedBy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final canComplete = task.status != TaskStatus.completed;
+    final canCancel = task.status != TaskStatus.cancelled;
+
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        IconButton(
+          tooltip: l.editTask,
+          onPressed: () => context.go(RouteNames.taskEdit(task.id)),
+          icon: const Icon(Icons.edit_outlined, size: 18),
+        ),
+        if (canComplete)
+          IconButton(
+            tooltip: l.markTaskCompleted,
+            onPressed: () {
+              context.read<TasksCubit>().markCompleted(
+                companyId: companyId,
+                task: task,
+                updatedBy: updatedBy,
+              );
+            },
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+          ),
+        if (canCancel)
+          IconButton(
+            tooltip: l.cancelTask,
+            onPressed: () => _confirmCancelTask(
+              context,
+              task: task,
+              companyId: companyId,
+              updatedBy: updatedBy,
+            ),
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+          ),
+      ],
+    );
+  }
+}
+
+Future<void> _confirmCancelTask(
+  BuildContext context, {
+  required CrmTask task,
+  required String companyId,
+  required String updatedBy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(l.cancelTask),
+        content: Text(l.cancelTaskConfirmation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          AppButton(
+            label: l.cancelTask,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+  await context.read<TasksCubit>().cancelTask(
+    companyId: companyId,
+    task: task,
+    updatedBy: updatedBy,
+  );
 }
 
 class _Badge extends StatelessWidget {
@@ -704,6 +901,15 @@ String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {
     case TaskRelatedType.general:
       return l.general;
   }
+}
+
+String _relatedRecordDisplayLabel(AppLocalizations l, CrmTask task) {
+  final typeLabel = _relatedTypeLabel(l, task.relatedType);
+  final title = task.relatedTitle.trim();
+  if (task.relatedType == TaskRelatedType.general || title.isEmpty) {
+    return typeLabel;
+  }
+  return '$typeLabel: $title';
 }
 
 String _dueDateLabel(BuildContext context, AppLocalizations l, DateTime? value) {
