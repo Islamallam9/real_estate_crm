@@ -110,6 +110,9 @@ These rules apply to every Codex task unless the user explicitly says otherwise.
   - git commands
 - The user will run checks locally.
 - Only edit files and report changed files.
+- Read-only inspection of target files is allowed when needed to complete the requested task.
+- Inspect only files directly relevant to the task.
+- Do not inspect unrelated files.
 
 ## File Editing Rules
 
@@ -128,8 +131,16 @@ After every task, report only:
 ```text
 Files changed:
 What was implemented:
+How to test:
 Assumptions:
-Issues:
+Remaining issues:
+```
+
+If there are no remaining issues, write:
+
+```text
+Remaining issues:
+- None known
 ```
 
 Do not include long explanations unless there is a real problem.
@@ -1348,6 +1359,134 @@ allow read, write: if true;
 ```
 
 except for temporary local testing, and it must not stay in production.
+
+
+---
+
+# Security Audit and Hardening Roadmap
+
+Security must be reviewed continuously, but security changes must be implemented in small, controlled tasks.
+
+Do not apply broad security rewrites unless explicitly requested.
+
+Do not mix security hardening with normal feature work unless the user explicitly asks.
+
+## Current Security Review Focus
+
+When the user asks to explore vulnerabilities, audit and report first. Do not edit code unless the user explicitly asks for implementation.
+
+The main areas to review are:
+
+```text
+1. Firestore Security Rules
+2. Firebase Auth and role/profile loading
+3. Firestore queries in data sources
+4. Route guard behavior
+5. Firebase API key restrictions
+6. Cloud Storage rules
+7. Cloud Functions/Admin SDK operations when added later
+```
+
+## Known Security Risks to Track
+
+Track these risks during review:
+
+- Firestore update rules may be too broad if they do not validate allowed fields.
+- Client-side route guards are UX protection only and are not a security boundary.
+- Role data stored in Firestore user profiles must not be self-editable for privilege escalation.
+- Sales agent Firestore queries must match rules by filtering assigned records correctly.
+- User profile read access may expose more data than needed for assignment dropdowns.
+- Firebase API keys are not passwords, but production keys should be restricted in Google Cloud/Firebase Console.
+- Client-side values such as `companyId`, `createdBy`, `updatedBy`, `assignedTo`, `role`, `isActive`, `commission`, and archive metadata must not be blindly trusted.
+- Audit logs must not be writable by normal client users.
+- Notifications should not be client-writable unless a safe narrow rule is explicitly designed.
+
+## Security Hardening Version Plan
+
+### Apply During V1 Before Production
+
+These are important before a real production release:
+
+```text
+1. Review and deploy Firestore Security Rules.
+2. Add role-based route protection for UX.
+3. Confirm all Firestore queries are scoped by companyId.
+4. Confirm salesAgent queries match assigned-lead rules.
+5. Restrict Firebase Web API key to Firebase Hosting/custom production domains.
+6. Add or review Cloud Storage rules before enabling uploads.
+7. Ensure route guards, UI permissions, and Firestore rules all agree.
+8. Verify no service account JSON, Admin SDK keys, private keys, or secrets are committed.
+```
+
+### Apply During V1 Stabilization
+
+These should be handled after core V1 modules are usable but before serious customer use:
+
+```text
+1. Tighten field-level Firestore validation for users, leads, clients, properties, tasks, deals, and appointments.
+2. Prevent sensitive field changes unless the role is allowed.
+3. Restrict `assignedTo` changes to admin/manager unless explicitly allowed.
+4. Validate required fields and field types in rules.
+5. Protect archive metadata from unauthorized edits.
+6. Add query/rules test cases where practical.
+7. Review user profile visibility and consider public profile summary fields if needed.
+```
+
+### Delay to V1.5 or V2
+
+These are useful later, but should not block the current V1 CRM build unless explicitly requested:
+
+```text
+1. Firebase custom claims for platform admin/super admin roles.
+2. Platform admin dashboard and platform-level monitoring.
+3. Subscription enforcement and company suspension automation.
+4. Advanced audit log automation with Cloud Functions.
+5. Advanced anomaly detection or suspicious-login monitoring.
+```
+
+## Route Guard Security Rule
+
+Route guards improve user experience, but they are not a security boundary.
+
+The correct protection layers are:
+
+```text
+Route guard -> prevents normal users from opening wrong screens
+UI permission checks -> hides buttons/actions users should not use
+Firestore Security Rules -> actual data security boundary
+```
+
+Do not rely on route guards alone.
+
+## Firebase API Key Rule
+
+Firebase client API keys in Flutter/Firebase apps are not secret passwords.
+
+However, before production:
+
+- Restrict the Web API key by HTTP referrer to the approved Firebase Hosting and custom domains.
+- Restrict Android keys to the app package name and SHA-1/SHA-256 certificates before mobile release.
+- Restrict iOS keys to the final production bundle ID before App Store release.
+- Never commit service account files, Admin SDK keys, private keys, or server secrets.
+
+## Firestore Rule Hardening Rule
+
+When tightening Firestore rules, prefer backward-compatible changes and test carefully.
+
+Do not delete production data to make new rules work.
+
+Do not loosen rules broadly to make the app pass.
+
+If a security change affects production data shape or access patterns, explain:
+
+```text
+Affected collections:
+Affected roles:
+Expected impact:
+Migration/backward-compatibility plan:
+How to test:
+Rollback plan:
+```
 
 ---
 
