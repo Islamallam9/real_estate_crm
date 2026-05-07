@@ -127,6 +127,7 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
     case CrmNavigationItem.properties:
       context.go(RouteNames.properties);
     case CrmNavigationItem.clients:
+      context.go(RouteNames.clients);
     case CrmNavigationItem.tasks:
     case CrmNavigationItem.more:
       break;

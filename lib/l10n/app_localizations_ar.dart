@@ -167,6 +167,48 @@ class AppLocalizationsAr extends AppLocalizations {
   String get createLead => 'إضافة عميل محتمل';
 
   @override
+  String get createClient => 'إضافة عميل';
+
+  @override
+  String get editClient => 'تعديل العميل';
+
+  @override
+  String get updateClient => 'تحديث العميل';
+
+  @override
+  String get clientDetails => 'تفاصيل العميل';
+
+  @override
+  String get clientCreatedSuccessfully => 'تم إنشاء العميل بنجاح.';
+
+  @override
+  String get clientUpdatedSuccessfully => 'تم تحديث العميل بنجاح.';
+
+  @override
+  String get archiveClient => 'أرشفة العميل';
+
+  @override
+  String get archiveClientConfirmation =>
+      'سيتم أرشفة هذا العميل وإخفاؤه من قائمة العملاء النشطين.';
+
+  @override
+  String get clientArchivedSuccessfully => 'تمت أرشفة العميل بنجاح.';
+
+  @override
+  String get clientNotFoundMessage =>
+      'العميل غير موجود. افتحه من قائمة العملاء.';
+
+  @override
+  String get backToClients => 'العودة إلى العملاء';
+
+  @override
+  String get clientPreferences => 'تفضيلات العميل';
+
+  @override
+  String get budgetMaxMustBeGreaterThanBudgetMin =>
+      'لا يمكن أن يكون الحد الأقصى للميزانية أقل من الحد الأدنى.';
+
+  @override
   String get createProperty => 'إضافة عقار';
 
   @override

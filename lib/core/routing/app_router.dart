@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/clients/presentation/pages/create_client_page.dart';
+import '../../features/clients/presentation/pages/client_details_page.dart';
+import '../../features/clients/presentation/pages/edit_client_page.dart';
+import '../../features/clients/presentation/pages/clients_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/leads/presentation/pages/create_lead_page.dart';
 import '../../features/leads/presentation/pages/edit_lead_page.dart';
@@ -59,6 +63,30 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.properties,
           builder: (context, state) => const PropertiesPage(),
+        ),
+        GoRoute(
+          path: RouteNames.clients,
+          builder: (context, state) => const ClientsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.clientsCreate,
+          builder: (context, state) => const CreateClientPage(),
+        ),
+        GoRoute(
+          path: '/clients/:clientId/edit',
+          builder: (context, state) {
+            return EditClientPage(
+              clientId: state.pathParameters['clientId'] ?? '',
+            );
+          },
+        ),
+        GoRoute(
+          path: '/clients/:clientId',
+          builder: (context, state) {
+            return ClientDetailsPage(
+              clientId: state.pathParameters['clientId'] ?? '',
+            );
+          },
         ),
         GoRoute(
           path: RouteNames.propertiesCreate,

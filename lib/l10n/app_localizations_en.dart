@@ -165,6 +165,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createLead => 'Create lead';
 
   @override
+  String get createClient => 'Create client';
+
+  @override
+  String get editClient => 'Edit client';
+
+  @override
+  String get updateClient => 'Update client';
+
+  @override
+  String get clientDetails => 'Client details';
+
+  @override
+  String get clientCreatedSuccessfully => 'Client created successfully.';
+
+  @override
+  String get clientUpdatedSuccessfully => 'Client updated successfully.';
+
+  @override
+  String get archiveClient => 'Archive client';
+
+  @override
+  String get archiveClientConfirmation =>
+      'This client will be archived and hidden from the active clients list.';
+
+  @override
+  String get clientArchivedSuccessfully => 'Client archived successfully.';
+
+  @override
+  String get clientNotFoundMessage =>
+      'Client not found. Open it from the clients list.';
+
+  @override
+  String get backToClients => 'Back to clients';
+
+  @override
+  String get clientPreferences => 'Client preferences';
+
+  @override
+  String get budgetMaxMustBeGreaterThanBudgetMin =>
+      'Maximum budget cannot be less than minimum budget.';
+
+  @override
   String get createProperty => 'Create property';
 
   @override

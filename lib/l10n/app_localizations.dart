@@ -404,6 +404,84 @@ abstract class AppLocalizations {
   /// **'Create lead'**
   String get createLead;
 
+  /// No description provided for @createClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Create client'**
+  String get createClient;
+
+  /// No description provided for @editClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit client'**
+  String get editClient;
+
+  /// No description provided for @updateClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Update client'**
+  String get updateClient;
+
+  /// No description provided for @clientDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Client details'**
+  String get clientDetails;
+
+  /// No description provided for @clientCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Client created successfully.'**
+  String get clientCreatedSuccessfully;
+
+  /// No description provided for @clientUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Client updated successfully.'**
+  String get clientUpdatedSuccessfully;
+
+  /// No description provided for @archiveClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive client'**
+  String get archiveClient;
+
+  /// No description provided for @archiveClientConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This client will be archived and hidden from the active clients list.'**
+  String get archiveClientConfirmation;
+
+  /// No description provided for @clientArchivedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Client archived successfully.'**
+  String get clientArchivedSuccessfully;
+
+  /// No description provided for @clientNotFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Client not found. Open it from the clients list.'**
+  String get clientNotFoundMessage;
+
+  /// No description provided for @backToClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to clients'**
+  String get backToClients;
+
+  /// No description provided for @clientPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Client preferences'**
+  String get clientPreferences;
+
+  /// No description provided for @budgetMaxMustBeGreaterThanBudgetMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum budget cannot be less than minimum budget.'**
+  String get budgetMaxMustBeGreaterThanBudgetMin;
+
   /// No description provided for @createProperty.
   ///
   /// In en, this message translates to:
