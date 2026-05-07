@@ -86,7 +86,32 @@ class PropertyCard extends StatelessWidget {
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: TextButton.icon(
-                onPressed: () => context.go(RouteNames.propertyEdit(property.id)),
+                onPressed: () =>
+                    context.go(RouteNames.propertyDetails(property.id)),
+                icon: const Icon(Icons.visibility_outlined),
+                label: Text(localizations.details),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                onPressed: () =>
+                    context.go(RouteNames.propertyDetails(property.id)),
+                icon: const Icon(Icons.visibility_outlined),
+                label: Text(localizations.details),
+              ),
+            ),
+          ],
+          if (canEdit) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                onPressed: () => context.go(
+                  RouteNames.propertyEdit(property.id),
+                ),
                 icon: const Icon(Icons.edit_outlined),
                 label: Text(localizations.editProperty),
               ),

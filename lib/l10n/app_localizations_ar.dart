@@ -355,6 +355,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get propertyUpdatedSuccessfully => 'تم تحديث العقار بنجاح.';
 
   @override
+  String get propertyDetails => 'تفاصيل العقار';
+
+  @override
+  String get propertyNotFoundMessage =>
+      'العقار غير موجود. افتح التفاصيل من قائمة العقارات.';
+
+  @override
+  String get backToProperties => 'العودة إلى العقارات';
+
+  @override
+  String get createdAt => 'تاريخ الإنشاء';
+
+  @override
+  String get updatedAt => 'تاريخ آخر تحديث';
+
+  @override
+  String get auditInfo => 'معلومات التدقيق';
+
+  @override
   String get unableToLoadPropertyForEdit =>
       'تعذر تحميل بيانات العقار للتعديل. افتح التعديل من قائمة العقارات.';
 

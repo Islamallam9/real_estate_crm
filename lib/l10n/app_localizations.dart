@@ -776,6 +776,42 @@ abstract class AppLocalizations {
   /// **'Property updated successfully.'**
   String get propertyUpdatedSuccessfully;
 
+  /// No description provided for @propertyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Property details'**
+  String get propertyDetails;
+
+  /// No description provided for @propertyNotFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Property not found. Open it from the properties list.'**
+  String get propertyNotFoundMessage;
+
+  /// No description provided for @backToProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to properties'**
+  String get backToProperties;
+
+  /// No description provided for @createdAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Created at'**
+  String get createdAt;
+
+  /// No description provided for @updatedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated at'**
+  String get updatedAt;
+
+  /// No description provided for @auditInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit info'**
+  String get auditInfo;
+
   /// No description provided for @unableToLoadPropertyForEdit.
   ///
   /// In en, this message translates to:

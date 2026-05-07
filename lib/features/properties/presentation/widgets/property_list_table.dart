@@ -80,7 +80,7 @@ class _TableHeader extends StatelessWidget {
           _HeaderText(localizations.area, flex: 1),
           _HeaderText(localizations.location, flex: 2),
           _HeaderText(localizations.status, flex: 2),
-          if (canEdit) _HeaderText(localizations.actions, flex: 1),
+          _HeaderText(localizations.actions, flex: canEdit ? 2 : 1),
         ],
       ),
     );
@@ -134,18 +134,27 @@ class _PropertyTableRow extends StatelessWidget {
               ),
             ),
           ),
-          if (canEdit)
-            Expanded(
-              flex: 1,
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: IconButton(
-                  tooltip: localizations.editProperty,
-                  onPressed: () => context.go(RouteNames.propertyEdit(property.id)),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
+          Expanded(
+            flex: canEdit ? 2 : 1,
+            child: Wrap(
+              spacing: 4,
+              children: [
+                IconButton(
+                  tooltip: localizations.details,
+                  onPressed: () =>
+                      context.go(RouteNames.propertyDetails(property.id)),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
-              ),
+                if (canEdit)
+                  IconButton(
+                    tooltip: localizations.editProperty,
+                    onPressed: () =>
+                        context.go(RouteNames.propertyEdit(property.id)),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );

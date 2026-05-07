@@ -353,6 +353,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propertyUpdatedSuccessfully => 'Property updated successfully.';
 
   @override
+  String get propertyDetails => 'Property details';
+
+  @override
+  String get propertyNotFoundMessage =>
+      'Property not found. Open it from the properties list.';
+
+  @override
+  String get backToProperties => 'Back to properties';
+
+  @override
+  String get createdAt => 'Created at';
+
+  @override
+  String get updatedAt => 'Updated at';
+
+  @override
+  String get auditInfo => 'Audit info';
+
+  @override
   String get unableToLoadPropertyForEdit =>
       'Unable to load property for editing. Open it from the properties list.';
 
