@@ -16,6 +16,7 @@ enum LeadsAction {
   updateStatus,
   assignLead,
   addNote,
+  markContactedToday,
 }
 
 class LeadsState extends Equatable {

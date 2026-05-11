@@ -11,6 +11,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -119,21 +120,17 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
             (current.status == LeadsStatus.saved ||
                 current.status == LeadsStatus.failure),
         listener: (context, state) {
-          final messenger = ScaffoldMessenger.of(context);
-          messenger.hideCurrentSnackBar();
           if (state.status == LeadsStatus.saved) {
             final message = _successMessageForAction(l, state.lastAction);
             if (message.isNotEmpty) {
-              messenger.showSnackBar(SnackBar(content: Text(message)));
+              AppFeedback.success(context, message);
             }
             return;
           }
           if (state.status == LeadsStatus.failure) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(localizeErrorMessage(l, state.message)),
-                backgroundColor: AppColors.error,
-              ),
+            AppFeedback.error(
+              context,
+              localizeErrorMessage(l, state.message),
             );
           }
         },
@@ -246,6 +243,8 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
       return l.leadAssignedSuccessfully;
     case LeadsAction.addNote:
       return l.noteAddedSuccessfully;
+    case LeadsAction.markContactedToday:
+      return l.leadMarkedContactedToday;
     case LeadsAction.none:
       return '';
   }

@@ -6,10 +6,10 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -71,19 +71,16 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                   (current.status == PropertiesStatus.saved ||
                       current.status == PropertiesStatus.failure),
               listener: (context, state) {
-                final messenger = ScaffoldMessenger.of(context);
-                messenger.hideCurrentSnackBar();
                 if (state.status == PropertiesStatus.failure) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(localizeErrorMessage(l, state.message)),
-                      backgroundColor: AppColors.error,
-                    ),
+                  AppFeedback.error(
+                    context,
+                    localizeErrorMessage(l, state.message),
                   );
                   return;
                 }
-                messenger.showSnackBar(
-                  SnackBar(content: Text(l.propertyUpdatedSuccessfully)),
+                AppFeedback.success(
+                  context,
+                  l.propertyUpdatedSuccessfully,
                 );
                 context.go(RouteNames.properties);
               },
@@ -114,9 +111,7 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                 }
 
                 final isSaving = state.status == PropertiesStatus.saving;
-                return Stack(
-                  children: [
-                    ListView(
+                return ListView(
                       primary: true,
                       physics: const ClampingScrollPhysics(),
                       keyboardDismissBehavior:
@@ -155,21 +150,6 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                           ),
                         ),
                       ],
-                    ),
-                    if (isSaving)
-                      Positioned.fill(
-                        child: AbsorbPointer(
-                          child: Container(
-                            color: AppColors.appBackground(
-                              context,
-                            ).withValues(alpha: 0.70),
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
                 );
               },
             ),

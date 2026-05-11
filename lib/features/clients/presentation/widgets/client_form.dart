@@ -98,11 +98,9 @@ class _ClientFormState extends State<ClientForm> {
 
     return Form(
       key: _formKey,
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
               _section(context, l.contactInformation, [
                 AppTextField(
                   controller: _fullNameController,
@@ -191,17 +189,6 @@ class _ClientFormState extends State<ClientForm> {
                 isLoading: widget.isSaving,
                 onPressed: widget.isSaving ? null : _submit,
               ),
-            ],
-          ),
-          if (widget.isSaving)
-            Positioned.fill(
-              child: ColoredBox(
-                color: AppColors.appBackground(
-                  context,
-                ).withValues(alpha: 0.42),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-            ),
         ],
       ),
     );

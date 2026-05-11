@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -104,11 +105,9 @@ class _TaskFormState extends State<TaskForm> {
 
     return Form(
       key: _formKey,
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
               _section(context, l.taskInformation, [
                 AppTextField(
                   controller: _titleController,
@@ -205,17 +204,6 @@ class _TaskFormState extends State<TaskForm> {
                 isLoading: widget.isSaving,
                 onPressed: widget.isSaving ? null : _submit,
               ),
-            ],
-          ),
-          if (widget.isSaving)
-            Positioned.fill(
-              child: ColoredBox(
-                color: AppColors.appBackground(
-                  context,
-                ).withValues(alpha: 0.42),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-            ),
         ],
       ),
     );
@@ -280,18 +268,13 @@ class _TaskFormState extends State<TaskForm> {
       return;
     }
     if (_dueDate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.dueDateRequired)),
-      );
+      AppFeedback.warning(context, AppLocalizations.of(context)!.dueDateRequired);
       return;
     }
     if (_relatedType != TaskRelatedType.general && _relatedId.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.relatedRecordRequired),
-        ),
+      AppFeedback.warning(
+        context,
+        AppLocalizations.of(context)!.relatedRecordRequired,
       );
       return;
     }

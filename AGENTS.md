@@ -2,7 +2,7 @@
 
 ## Project Name
 
-Real Estate CRM
+Masar CRM
 
 ## Project Description
 
@@ -262,12 +262,12 @@ The design should feel like a premium internal real-estate CRM used every day by
 ## Approved Visual Reference Direction
 
 Use the selected visual references as the approved style direction:
-- Deep navy rounded sidebar shell.
-- Soft off-white / cool-gray workspace.
+- Warm beige rounded sidebar shell.
+- Cream / warm off-white workspace.
 - White cards and tables with subtle borders and shallow shadows.
 - Rounded but disciplined geometry.
-- Controlled blue-violet accent for active navigation, selected states, and important actions.
-- Background that is not a dead flat color: use subtle geometric forms, soft radial tints, dots, or low-opacity network/grid textures.
+- Premium amber accent for active navigation, selected states, and important actions.
+- Background that is not a dead flat color: use subtle warm geometric forms, soft cream radial tints, dots, or low-opacity warm linework.
 - Dense, useful layouts with no dead space, but still enough breathing room to scan comfortably.
 
 The visual result should feel closer to:
@@ -313,18 +313,18 @@ The CRM visual identity should be:
 - real-estate/business oriented
 - human-designed
 
-Use a restrained palette:
+Use a restrained warm premium CRM palette:
 
 ```text
-Shell / sidebar: deep navy / ink blue
-Primary accent: controlled blue-violet
-Secondary accent: muted teal or muted steel blue
-Workspace background: soft off-white / cool gray
-Surface: white or near-white
-Surface elevated: subtle warm/cool neutral
-Text primary: near-black navy
-Text secondary: cool gray / slate
-Border: soft gray
+Shell / sidebar: warm beige / cream
+Primary accent: premium amber
+Secondary accent: restrained warm neutral
+Workspace background: cream / warm off-white
+Surface: white or warm off-white
+Surface elevated: subtle warm neutral
+Text primary: charcoal
+Text secondary: warm gray / taupe
+Border: soft beige-gray
 Success: muted green
 Warning: muted amber
 Error: controlled red
@@ -332,11 +332,12 @@ Info: muted blue
 ```
 
 Color rules:
-- Navy is the structural anchor.
-- Accent colors are for focus, active navigation, selected rows, and primary actions, not for decorating every card.
+- Warm cream and beige are the structural anchors.
+- Amber is for focus, active navigation, selected rows, and primary actions, not for decorating every card.
 - Status colors must be semantic and consistent across all modules.
 - Avoid many unrelated colors on one screen.
 - Dark mode must remain premium and readable, not neon.
+- Blue should be minimal and used mainly for info states.
 
 ## Typography Direction
 
@@ -392,8 +393,8 @@ Use a persistent app shell:
 - Only the inner workspace changes between modules.
 
 Sidebar direction:
-- Deep navy rounded shell.
-- Strong active navigation pill with controlled accent.
+- Warm beige rounded shell.
+- Strong active navigation pill with premium amber accent.
 - Clean iconography.
 - Balanced vertical spacing.
 - Distinctive enough to feel custom, not like a default drawer.
@@ -1600,14 +1601,15 @@ Use a professional real estate CRM palette.
 Suggested style:
 
 ```text
-Primary: Deep navy, dark blue, or elegant teal
-Background: Light gray / off-white
+Primary: Premium amber
+Background: Cream / warm off-white
 Surface: White
-Text: Dark neutral
-Borders: Soft gray
+Text: Charcoal
+Borders: Soft beige-gray
 Success: Green
 Warning: Amber
 Error: Red
+Info: Blue, used sparingly
 Info: Blue
 ```
 

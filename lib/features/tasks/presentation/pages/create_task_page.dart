@@ -7,10 +7,10 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -65,20 +65,17 @@ class _CreateTaskView extends StatelessWidget {
                   (current.status == TasksStatus.saved ||
                       current.status == TasksStatus.failure),
               listener: (context, state) {
-                final messenger = ScaffoldMessenger.of(context);
-                messenger.hideCurrentSnackBar();
                 if (state.status == TasksStatus.failure) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(localizeErrorMessage(l, state.message)),
-                      backgroundColor: AppColors.error,
-                    ),
+                  AppFeedback.error(
+                    context,
+                    localizeErrorMessage(l, state.message),
                   );
                   return;
                 }
 
-                messenger.showSnackBar(
-                  SnackBar(content: Text(l.taskCreatedSuccessfully)),
+                AppFeedback.success(
+                  context,
+                  l.taskCreatedSuccessfully,
                 );
                 context.go(RouteNames.tasks);
               },
@@ -101,7 +98,9 @@ class _CreateTaskView extends StatelessWidget {
                             Align(
                               alignment: AlignmentDirectional.centerStart,
                               child: TextButton.icon(
-                                onPressed: () => context.go(RouteNames.tasks),
+                                onPressed: isSaving
+                                    ? null
+                                    : () => context.go(RouteNames.tasks),
                                 icon: const Icon(Icons.arrow_back),
                                 label: Text(l.back),
                               ),

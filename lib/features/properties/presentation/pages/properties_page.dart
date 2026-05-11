@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -121,8 +122,9 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
       listener: (context, state) {
         if (state.status == PropertiesStatus.saved &&
             state.lastAction == PropertiesAction.deactivateProperty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(localizations.propertyDeactivatedSuccessfully)),
+          AppFeedback.success(
+            context,
+            localizations.propertyDeactivatedSuccessfully,
           );
           context.read<PropertiesCubit>().clearAction();
           return;
@@ -130,10 +132,9 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
         if (state.status == PropertiesStatus.failure &&
             state.lastAction == PropertiesAction.deactivateProperty &&
             (state.message?.isNotEmpty ?? false)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(localizeErrorMessage(localizations, state.message)),
-            ),
+          AppFeedback.error(
+            context,
+            localizeErrorMessage(localizations, state.message),
           );
           context.read<PropertiesCubit>().clearAction();
         }
@@ -316,35 +317,52 @@ Future<void> _confirmDeactivate(
   required String updatedBy,
 }) async {
   final l = AppLocalizations.of(context)!;
-  final confirmed = await showDialog<bool>(
+  final cubit = context.read<PropertiesCubit>();
+  var isSubmitting = false;
+
+  await showDialog<void>(
     context: context,
     builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l.deactivateProperty),
-        content: Text(l.deactivatePropertyConfirmation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          AppButton(
-            label: l.deactivate,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l.deactivateProperty),
+            content: Text(l.deactivatePropertyConfirmation),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
+              AppButton(
+                label: l.deactivate,
+                isLoading: isSubmitting,
+                onPressed: () async {
+                  setDialogState(() => isSubmitting = true);
+                  await cubit.deactivateProperty(
+                    companyId: companyId,
+                    propertyId: property.id,
+                    updatedBy: updatedBy,
+                  );
+                  final completed =
+                      cubit.state.status == PropertiesStatus.saved &&
+                      cubit.state.lastAction ==
+                          PropertiesAction.deactivateProperty;
+                  if (completed && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    setDialogState(() => isSubmitting = false);
+                  }
+                },
+              ),
+            ],
+          );
+        },
       );
     },
-  );
-  if (confirmed != true) {
-    return;
-  }
-  if (!context.mounted) {
-    return;
-  }
-  await context.read<PropertiesCubit>().deactivateProperty(
-    companyId: companyId,
-    propertyId: property.id,
-    updatedBy: updatedBy,
   );
 }
 

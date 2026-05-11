@@ -89,7 +89,7 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
               return MaterialApp.router(
                 locale: locale,
                 onGenerateTitle: (context) =>
-                    AppLocalizations.of(context)!.appName,
+                    AppLocalizations.of(context)!.websiteTitle,
                 debugShowCheckedModeBanner: false,
                 theme: _localizedTheme(AppTheme.light, locale),
                 darkTheme: _localizedTheme(AppTheme.dark, locale),

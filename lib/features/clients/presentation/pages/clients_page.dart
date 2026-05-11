@@ -14,6 +14,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -158,16 +159,18 @@ class _ClientsListContentState extends State<_ClientsListContent> {
       listener: (context, state) {
         if (state.status == ClientsStatus.saved &&
             state.lastAction == ClientsAction.assignClient) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(localizations.clientAssignedSuccessfully)),
+          AppFeedback.success(
+            context,
+            localizations.clientAssignedSuccessfully,
           );
           context.read<ClientsCubit>().clearAction();
           return;
         }
         if (state.status == ClientsStatus.saved &&
             state.lastAction == ClientsAction.archiveClient) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(localizations.clientArchivedSuccessfully)),
+          AppFeedback.success(
+            context,
+            localizations.clientArchivedSuccessfully,
           );
           context.read<ClientsCubit>().clearAction();
           return;
@@ -176,10 +179,9 @@ class _ClientsListContentState extends State<_ClientsListContent> {
             (state.lastAction == ClientsAction.archiveClient ||
                 state.lastAction == ClientsAction.assignClient) &&
             (state.message?.isNotEmpty ?? false)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(localizeErrorMessage(localizations, state.message)),
-            ),
+          AppFeedback.error(
+            context,
+            localizeErrorMessage(localizations, state.message),
           );
           context.read<ClientsCubit>().clearAction();
         }
@@ -970,8 +972,15 @@ Future<void> _confirmArchive(
                     clientId: client.id,
                     updatedBy: updatedBy,
                   );
-                  if (dialogContext.mounted) {
+                  final completed =
+                      cubit.state.status == ClientsStatus.saved &&
+                      cubit.state.lastAction == ClientsAction.archiveClient;
+                  if (completed && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    setDialogState(() => isSubmitting = false);
                   }
                 },
               ),
@@ -1053,8 +1062,15 @@ Future<void> _showAssignClientSheet(
                         assignedToEmail: selectedUser?.email ?? '',
                         updatedBy: updatedBy,
                       );
-                      if (sheetContext.mounted) {
+                      final completed =
+                          cubit.state.status == ClientsStatus.saved &&
+                          cubit.state.lastAction == ClientsAction.assignClient;
+                      if (completed && sheetContext.mounted) {
                         Navigator.of(sheetContext).pop();
+                        return;
+                      }
+                      if (sheetContext.mounted) {
+                        setSheetState(() => isSubmitting = false);
                       }
                     },
                   ),

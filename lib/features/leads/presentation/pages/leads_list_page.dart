@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
@@ -123,7 +124,34 @@ class _LeadsListContentState extends State<_LeadsListContent> {
       return const SizedBox.shrink();
     }
 
-    return BlocBuilder<LeadsCubit, LeadsState>(
+    return BlocConsumer<LeadsCubit, LeadsState>(
+      listenWhen: (previous, current) =>
+          previous.status != current.status &&
+          (current.status == LeadsStatus.saved ||
+              current.status == LeadsStatus.failure),
+      listener: (context, state) {
+        if (state.status == LeadsStatus.failure) {
+          AppFeedback.error(
+            context,
+            localizeErrorMessage(localizations, state.message),
+          );
+          return;
+        }
+        if (state.lastAction == LeadsAction.markContactedToday) {
+          AppFeedback.success(context, localizations.leadMarkedContactedToday);
+        } else if (state.lastAction == LeadsAction.updateLead) {
+          AppFeedback.success(context, localizations.leadUpdatedSuccessfully);
+        } else if (state.lastAction == LeadsAction.assignLead) {
+          AppFeedback.success(context, localizations.leadAssignedSuccessfully);
+        } else if (state.lastAction == LeadsAction.archiveLead) {
+          AppFeedback.success(context, localizations.leadArchivedSuccessfully);
+        } else if (state.lastAction == LeadsAction.updateStatus) {
+          AppFeedback.success(
+            context,
+            localizations.leadStatusUpdatedSuccessfully,
+          );
+        }
+      },
       builder: (context, state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1383,6 +1411,7 @@ class _LeadPreviewPanel extends StatelessWidget {
       companyId: companyId,
       lead: lead.copyWith(lastContactAt: now, updatedAt: now, updatedBy: uid),
       actorName: actorName,
+      successAction: LeadsAction.markContactedToday,
     );
   }
 

@@ -79,6 +79,14 @@ abstract final class AppTheme {
       ),
       dividerTheme: DividerThemeData(color: border),
       dividerColor: border,
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: primary),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: AppColors.textStrong,
+        elevation: 4,
+        focusElevation: 4,
+        hoverElevation: 5,
+      ),
       popupMenuTheme: PopupMenuThemeData(
         color: surface,
         surfaceTintColor: surface,
@@ -154,7 +162,9 @@ abstract final class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         surfaceTintColor: surface,
-        indicatorColor: isDark ? AppColors.darkSelectedSurface : AppColors.primaryLight,
+        indicatorColor: isDark
+            ? AppColors.darkSelectedSurface
+            : AppColors.primaryLight,
         labelTextStyle: WidgetStatePropertyAll(
           AppTextStyles.label.copyWith(color: textPrimary),
         ),
@@ -194,7 +204,7 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: Colors.white,
+          foregroundColor: isDark ? Colors.black : AppColors.textStrong,
           disabledBackgroundColor: isDark
               ? AppColors.darkSurfaceAlt
               : const Color(0xFFE0E6EF),
@@ -211,7 +221,7 @@ abstract final class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primary,
-          side: BorderSide(color: border),
+          side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.primaryBorder),
           minimumSize: const Size(0, 42),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           textStyle: AppTextStyles.label.copyWith(

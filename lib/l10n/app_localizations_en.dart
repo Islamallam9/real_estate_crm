@@ -9,7 +9,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'Real Estate CRM';
+  String get appName => 'Masar';
+
+  @override
+  String get loginBrandName => 'Masar | مسار';
+
+  @override
+  String get websiteTitle => 'Masar | CRM';
 
   @override
   String get login => 'Login';
@@ -25,6 +31,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logout => 'Logout';
+
+  @override
+  String get loggedOutSuccessfully => 'Logged out successfully.';
 
   @override
   String get dashboard => 'Dashboard';
@@ -191,22 +200,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
-  String get salesWorkspace => 'Sales workspace';
+  String get salesWorkspace => 'From lead to deal, one clear path.';
 
   @override
-  String get searchCrm => 'Search CRM';
+  String get searchCrm => 'Search Masar CRM';
 
   @override
   String get notifications => 'Notifications';
 
   @override
-  String get crmUser => 'CRM User';
+  String get crmUser => 'Masar user';
 
   @override
   String get workspace => 'Workspace';
 
   @override
-  String get crmOverview => 'CRM overview';
+  String get crmOverview => 'Masar CRM overview';
 
   @override
   String get dashboardPlaceholderDescription =>
@@ -243,7 +252,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeBack => 'Welcome back';
 
   @override
-  String get loginSubtitle => 'Sign in to continue to your CRM workspace.';
+  String get loginSubtitle => 'From lead to deal, one clear path.';
 
   @override
   String get emailRequired => 'Email is required.';
@@ -285,6 +294,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createLead => 'Create lead';
+
+  @override
+  String get quickAdd => 'Quick add';
+
+  @override
+  String get addLead => 'Add lead';
+
+  @override
+  String get addClient => 'Add client';
+
+  @override
+  String get savedSuccessfully => 'Saved successfully.';
+
+  @override
+  String get updatedSuccessfully => 'Updated successfully.';
+
+  @override
+  String get unableToSave => 'Unable to save. Please try again.';
+
+  @override
+  String get unableToAssignClient =>
+      'Unable to assign client. Please try again.';
+
+  @override
+  String get unableToUpdateTask => 'Unable to update task. Please try again.';
+
+  @override
+  String get actionCompletedSuccessfully => 'Action completed successfully.';
+
+  @override
+  String get actionFailed => 'Action failed. Please try again.';
 
   @override
   String get createClient => 'Create client';
@@ -1008,6 +1048,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get markContactedToday => 'Mark contacted today';
+
+  @override
+  String get leadMarkedContactedToday => 'Lead marked as contacted today.';
 
   @override
   String get scheduleFollowUp => 'Schedule follow-up';

@@ -6,10 +6,10 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -83,30 +83,16 @@ class _EditLeadViewState extends State<_EditLeadView> {
               },
               listener: (context, state) {
                 if (state.status == LeadsStatus.failure) {
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          localizeErrorMessage(localizations, state.message),
-                        ),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
+                  AppFeedback.error(
+                    context,
+                    localizeErrorMessage(localizations, state.message),
+                  );
                   return;
                 }
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        _successMessageForAction(
-                          localizations,
-                          state.lastAction,
-                        ),
-                      ),
-                    ),
-                  );
+                AppFeedback.success(
+                  context,
+                  _successMessageForAction(localizations, state.lastAction),
+                );
                 context.go(RouteNames.leadDetails(widget.leadId));
               },
               builder: (context, state) {
@@ -151,12 +137,10 @@ class _EditLeadViewState extends State<_EditLeadView> {
                     final users = snapshot.data ?? const <UserProfile>[];
                     final isSaving = state.status == LeadsStatus.saving;
 
-                    return Stack(
-                      children: [
-                        ListView(
-                          primary: true,
-                          physics: const ClampingScrollPhysics(),
-                          padding: const EdgeInsets.only(
+                return ListView(
+                      primary: true,
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.only(
                             bottom: AppSpacing.lg,
                           ),
                           children: [
@@ -201,22 +185,7 @@ class _EditLeadViewState extends State<_EditLeadView> {
                               ),
                             ),
                           ],
-                        ),
-                        if (isSaving)
-                          Positioned.fill(
-                            child: AbsorbPointer(
-                              child: Container(
-                                color: AppColors.appBackground(
-                                  context,
-                                ).withValues(alpha: 0.70),
-                                child: const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
+                );
                   },
                 );
               },
@@ -239,6 +208,8 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
       return l.leadArchivedSuccessfully;
     case LeadsAction.addNote:
       return l.noteAddedSuccessfully;
+    case LeadsAction.markContactedToday:
+      return l.leadMarkedContactedToday;
     case LeadsAction.none:
       return l.leadUpdatedSuccessfully;
   }

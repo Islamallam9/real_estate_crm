@@ -10,6 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
@@ -288,44 +289,68 @@ Future<void> _confirmDeactivateFromDetails(
   required String updatedBy,
 }) async {
   final l = AppLocalizations.of(context)!;
-  final confirmed = await showDialog<bool>(
+  final cubit = context.read<PropertiesCubit>();
+  var isSubmitting = false;
+  var didSubmit = false;
+
+  await showDialog<void>(
     context: context,
     builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l.deactivateProperty),
-        content: Text(l.deactivatePropertyConfirmation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          AppButton(
-            label: l.deactivate,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l.deactivateProperty),
+            content: Text(l.deactivatePropertyConfirmation),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
+              AppButton(
+                label: l.deactivate,
+                isLoading: isSubmitting,
+                onPressed: () async {
+                  didSubmit = true;
+                  setDialogState(() => isSubmitting = true);
+                  await cubit.deactivateProperty(
+                    companyId: companyId,
+                    propertyId: propertyId,
+                    updatedBy: updatedBy,
+                  );
+                  final completed =
+                      cubit.state.status == PropertiesStatus.saved &&
+                      cubit.state.lastAction ==
+                          PropertiesAction.deactivateProperty;
+                  if (completed && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    setDialogState(() => isSubmitting = false);
+                  }
+                },
+              ),
+            ],
+          );
+        },
       );
     },
   );
-  if (confirmed != true) {
-    return;
-  }
   if (!context.mounted) {
     return;
   }
-
-  await context.read<PropertiesCubit>().deactivateProperty(
-    companyId: companyId,
-    propertyId: propertyId,
-    updatedBy: updatedBy,
-  );
-
-  if (!context.mounted) {
+  if (!didSubmit) {
     return;
   }
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(l.propertyDeactivatedSuccessfully)));
+  if (cubit.state.status == PropertiesStatus.saved &&
+      cubit.state.lastAction == PropertiesAction.deactivateProperty) {
+    AppFeedback.success(context, l.propertyDeactivatedSuccessfully);
+  } else if (cubit.state.status == PropertiesStatus.failure &&
+      cubit.state.lastAction == PropertiesAction.deactivateProperty) {
+    AppFeedback.error(context, l.unableToDeactivateProperty);
+  }
 }
 
 class _DetailsSection extends StatelessWidget {

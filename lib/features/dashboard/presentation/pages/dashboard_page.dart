@@ -177,88 +177,300 @@ class _DashboardView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 860;
+        final mobile = constraints.maxWidth < 600;
+        final quickAddActions = _quickAddActions(context, authState);
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _WelcomePanel(authState: authState),
-              const SizedBox(height: AppSpacing.md),
-              _SummaryGrid(data: data),
-              const SizedBox(height: AppSpacing.md),
-              if (compact) ...[
-                _AnalyticsPanel(data: data),
-                const SizedBox(height: AppSpacing.md),
-                _ActionPanel(authState: authState),
-              ] else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 3, child: _AnalyticsPanel(data: data)),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(flex: 2, child: _ActionPanel(authState: authState)),
-                  ],
-                ),
-              const SizedBox(height: AppSpacing.md),
-              if (compact) ...[
-                _LeadSection(
-                  title: copy.todaysFollowUps,
-                  leads: data.todaysFollowUps,
-                  emptyMessage: l.noLeads,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _TaskSection(
-                  title: copy.overdueTasks,
-                  tasks: data.overdueTasks,
-                  emptyMessage: l.noTasksYet,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _LeadSection(
-                  title: copy.unassignedLeads,
-                  leads: data.unassignedLeads,
-                  emptyMessage: l.noLeads,
-                ),
-              ] else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _LeadSection(
-                        title: copy.todaysFollowUps,
-                        leads: data.todaysFollowUps,
-                        emptyMessage: l.noLeads,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: _TaskSection(
-                        title: copy.overdueTasks,
-                        tasks: data.overdueTasks,
-                        emptyMessage: l.noTasksYet,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: _LeadSection(
-                        title: copy.unassignedLeads,
-                        leads: data.unassignedLeads,
-                        emptyMessage: l.noLeads,
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: AppSpacing.md),
-              _LeadSection(
-                title: copy.recentlyUpdatedLeads,
-                leads: data.recentLeads,
-                emptyMessage: l.noLeads,
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: mobile && quickAddActions.isNotEmpty ? 88 : 0,
               ),
-            ],
-          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _WelcomePanel(authState: authState),
+                  const SizedBox(height: AppSpacing.md),
+                  _SummaryGrid(data: data),
+                  const SizedBox(height: AppSpacing.md),
+                  if (compact) ...[
+                    _AnalyticsPanel(data: data),
+                    if (!mobile) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _ActionPanel(authState: authState),
+                    ],
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 3, child: _AnalyticsPanel(data: data)),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          flex: 2,
+                          child: _ActionPanel(authState: authState),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (compact) ...[
+                    _LeadSection(
+                      title: copy.todaysFollowUps,
+                      leads: data.todaysFollowUps,
+                      emptyMessage: l.noLeads,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _TaskSection(
+                      title: copy.overdueTasks,
+                      tasks: data.overdueTasks,
+                      emptyMessage: l.noTasksYet,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _LeadSection(
+                      title: copy.unassignedLeads,
+                      leads: data.unassignedLeads,
+                      emptyMessage: l.noLeads,
+                    ),
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _LeadSection(
+                            title: copy.todaysFollowUps,
+                            leads: data.todaysFollowUps,
+                            emptyMessage: l.noLeads,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: _TaskSection(
+                            title: copy.overdueTasks,
+                            tasks: data.overdueTasks,
+                            emptyMessage: l.noTasksYet,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: _LeadSection(
+                            title: copy.unassignedLeads,
+                            leads: data.unassignedLeads,
+                            emptyMessage: l.noLeads,
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  _LeadSection(
+                    title: copy.recentlyUpdatedLeads,
+                    leads: data.recentLeads,
+                    emptyMessage: l.noLeads,
+                  ),
+                ],
+              ),
+            ),
+            if (mobile && quickAddActions.isNotEmpty)
+              Positioned.fill(child: _MobileQuickAddFab(actions: quickAddActions)),
+          ],
         );
       },
     );
   }
+
+  List<_QuickAddAction> _quickAddActions(
+    BuildContext context,
+    AuthState authState,
+  ) {
+    final l = AppLocalizations.of(context)!;
+    final role = authState.userProfile?.role ?? authState.user?.role;
+    final canCreateLead =
+        role != null && PermissionService.can(role, AppPermission.createLead);
+    final canCreateClient = role == UserRole.admin || role == UserRole.manager;
+
+    return [
+      if (canCreateLead)
+        _QuickAddAction(
+          label: l.addLead,
+          icon: Icons.person_add_alt_outlined,
+          onTap: () => context.go(RouteNames.leadsCreate),
+        ),
+      if (canCreateClient)
+        _QuickAddAction(
+          label: l.addClient,
+          icon: Icons.group_add_outlined,
+          onTap: () => context.go(RouteNames.clientsCreate),
+        ),
+    ];
+  }
+}
+
+class _MobileQuickAddFab extends StatefulWidget {
+  const _MobileQuickAddFab({required this.actions});
+
+  final List<_QuickAddAction> actions;
+
+  @override
+  State<_MobileQuickAddFab> createState() => _MobileQuickAddFabState();
+}
+
+class _MobileQuickAddFabState extends State<_MobileQuickAddFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+  bool _isOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 190),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return Stack(
+      children: [
+        if (_isOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _close,
+            ),
+          ),
+        PositionedDirectional(
+          end: AppSpacing.md,
+          bottom: AppSpacing.md,
+          child: SizedBox(
+            width: 188,
+            height: 168,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: AlignmentDirectional.bottomEnd,
+              children: [
+                for (var index = 0; index < widget.actions.length; index++)
+                  _QuickAddMenuItem(
+                    action: widget.actions[index],
+                    index: index,
+                    animation: _animation,
+                    onTap: () {
+                      _close();
+                      widget.actions[index].onTap();
+                    },
+                  ),
+                FloatingActionButton(
+                  tooltip: l.quickAdd,
+                  onPressed: _toggle,
+                  shape: const CircleBorder(),
+                  child: AnimatedRotation(
+                    turns: _isOpen ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 190),
+                    curve: Curves.easeOut,
+                    child: const Icon(Icons.add),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _toggle() {
+    setState(() => _isOpen = !_isOpen);
+    if (_isOpen) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  void _close() {
+    if (!_isOpen) {
+      return;
+    }
+    setState(() => _isOpen = false);
+    _controller.reverse();
+  }
+}
+
+class _QuickAddMenuItem extends StatelessWidget {
+  const _QuickAddMenuItem({
+    required this.action,
+    required this.index,
+    required this.animation,
+    required this.onTap,
+  });
+
+  final _QuickAddAction action;
+  final int index;
+  final Animation<double> animation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = Directionality.of(context);
+    final horizontal = direction == TextDirection.rtl ? 64.0 : -64.0;
+    final offset = switch (index) {
+      0 => Offset(0, -72),
+      _ => Offset(horizontal, -42),
+    };
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return PositionedDirectional(
+          end: offset.dx.abs() < 1 ? 0 : null,
+          bottom: 0,
+          child: Transform.translate(
+            offset: Offset(offset.dx * animation.value, offset.dy * animation.value),
+            child: Transform.scale(
+              scale: 0.86 + (0.14 * animation.value),
+              child: Opacity(
+                opacity: animation.value,
+                child: IgnorePointer(
+                  ignoring: animation.value == 0,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      child: Tooltip(
+        message: action.label,
+        child: FloatingActionButton.small(
+          heroTag: 'dashboard-quick-add-${action.label}',
+          tooltip: action.label,
+          onPressed: onTap,
+          shape: const CircleBorder(),
+          child: Icon(action.icon),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAddAction {
+  const _QuickAddAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
 }
 
 class _WelcomePanel extends StatelessWidget {
@@ -276,58 +488,152 @@ class _WelcomePanel extends StatelessWidget {
     final now = DateTime.now();
     final date = MaterialLocalizations.of(context).formatFullDate(now);
 
-    return _Panel(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final direction = Directionality.of(context);
+
+    return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  copy.greeting(now),
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimaryColor(context),
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryColor(context),
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  date,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                      ),
-                ),
-              ],
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardSurface : AppColors.backgroundHighlight,
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.xLarge,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
+      ),
+      child: CustomPaint(
+        painter: _WelcomePropertyPainter(
+          color: isDark
+              ? AppColors.darkPrimary.withValues(alpha: 0.10)
+              : const Color(0xFFE7C77B).withValues(alpha: 0.22),
+          textDirection: direction,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    copy.greeting(now),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryColor(context),
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimaryColor(context),
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    date,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Container(
-            width: 54,
-            height: 54,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor(context).withValues(alpha: 0.12),
-              borderRadius: AppRadius.xLarge,
+            Container(
+              width: 54,
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.selectedSurface(context),
+                borderRadius: AppRadius.xLarge,
+              ),
+              child: Icon(
+                Icons.real_estate_agent_outlined,
+                color: AppColors.primaryColor(context),
+                size: 28,
+              ),
             ),
-            child: Icon(
-              Icons.real_estate_agent_outlined,
-              color: AppColors.primaryColor(context),
-              size: 28,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _WelcomePropertyPainter extends CustomPainter {
+  const _WelcomePropertyPainter({
+    required this.color,
+    required this.textDirection,
+  });
+
+  final Color color;
+  final TextDirection textDirection;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fill = Paint()
+      ..color = color.withValues(alpha: 0.28)
+      ..style = PaintingStyle.fill;
+
+    final isRtl = textDirection == TextDirection.rtl;
+    final originX = isRtl ? size.width * 0.04 : size.width * 0.68;
+    final width = size.width * 0.25;
+    final top = size.height * 0.20;
+    final base = size.height * 0.78;
+    final sign = isRtl ? 1.0 : -1.0;
+
+    final roof = Path()
+      ..moveTo(originX, top + 28)
+      ..lineTo(originX + sign * width * 0.42, top)
+      ..lineTo(originX + sign * width * 0.84, top + 28);
+    canvas.drawPath(roof, paint);
+
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        isRtl ? originX : originX - width * 0.84,
+        top + 28,
+        width * 0.84,
+        base - top - 28,
+      ),
+      const Radius.circular(14),
+    );
+    canvas.drawRRect(body, paint);
+
+    for (var row = 0; row < 2; row++) {
+      for (var col = 0; col < 3; col++) {
+        final x = isRtl
+            ? originX + 18 + col * 24
+            : originX - width * 0.72 + col * 24;
+        final y = top + 48 + row * 24;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x, y, 12, 10),
+            const Radius.circular(3),
+          ),
+          fill,
+        );
+      }
+    }
+
+    canvas.drawCircle(
+      Offset(isRtl ? originX + width * 0.94 : originX - width * 0.94, top + 18),
+      18,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WelcomePropertyPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.textDirection != textDirection;
   }
 }
 
@@ -469,11 +775,11 @@ class _AnalyticsPanel extends StatelessWidget {
                       title: copy.leadStatusDistribution,
                       segments: [
                         _ChartSegment(l.newLead, data.newLeads.length,
-                            AppColors.infoColor(context)),
+                            AppColors.primaryColor(context)),
                         _ChartSegment(copy.active, data.activeLeads.length,
                             AppColors.successColor(context)),
                         _ChartSegment(l.won, data.wonLeads.length,
-                            AppColors.secondary),
+                            AppColors.primaryPressed),
                         _ChartSegment(l.lost, data.lostLeads.length,
                             AppColors.errorColor(context)),
                       ],
@@ -489,7 +795,7 @@ class _AnalyticsPanel extends StatelessWidget {
                         _ChartSegment(l.dueToday, data.todayTasks.length,
                             AppColors.warningColor(context)),
                         _ChartSegment(l.upcoming, data.upcomingTasks.length,
-                            AppColors.infoColor(context)),
+                            AppColors.primaryPressed),
                         _ChartSegment(l.completed, data.completedTasks.length,
                             AppColors.successColor(context)),
                       ],
@@ -505,7 +811,7 @@ class _AnalyticsPanel extends StatelessWidget {
                             AppColors.successColor(context)),
                         _ChartSegment(copy.inactive,
                             data.inactiveProperties.length,
-                            AppColors.textSecondaryColor(context)),
+                            const Color(0xFFD8D0C2)),
                         _ChartSegment(copy.reservedOrClosed,
                             data.reservedOrClosedProperties.length,
                             AppColors.warningColor(context)),

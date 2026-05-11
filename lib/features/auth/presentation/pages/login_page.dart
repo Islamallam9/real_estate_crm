@@ -90,7 +90,7 @@ class _LoginView extends StatelessWidget {
                               const SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: Text(
-                                  localizations.appName,
+                                  localizations.loginBrandName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: textTheme.titleMedium?.copyWith(

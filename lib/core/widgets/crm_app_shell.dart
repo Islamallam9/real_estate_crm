@@ -13,6 +13,7 @@ import '../theme/app_spacing.dart';
 import '../theme/theme_cubit.dart';
 import '../../l10n/app_localizations.dart';
 import '../routing/route_names.dart';
+import 'app_feedback.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem { dashboard, leads, properties, clients, tasks, more }
@@ -244,8 +245,8 @@ class _WorkspaceBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = AppColors.appBackground(context);
-    final primary = AppColors.primaryColor(context);
-    final secondary = isDark ? AppColors.darkInfo : AppColors.secondary;
+    final warmTint = isDark ? AppColors.darkShellRaised : AppColors.backgroundSoft;
+    final highlight = isDark ? AppColors.darkPrimary : AppColors.backgroundHighlight;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -254,8 +255,8 @@ class _WorkspaceBackground extends StatelessWidget {
           center: AlignmentDirectional.topEnd.resolve(Directionality.of(context)),
           radius: intense ? 1.2 : 0.75,
           colors: [
-            primary.withValues(alpha: isDark ? 0.18 : 0.11),
-            secondary.withValues(alpha: isDark ? 0.08 : 0.045),
+            highlight.withValues(alpha: isDark ? 0.12 : 0.88),
+            warmTint.withValues(alpha: isDark ? 0.16 : 0.62),
             base,
           ],
           stops: const [0, 0.42, 1],
@@ -264,9 +265,11 @@ class _WorkspaceBackground extends StatelessWidget {
       child: CustomPaint(
         painter: _WorkspacePatternPainter(
           color: isDark
-              ? Colors.white.withValues(alpha: intense ? 0.022 : 0.012)
-              : AppColors.primaryDark.withValues(
-                  alpha: intense ? 0.024 : 0.012,
+              ? AppColors.darkTextPrimary.withValues(
+                  alpha: intense ? 0.022 : 0.012,
+                )
+              : AppColors.shellBorder.withValues(
+                  alpha: intense ? 0.22 : 0.12,
                 ),
           compact: !intense,
         ),
@@ -899,12 +902,12 @@ class _Sidebar extends StatelessWidget {
 
   Color _sidebarColor(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark ? const Color(0xFF0C1B2E) : const Color(0xFF245C98);
+    return isDark ? AppColors.darkShell : AppColors.shell;
   }
 
   Color _sidebarRaisedColor(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark ? const Color(0xFF132B46) : const Color(0xFF1B4A7E);
+    return isDark ? AppColors.darkShellRaised : AppColors.shellRaised;
   }
 }
 
@@ -917,16 +920,29 @@ class _BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brandTextColor = isDark ? AppColors.darkTextPrimary : AppColors.shellText;
+    final brandMutedColor =
+    isDark ? AppColors.darkTextSecondary : AppColors.shellTextMuted;
+
     final mark = Container(
       width: 42,
       height: 42,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        color: isDark ? AppColors.darkShellRaised : AppColors.primaryLight,
         borderRadius: AppRadius.large,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkBorder
+              : AppColors.primaryBorder.withValues(alpha: 0.7),
+        ),
       ),
-      child: const Icon(Icons.apartment, color: AppColors.shellText, size: 22),
+      child: Icon(
+        Icons.apartment,
+        color: isDark ? AppColors.darkPrimary : AppColors.primaryDeep,
+        size: 22,
+      ),
     );
 
     if (isCollapsed) {
@@ -952,7 +968,7 @@ class _BrandHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: AppColors.shellText,
+                      color: brandTextColor,
                   ),
                 ),
                 Text(
@@ -960,7 +976,7 @@ class _BrandHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.shellTextMuted,
+                      color: brandMutedColor,
                   ),
                 ),
               ],
@@ -988,7 +1004,11 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final color = selected ? Colors.white : AppColors.shellTextMuted;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedTextColor = isDark ? AppColors.shellText : AppColors.shellText;
+    final inactiveTextColor =
+    isDark ? AppColors.darkTextSecondary : AppColors.shellTextMuted;
+    final color = selected ? selectedTextColor : inactiveTextColor;
     final label = item.label(context);
 
     final child = AnimatedContainer(
@@ -1002,10 +1022,16 @@ class _SidebarItem extends StatelessWidget {
         11,
       ),
       decoration: BoxDecoration(
-        color: selected ? Colors.white.withValues(alpha: 0.16) : Colors.transparent,
+        color: selected
+            ? (isDark ? AppColors.darkPrimary : AppColors.shellActive)
+            : Colors.transparent,
         borderRadius: AppRadius.large,
         border: selected
-            ? Border.all(color: Colors.white.withValues(alpha: 0.14))
+            ? Border.all(
+          color: isDark
+              ? AppColors.darkPrimaryHover.withValues(alpha: 0.28)
+              : AppColors.primaryPressed.withValues(alpha: 0.18),
+        )
             : null,
       ),
       child: Row(
@@ -1104,8 +1130,8 @@ class _SidebarUtilityButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _CrmShellColors.of(context);
-    final color = colors.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? AppColors.darkPrimary : AppColors.primaryDeep;
     final compact = isCollapsed || !showLabel;
     final content = Container(
       width: compact ? 38 : double.infinity,
@@ -1117,9 +1143,11 @@ class _SidebarUtilityButton extends StatelessWidget {
         compact ? 0 : 10,
       ),
       decoration: BoxDecoration(
-        color: colors.cardSurface,
+        color: isDark ? AppColors.darkShellRaised : AppColors.shellRaised,
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.shellBorder,
+        ),
         borderRadius: compact ? AppRadius.medium : AppRadius.large,
-        border: Border.all(color: colors.border),
         boxShadow: Theme.of(context).brightness == Brightness.dark
             ? null
             : AppShadows.card,
@@ -1294,34 +1322,6 @@ class _ThemeToggleButton extends StatelessWidget {
   }
 }
 
-class _LogoutIconButton extends StatelessWidget {
-  const _LogoutIconButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final isLoading = state.status == AuthStatus.loading;
-
-        return IconButton(
-          tooltip: AppLocalizations.of(context)!.logoutTooltip,
-          onPressed: isLoading
-              ? null
-              : () {
-                  context.read<AuthBloc>().add(const AuthSignOutRequested());
-                },
-          icon: isLoading
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.logout),
-        );
-      },
-    );
-  }
-}
-
 class _LanguageMenuButton extends StatelessWidget {
   const _LanguageMenuButton();
 
@@ -1363,9 +1363,23 @@ class _AuthLogoutListener extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listenWhen: (previous, current) {
         return previous.status != current.status &&
-            current.status == AuthStatus.unauthenticated;
+            (current.status == AuthStatus.unauthenticated ||
+                (current.status == AuthStatus.failure &&
+                    previous.status == AuthStatus.loading &&
+                    previous.user != null &&
+                    current.user != null));
       },
-      listener: (context, state) => context.go(RouteNames.login),
+      listener: (context, state) {
+        final localizations = AppLocalizations.of(context)!;
+        if (state.status == AuthStatus.unauthenticated) {
+          AppFeedback.success(context, localizations.loggedOutSuccessfully);
+          context.go(RouteNames.login);
+          return;
+        }
+        if (state.status == AuthStatus.failure) {
+          AppFeedback.error(context, localizations.authErrorSignOutFailed);
+        }
+      },
       child: child,
     );
   }
@@ -1420,7 +1434,6 @@ class _ProfileMenuButton extends StatelessWidget {
 
         return BlocBuilder<ThemeCubit, ThemeMode>(
           builder: (context, themeMode) {
-            final isDark = themeMode == ThemeMode.dark;
 
             return PopupMenuButton<_ProfileMenuAction>(
               tooltip: l.profile,
@@ -1672,14 +1685,14 @@ class _CrmShellColors {
     if (!isDark) {
       return const _CrmShellColors(
         background: AppColors.background,
-        chromeSurface: AppColors.surface,
+        chromeSurface: AppColors.backgroundSoft,
         cardSurface: AppColors.surface,
-        inputSurface: AppColors.surfaceMuted,
-        selectedSurface: Color(0x174058E8),
+        inputSurface: AppColors.backgroundHighlight,
+        selectedSurface: AppColors.primaryLight,
         border: AppColors.border,
         textPrimary: AppColors.textPrimary,
         textSecondary: AppColors.textSecondary,
-        primary: AppColors.primary,
+        primary: AppColors.primaryDeep,
         error: AppColors.error,
       );
     }

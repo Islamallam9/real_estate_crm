@@ -15,6 +15,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
@@ -140,16 +141,18 @@ class _TasksListContentState extends State<_TasksListContent> {
       listener: (context, state) {
         if (state.status == TasksStatus.saved &&
             state.lastAction == TasksAction.markCompleted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l.taskCompletedSuccessfully)),
+          AppFeedback.success(
+            context,
+            l.taskCompletedSuccessfully,
           );
           context.read<TasksCubit>().clearAction();
           return;
         }
         if (state.status == TasksStatus.saved &&
             state.lastAction == TasksAction.cancelTask) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l.taskCancelledSuccessfully)),
+          AppFeedback.success(
+            context,
+            l.taskCancelledSuccessfully,
           );
           context.read<TasksCubit>().clearAction();
           return;
@@ -158,16 +161,15 @@ class _TasksListContentState extends State<_TasksListContent> {
             (state.lastAction == TasksAction.markCompleted ||
                 state.lastAction == TasksAction.cancelTask) &&
             (state.message?.isNotEmpty ?? false)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(localizeErrorMessage(l, state.message))),
+          AppFeedback.error(
+            context,
+            localizeErrorMessage(l, state.message),
           );
           context.read<TasksCubit>().clearAction();
         }
       },
       builder: (context, state) {
-        return Stack(
-          children: [
-            Column(
+        return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -205,19 +207,6 @@ class _TasksListContentState extends State<_TasksListContent> {
                   ),
                 ),
               ],
-            ),
-            if (state.status == TasksStatus.saving)
-              Positioned.fill(
-                child: AbsorbPointer(
-                  child: ColoredBox(
-                    color: AppColors.appBackground(
-                      context,
-                    ).withValues(alpha: 0.42),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                ),
-              ),
-          ],
         );
       },
         );
@@ -843,14 +832,10 @@ class _TaskActionsState extends State<_TaskActions> {
   }
 
   Future<void> _cancelTask() async {
-    final confirmed = await _confirmCancelTask(context);
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
     setState(() => _busyAction = _TaskActionKind.cancel);
     try {
-      await context.read<TasksCubit>().cancelTask(
+      await _confirmCancelTask(
+        context,
         companyId: widget.companyId,
         task: widget.task,
         updatedBy: widget.updatedBy,
@@ -907,28 +892,59 @@ class _TaskActionsState extends State<_TaskActions> {
   }
 }
 
-Future<bool> _confirmCancelTask(BuildContext context) async {
+Future<void> _confirmCancelTask(
+  BuildContext context, {
+  required String companyId,
+  required CrmTask task,
+  required String updatedBy,
+}) async {
   final l = AppLocalizations.of(context)!;
-  final confirmed = await showDialog<bool>(
+  final cubit = context.read<TasksCubit>();
+  var isSubmitting = false;
+
+  await showDialog<void>(
     context: context,
     builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l.cancelTask),
-        content: Text(l.cancelTaskConfirmation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          AppButton(
-            label: l.cancelTask,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l.cancelTask),
+            content: Text(l.cancelTaskConfirmation),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
+              AppButton(
+                label: l.cancelTask,
+                isLoading: isSubmitting,
+                onPressed: () async {
+                  setDialogState(() => isSubmitting = true);
+                  await cubit.cancelTask(
+                    companyId: companyId,
+                    task: task,
+                    updatedBy: updatedBy,
+                  );
+                  final completed =
+                      cubit.state.status == TasksStatus.saved &&
+                      cubit.state.lastAction == TasksAction.cancelTask;
+                  if (completed && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    setDialogState(() => isSubmitting = false);
+                  }
+                },
+              ),
+            ],
+          );
+        },
       );
     },
   );
-  return confirmed == true;
 }
 
 class _Badge extends StatelessWidget {

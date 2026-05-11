@@ -9,7 +9,13 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appName => 'نظام إدارة العقارات';
+  String get appName => 'مسار';
+
+  @override
+  String get loginBrandName => 'Masar | مسار';
+
+  @override
+  String get websiteTitle => 'مسار | نظام ادارة مبيعات العقارات';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -25,6 +31,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get logout => 'تسجيل الخروج';
+
+  @override
+  String get loggedOutSuccessfully => 'تم تسجيل الخروج بنجاح.';
 
   @override
   String get dashboard => 'لوحة التحكم';
@@ -192,22 +201,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get english => 'الإنجليزية';
 
   @override
-  String get salesWorkspace => 'مساحة عمل المبيعات';
+  String get salesWorkspace => 'من العميل المحتمل إلى الصفقة، مسار واضح واحد.';
 
   @override
-  String get searchCrm => 'البحث في النظام';
+  String get searchCrm => 'البحث في مسار CRM';
 
   @override
   String get notifications => 'الإشعارات';
 
   @override
-  String get crmUser => 'مستخدم النظام';
+  String get crmUser => 'مستخدم مسار';
 
   @override
   String get workspace => 'مساحة العمل';
 
   @override
-  String get crmOverview => 'نظرة عامة على النظام';
+  String get crmOverview => 'نظرة عامة على مسار CRM';
 
   @override
   String get dashboardPlaceholderDescription =>
@@ -244,8 +253,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get welcomeBack => 'مرحباً بعودتك';
 
   @override
-  String get loginSubtitle =>
-      'سجل الدخول للمتابعة إلى مساحة عمل إدارة العقارات.';
+  String get loginSubtitle => 'من العميل المحتمل إلى الصفقة، مسار واضح واحد.';
 
   @override
   String get emailRequired => 'البريد الإلكتروني مطلوب.';
@@ -288,6 +296,36 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get createLead => 'إضافة عميل محتمل';
+
+  @override
+  String get quickAdd => 'إضافة سريعة';
+
+  @override
+  String get addLead => 'إضافة عميل محتمل';
+
+  @override
+  String get addClient => 'إضافة عميل';
+
+  @override
+  String get savedSuccessfully => 'تم الحفظ بنجاح.';
+
+  @override
+  String get updatedSuccessfully => 'تم التحديث بنجاح.';
+
+  @override
+  String get unableToSave => 'تعذر الحفظ. حاول مرة أخرى.';
+
+  @override
+  String get unableToAssignClient => 'تعذر تعيين العميل. حاول مرة أخرى.';
+
+  @override
+  String get unableToUpdateTask => 'تعذر تحديث المهمة. حاول مرة أخرى.';
+
+  @override
+  String get actionCompletedSuccessfully => 'تم تنفيذ الإجراء بنجاح.';
+
+  @override
+  String get actionFailed => 'تعذر تنفيذ الإجراء. حاول مرة أخرى.';
 
   @override
   String get createClient => 'إضافة عميل';
@@ -1009,6 +1047,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get markContactedToday => 'تسجيل التواصل اليوم';
+
+  @override
+  String get leadMarkedContactedToday =>
+      'تم تسجيل التواصل مع العميل المحتمل اليوم.';
 
   @override
   String get scheduleFollowUp => 'جدولة متابعة';

@@ -101,8 +101,20 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
-  /// **'Real Estate CRM'**
+  /// **'Masar'**
   String get appName;
+
+  /// No description provided for @loginBrandName.
+  ///
+  /// In en, this message translates to:
+  /// **'Masar | مسار'**
+  String get loginBrandName;
+
+  /// No description provided for @websiteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Masar | CRM'**
+  String get websiteTitle;
 
   /// No description provided for @login.
   ///
@@ -133,6 +145,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Logout'**
   String get logout;
+
+  /// No description provided for @loggedOutSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged out successfully.'**
+  String get loggedOutSuccessfully;
 
   /// No description provided for @dashboard.
   ///
@@ -461,13 +479,13 @@ abstract class AppLocalizations {
   /// No description provided for @salesWorkspace.
   ///
   /// In en, this message translates to:
-  /// **'Sales workspace'**
+  /// **'From lead to deal, one clear path.'**
   String get salesWorkspace;
 
   /// No description provided for @searchCrm.
   ///
   /// In en, this message translates to:
-  /// **'Search CRM'**
+  /// **'Search Masar CRM'**
   String get searchCrm;
 
   /// No description provided for @notifications.
@@ -479,7 +497,7 @@ abstract class AppLocalizations {
   /// No description provided for @crmUser.
   ///
   /// In en, this message translates to:
-  /// **'CRM User'**
+  /// **'Masar user'**
   String get crmUser;
 
   /// No description provided for @workspace.
@@ -491,7 +509,7 @@ abstract class AppLocalizations {
   /// No description provided for @crmOverview.
   ///
   /// In en, this message translates to:
-  /// **'CRM overview'**
+  /// **'Masar CRM overview'**
   String get crmOverview;
 
   /// No description provided for @dashboardPlaceholderDescription.
@@ -563,7 +581,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to continue to your CRM workspace.'**
+  /// **'From lead to deal, one clear path.'**
   String get loginSubtitle;
 
   /// No description provided for @emailRequired.
@@ -643,6 +661,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create lead'**
   String get createLead;
+
+  /// No description provided for @quickAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick add'**
+  String get quickAdd;
+
+  /// No description provided for @addLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Add lead'**
+  String get addLead;
+
+  /// No description provided for @addClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Add client'**
+  String get addClient;
+
+  /// No description provided for @savedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved successfully.'**
+  String get savedSuccessfully;
+
+  /// No description provided for @updatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated successfully.'**
+  String get updatedSuccessfully;
+
+  /// No description provided for @unableToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save. Please try again.'**
+  String get unableToSave;
+
+  /// No description provided for @unableToAssignClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to assign client. Please try again.'**
+  String get unableToAssignClient;
+
+  /// No description provided for @unableToUpdateTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update task. Please try again.'**
+  String get unableToUpdateTask;
+
+  /// No description provided for @actionCompletedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Action completed successfully.'**
+  String get actionCompletedSuccessfully;
+
+  /// No description provided for @actionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed. Please try again.'**
+  String get actionFailed;
 
   /// No description provided for @createClient.
   ///
@@ -2005,6 +2083,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mark contacted today'**
   String get markContactedToday;
+
+  /// No description provided for @leadMarkedContactedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead marked as contacted today.'**
+  String get leadMarkedContactedToday;
 
   /// No description provided for @scheduleFollowUp.
   ///
