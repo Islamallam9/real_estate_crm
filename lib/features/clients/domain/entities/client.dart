@@ -13,6 +13,8 @@ class Client extends Equatable {
     required this.preferredPropertyType,
     required this.notes,
     required this.assignedTo,
+    required this.assignedToName,
+    required this.assignedToEmail,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -31,6 +33,8 @@ class Client extends Equatable {
   final String preferredPropertyType;
   final String notes;
   final String assignedTo;
+  final String assignedToName;
+  final String assignedToEmail;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -50,6 +54,8 @@ class Client extends Equatable {
     preferredPropertyType,
     notes,
     assignedTo,
+    assignedToName,
+    assignedToEmail,
     isActive,
     createdAt,
     updatedAt,

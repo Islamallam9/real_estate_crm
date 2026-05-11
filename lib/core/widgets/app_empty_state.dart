@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
 import 'app_button.dart';
 
 class AppEmptyState extends StatelessWidget {
@@ -26,34 +27,41 @@ class AppEmptyState extends StatelessWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 44, color: AppColors.primaryColor(context)),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimaryColor(context),
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface(context),
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.large,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 34, color: AppColors.primaryColor(context)),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.textPrimaryColor(context),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              if (actionLabel != null && onActionPressed != null) ...[
-                const SizedBox(height: AppSpacing.lg),
-                AppButton(label: actionLabel!, onPressed: onActionPressed),
+                if (actionLabel != null && onActionPressed != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(label: actionLabel!, onPressed: onActionPressed),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

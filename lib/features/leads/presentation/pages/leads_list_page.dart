@@ -7,6 +7,8 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
@@ -173,7 +175,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _LeadFilters(showAssignee: showAssignee, users: users),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       Expanded(
                         child: _LeadsBody(
                           state: state,
@@ -251,93 +253,43 @@ class _LeadFilters extends StatelessWidget {
                         onChanged: cubit.setSearchQuery,
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.md),
+                    const SizedBox(width: AppSpacing.sm),
                     AppButton(
-                      label: localizations.clearFilters,
+                      label: localizations.filters,
+                      icon: Icons.tune,
                       variant: AppButtonVariant.secondary,
-                      onPressed: hasFilters
-                          ? () {
-                              cubit.setSearchQuery('');
-                              cubit.setStatusFilter(null);
-                              cubit.setSourceFilter(null);
-                              cubit.setPriorityFilter(null);
-                              cubit.setAssignedToFilter(null);
-                              cubit.setFollowUpFilter(null);
-                            }
-                          : null,
+                      onPressed: () => _showLeadFiltersSheet(
+                        context,
+                        state,
+                        showAssignee: showAssignee,
+                        users: users,
+                      ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.md,
-                  runSpacing: AppSpacing.md,
-                  children: [
-                    _DesktopFilterDropdown<_LeadFilterOption<LeadStatus>>(
-                      label: localizations.status,
-                      value: _LeadFilterOption.fromValue(state.statusFilter),
-                      items: _leadFilterOptions(LeadStatus.values),
-                      itemLabelBuilder: (option) => option.isAll
-                          ? localizations.allStatuses
-                          : _statusLabel(localizations, option.value),
-                      onChanged: (option) {
-                        cubit.setStatusFilter(option.value);
-                      },
-                    ),
-                    _DesktopFilterDropdown<_LeadFilterOption<LeadSource>>(
-                      label: localizations.source,
-                      value: _LeadFilterOption.fromValue(state.sourceFilter),
-                      items: _leadFilterOptions(LeadSource.values),
-                      itemLabelBuilder: (option) => option.isAll
-                          ? localizations.allSources
-                          : _sourceLabel(localizations, option.value),
-                      onChanged: (option) {
-                        cubit.setSourceFilter(option.value);
-                      },
-                    ),
-                    _DesktopFilterDropdown<_LeadFilterOption<LeadPriority>>(
-                      label: localizations.priority,
-                      value: _LeadFilterOption.fromValue(state.priorityFilter),
-                      items: _leadFilterOptions(LeadPriority.values),
-                      itemLabelBuilder: (option) => option.isAll
-                          ? localizations.allPriorities
-                          : _priorityLabel(localizations, option.value),
-                      onChanged: (option) {
-                        cubit.setPriorityFilter(option.value);
-                      },
-                    ),
-                    _DesktopFilterDropdown<_LeadFilterOption<LeadFollowUpFilter>>(
-                      label: localizations.nextFollowUp,
-                      value: _LeadFilterOption.fromValue(state.followUpFilter),
-                      items: _leadFilterOptions(LeadFollowUpFilter.values),
-                      itemLabelBuilder: (option) => option.isAll
-                          ? localizations.allFollowUps
-                          : _followUpFilterLabel(localizations, option.value),
-                      onChanged: (option) {
-                        cubit.setFollowUpFilter(option.value);
-                      },
-                    ),
-                    if (showAssignee)
-                      _DesktopFilterDropdown<_LeadFilterOption<String>>(
-                        label: localizations.assignee,
-                        value: _LeadFilterOption.fromValue(
-                          state.assignedToFilter,
-                        ),
-                        items: _assigneeFilterOptions(users, state.leads),
-                        itemLabelBuilder: (option) => option.isAll
-                            ? localizations.allAssignees
-                            : _userNameForFilter(
-                                localizations,
-                                users,
-                                state.leads,
-                                option.value,
-                              ),
-                        onChanged: (option) {
-                          cubit.setAssignedToFilter(option.value);
+                    if (hasFilters) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      AppButton(
+                        label: localizations.clearFilters,
+                        variant: AppButtonVariant.secondary,
+                        onPressed: () {
+                          cubit.setSearchQuery('');
+                          cubit.setStatusFilter(null);
+                          cubit.setSourceFilter(null);
+                          cubit.setPriorityFilter(null);
+                          cubit.setAssignedToFilter(null);
+                          cubit.setFollowUpFilter(null);
                         },
                       ),
+                    ],
                   ],
                 ),
+                if (hasFilters) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  _LeadActiveFilterChips(
+                    state: state,
+                    users: users,
+                    showAssignee: showAssignee,
+                  ),
+                ],
               ],
             );
           },
@@ -395,38 +347,81 @@ class _LeadSearchFieldState extends State<_LeadSearchField> {
       decoration: InputDecoration(
         labelText: localizations.searchLeads,
         prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
       onChanged: widget.onChanged,
     );
   }
 }
 
-class _DesktopFilterDropdown<T> extends StatelessWidget {
-  const _DesktopFilterDropdown({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.itemLabelBuilder,
-    required this.onChanged,
+class _LeadActiveFilterChips extends StatelessWidget {
+  const _LeadActiveFilterChips({
+    required this.state,
+    required this.users,
+    required this.showAssignee,
   });
 
-  final String label;
-  final T value;
-  final List<T> items;
-  final String Function(T item) itemLabelBuilder;
-  final ValueChanged<T> onChanged;
+  final LeadsState state;
+  final List<UserProfile> users;
+  final bool showAssignee;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 190,
-      child: AppDropdown<T>(
-        label: label,
-        value: value,
-        items: items,
-        itemLabelBuilder: itemLabelBuilder,
-        onChanged: onChanged,
+    final l = AppLocalizations.of(context)!;
+    final chips = <Widget>[
+      if (state.statusFilter != null)
+        _FilterChipPill(label: _statusLabel(l, state.statusFilter)),
+      if (state.sourceFilter != null)
+        _FilterChipPill(label: _sourceLabel(l, state.sourceFilter)),
+      if (state.priorityFilter != null)
+        _FilterChipPill(label: _priorityLabel(l, state.priorityFilter)),
+      if (state.followUpFilter != null)
+        _FilterChipPill(label: _followUpFilterLabel(l, state.followUpFilter)),
+      if (showAssignee && state.assignedToFilter != null)
+        _FilterChipPill(
+          label: _userNameForFilter(
+            l,
+            users,
+            state.leads,
+            state.assignedToFilter,
+          ),
+        ),
+    ];
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: chips,
+    );
+  }
+}
+
+class _FilterChipPill extends StatelessWidget {
+  const _FilterChipPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.selectedSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 5,
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.primaryColor(context),
+                fontWeight: FontWeight.w800,
+              ),
+        ),
       ),
     );
   }
@@ -460,18 +455,15 @@ class _MobileLeadFilters extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        SizedBox(
-          height: 56,
-          child: AppButton(
-            label: localizations.filters,
-            icon: Icons.tune,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => _showLeadFiltersSheet(
-              context,
-              state,
-              showAssignee: showAssignee,
-              users: users,
-            ),
+        AppButton(
+          label: localizations.filters,
+          icon: Icons.tune,
+          variant: AppButtonVariant.secondary,
+          onPressed: () => _showLeadFiltersSheet(
+            context,
+            state,
+            showAssignee: showAssignee,
+            users: users,
           ),
         ),
       ],
@@ -788,7 +780,7 @@ class _LeadsBody extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, index) {
               final lead = state.filteredLeads[index];
-              return _LeadCard(lead: lead, users: users, position: index + 1);
+              return _LeadCard(lead: lead, users: users);
             },
           );
         }
@@ -883,7 +875,7 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                     isSaving: widget.isSaving,
                   );
 
-                  if (constraints.maxWidth < 1200) {
+                  if (constraints.maxWidth < 1100) {
                     return table;
                   }
 
@@ -893,7 +885,7 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                       Expanded(child: table),
                       const SizedBox(width: AppSpacing.md),
                       SizedBox(
-                        width: 360,
+                        width: 390,
                         child: preview,
                       ),
                     ],
@@ -945,39 +937,106 @@ class _LeadSummaryCards extends StatelessWidget {
           lead.status == LeadStatus.negotiation;
     });
     final unassignedLeads = leads.where((lead) => lead.assignedTo.isEmpty);
+    final overdueFollowUps = leads.where((lead) {
+      final nextFollowUpAt = lead.nextFollowUpAt;
+      if (nextFollowUpAt == null) {
+        return false;
+      }
+      return DateUtils.dateOnly(
+        nextFollowUpAt.toLocal(),
+      ).isBefore(DateUtils.dateOnly(DateTime.now()));
+    });
+    final upcomingFollowUps = leads.where((lead) {
+      final nextFollowUpAt = lead.nextFollowUpAt;
+      if (nextFollowUpAt == null) {
+        return false;
+      }
+      return DateUtils.dateOnly(
+        nextFollowUpAt.toLocal(),
+      ).isAfter(DateUtils.dateOnly(DateTime.now()));
+    });
     final cards = [
-      _LeadSummaryCard(label: l.totalLeads, value: leads.length),
-      _LeadSummaryCard(label: l.newLeads, value: newLeads.length),
-      _LeadSummaryCard(label: l.activeLeads, value: activeLeads.length),
+      _LeadSummaryCard(
+        label: l.totalLeads,
+        value: leads.length,
+        total: leads.isEmpty ? 1 : leads.length,
+        tone: AppStatusTone.info,
+      ),
+      _LeadSummaryCard(
+        label: l.newLeads,
+        value: newLeads.length,
+        total: leads.length,
+        tone: AppStatusTone.info,
+      ),
+      _LeadSummaryCard(
+        label: l.activeLeads,
+        value: activeLeads.length,
+        total: leads.length,
+        tone: AppStatusTone.success,
+      ),
+      _LeadSummaryCard(
+        label: l.overdue,
+        value: overdueFollowUps.length,
+        total: leads.length,
+        tone: AppStatusTone.error,
+      ),
+      _LeadSummaryCard(
+        label: l.upcoming,
+        value: upcomingFollowUps.length,
+        total: leads.length,
+        tone: AppStatusTone.info,
+      ),
       if (showAssignee)
-        _LeadSummaryCard(label: l.unassignedLeads, value: unassignedLeads.length),
+        _LeadSummaryCard(
+          label: l.unassignedLeads,
+          value: unassignedLeads.length,
+          total: leads.length,
+          tone: AppStatusTone.warning,
+        ),
     ];
 
-    return Row(
-      children: [
-        for (var index = 0; index < cards.length; index++) ...[
-          Expanded(child: cards[index]),
-          if (index != cards.length - 1) const SizedBox(width: AppSpacing.sm),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var index = 0; index < cards.length; index++) ...[
+            SizedBox(width: 154, child: cards[index]),
+            if (index != cards.length - 1) const SizedBox(width: AppSpacing.sm),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
 class _LeadSummaryCard extends StatelessWidget {
-  const _LeadSummaryCard({required this.label, required this.value});
+  const _LeadSummaryCard({
+    required this.label,
+    required this.value,
+    required this.total,
+    required this.tone,
+  });
 
   final String label;
   final int value;
+  final int total;
+  final AppStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
+    final progress =
+        total <= 0 ? 0.0 : (value / total).clamp(0.0, 1.0).toDouble();
+    final accent = _summaryToneColor(context, tone);
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: _LeadListColors.of(context).cardSurface,
         border: Border.all(color: _LeadListColors.of(context).border),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1000,10 +1059,37 @@ class _LeadSummaryCard extends StatelessWidget {
               color: AppColors.textPrimaryColor(context),
             ),
           ),
+          const SizedBox(height: AppSpacing.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              builder: (context, value, _) {
+                return LinearProgressIndicator(
+                  minHeight: 5,
+                  value: value,
+                  backgroundColor: AppColors.inputSurface(context),
+                  color: accent,
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+Color _summaryToneColor(BuildContext context, AppStatusTone tone) {
+  return switch (tone) {
+    AppStatusTone.success => AppColors.successColor(context),
+    AppStatusTone.warning => AppColors.warningColor(context),
+    AppStatusTone.error => AppColors.errorColor(context),
+    AppStatusTone.info => AppColors.infoColor(context),
+    AppStatusTone.neutral => AppColors.primaryColor(context),
+  };
 }
 
 class _LeadsWebTable extends StatelessWidget {
@@ -1033,7 +1119,10 @@ class _LeadsWebTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.cardSurface,
         border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
       ),
       clipBehavior: Clip.antiAlias,
       child: DataTableTheme(
@@ -1048,9 +1137,8 @@ class _LeadsWebTable extends StatelessWidget {
               columnSpacing: 10,
               headingRowHeight: 44,
               dataRowMinHeight: 46,
-              dataRowMaxHeight: 68,
+              dataRowMaxHeight: 82,
               columns: [
-                const DataColumn(label: _TableText('#', maxWidth: 28)),
                 DataColumn(label: _TableText(l.leadName, maxWidth: 180)),
                 DataColumn(label: _TableText(l.status, maxWidth: 84)),
                 DataColumn(label: _TableText(l.priority, maxWidth: 76)),
@@ -1059,9 +1147,7 @@ class _LeadsWebTable extends StatelessWidget {
                   DataColumn(label: _TableText(l.assignedToLabel, maxWidth: 120)),
                 DataColumn(label: _TableText(l.nextFollowUp, maxWidth: 128)),
               ],
-              rows: leads.asMap().entries.map((entry) {
-                final index = entry.key;
-                final lead = entry.value;
+              rows: leads.map((lead) {
                 final selected = lead.id == selectedLeadId;
                 final assignee = _resolvedAssigneeName(
                   l,
@@ -1078,10 +1164,6 @@ class _LeadsWebTable extends StatelessWidget {
                     return null;
                   }),
                   cells: [
-                    DataCell(
-                      _TableText((index + 1).toString(), maxWidth: 28),
-                      onTap: () => onLeadSelected(lead),
-                    ),
                     DataCell(
                       _LeadNameTableCell(lead: lead),
                       onTap: () => onLeadSelected(lead),
@@ -1182,7 +1264,7 @@ class _LeadPreviewPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: _LeadListColors.of(context).cardSurface,
         border: Border.all(color: _LeadListColors.of(context).border),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadius.large,
       ),
       child: selectedLead == null
           ? AppEmptyState(
@@ -1269,6 +1351,7 @@ class _LeadPreviewPanel extends StatelessWidget {
                 _PreviewActionIcon(
                   tooltip: l.markContactedToday,
                   icon: Icons.today_outlined,
+                  isLoading: isSaving,
                   onPressed: isSaving
                       ? null
                       : () => _markContactedToday(context, selectedLead),
@@ -1276,6 +1359,7 @@ class _LeadPreviewPanel extends StatelessWidget {
                 _PreviewActionIcon(
                   tooltip: l.scheduleFollowUp,
                   icon: Icons.event_available_outlined,
+                  isLoading: isSaving,
                   onPressed: isSaving
                       ? null
                       : () => _scheduleFollowUp(context, selectedLead),
@@ -1338,19 +1422,26 @@ class _PreviewActionIcon extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
       child: IconButton.outlined(
-        icon: Icon(icon, size: 18),
-        onPressed: onPressed,
+        icon: isLoading
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(icon, size: 18),
+        onPressed: isLoading ? null : onPressed,
       ),
     );
   }
@@ -1420,12 +1511,10 @@ class _LeadCard extends StatelessWidget {
   const _LeadCard({
     required this.lead,
     required this.users,
-    required this.position,
   });
 
   final Lead lead;
   final List<UserProfile> users;
-  final int position;
 
   @override
   Widget build(BuildContext context) {
@@ -1452,21 +1541,16 @@ class _LeadCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.cardSurface(context),
           border: Border.all(color: AppColors.borderColor(context)),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.large,
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : AppShadows.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(
-                  position.toString(),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
                 Expanded(child: _LeadTitle(lead: lead)),
                 AppStatusBadge(label: _statusLabel(localizations, lead.status)),
               ],
@@ -1535,7 +1619,7 @@ class _LeadMetaChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: _LeadListColors.of(context).inputSurface,
         border: Border.all(color: _LeadListColors.of(context).border),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.large,
       ),
       child: Text(
         label,
@@ -1620,7 +1704,7 @@ class _TableStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _badgeColorsFor(context, tone);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 104),
+      constraints: const BoxConstraints(maxWidth: 132),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: colors.background,

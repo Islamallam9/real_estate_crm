@@ -17,6 +17,8 @@ class ClientForm extends StatefulWidget {
     required this.onSubmit,
     this.client,
     this.assignedTo = '',
+    this.assignedToName = '',
+    this.assignedToEmail = '',
     this.users = const [],
     this.canEditAssignment = false,
     this.isSaving = false,
@@ -26,6 +28,8 @@ class ClientForm extends StatefulWidget {
   final String companyId;
   final String actorUid;
   final String assignedTo;
+  final String assignedToName;
+  final String assignedToEmail;
   final List<UserProfile> users;
   final bool canEditAssignment;
   final ValueChanged<Client> onSubmit;
@@ -48,12 +52,19 @@ class _ClientFormState extends State<ClientForm> {
   final _preferredPropertyTypeController = TextEditingController();
   final _notesController = TextEditingController();
   late String _assignedTo;
+  String _assignedToName = '';
+  String _assignedToEmail = '';
 
   @override
   void initState() {
     super.initState();
     _assignedTo = widget.client?.assignedTo ?? widget.assignedTo;
+    _assignedToName =
+        widget.client?.assignedToName ?? widget.assignedToName;
+    _assignedToEmail =
+        widget.client?.assignedToEmail ?? widget.assignedToEmail;
     final client = widget.client;
+    _syncAssignedSnapshot();
     if (client == null) {
       return;
     }
@@ -166,7 +177,10 @@ class _ClientFormState extends State<ClientForm> {
                     value: _assignedTo,
                     enabled: !widget.isSaving,
                     onChanged: (uid) {
-                      setState(() => _assignedTo = uid);
+                      setState(() {
+                        _assignedTo = uid;
+                        _syncAssignedSnapshot();
+                      });
                     },
                   ),
                 ],
@@ -275,6 +289,12 @@ class _ClientFormState extends State<ClientForm> {
 
     final now = DateTime.now();
     final previous = widget.client;
+    final selectedAssignee = _selectedAssignee();
+    final assignedTo = widget.canEditAssignment
+        ? _assignedTo
+        : previous?.assignedTo ?? widget.assignedTo;
+    final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
+    final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
     widget.onSubmit(
       Client(
         id: previous?.id ?? '',
@@ -287,9 +307,9 @@ class _ClientFormState extends State<ClientForm> {
         preferredLocation: _preferredLocationController.text.trim(),
         preferredPropertyType: _preferredPropertyTypeController.text.trim(),
         notes: _notesController.text.trim(),
-        assignedTo: widget.canEditAssignment
-            ? _assignedTo
-            : previous?.assignedTo ?? widget.assignedTo,
+        assignedTo: assignedTo,
+        assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),
+        assignedToEmail: assignedTo.trim().isEmpty ? '' : assignedToEmail.trim(),
         isActive: previous?.isActive ?? true,
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,
@@ -297,5 +317,31 @@ class _ClientFormState extends State<ClientForm> {
         updatedBy: widget.actorUid,
       ),
     );
+  }
+
+  UserProfile? _selectedAssignee() {
+    final uid = _assignedTo.trim();
+    if (uid.isEmpty) {
+      return null;
+    }
+    for (final user in widget.users) {
+      if (user.uid == uid) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  void _syncAssignedSnapshot() {
+    final user = _selectedAssignee();
+    if (user == null) {
+      if (_assignedTo.trim().isEmpty) {
+        _assignedToName = '';
+        _assignedToEmail = '';
+      }
+      return;
+    }
+    _assignedToName = user.fullName;
+    _assignedToEmail = user.email;
   }
 }

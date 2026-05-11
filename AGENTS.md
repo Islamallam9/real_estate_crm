@@ -205,9 +205,13 @@ companies/{companyId}/audit_logs/{auditLogId}
 ## UI/UX Defaults
 
 - Design must look like a real CRM, not a generic AI-generated dashboard.
+- Style matters as much as functionality.
 - Avoid flashy gradients, glassmorphism, huge shadows, fake futuristic cards, and decorative clutter.
+- Avoid generic AI/SaaS visual defaults.
+- Use the Frontend Visual Design Skill rules for colors, typography, spacing, cards, filters, buttons, motion, and mobile behavior.
 - Web layout should use sidebar/top bar/content.
 - Mobile layout should use app bar/bottom navigation/card lists.
+- Mobile cards should be tappable when the card has a details page.
 - Tables/lists must not overflow on web resize.
 - Forms must be smooth, readable, and consistent.
 - Use existing core widgets before creating new widgets.
@@ -216,11 +220,415 @@ companies/{companyId}/audit_logs/{auditLogId}
 
 - Do not add packages unless required by the task.
 - If a package is needed, explain why in the report.
-- Approved current exception:
-  - `shared_preferences` for non-sensitive local preferences.
-  - `google_fonts` for El Messiri Arabic font.
+- Packages must improve production quality, visual consistency, accessibility, maintainability, or developer efficiency.
+- Do not add decorative packages randomly.
+- Do not add a package just to imitate a trend.
+- Prefer small, mature, well-maintained packages with strong pub.dev health and active usage.
+- Approved package categories when useful:
+  - Typography and bilingual font system.
+  - Subtle UI animation and micro-interactions.
+  - Professional in-app messages/toasts.
+  - Skeleton/loading placeholders for list/card loading states.
+- Preferred packages when a task clearly needs them:
+  - `shared_preferences` for non-sensitive local preferences only.
+  - `google_fonts` for the app typography system.
+  - `flutter_animate` for subtle, functional micro-interactions only.
+  - `toastification` or a similarly professional toast package for internal success/error messages if SnackBars become too limited.
+  - `skeletonizer` for non-blocking skeleton loading states when list/card screens need a better loading experience.
+- If adding `google_fonts`, prefer pre-bundled fonts/assets for production reliability when practical.
+- If adding animation packages, keep animations subtle, short, and functional.
+- If adding toast/message packages, keep messages professional, not playful.
+- Do not replace the whole design system with a package-driven UI kit unless explicitly requested.
 
+---
 
+# Frontend Visual Design Skill
+
+These rules define the permanent visual direction of the CRM. They must be followed before creating or modifying any UI.
+
+## Design Goal
+
+The UI must look human-designed, intentional, and production-grade.
+
+The app must not look like a generic AI-generated SaaS demo.
+
+The design should feel like a premium internal real-estate CRM used every day by a real sales team:
+- calm
+- efficient
+- spatially deliberate
+- visually distinctive
+- businesslike without feeling old
+
+## Approved Visual Reference Direction
+
+Use the selected visual references as the approved style direction:
+- Deep navy rounded sidebar shell.
+- Soft off-white / cool-gray workspace.
+- White cards and tables with subtle borders and shallow shadows.
+- Rounded but disciplined geometry.
+- Controlled blue-violet accent for active navigation, selected states, and important actions.
+- Background that is not a dead flat color: use subtle geometric forms, soft radial tints, dots, or low-opacity network/grid textures.
+- Dense, useful layouts with no dead space, but still enough breathing room to scan comfortably.
+
+The visual result should feel closer to:
+- premium product design
+- refined enterprise software
+- crafted real-estate operations software
+
+It should not feel like:
+- a tutorial app
+- a default Flutter admin template
+- a generic AI dashboard
+- a flashy startup landing page
+
+## Anti-AI Visual Rules
+
+Avoid common AI-generated frontend patterns:
+- Inter/Roboto/default-font-only appearance without a typography decision.
+- Purple gradients on white backgrounds as the main identity.
+- Random blue/purple SaaS palettes without discipline.
+- Overused glassmorphism.
+- Overly large rounded cards everywhere.
+- Excessive shadows or glowing cards.
+- Random decorative illustrations.
+- Bouncy or playful animation.
+- Fake dashboard cards.
+- Random icon usage without hierarchy.
+- Inconsistent spacing from module to module.
+- Different search/filter UI between modules.
+- Different button styles for the same action type.
+- Raw Firestore/Auth IDs visible in UI.
+- Giant empty headers or blank panels that waste useful workspace.
+- Per-module styling that makes the product feel stitched together.
+
+## Visual Identity Direction
+
+The CRM visual identity should be:
+- serious
+- calm
+- premium but not flashy
+- efficient
+- clear
+- modern
+- real-estate/business oriented
+- human-designed
+
+Use a restrained palette:
+
+```text
+Shell / sidebar: deep navy / ink blue
+Primary accent: controlled blue-violet
+Secondary accent: muted teal or muted steel blue
+Workspace background: soft off-white / cool gray
+Surface: white or near-white
+Surface elevated: subtle warm/cool neutral
+Text primary: near-black navy
+Text secondary: cool gray / slate
+Border: soft gray
+Success: muted green
+Warning: muted amber
+Error: controlled red
+Info: muted blue
+```
+
+Color rules:
+- Navy is the structural anchor.
+- Accent colors are for focus, active navigation, selected rows, and primary actions, not for decorating every card.
+- Status colors must be semantic and consistent across all modules.
+- Avoid many unrelated colors on one screen.
+- Dark mode must remain premium and readable, not neon.
+
+## Typography Direction
+
+Typography matters as much as layout.
+
+Do not rely on generic default typography for the final product.
+
+Preferred bilingual font direction:
+```text
+English: Plus Jakarta Sans or Manrope
+Arabic: IBM Plex Sans Arabic
+```
+
+Allowed fallback direction only if needed:
+```text
+English: IBM Plex Sans or Source Sans 3
+Arabic: Noto Kufi Arabic
+```
+
+Typography rules:
+- Use one approved English family and one approved Arabic family consistently across the app.
+- Arabic must look intentional, not like a fallback font.
+- Titles should feel confident but not oversized.
+- Body text must remain highly readable in dense tables, cards, and forms.
+- Labels must not be tiny or faint.
+- Use hierarchy through weight, size, and spacing, not decoration.
+- Avoid too many font weights.
+- Avoid all-caps styling except rare technical/status cases.
+- Keep numbers, dates, currencies, and table values visually aligned across modules.
+
+## Background Treatment
+
+The workspace background must not feel like a flat empty sheet.
+
+Desktop/web:
+- Use a soft workspace background with subtle geometric shapes, radial tints, dotted fields, low-opacity linework, or a restrained network/grid texture.
+- Background treatment must sit behind content and never reduce readability.
+- Ambient movement is allowed only if extremely subtle, slow, and performance-safe.
+- Avoid repeated real-estate icons as a loud pattern.
+
+Mobile/mobile-browser:
+- Keep the background quieter than desktop.
+- Prefer a subtle tint or corner geometry rather than busy repeated patterns.
+- Do not sacrifice vertical content space for decoration.
+
+## App Shell and Navigation
+
+### Desktop/Web Shell
+
+Use a persistent app shell:
+- Sidebar stays stable.
+- Top bar stays stable.
+- Only the inner workspace changes between modules.
+
+Sidebar direction:
+- Deep navy rounded shell.
+- Strong active navigation pill with controlled accent.
+- Clean iconography.
+- Balanced vertical spacing.
+- Distinctive enough to feel custom, not like a default drawer.
+- Optional lower utility/profile area may exist if useful, but it must stay restrained.
+
+### Module Opening Behavior
+
+Opening a new module must not feel like the whole screen was overwritten.
+
+Preferred behavior:
+- Keep the shell persistent.
+- Transition only the inner workspace.
+- Use a short fade plus slight directional motion.
+- Preserve context where practical.
+
+Desktop detail behavior:
+- Prefer master-detail or side-panel patterns for details where practical.
+- Do not always replace the whole workspace with a details page if a split or side-panel layout is cleaner.
+- Use full pages only for long forms or workflows that genuinely need them.
+
+Mobile behavior:
+- Keep main navigation stable.
+- Use pushed pages for real navigation.
+- Use bottom sheets for lightweight actions.
+- Keep the header/app bar fixed where practical.
+- Search/filter/content may scroll under the fixed header to preserve card visibility.
+
+## Layout and Density
+
+- Use space intentionally; no dead regions.
+- Keep breathing room, but favor productive density over oversized decorative gaps.
+- Use content-aligned grids instead of random card placement.
+- Larger screens should show more useful information, not only larger margins.
+- List pages should reveal useful records quickly without excessive header height.
+- Tables should be compact, clean, and scannable.
+- Mobile cards should contain the most useful fields only and remain tappable when the entire card represents a record.
+- Avoid layout choices that make the user scroll through empty air before reaching work content.
+
+## Shared Component Style
+
+Shared components must carry the visual system:
+- Buttons: clear hierarchy, restrained radius, meaningful hover/press states.
+- Inputs: calm surfaces, consistent labels, aligned heights.
+- Search/filter controls: identical interaction pattern across all modules.
+- Cards: subtle borders and shallow shadows only when needed.
+- Badges: compact, consistent, readable.
+- Empty states: useful and compact, not decorative.
+- Tables: row hover, selected-row clarity, no unnecessary numbering.
+- Toasts/snack messages: polished, brief, and consistent.
+- Icons: one family, one visual weight, no random mixtures.
+
+## Motion and Animation Rules
+
+Animations are allowed, but they must be subtle and functional.
+
+Approved animation types:
+- active sidebar item transition
+- inner-workspace fade/slide between modules
+- button hover/press feedback
+- card hover/tap feedback
+- dialog and bottom-sheet transitions
+- loading overlay fade
+- filter chip transitions
+- subtle list item insertion/removal when useful
+- polished toast/message entrance/exit
+- skeleton loading shimmer for non-blocking list/card loads
+
+Avoid:
+- bouncy motion
+- long animations
+- animated gradients as the main style
+- cards flying in from far distances
+- excessive staggered animations
+- repeating decorative animations
+- motion that delays daily work
+
+Animation timing guidance:
+```text
+Micro-interactions: 120ms-180ms
+Bottom sheets/dialogs: 180ms-250ms
+Workspace transitions: 180ms-240ms
+Loading transitions: subtle fade only
+```
+
+If animations are added, they must improve continuity, feedback, or clarity.
+
+## Unified CRM Interaction Patterns
+
+All modules must follow the same interaction model unless there is a strong reason not to.
+
+### Search and Filters
+
+Desktop/tablet:
+- Search field visible.
+- Inline filters in a clean row/wrap.
+- Clear filters button.
+- No wasted space.
+- No overflow.
+
+Mobile/small screens:
+- Search field visible.
+- Filters button beside or below search.
+- Filters button must be identical across modules:
+  - same widget style
+  - same icon
+  - same label
+  - same height
+  - same border radius
+  - same padding
+  - same secondary/outlined style
+- Filters open in a bottom sheet.
+- Bottom sheet must have:
+  - title
+  - close X
+  - clean padding
+  - dropdown filters
+  - clear filters button
+
+Dropdown rule:
+- Do not use raw `null` as the first dropdown item.
+- Use wrapper option objects for "All ..." choices:
+```dart
+_FilterOption.all()
+_FilterOption.value(value)
+_FilterOption.fromValue(value)
+```
+This prevents "All statuses", "All priorities", and similar first options from failing to select.
+
+### Mobile Cards
+
+- Mobile cards should be tappable when they represent a record with a details page.
+- Avoid separate details/eye buttons on mobile when card tap can open details.
+- Keep edit/archive/assign actions in a clear action area.
+- Action icons must not be mysterious; use labels where space allows.
+- Cards must be compact enough to show useful content above the fold.
+
+### App Bar and Scroll Behavior
+
+Mobile/mobile-browser:
+- Keep the app bar/header fixed where practical.
+- Search, filters, and content should scroll under the fixed header.
+- Do not let header + filters consume the entire screen height.
+- Prioritize showing actual records/cards quickly.
+
+### IDs and Display Names
+
+- Never show raw Firestore/Auth UIDs in the UI.
+- IDs are internal only.
+- Show readable names/titles/emails.
+- Store snapshot display fields where it avoids heavy joins:
+  - `assignedToName` / `assignedToEmail`
+  - `relatedTitle` / `relatedSubtitle`
+  - `clientName`, `leadName`, `propertyTitle` when needed
+
+## Form and Details Experience
+
+- Group long forms into visually distinct sections with clear headings.
+- Prefer side sheets or compact panels for light edits on desktop when practical.
+- Use full pages for complex create/edit workflows.
+- Details pages should reveal useful related data, not only static fields.
+- On wide screens, prefer split/master-detail layouts when they improve workflow continuity.
+- Do not make the user lose list context unnecessarily.
+
+## Responsive Visual Rules
+
+Desktop:
+- persistent shell
+- richer information density
+- tables where appropriate
+- side panels or split panes when practical
+
+Tablet:
+- adaptive layout
+- no oversized sidebars
+- no wasted gaps
+
+Mobile/mobile browser:
+- fixed app bar/header where practical
+- search/filter area scrolls with content when needed to preserve card visibility
+- cards are tappable when they represent a record
+- avoid separate redundant details buttons on cards when card tap is clearer
+- bottom sheets should be visually consistent across modules
+- optimize vertical space aggressively without making the interface cramped
+
+## Design System Refactor Guidance
+
+Before large new modules such as Deals or Dashboard, prefer stabilizing shared visual rules and reusable widgets.
+
+Recommended shared widgets when duplication grows:
+```text
+CrmSearchFilterBar
+CrmFilterBottomSheet
+CrmRecordCard
+CrmActionMenu
+CrmStatusBadge
+CrmSectionCard
+CrmPageHeader
+CrmSkeletonList
+CrmToastService
+CrmWorkspaceTransition
+```
+
+Do not create these all at once.
+
+Create shared widgets only when duplication is clear and the API can remain small.
+
+## Visual Update Priority
+
+Before building Dashboard and before making Deals visually final, run a major visual consistency pass:
+1. Lock typography.
+2. Lock color palette.
+3. Lock shell/background/sidebar/top bar.
+4. Lock button styles.
+5. Lock search/filter style.
+6. Lock mobile card style.
+7. Lock table/list style.
+8. Lock empty/loading/error states.
+9. Add subtle animation only after layout consistency is stable.
+10. Apply the system consistently across existing modules before new visual-heavy modules are added.
+
+## Visual Review Checklist
+
+Before finishing any visual task, check:
+- Does this match the approved shell/sidebar direction?
+- Does it look like one designed product, not stitched-together modules?
+- Is the typography deliberate in both English and Arabic?
+- Is there any generic AI-SaaS visual choice that should be removed?
+- Is space used intentionally?
+- Are background, cards, inputs, buttons, and badges consistent?
+- Does navigation feel continuous rather than like full-screen replacement?
+- Are animations restrained and useful?
+- Does mobile preserve useful content space?
+- Does dark mode still feel premium and readable?
+
+---
 
 # State Management Rules
 

@@ -116,6 +116,8 @@ class _CreateClientView extends StatelessWidget {
                         companyId: companyId,
                         actorUid: uid,
                         assignedTo: defaultAssignedTo,
+                        assignedToName: userProfile.fullName,
+                        assignedToEmail: userProfile.email,
                         isSaving: isSaving,
                         submitLabel: l.createClient,
                         onSubmit: (client) {
@@ -133,9 +135,9 @@ class _CreateClientView extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                   children: [
                     Align(
-                      alignment: AlignmentDirectional.topStart,
+                      alignment: AlignmentDirectional.topCenter,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 760),
+                        constraints: const BoxConstraints(maxWidth: 860),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [

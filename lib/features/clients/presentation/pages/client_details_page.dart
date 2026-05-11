@@ -16,6 +16,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/clients_scope.dart';
@@ -181,7 +182,7 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                                   _detail(
                                     context,
                                     l.assignedToLabel,
-                                    _valueOrNotAvailable(l, client.assignedTo),
+                                    _assigneeDisplayLabel(l, client),
                                   ),
                                 ],
                               ),
@@ -345,6 +346,22 @@ String _companyId(BuildContext context) {
 String _valueOrNotAvailable(AppLocalizations l, String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? l.notAvailable : trimmed;
+}
+
+String _assigneeDisplayLabel(AppLocalizations l, Client client) {
+  final assignedTo = client.assignedTo.trim();
+  if (assignedTo.isEmpty) {
+    return l.unassigned;
+  }
+  final name = client.assignedToName.trim();
+  if (name.isNotEmpty) {
+    return name;
+  }
+  final email = client.assignedToEmail.trim();
+  if (email.isNotEmpty) {
+    return email;
+  }
+  return l.assignedUserUnavailable;
 }
 
 String _formatOptionalDate(

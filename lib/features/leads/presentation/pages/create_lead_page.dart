@@ -129,9 +129,9 @@ class _CreateLeadFormContent extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       children: [
         Align(
-          alignment: AlignmentDirectional.topStart,
+          alignment: AlignmentDirectional.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 860),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_radius.dart';
+
 enum AppButtonVariant { primary, secondary, danger, ghost }
 
 class AppButton extends StatelessWidget {
@@ -29,31 +31,50 @@ class AppButton extends StatelessWidget {
     );
     final effectiveOnPressed = isLoading ? null : onPressed;
 
+    final scaleWrapper = _PressableButton(child: child);
+
     final button = switch (variant) {
       AppButtonVariant.primary => FilledButton(
         onPressed: effectiveOnPressed,
-        child: child,
+        child: scaleWrapper,
       ),
       AppButtonVariant.secondary => OutlinedButton(
         onPressed: effectiveOnPressed,
-        child: child,
+        child: scaleWrapper,
       ),
       AppButtonVariant.danger => FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: Theme.of(context).colorScheme.error,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
         ),
         onPressed: effectiveOnPressed,
-        child: child,
+        child: scaleWrapper,
       ),
       AppButtonVariant.ghost => TextButton(
         onPressed: effectiveOnPressed,
-        child: child,
+        child: scaleWrapper,
       ),
     };
 
     return isExpanded
         ? SizedBox(width: double.infinity, child: button)
         : button;
+  }
+}
+
+class _PressableButton extends StatelessWidget {
+  const _PressableButton({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 120),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeOut,
+      child: child,
+    );
   }
 }
 

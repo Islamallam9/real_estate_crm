@@ -410,6 +410,18 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @comingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get comingSoon;
+
   /// No description provided for @language.
   ///
   /// In en, this message translates to:
@@ -2005,6 +2017,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A lead with this phone or email already exists.'**
   String get duplicateLeadFound;
+
+  /// No description provided for @dashboardGoodMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get dashboardGoodMorning;
+
+  /// No description provided for @dashboardGoodAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon'**
+  String get dashboardGoodAfternoon;
+
+  /// No description provided for @dashboardGoodEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening'**
+  String get dashboardGoodEvening;
+
+  /// No description provided for @dashboardOverdueFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue follow-ups'**
+  String get dashboardOverdueFollowUps;
+
+  /// No description provided for @dashboardUpcomingFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming follow-ups'**
+  String get dashboardUpcomingFollowUps;
+
+  /// No description provided for @dashboardAvailableProperties.
+  ///
+  /// In en, this message translates to:
+  /// **'Available properties'**
+  String get dashboardAvailableProperties;
+
+  /// No description provided for @dashboardVisualAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace analytics'**
+  String get dashboardVisualAnalytics;
+
+  /// No description provided for @dashboardLeadStatusDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead status distribution'**
+  String get dashboardLeadStatusDistribution;
+
+  /// No description provided for @dashboardTasksDueBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks due breakdown'**
+  String get dashboardTasksDueBreakdown;
+
+  /// No description provided for @dashboardPropertyStatusDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Property status distribution'**
+  String get dashboardPropertyStatusDistribution;
+
+  /// No description provided for @dashboardTodaysFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Today’s follow-ups'**
+  String get dashboardTodaysFollowUps;
+
+  /// No description provided for @dashboardOverdueTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue tasks'**
+  String get dashboardOverdueTasks;
+
+  /// No description provided for @dashboardUnassignedLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned leads'**
+  String get dashboardUnassignedLeads;
+
+  /// No description provided for @dashboardRecentlyUpdatedLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently updated leads'**
+  String get dashboardRecentlyUpdatedLeads;
+
+  /// No description provided for @dashboardQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get dashboardQuickActions;
+
+  /// No description provided for @dashboardActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get dashboardActive;
+
+  /// No description provided for @dashboardInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get dashboardInactive;
+
+  /// No description provided for @dashboardReservedOrClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved or closed'**
+  String get dashboardReservedOrClosed;
+
+  /// No description provided for @dashboardGeneralTask.
+  ///
+  /// In en, this message translates to:
+  /// **'General task'**
+  String get dashboardGeneralTask;
+
+  /// No description provided for @clientsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep client profiles, preferences, and assignments ready for follow-up.'**
+  String get clientsSubtitle;
+
+  /// No description provided for @searchClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Search clients'**
+  String get searchClients;
+
+  /// No description provided for @searchTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Search tasks'**
+  String get searchTasks;
 }
 
 class _AppLocalizationsDelegate

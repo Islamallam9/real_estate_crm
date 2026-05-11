@@ -168,6 +168,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings => 'الإعدادات';
 
   @override
+  String get profile => 'الملف الشخصي';
+
+  @override
+  String get comingSoon => 'قريباً';
+
+  @override
   String get language => 'اللغة';
 
   @override
@@ -1010,4 +1016,71 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get duplicateLeadFound =>
       'يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.';
+
+  @override
+  String get dashboardGoodMorning => 'صباح الخير';
+
+  @override
+  String get dashboardGoodAfternoon => 'مساء الخير';
+
+  @override
+  String get dashboardGoodEvening => 'مساء الخير';
+
+  @override
+  String get dashboardOverdueFollowUps => 'متابعات متأخرة';
+
+  @override
+  String get dashboardUpcomingFollowUps => 'متابعات قادمة';
+
+  @override
+  String get dashboardAvailableProperties => 'عقارات متاحة';
+
+  @override
+  String get dashboardVisualAnalytics => 'تحليلات العمل';
+
+  @override
+  String get dashboardLeadStatusDistribution => 'توزيع حالات العملاء المحتملين';
+
+  @override
+  String get dashboardTasksDueBreakdown => 'توزيع مواعيد المهام';
+
+  @override
+  String get dashboardPropertyStatusDistribution => 'توزيع حالات العقارات';
+
+  @override
+  String get dashboardTodaysFollowUps => 'متابعات اليوم';
+
+  @override
+  String get dashboardOverdueTasks => 'مهام متأخرة';
+
+  @override
+  String get dashboardUnassignedLeads => 'عملاء محتملون غير مسندين';
+
+  @override
+  String get dashboardRecentlyUpdatedLeads => 'آخر العملاء المحتملين تحديثاً';
+
+  @override
+  String get dashboardQuickActions => 'إجراءات سريعة';
+
+  @override
+  String get dashboardActive => 'نشط';
+
+  @override
+  String get dashboardInactive => 'غير نشط';
+
+  @override
+  String get dashboardReservedOrClosed => 'محجوزة أو مغلقة';
+
+  @override
+  String get dashboardGeneralTask => 'مهمة عامة';
+
+  @override
+  String get clientsSubtitle =>
+      'احتفظ بملفات العملاء وتفضيلاتهم والتكليفات جاهزة للمتابعة.';
+
+  @override
+  String get searchClients => 'ابحث في العملاء';
+
+  @override
+  String get searchTasks => 'ابحث في المهام';
 }

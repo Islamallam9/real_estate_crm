@@ -8,12 +8,15 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -167,25 +170,28 @@ class _TasksListContentState extends State<_TasksListContent> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  l.tasksSubtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                  ),
-                ),
-                if (widget.canCreate) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: AppButton(
-                      label: l.createTask,
-                      onPressed: () => context.go(RouteNames.tasksCreate),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.tasksSubtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
+                    if (widget.canCreate) ...[
+                      const SizedBox(width: AppSpacing.md),
+                      AppButton(
+                        label: l.createTask,
+                        onPressed: () => context.go(RouteNames.tasksCreate),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
                 _TasksFilters(state: state),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
@@ -258,16 +264,18 @@ class _TasksFilters extends StatelessWidget {
               ),
               if (hasFilters) ...[
                 const SizedBox(height: AppSpacing.sm),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: AppButton(
-                    label: l.clearFilters,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () {
-                      cubit.clearFilters();
-                    },
-                  ),
+                Row(
+                  children: [
+                    AppButton(
+                      label: l.clearFilters,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () {
+                        cubit.clearFilters();
+                      },
+                    ),
+                  ],
                 ),
+                _TasksActiveFilterChips(state: state),
               ],
             ],
           );
@@ -279,21 +287,30 @@ class _TasksFilters extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: _TasksSearchField(onChanged: cubit.setSearchQuery)),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 AppButton(
-                  label: l.clearFilters,
-                  icon: Icons.filter_alt_off_outlined,
+                  label: l.filters,
+                  icon: Icons.tune,
                   variant: AppButtonVariant.secondary,
-                  onPressed: hasFilters
-                      ? () {
-                          cubit.clearFilters();
-                        }
-                      : null,
+                  onPressed: () => _showTasksFiltersSheet(
+                    context,
+                    state: state,
+                  ),
                 ),
+                if (hasFilters) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.clearFilters,
+                    icon: Icons.filter_alt_off_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () {
+                      cubit.clearFilters();
+                    },
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            _TasksFilterControls(state: state),
+            if (hasFilters) _TasksActiveFilterChips(state: state),
           ],
         );
       },
@@ -313,10 +330,77 @@ class _TasksSearchField extends StatelessWidget {
     return TextField(
       onChanged: onChanged,
       decoration: InputDecoration(
-        labelText: l.searchCrm,
+        labelText: l.searchTasks,
         prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
+    );
+  }
+}
+
+class _TasksActiveFilterChips extends StatelessWidget {
+  const _TasksActiveFilterChips({required this.state});
+
+  final TasksState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<TasksCubit>();
+    final chips = <Widget>[
+      if (state.statusFilter != null)
+        _TasksFilterChip(
+          label: _statusLabel(l, state.statusFilter!),
+          onDeleted: () => cubit.setStatusFilter(null),
+        ),
+      if (state.priorityFilter != null)
+        _TasksFilterChip(
+          label: _priorityLabel(l, state.priorityFilter!),
+          onDeleted: () => cubit.setPriorityFilter(null),
+        ),
+      if (state.dueDateFilter != null)
+        _TasksFilterChip(
+          label: _dueDateFilterLabel(l, state.dueDateFilter!),
+          onDeleted: () => cubit.setDueDateFilter(null),
+        ),
+    ];
+
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: chips,
+      ),
+    );
+  }
+}
+
+class _TasksFilterChip extends StatelessWidget {
+  const _TasksFilterChip({required this.label, required this.onDeleted});
+
+  final String label;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppColors.primaryColor(context);
+
+    return InputChip(
+      label: Text(label),
+      onDeleted: onDeleted,
+      deleteIcon: const Icon(Icons.close, size: 16),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      backgroundColor: primary.withValues(alpha: 0.08),
+      side: BorderSide(color: primary.withValues(alpha: 0.18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.textPrimaryColor(context),
+            fontWeight: FontWeight.w700,
+          ),
     );
   }
 }
@@ -509,12 +593,18 @@ class _TasksBody extends StatelessWidget {
           );
         }
 
-        return _TasksTable(
-          tasks: state.filteredTasks,
-          companyId: companyId,
-          canManageTasks: canManageTasks,
-          uid: uid,
-          users: users,
+        return Align(
+          alignment: AlignmentDirectional.topStart,
+          child: SizedBox(
+            height: _tableHeightForRows(state.filteredTasks.length),
+            child: _TasksTable(
+              tasks: state.filteredTasks,
+              companyId: companyId,
+              canManageTasks: canManageTasks,
+              uid: uid,
+              users: users,
+            ),
+          ),
         );
       },
     );
@@ -541,58 +631,63 @@ class _TaskCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    task.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  task.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                _Badge(label: _priorityLabel(l, task.priority)),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              _fallback(task.description, l.notAvailable),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryColor(context),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                _Badge(label: _statusLabel(l, task.status)),
-                _Badge(label: _dueStateLabel(l, task)),
-                _Badge(label: _relatedRecordDisplayLabel(l, task)),
-                _Badge(label: _assigneeDisplayLabel(l, task, users)),
-              ],
-            ),
-            if (canManageTasks) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _TaskActions(
-                task: task,
-                companyId: companyId,
-                updatedBy: uid,
-              ),
+              _Badge(label: _priorityLabel(l, task.priority)),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            _fallback(task.description, l.notAvailable),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _Badge(label: _statusLabel(l, task.status)),
+              _Badge(label: _dueStateLabel(l, task)),
+              _Badge(label: _relatedRecordDisplayLabel(l, task)),
+              _Badge(label: _assigneeDisplayLabel(l, task, users)),
+            ],
+          ),
+          if (canManageTasks) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _TaskActions(
+              task: task,
+              companyId: companyId,
+              updatedBy: uid,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -622,8 +717,12 @@ class _TasksTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           Padding(
@@ -663,8 +762,16 @@ class _TasksTable extends StatelessWidget {
                   child: Row(
                     children: [
                       _TableBodyText(task.title, flex: 3),
-                      _TableBodyText(_statusLabel(l, task.status), flex: 2),
-                      _TableBodyText(_priorityLabel(l, task.priority), flex: 2),
+                      _TaskTableBadge(
+                        label: _statusLabel(l, task.status),
+                        tone: _statusTone(task.status),
+                        flex: 2,
+                      ),
+                      _TaskTableBadge(
+                        label: _priorityLabel(l, task.priority),
+                        tone: _priorityTone(task.priority),
+                        flex: 2,
+                      ),
                       _TableBodyText(
                         _relatedRecordDisplayLabel(l, task),
                         flex: 2,
@@ -673,8 +780,9 @@ class _TasksTable extends StatelessWidget {
                         _assigneeDisplayLabel(l, task, users),
                         flex: 2,
                       ),
-                      _TableBodyText(
-                        _dueStateLabel(l, task),
+                      _TaskTableBadge(
+                        label: _dueStateLabel(l, task),
+                        tone: _dueTone(task),
                         flex: 2,
                       ),
                       Expanded(
@@ -699,7 +807,9 @@ class _TasksTable extends StatelessWidget {
   }
 }
 
-class _TaskActions extends StatelessWidget {
+enum _TaskActionKind { complete, cancel }
+
+class _TaskActions extends StatefulWidget {
   const _TaskActions({
     required this.task,
     required this.companyId,
@@ -711,10 +821,53 @@ class _TaskActions extends StatelessWidget {
   final String updatedBy;
 
   @override
+  State<_TaskActions> createState() => _TaskActionsState();
+}
+
+class _TaskActionsState extends State<_TaskActions> {
+  _TaskActionKind? _busyAction;
+
+  Future<void> _markCompleted() async {
+    setState(() => _busyAction = _TaskActionKind.complete);
+    try {
+      await context.read<TasksCubit>().markCompleted(
+        companyId: widget.companyId,
+        task: widget.task,
+        updatedBy: widget.updatedBy,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _cancelTask() async {
+    final confirmed = await _confirmCancelTask(context);
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _busyAction = _TaskActionKind.cancel);
+    try {
+      await context.read<TasksCubit>().cancelTask(
+        companyId: widget.companyId,
+        task: widget.task,
+        updatedBy: widget.updatedBy,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final canComplete = task.status != TaskStatus.completed;
-    final canCancel = task.status != TaskStatus.cancelled;
+    final canComplete = widget.task.status != TaskStatus.completed;
+    final canCancel = widget.task.status != TaskStatus.cancelled;
+    final isBusy = _busyAction != null;
 
     return Wrap(
       spacing: 4,
@@ -722,43 +875,39 @@ class _TaskActions extends StatelessWidget {
       children: [
         IconButton(
           tooltip: l.editTask,
-          onPressed: () => context.go(RouteNames.taskEdit(task.id)),
+          onPressed: isBusy
+              ? null
+              : () => context.go(RouteNames.taskEdit(widget.task.id)),
           icon: const Icon(Icons.edit_outlined, size: 18),
         ),
         if (canComplete)
           IconButton(
             tooltip: l.markTaskCompleted,
-            onPressed: () {
-              context.read<TasksCubit>().markCompleted(
-                companyId: companyId,
-                task: task,
-                updatedBy: updatedBy,
-              );
-            },
-            icon: const Icon(Icons.check_circle_outline, size: 18),
+            onPressed: isBusy ? null : _markCompleted,
+            icon: _busyAction == _TaskActionKind.complete
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_circle_outline, size: 18),
           ),
         if (canCancel)
           IconButton(
             tooltip: l.cancelTask,
-            onPressed: () => _confirmCancelTask(
-              context,
-              task: task,
-              companyId: companyId,
-              updatedBy: updatedBy,
-            ),
-            icon: const Icon(Icons.cancel_outlined, size: 18),
+            onPressed: isBusy ? null : _cancelTask,
+            icon: _busyAction == _TaskActionKind.cancel
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cancel_outlined, size: 18),
           ),
       ],
     );
   }
 }
 
-Future<void> _confirmCancelTask(
-  BuildContext context, {
-  required CrmTask task,
-  required String companyId,
-  required String updatedBy,
-}) async {
+Future<bool> _confirmCancelTask(BuildContext context) async {
   final l = AppLocalizations.of(context)!;
   final confirmed = await showDialog<bool>(
     context: context,
@@ -779,14 +928,7 @@ Future<void> _confirmCancelTask(
       );
     },
   );
-  if (confirmed != true || !context.mounted) {
-    return;
-  }
-  await context.read<TasksCubit>().cancelTask(
-    companyId: companyId,
-    task: task,
-    updatedBy: updatedBy,
-  );
+  return confirmed == true;
 }
 
 class _Badge extends StatelessWidget {
@@ -867,6 +1009,32 @@ class _TableBodyText extends StatelessWidget {
   }
 }
 
+class _TaskTableBadge extends StatelessWidget {
+  const _TaskTableBadge({
+    required this.label,
+    required this.tone,
+    required this.flex,
+  });
+
+  final String label;
+  final AppStatusTone tone;
+  final int flex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: AppStatusBadge(label: label, tone: tone),
+        ),
+      ),
+    );
+  }
+}
+
 
 
 class _TaskFilterOption<T> {
@@ -938,6 +1106,23 @@ String _dueDateFilterLabel(AppLocalizations l, TaskDueDateFilter filter) {
   }
 }
 
+AppStatusTone _statusTone(TaskStatus status) {
+  return switch (status) {
+    TaskStatus.completed => AppStatusTone.success,
+    TaskStatus.inProgress => AppStatusTone.info,
+    TaskStatus.cancelled => AppStatusTone.neutral,
+    TaskStatus.pending => AppStatusTone.warning,
+  };
+}
+
+AppStatusTone _priorityTone(TaskPriority priority) {
+  return switch (priority) {
+    TaskPriority.high => AppStatusTone.error,
+    TaskPriority.medium => AppStatusTone.warning,
+    TaskPriority.low => AppStatusTone.neutral,
+  };
+}
+
 String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {
   switch (type) {
     case TaskRelatedType.lead:
@@ -984,6 +1169,28 @@ String _dueStateLabel(AppLocalizations l, CrmTask task) {
   return l.upcoming;
 }
 
+AppStatusTone _dueTone(CrmTask task) {
+  if (task.status == TaskStatus.completed) {
+    return AppStatusTone.success;
+  }
+  if (task.status == TaskStatus.cancelled) {
+    return AppStatusTone.neutral;
+  }
+  final dueDate = task.dueDate;
+  if (dueDate == null) {
+    return AppStatusTone.neutral;
+  }
+  final today = _dateOnly(DateTime.now());
+  final dueDay = _dateOnly(dueDate);
+  if (dueDay.isBefore(today)) {
+    return AppStatusTone.error;
+  }
+  if (dueDay == today) {
+    return AppStatusTone.warning;
+  }
+  return AppStatusTone.info;
+}
+
 String _assigneeDisplayLabel(
   AppLocalizations l,
   CrmTask task,
@@ -1015,6 +1222,11 @@ DateTime _dateOnly(DateTime value) {
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
+}
+
+double _tableHeightForRows(int rowCount) {
+  final ideal = 54.0 * (rowCount + 1) + 2;
+  return ideal.clamp(180.0, 520.0).toDouble();
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

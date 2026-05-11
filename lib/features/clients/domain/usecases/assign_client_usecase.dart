@@ -9,12 +9,16 @@ class AssignClientUseCase {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   }) {
     return _repository.assignClient(
       companyId: companyId,
       clientId: clientId,
       assignedTo: assignedTo,
+      assignedToName: assignedToName,
+      assignedToEmail: assignedToEmail,
       updatedBy: updatedBy,
     );
   }

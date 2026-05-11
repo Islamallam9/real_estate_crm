@@ -112,10 +112,12 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
 }
 
 ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
-  final elMessiriFamily = GoogleFonts.elMessiri().fontFamily;
+  final englishFamily = GoogleFonts.plusJakartaSans().fontFamily;
+  final arabicFamily = GoogleFonts.ibmPlexSansArabic().fontFamily;
 
   final fallback = <String>[
-    ?elMessiriFamily,
+    ?arabicFamily,
+    ?englishFamily,
     'Noto Sans Arabic',
     'Segoe UI',
     'Tahoma',
@@ -125,7 +127,9 @@ ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
   ];
 
   final themeWithFallback = theme.copyWith(
-    textTheme: theme.textTheme.apply(fontFamilyFallback: fallback),
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(
+      theme.textTheme,
+    ).apply(fontFamilyFallback: fallback),
     primaryTextTheme: theme.primaryTextTheme.apply(
       fontFamilyFallback: fallback,
     ),
@@ -136,8 +140,10 @@ ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
   }
 
   return themeWithFallback.copyWith(
-    textTheme: GoogleFonts.elMessiriTextTheme(themeWithFallback.textTheme),
-    primaryTextTheme: GoogleFonts.elMessiriTextTheme(
+    textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(
+      themeWithFallback.textTheme,
+    ),
+    primaryTextTheme: GoogleFonts.ibmPlexSansArabicTextTheme(
       themeWithFallback.primaryTextTheme,
     ),
   );

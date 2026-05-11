@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+
 class AppLoading extends StatelessWidget {
   const AppLoading({super.key, this.message});
 
@@ -11,10 +14,21 @@ class AppLoading extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          SizedBox.square(
+            dimension: 30,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.primaryColor(context),
+            ),
+          ),
           if (message != null) ...[
-            const SizedBox(height: 16),
-            Text(message!, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              message!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
+            ),
           ],
         ],
       ),

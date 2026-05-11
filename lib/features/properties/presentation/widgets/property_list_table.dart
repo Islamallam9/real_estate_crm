@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -35,8 +37,12 @@ class PropertyListTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           _TableHeader(

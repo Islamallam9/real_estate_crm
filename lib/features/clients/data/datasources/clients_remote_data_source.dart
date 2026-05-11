@@ -20,6 +20,8 @@ abstract interface class ClientsRemoteDataSource {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   });
 
@@ -71,6 +73,8 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         preferredPropertyType: client.preferredPropertyType,
         notes: client.notes,
         assignedTo: client.assignedTo,
+        assignedToName: client.assignedToName,
+        assignedToEmail: client.assignedToEmail,
         isActive: true,
         createdAt: client.createdAt ?? now,
         updatedAt: now,
@@ -113,6 +117,8 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'preferredPropertyType': client.preferredPropertyType,
         'notes': client.notes,
         'assignedTo': client.assignedTo,
+        'assignedToName': client.assignedToName,
+        'assignedToEmail': client.assignedToEmail,
         'updatedAt': Timestamp.now(),
         'updatedBy': client.updatedBy,
       });
@@ -132,6 +138,8 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   }) async {
     try {
@@ -145,6 +153,12 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
       _ensureSameCompany(companyId: companyId, client: existingClient);
       await document.update({
         'assignedTo': assignedTo.trim(),
+        'assignedToName': assignedTo.trim().isEmpty
+            ? ''
+            : assignedToName.trim(),
+        'assignedToEmail': assignedTo.trim().isEmpty
+            ? ''
+            : assignedToEmail.trim(),
         'updatedAt': Timestamp.now(),
         'updatedBy': updatedBy,
       });

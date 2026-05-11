@@ -176,7 +176,7 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                 },
               ),
             ],
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             _PropertiesFilters(state: state),
             const SizedBox(height: AppSpacing.md),
             Expanded(
@@ -276,15 +276,21 @@ class _PropertiesBody extends StatelessWidget {
               );
             }
 
-            return PropertyListTable(
-              properties: state.filteredProperties,
-              canEdit: canEdit,
-              canDeactivate: canDeactivate,
-              onDeactivate: (property) => _confirmDeactivate(
-                context,
-                property: property,
-                companyId: companyId,
-                updatedBy: uid,
+            return Align(
+              alignment: AlignmentDirectional.topStart,
+              child: SizedBox(
+                height: _tableHeightForRows(state.filteredProperties.length),
+                child: PropertyListTable(
+                  properties: state.filteredProperties,
+                  canEdit: canEdit,
+                  canDeactivate: canDeactivate,
+                  onDeactivate: (property) => _confirmDeactivate(
+                    context,
+                    property: property,
+                    companyId: companyId,
+                    updatedBy: uid,
+                  ),
+                ),
               ),
             );
           },
@@ -373,9 +379,6 @@ class _PropertiesFilters extends StatelessWidget {
                       decoration: InputDecoration(
                         labelText: l.searchProperties,
                         prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
                       ),
                     ),
                   ),
@@ -411,6 +414,7 @@ class _PropertiesFilters extends StatelessWidget {
                     ),
                 ],
               ),
+              _PropertiesActiveFilterChips(state: state),
             ],
           );
         }
@@ -426,22 +430,29 @@ class _PropertiesFilters extends StatelessWidget {
                     decoration: InputDecoration(
                       labelText: l.searchProperties,
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 AppButton(
-                  label: l.clearFilters,
+                  label: l.filters,
+                  icon: Icons.tune,
                   variant: AppButtonVariant.secondary,
-                  onPressed: hasFilters ? cubit.clearFilters : null,
+                  onPressed: () => _showPropertiesFiltersSheet(
+                    context,
+                    state: state,
+                  ),
                 ),
+                if (hasFilters) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.clearFilters,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: cubit.clearFilters,
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            _PropertiesFilterControls(state: state),
             const SizedBox(height: AppSpacing.sm),
             Text(
               l.propertiesResultsCount(
@@ -452,9 +463,78 @@ class _PropertiesFilters extends StatelessWidget {
                 color: AppColors.textSecondaryColor(context),
               ),
             ),
+            _PropertiesActiveFilterChips(state: state),
           ],
         );
       },
+    );
+  }
+}
+
+class _PropertiesActiveFilterChips extends StatelessWidget {
+  const _PropertiesActiveFilterChips({required this.state});
+
+  final PropertiesState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<PropertiesCubit>();
+    final chips = <Widget>[
+      if (state.propertyTypeFilter != null)
+        _ActiveFilterChip(
+          label: propertyTypeLabel(l, state.propertyTypeFilter!),
+          onDeleted: () => cubit.setPropertyTypeFilter(null),
+        ),
+      if (state.listingTypeFilter != null)
+        _ActiveFilterChip(
+          label: propertyListingTypeLabel(l, state.listingTypeFilter!),
+          onDeleted: () => cubit.setListingTypeFilter(null),
+        ),
+      if (state.statusFilter != null)
+        _ActiveFilterChip(
+          label: propertyStatusLabel(l, state.statusFilter!),
+          onDeleted: () => cubit.setStatusFilter(null),
+        ),
+    ];
+
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: chips,
+      ),
+    );
+  }
+}
+
+class _ActiveFilterChip extends StatelessWidget {
+  const _ActiveFilterChip({required this.label, required this.onDeleted});
+
+  final String label;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(label),
+      onDeleted: onDeleted,
+      deleteIcon: const Icon(Icons.close, size: 16),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.textPrimaryColor(context),
+            fontWeight: FontWeight.w700,
+          ),
+      backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.08),
+      side: BorderSide(
+        color: AppColors.primaryColor(context).withValues(alpha: 0.18),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     );
   }
 }
@@ -612,4 +692,9 @@ List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
     _FilterOption<T>.all(),
     for (final value in values) _FilterOption<T>.value(value),
   ];
+}
+
+double _tableHeightForRows(int rowCount) {
+  final ideal = 54.0 * (rowCount + 1) + 2;
+  return ideal.clamp(180.0, 520.0).toDouble();
 }

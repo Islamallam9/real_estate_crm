@@ -167,6 +167,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings => 'Settings';
 
   @override
+  String get profile => 'Profile';
+
+  @override
+  String get comingSoon => 'Coming soon';
+
+  @override
   String get language => 'Language';
 
   @override
@@ -1009,4 +1015,72 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get duplicateLeadFound =>
       'A lead with this phone or email already exists.';
+
+  @override
+  String get dashboardGoodMorning => 'Good morning';
+
+  @override
+  String get dashboardGoodAfternoon => 'Good afternoon';
+
+  @override
+  String get dashboardGoodEvening => 'Good evening';
+
+  @override
+  String get dashboardOverdueFollowUps => 'Overdue follow-ups';
+
+  @override
+  String get dashboardUpcomingFollowUps => 'Upcoming follow-ups';
+
+  @override
+  String get dashboardAvailableProperties => 'Available properties';
+
+  @override
+  String get dashboardVisualAnalytics => 'Workspace analytics';
+
+  @override
+  String get dashboardLeadStatusDistribution => 'Lead status distribution';
+
+  @override
+  String get dashboardTasksDueBreakdown => 'Tasks due breakdown';
+
+  @override
+  String get dashboardPropertyStatusDistribution =>
+      'Property status distribution';
+
+  @override
+  String get dashboardTodaysFollowUps => 'Today’s follow-ups';
+
+  @override
+  String get dashboardOverdueTasks => 'Overdue tasks';
+
+  @override
+  String get dashboardUnassignedLeads => 'Unassigned leads';
+
+  @override
+  String get dashboardRecentlyUpdatedLeads => 'Recently updated leads';
+
+  @override
+  String get dashboardQuickActions => 'Quick actions';
+
+  @override
+  String get dashboardActive => 'Active';
+
+  @override
+  String get dashboardInactive => 'Inactive';
+
+  @override
+  String get dashboardReservedOrClosed => 'Reserved or closed';
+
+  @override
+  String get dashboardGeneralTask => 'General task';
+
+  @override
+  String get clientsSubtitle =>
+      'Keep client profiles, preferences, and assignments ready for follow-up.';
+
+  @override
+  String get searchClients => 'Search clients';
+
+  @override
+  String get searchTasks => 'Search tasks';
 }

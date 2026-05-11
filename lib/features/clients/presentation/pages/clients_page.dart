@@ -8,6 +8,8 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -197,25 +199,28 @@ class _ClientsListContentState extends State<_ClientsListContent> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    localizations.clients,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondaryColor(context),
-                    ),
-                  ),
-                  if (widget.canCreate) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: AppButton(
-                        label: localizations.createClient,
-                        onPressed: () => context.go(RouteNames.clientsCreate),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          localizations.clientsSubtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
+                      if (widget.canCreate) ...[
+                        const SizedBox(width: AppSpacing.md),
+                        AppButton(
+                          label: localizations.createClient,
+                          onPressed: () => context.go(RouteNames.clientsCreate),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   _ClientsFilters(
                     state: state,
                     users: users,
@@ -265,51 +270,67 @@ class _ClientsFilters extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
-          return Row(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _ClientsSearchField(onChanged: cubit.setSearchQuery)),
-              if (showAssigneeFilter) ...[
-                const SizedBox(width: AppSpacing.sm),
-                AppButton(
-                  label: l.filters,
-                  icon: Icons.tune,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () => _showClientsFiltersSheet(
-                    context,
-                    state: state,
-                    users: users,
+              Row(
+                children: [
+                  Expanded(
+                    child: _ClientsSearchField(onChanged: cubit.setSearchQuery),
                   ),
-                ),
-              ],
+                  if (showAssigneeFilter) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    AppButton(
+                      label: l.filters,
+                      icon: Icons.tune,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () => _showClientsFiltersSheet(
+                        context,
+                        state: state,
+                        users: users,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              _ClientsActiveFilterChips(state: state, users: users),
             ],
           );
         }
 
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: _ClientsSearchField(onChanged: cubit.setSearchQuery)),
-            if (showAssigneeFilter) ...[
-              const SizedBox(width: AppSpacing.md),
-              SizedBox(
-                width: 210,
-                child: ClientAssignmentDropdown(
-                  label: l.assignee,
-                  users: users,
-                  value: state.assignedToFilter,
-                  includeAllOption: true,
-                  onChanged: cubit.setAssignedToFilter,
+            Row(
+              children: [
+                Expanded(
+                  child: _ClientsSearchField(onChanged: cubit.setSearchQuery),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              AppButton(
-                label: l.clearFilters,
-                icon: Icons.filter_alt_off_outlined,
-                variant: AppButtonVariant.secondary,
-                onPressed: hasFilters
-                    ? () => cubit.setAssignedToFilter(null)
-                    : null,
-              ),
-            ],
+                if (showAssigneeFilter) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.filters,
+                    icon: Icons.tune,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => _showClientsFiltersSheet(
+                      context,
+                      state: state,
+                      users: users,
+                    ),
+                  ),
+                ],
+                if (hasFilters) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.clearFilters,
+                    icon: Icons.filter_alt_off_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => cubit.setAssignedToFilter(null),
+                  ),
+                ],
+              ],
+            ),
+            _ClientsActiveFilterChips(state: state, users: users),
           ],
         );
       },
@@ -329,10 +350,74 @@ class _ClientsSearchField extends StatelessWidget {
     return TextField(
       onChanged: onChanged,
       decoration: InputDecoration(
-        labelText: l.searchCrm,
+        labelText: l.searchClients,
         prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
+    );
+  }
+}
+
+class _ClientsActiveFilterChips extends StatelessWidget {
+  const _ClientsActiveFilterChips({required this.state, required this.users});
+
+  final ClientsState state;
+  final List<UserProfile> users;
+
+  @override
+  Widget build(BuildContext context) {
+    final assignedTo = state.assignedToFilter;
+    if (assignedTo == null) {
+      return const SizedBox.shrink();
+    }
+
+    final l = AppLocalizations.of(context)!;
+    final user = _userById(users, assignedTo);
+    final name = user?.fullName.trim() ?? '';
+    final email = user?.email.trim() ?? '';
+    final label = name.isNotEmpty
+        ? name
+        : email.isNotEmpty
+            ? email
+            : l.assignee;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          _ActiveFilterChip(
+            label: label,
+            onDeleted: () => context.read<ClientsCubit>().setAssignedToFilter(null),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveFilterChip extends StatelessWidget {
+  const _ActiveFilterChip({required this.label, required this.onDeleted});
+
+  final String label;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(label),
+      onDeleted: onDeleted,
+      deleteIcon: const Icon(Icons.close, size: 16),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.textPrimaryColor(context),
+            fontWeight: FontWeight.w700,
+          ),
+      backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.08),
+      side: BorderSide(
+        color: AppColors.primaryColor(context).withValues(alpha: 0.18),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     );
   }
 }
@@ -496,19 +581,25 @@ class _ClientsBody extends StatelessWidget {
           );
         }
 
-        return _ClientsTable(
-          clients: state.filteredClients,
-          canEdit: canEdit,
-          canArchive: canArchive,
-          canAssign: canAssign,
-          users: users,
-          companyId: companyId,
-          updatedBy: uid,
-          onArchive: (client) => _confirmArchive(
-            context,
-            client: client,
-            companyId: companyId,
-            updatedBy: uid,
+        return Align(
+          alignment: AlignmentDirectional.topStart,
+          child: SizedBox(
+            height: _tableHeightForRows(state.filteredClients.length),
+            child: _ClientsTable(
+              clients: state.filteredClients,
+              canEdit: canEdit,
+              canArchive: canArchive,
+              canAssign: canAssign,
+              users: users,
+              companyId: companyId,
+              updatedBy: uid,
+              onArchive: (client) => _confirmArchive(
+                context,
+                client: client,
+                companyId: companyId,
+                updatedBy: uid,
+              ),
+            ),
           ),
         );
       },
@@ -542,65 +633,77 @@ class _ClientCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _fallback(client.fullName, l.notAvailable),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+    return Material(
+      color: AppColors.cardSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: () => context.go(RouteNames.clientDetails(client.id)),
+        borderRadius: AppRadius.large,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.large,
+            boxShadow: Theme.of(context).brightness == Brightness.dark
+                ? null
+                : AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _fallback(client.fullName, l.notAvailable),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _ClientInfoLine(icon: Icons.phone_outlined, text: client.phone),
-            const SizedBox(height: AppSpacing.xs),
-            _ClientInfoLine(icon: Icons.email_outlined, text: client.email),
-            const SizedBox(height: AppSpacing.xs),
-            _ClientInfoLine(
-              icon: Icons.location_on_outlined,
-              text: client.preferredLocation,
-            ),
-            if (canEdit || canAssign || canArchive) ...[
               const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  if (canEdit)
-                    IconButton(
-                      tooltip: l.editClient,
-                      onPressed: () =>
-                          context.go(RouteNames.clientEdit(client.id)),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                    ),
-                  if (canAssign)
-                    IconButton(
-                      tooltip: l.assignClient,
-                      onPressed: () => _showAssignClientSheet(
-                        context,
-                        client: client,
-                        companyId: companyId,
-                        updatedBy: updatedBy,
-                        users: users,
-                      ),
-                      icon: const Icon(Icons.person_add_alt_outlined, size: 18),
-                    ),
-                  if (canArchive)
-                    IconButton(
-                      tooltip: l.archiveClient,
-                      onPressed: () => onArchive(client),
-                      icon: const Icon(Icons.archive_outlined, size: 18),
-                    ),
-                ],
+              _ClientInfoLine(icon: Icons.phone_outlined, text: client.phone),
+              const SizedBox(height: AppSpacing.xs),
+              _ClientInfoLine(icon: Icons.email_outlined, text: client.email),
+              const SizedBox(height: AppSpacing.xs),
+              _ClientInfoLine(
+                icon: Icons.location_on_outlined,
+                text: client.preferredLocation,
               ),
+              if (canEdit || canAssign || canArchive) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    if (canEdit)
+                      IconButton(
+                        tooltip: l.editClient,
+                        onPressed: () =>
+                            context.go(RouteNames.clientEdit(client.id)),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                      ),
+                    if (canAssign)
+                      IconButton(
+                        tooltip: l.assignClient,
+                        onPressed: () => _showAssignClientSheet(
+                          context,
+                          client: client,
+                          companyId: companyId,
+                          updatedBy: updatedBy,
+                          users: users,
+                        ),
+                        icon: const Icon(Icons.person_add_alt_outlined, size: 18),
+                      ),
+                    if (canArchive)
+                      IconButton(
+                        tooltip: l.archiveClient,
+                        onPressed: () => onArchive(client),
+                        icon: const Icon(Icons.archive_outlined, size: 18),
+                      ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -670,8 +773,12 @@ class _ClientsTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.large,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : AppShadows.card,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           _ClientsTableHeader(
@@ -835,35 +942,44 @@ Future<void> _confirmArchive(
   required String updatedBy,
 }) async {
   final l = AppLocalizations.of(context)!;
-  final confirmed = await showDialog<bool>(
+  final cubit = context.read<ClientsCubit>();
+  var isSubmitting = false;
+
+  await showDialog<void>(
     context: context,
     builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l.archiveClient),
-        content: Text(l.archiveClientConfirmation),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          AppButton(
-            label: l.archive,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l.archiveClient),
+            content: Text(l.archiveClientConfirmation),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
+              AppButton(
+                label: l.archive,
+                isLoading: isSubmitting,
+                onPressed: () async {
+                  setDialogState(() => isSubmitting = true);
+                  await cubit.archiveClient(
+                    companyId: companyId,
+                    clientId: client.id,
+                    updatedBy: updatedBy,
+                  );
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+            ],
+          );
+        },
       );
     },
-  );
-  if (confirmed != true) {
-    return;
-  }
-  if (!context.mounted) {
-    return;
-  }
-  await context.read<ClientsCubit>().archiveClient(
-    companyId: companyId,
-    clientId: client.id,
-    updatedBy: updatedBy,
   );
 }
 
@@ -877,6 +993,7 @@ Future<void> _showAssignClientSheet(
   final l = AppLocalizations.of(context)!;
   final cubit = context.read<ClientsCubit>();
   var selectedUserId = client.assignedTo;
+  var isSubmitting = false;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -906,7 +1023,9 @@ Future<void> _showAssignClientSheet(
                         ),
                       ),
                       IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        onPressed: isSubmitting
+                            ? null
+                            : () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -922,11 +1041,16 @@ Future<void> _showAssignClientSheet(
                   const SizedBox(height: AppSpacing.md),
                   AppButton(
                     label: l.assignClient,
+                    isLoading: isSubmitting,
                     onPressed: () async {
+                      setSheetState(() => isSubmitting = true);
+                      final selectedUser = _userById(users, selectedUserId);
                       await cubit.assignClient(
                         companyId: companyId,
                         clientId: client.id,
                         assignedTo: selectedUserId,
+                        assignedToName: selectedUser?.fullName ?? '',
+                        assignedToEmail: selectedUser?.email ?? '',
                         updatedBy: updatedBy,
                       );
                       if (sheetContext.mounted) {
@@ -1000,6 +1124,24 @@ class _TableBodyText extends StatelessWidget {
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
+}
+
+UserProfile? _userById(List<UserProfile> users, String uid) {
+  final value = uid.trim();
+  if (value.isEmpty) {
+    return null;
+  }
+  for (final user in users) {
+    if (user.uid == value) {
+      return user;
+    }
+  }
+  return null;
+}
+
+double _tableHeightForRows(int rowCount) {
+  final ideal = 54.0 * (rowCount + 1) + 2;
+  return ideal.clamp(180.0, 520.0).toDouble();
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

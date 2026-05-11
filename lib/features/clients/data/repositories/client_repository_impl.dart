@@ -36,12 +36,16 @@ class ClientRepositoryImpl implements ClientRepository {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   }) {
     return _remoteDataSource.assignClient(
       companyId: companyId,
       clientId: clientId,
       assignedTo: assignedTo,
+      assignedToName: assignedToName,
+      assignedToEmail: assignedToEmail,
       updatedBy: updatedBy,
     );
   }

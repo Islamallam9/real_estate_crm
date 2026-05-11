@@ -181,9 +181,9 @@ class _EditTaskViewState extends State<_EditTaskView> {
                       ),
                       children: [
                         Align(
-                          alignment: AlignmentDirectional.topStart,
+                          alignment: AlignmentDirectional.topCenter,
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 760),
+                            constraints: const BoxConstraints(maxWidth: 860),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
 
 class AppDropdown<T> extends StatelessWidget {
   const AppDropdown({
@@ -34,13 +35,16 @@ class AppDropdown<T> extends StatelessWidget {
         return PopupMenuButton<T>(
           enabled: enabled,
           tooltip: label,
-          elevation: 6,
+          elevation: 10,
           color: theme.colorScheme.surface,
           surfaceTintColor: theme.colorScheme.surface,
           position: PopupMenuPosition.under,
           offset: const Offset(0, 8),
           constraints: const BoxConstraints(minWidth: 220, maxWidth: 300),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.large,
+            side: BorderSide(color: theme.dividerColor),
+          ),
           onSelected: (selected) {
             field.didChange(selected);
             onChanged(selected);
@@ -71,23 +75,23 @@ class AppDropdown<T> extends StatelessWidget {
               floatingLabelBehavior: FloatingLabelBehavior.always,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
+                vertical: 12,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.large,
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.large,
                 borderSide: BorderSide(color: theme.dividerColor),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.large,
                 borderSide: BorderSide(color: theme.colorScheme.primary),
               ),
               enabled: enabled,
             ),
             child: SizedBox(
-              height: 28,
+              height: 24,
               child: Row(
                 children: [
                   Expanded(

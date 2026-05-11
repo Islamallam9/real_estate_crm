@@ -15,6 +15,8 @@ abstract interface class ClientRepository {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   });
 

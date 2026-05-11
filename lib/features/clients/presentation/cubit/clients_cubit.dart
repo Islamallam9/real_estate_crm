@@ -249,6 +249,8 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String companyId,
     required String clientId,
     required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
     required String updatedBy,
   }) async {
     emit(
@@ -263,6 +265,8 @@ class ClientsCubit extends Cubit<ClientsState> {
         companyId: companyId,
         clientId: clientId,
         assignedTo: assignedTo,
+        assignedToName: assignedToName,
+        assignedToEmail: assignedToEmail,
         updatedBy: updatedBy,
       );
       if (isClosed) {
@@ -381,7 +385,9 @@ class ClientsCubit extends Cubit<ClientsState> {
           client.phone.toLowerCase().contains(query) ||
           client.email.toLowerCase().contains(query) ||
           client.preferredLocation.toLowerCase().contains(query) ||
-          client.preferredPropertyType.toLowerCase().contains(query);
+          client.preferredPropertyType.toLowerCase().contains(query) ||
+          client.assignedToName.toLowerCase().contains(query) ||
+          client.assignedToEmail.toLowerCase().contains(query);
       final matchesAssignee =
           selectedAssignedTo == null ||
           selectedAssignedTo.isEmpty ||

@@ -160,39 +160,44 @@ class _EditLeadViewState extends State<_EditLeadView> {
                             bottom: AppSpacing.lg,
                           ),
                           children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 720),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  LeadForm(
-                                    companyId: companyId,
-                                    createdBy: uid,
-                                    lead: lead,
-                                    submitLabel: localizations.updateLead,
-                                    isSaving: isSaving,
-                                    canAssign: canAssign,
-                                    assignmentUsers: users,
-                                    onSubmit: (updatedLead) {
-                                      context.read<LeadsCubit>().updateLead(
-                                        companyId: companyId,
-                                        lead: updatedLead,
-                                        actorName: actorName,
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: AppSpacing.md),
-                                  AppButton(
-                                    label: localizations.cancel,
-                                    onPressed: isSaving
-                                        ? null
-                                        : () => context.go(
-                                            RouteNames.leadDetails(
-                                              widget.leadId,
+                            Align(
+                              alignment: AlignmentDirectional.topCenter,
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 860),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    LeadForm(
+                                      companyId: companyId,
+                                      createdBy: uid,
+                                      lead: lead,
+                                      submitLabel: localizations.updateLead,
+                                      isSaving: isSaving,
+                                      canAssign: canAssign,
+                                      assignmentUsers: users,
+                                      onSubmit: (updatedLead) {
+                                        context.read<LeadsCubit>().updateLead(
+                                          companyId: companyId,
+                                          lead: updatedLead,
+                                          actorName: actorName,
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: AppSpacing.md),
+                                    AppButton(
+                                      label: localizations.cancel,
+                                      onPressed: isSaving
+                                          ? null
+                                          : () => context.go(
+                                              RouteNames.leadDetails(
+                                                widget.leadId,
+                                              ),
                                             ),
-                                          ),
-                                  ),
-                                ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

@@ -164,21 +164,29 @@ class _LoginErrorMessage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.32)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.errorColor(context).withValues(alpha: 0.08),
+        border: Border.all(
+          color: AppColors.errorColor(context).withValues(alpha: 0.32),
+        ),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+          Icon(
+            Icons.error_outline,
+            color: AppColors.errorColor(context),
+            size: 20,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
+              ).textTheme.bodyMedium?.copyWith(
+                color: AppColors.errorColor(context),
+              ),
             ),
           ),
         ],
