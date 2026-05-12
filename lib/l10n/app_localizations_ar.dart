@@ -64,6 +64,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get updateTask => 'تحديث المهمة';
 
   @override
+  String get searchReports => 'ابحث في التقارير';
+
+  @override
   String get taskCreatedSuccessfully => 'تم إنشاء المهمة بنجاح.';
 
   @override

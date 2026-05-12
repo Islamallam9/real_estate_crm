@@ -153,75 +153,98 @@ class _LeadsListContentState extends State<_LeadsListContent> {
         }
       },
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    localizations.leadsSubtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondaryColor(context),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 720;
+
+            Widget header() {
+              return Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      localizations.leadsSubtitle,
+                      maxLines: isMobile ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                AppButton(
-                  label: localizations.createLead,
-                  onPressed: widget.canCreate
-                      ? () => context.go(RouteNames.leadsCreate)
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: StreamBuilder<List<UserProfile>>(
-                stream: _watchActiveUsers(widget.companyId),
-                builder: (context, usersSnapshot) {
-                  if (usersSnapshot.hasError) {
-                    return AppErrorView(
-                      message: localizations.unableToConnect,
-                      onRetry: () {
-                        context.read<LeadsCubit>().watchLeads(
-                          companyId: widget.companyId,
-                          assignedTo: _assignedToFilter,
-                        );
-                      },
-                    );
-                  }
+                  const SizedBox(width: AppSpacing.md),
+                  AppButton(
+                    label: localizations.createLead,
+                    onPressed: widget.canCreate
+                        ? () => context.go(RouteNames.leadsCreate)
+                        : null,
+                  ),
+                ],
+              );
+            }
 
-                  final users = usersSnapshot.data ?? const <UserProfile>[];
-                  final showAssignee =
-                      widget.roleName == 'admin' ||
-                      widget.roleName == 'manager';
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _LeadFilters(showAssignee: showAssignee, users: users),
-                      const SizedBox(height: AppSpacing.md),
-                      Expanded(
-                        child: _LeadsBody(
-                          state: state,
-                          companyId: widget.companyId,
-                          assignedTo: _assignedToFilter,
-                          users: users,
-                          roleName: widget.roleName,
-                          canEdit: widget.canEdit,
-                          uid: widget.uid,
-                          actorName: widget.actorName,
-                        ),
-                      ),
-                    ],
+            return StreamBuilder<List<UserProfile>>(
+              stream: _watchActiveUsers(widget.companyId),
+              builder: (context, usersSnapshot) {
+                if (usersSnapshot.hasError) {
+                  return AppErrorView(
+                    message: localizations.unableToConnect,
+                    onRetry: () {
+                      context.read<LeadsCubit>().watchLeads(
+                        companyId: widget.companyId,
+                        assignedTo: _assignedToFilter,
+                      );
+                    },
                   );
-                },
-              ),
-            ),
-          ],
+                }
+
+                final users = usersSnapshot.data ?? const <UserProfile>[];
+                final showAssignee =
+                    widget.roleName == 'admin' || widget.roleName == 'manager';
+
+                final filters = _LeadFilters(
+                  showAssignee: showAssignee,
+                  users: users,
+                );
+
+                final body = _LeadsBody(
+                  state: state,
+                  companyId: widget.companyId,
+                  assignedTo: _assignedToFilter,
+                  users: users,
+                  roleName: widget.roleName,
+                  canEdit: widget.canEdit,
+                  uid: widget.uid,
+                  actorName: widget.actorName,
+                );
+
+                if (isMobile) {
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        header(),
+                        const SizedBox(height: AppSpacing.md),
+                        filters,
+                        const SizedBox(height: AppSpacing.md),
+                        body,
+                        const SizedBox(height: 96),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header(),
+                    const SizedBox(height: AppSpacing.md),
+                    filters,
+                    const SizedBox(height: AppSpacing.md),
+                    Expanded(child: body),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -802,14 +825,17 @@ class _LeadsBody extends StatelessWidget {
               message: localizations.leadsSubtitle,
             );
           }
-          return ListView.separated(
-            itemCount: state.filteredLeads.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final lead = state.filteredLeads[index];
-              return _LeadCard(lead: lead, users: users);
-            },
+          return Column(
+            children: [
+              for (var index = 0; index < state.filteredLeads.length; index++) ...[
+                _LeadCard(
+                  lead: state.filteredLeads[index],
+                  users: users,
+                ),
+                if (index != state.filteredLeads.length - 1)
+                  const SizedBox(height: AppSpacing.sm),
+              ],
+            ],
           );
         }
         return _LeadsWebWorkspace(

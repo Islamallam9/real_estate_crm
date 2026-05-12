@@ -64,6 +64,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateTask => 'Update task';
 
   @override
+  String get searchReports => 'Search reports';
+
+  @override
   String get taskCreatedSuccessfully => 'Task created successfully.';
 
   @override

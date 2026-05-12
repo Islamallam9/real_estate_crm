@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -118,6 +118,8 @@ class _ReportsContent extends StatefulWidget {
 class _ReportsContentState extends State<_ReportsContent> {
   _ReportPeriod _period = _ReportPeriod.allTime;
   String _assignedTo = '';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   bool get _canFilterAssignee =>
       widget.role == UserRole.admin || widget.role == UserRole.manager;
@@ -126,6 +128,11 @@ class _ReportsContentState extends State<_ReportsContent> {
   void initState() {
     super.initState();
     _watchAll();
+  }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _watchAll() {
@@ -221,6 +228,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                               deals: dealsState.deals,
                               period: _period,
                               assignedTo: _assignedTo,
+                              searchQuery: _searchQuery,
                             );
 
                             if (!data.hasAnyData) {
@@ -238,16 +246,23 @@ class _ReportsContentState extends State<_ReportsContent> {
                               canFilterAssignee: _canFilterAssignee,
                               period: _period,
                               assignedTo: _assignedTo,
+                              searchController: _searchController,
+                              searchQuery: _searchQuery,
                               onPeriodChanged: (period) {
                                 setState(() => _period = period);
                               },
                               onAssignedToChanged: (value) {
                                 setState(() => _assignedTo = value);
                               },
+                              onSearchChanged: (value) {
+                                setState(() => _searchQuery = value);
+                              },
                               onClearFilters: () {
                                 setState(() {
                                   _period = _ReportPeriod.allTime;
                                   _assignedTo = '';
+                                  _searchQuery = '';
+                                  _searchController.clear();
                                 });
                               },
                             );
@@ -276,8 +291,14 @@ class _ReportsView extends StatelessWidget {
     required this.onPeriodChanged,
     required this.onAssignedToChanged,
     required this.onClearFilters,
+    required this.searchController,
+    required this.searchQuery,
+    required this.onSearchChanged,
   });
 
+  final TextEditingController searchController;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
   final _ReportsData data;
   final List<UserProfile> users;
   final bool canFilterAssignee;
@@ -290,19 +311,25 @@ class _ReportsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final hasFilters =
-        period != _ReportPeriod.allTime || assignedTo.trim().isNotEmpty;
+    final hasFilters = period != _ReportPeriod.allTime ||
+        assignedTo.trim().isNotEmpty ||
+        searchQuery.trim().isNotEmpty;
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ReportHeader(
-            period: period,
-            assignedTo: assignedTo,
+          const _ReportHeader(),
+          const SizedBox(height: AppSpacing.md),
+          _ReportsSearchFilterRow(
             users: users,
             canFilterAssignee: canFilterAssignee,
+            period: period,
+            assignedTo: assignedTo,
             hasFilters: hasFilters,
+            searchController: searchController,
+            searchQuery: searchQuery,
+            onSearchChanged: onSearchChanged,
             onPeriodChanged: onPeriodChanged,
             onAssignedToChanged: onAssignedToChanged,
             onClearFilters: onClearFilters,
@@ -464,22 +491,49 @@ class _ReportsView extends StatelessWidget {
 }
 
 class _ReportHeader extends StatelessWidget {
-  const _ReportHeader({
-    required this.period,
-    required this.assignedTo,
+  const _ReportHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.reportsOverview,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textSecondaryColor(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportsSearchFilterRow extends StatelessWidget {
+  const _ReportsSearchFilterRow({
     required this.users,
     required this.canFilterAssignee,
+    required this.period,
+    required this.assignedTo,
     required this.hasFilters,
+    required this.searchController,
+    required this.searchQuery,
+    required this.onSearchChanged,
     required this.onPeriodChanged,
     required this.onAssignedToChanged,
     required this.onClearFilters,
   });
 
-  final _ReportPeriod period;
-  final String assignedTo;
   final List<UserProfile> users;
   final bool canFilterAssignee;
+  final _ReportPeriod period;
+  final String assignedTo;
   final bool hasFilters;
+  final TextEditingController searchController;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
   final ValueChanged<_ReportPeriod> onPeriodChanged;
   final ValueChanged<String> onAssignedToChanged;
   final VoidCallback onClearFilters;
@@ -487,45 +541,123 @@ class _ReportHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
-    return _ReportCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (isMobile) {
+      return Row(
         children: [
-          Text(
-            l.reports,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimaryColor(context),
-                ),
+          Expanded(
+            child: TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                labelText: l.searchReports,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchQuery.trim().isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    searchController.clear();
+                    onSearchChanged('');
+                  },
+                )
+                    : null,
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            l.reportsOverview,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                ),
+          const SizedBox(width: AppSpacing.sm),
+          AppButton(
+            label: l.filters,
+            icon: Icons.tune,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _showReportsFiltersSheet(context),
           ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 210,
-                child: AppDropdown<_ReportPeriod>(
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: AppSearchField(
+            controller: searchController,
+            hint: l.searchReports,
+            onChanged: onSearchChanged,
+            onClear: searchQuery.trim().isNotEmpty
+                ? () {
+              searchController.clear();
+              onSearchChanged('');
+            }
+                : null,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        AppButton(
+          label: l.filters,
+          icon: Icons.tune_rounded,
+          variant: AppButtonVariant.secondary,
+          onPressed: () => _showReportsFiltersSheet(context),
+        ),
+        if (hasFilters) ...[
+          const SizedBox(width: AppSpacing.sm),
+          AppButton(
+            label: l.clearFilters,
+            icon: Icons.filter_alt_off_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: onClearFilters,
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showReportsFiltersSheet(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardSurface(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.filters,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppDropdown<_ReportPeriod>(
                   label: l.reportPeriod,
                   value: period,
                   items: _ReportPeriod.values,
                   itemLabelBuilder: (value) => _periodLabel(l, value),
                   onChanged: onPeriodChanged,
                 ),
-              ),
-              if (canFilterAssignee)
-                SizedBox(
-                  width: 230,
-                  child: AppDropdown<_AssigneeOption>(
+                if (canFilterAssignee) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<_AssigneeOption>(
                     label: l.assignedAgent,
                     value: _AssigneeOption.fromValue(assignedTo),
                     items: _assigneeOptions(users),
@@ -534,26 +666,22 @@ class _ReportHeader extends StatelessWidget {
                         : _assigneeLabel(l, users, option.value),
                     onChanged: (option) => onAssignedToChanged(option.value),
                   ),
-                ),
-              if (hasFilters)
+                ],
+                const SizedBox(height: AppSpacing.md),
                 AppButton(
                   label: l.clearFilters,
                   icon: Icons.filter_alt_off_outlined,
                   variant: AppButtonVariant.secondary,
-                  onPressed: onClearFilters,
+                  onPressed: () {
+                    onClearFilters();
+                    Navigator.of(sheetContext).pop();
+                  },
                 ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${l.selectedPeriod}: ${_periodLabel(l, period)}',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1203,43 +1331,119 @@ class _ReportsData {
     required List<Deal> deals,
     required this.period,
     required this.assignedTo,
-  })  : leads = _filterByDateAndAssignee<Lead>(
-          leads,
-          period,
-          assignedTo,
+    required this.searchQuery,
+  })  : leads = _filterBySearch<Lead>(
+    _filterByDateAndAssignee<Lead>(
+      leads,
+      period,
+      assignedTo,
           (lead) => lead.createdAt,
           (lead) => lead.assignedTo,
+    ),
+    searchQuery,
+        (lead) => [
+      lead.fullName,
+      lead.phone,
+      lead.email,
+      lead.preferredLocation,
+      lead.preferredPropertyType,
+      lead.assignedToName,
+      lead.notes,
+      lead.source.name,
+      lead.status.name,
+      lead.priority.name,
+    ],
+  ),
+        properties = _filterBySearch<Property>(
+          _filterByDateAndAssignee<Property>(
+            properties,
+            period,
+            assignedTo,
+                (property) => property.createdAt,
+                (property) => property.assignedTo,
+          ),
+          searchQuery,
+              (property) => [
+            property.title,
+            property.description,
+            property.location,
+            property.compound,
+            property.ownerName,
+            property.ownerPhone,
+            property.propertyType.name,
+            property.listingType.name,
+            property.status.name,
+          ],
         ),
-        properties = _filterByDateAndAssignee<Property>(
-          properties,
-          period,
-          assignedTo,
-          (property) => property.createdAt,
-          (property) => property.assignedTo,
+        tasks = _filterBySearch<CrmTask>(
+          _filterByDateAndAssignee<CrmTask>(
+            tasks,
+            period,
+            assignedTo,
+                (task) => task.createdAt ?? task.updatedAt,
+                (task) => task.assignedTo,
+          ),
+          searchQuery,
+              (task) => [
+            task.title,
+            task.description,
+            task.assignedToName,
+            task.assignedToEmail,
+            task.relatedTitle,
+            task.relatedSubtitle,
+            task.relatedType.name,
+            task.status.name,
+            task.priority.name,
+          ],
         ),
-        clients = _filterByDateAndAssignee<Client>(
-          clients,
-          period,
-          assignedTo,
-          (client) => client.createdAt ?? client.updatedAt,
-          (client) => client.assignedTo,
+        clients = _filterBySearch<Client>(
+          _filterByDateAndAssignee<Client>(
+            clients,
+            period,
+            assignedTo,
+                (client) => client.createdAt ?? client.updatedAt,
+                (client) => client.assignedTo,
+          ),
+          searchQuery,
+              (client) => [
+            client.fullName,
+            client.phone,
+            client.email,
+            client.preferredLocation,
+            client.preferredPropertyType,
+            client.assignedToName,
+            client.assignedToEmail,
+            client.notes,
+          ],
         ),
-        tasks = _filterByDateAndAssignee<CrmTask>(
-          tasks,
-          period,
-          assignedTo,
-          (task) => task.createdAt ?? task.updatedAt,
-          (task) => task.assignedTo,
-        ),
-        deals = _filterByDateAndAssignee<Deal>(
-          deals,
-          period,
-          assignedTo,
-          (deal) => deal.createdAt ?? deal.updatedAt,
-          (deal) => deal.assignedTo,
+        deals = _filterBySearch<Deal>(
+          _filterByDateAndAssignee<Deal>(
+            deals,
+            period,
+            assignedTo,
+                (deal) => deal.createdAt ?? deal.updatedAt,
+                (deal) => deal.assignedTo,
+          ),
+          searchQuery,
+              (deal) => [
+            deal.clientName,
+            deal.clientEmail,
+            deal.clientPhone,
+            deal.leadName,
+            deal.leadPhone,
+            deal.propertyTitle,
+            deal.propertyLocation,
+            deal.assignedToName,
+            deal.assignedToEmail,
+            deal.stage.name,
+            deal.lostReason,
+            deal.notes,
+          ],
         );
 
+
   final List<Lead> leads;
+  final String searchQuery;
   final List<Property> properties;
   final List<Client> clients;
   final List<CrmTask> tasks;
@@ -1433,6 +1637,24 @@ List<_AssigneeOption> _assigneeOptions(List<UserProfile> users) {
     const _AssigneeOption.all(),
     for (final user in sorted) _AssigneeOption.value(user.uid),
   ];
+}
+
+List<T> _filterBySearch<T>(
+    List<T> items,
+    String searchQuery,
+    List<String?> Function(T item) termsBuilder,
+    ) {
+  final query = searchQuery.trim().toLowerCase();
+  if (query.isEmpty) {
+    return items;
+  }
+
+  return items.where((item) {
+    return termsBuilder(item).any((term) {
+      final value = term?.trim().toLowerCase() ?? '';
+      return value.contains(query);
+    });
+  }).toList();
 }
 
 List<T> _filterByDateAndAssignee<T>(

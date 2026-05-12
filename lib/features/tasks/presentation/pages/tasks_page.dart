@@ -169,44 +169,70 @@ class _TasksListContentState extends State<_TasksListContent> {
         }
       },
       builder: (context, state) {
-        return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 720;
+
+            final header = Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.tasksSubtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
-                        ),
-                      ),
-                    ),
-                    if (widget.canCreate) ...[
-                      const SizedBox(width: AppSpacing.md),
-                      AppButton(
-                        label: l.createTask,
-                        onPressed: () => context.go(RouteNames.tasksCreate),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _TasksFilters(state: state),
-                const SizedBox(height: AppSpacing.md),
                 Expanded(
-                  child: _TasksBody(
-                    companyId: widget.companyId,
-                    assignedTo: widget.assignedTo,
-                    state: state,
-                    canManageTasks: widget.canManageTasks,
-                    uid: widget.uid,
-                    users: users,
+                  child: Text(
+                    l.tasksSubtitle,
+                    maxLines: isMobile ? 3 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
                   ),
                 ),
+                if (widget.canCreate) ...[
+                  const SizedBox(width: AppSpacing.md),
+                  AppButton(
+                    label: l.createTask,
+                    onPressed: () => context.go(RouteNames.tasksCreate),
+                  ),
+                ],
               ],
+            );
+
+            final filters = _TasksFilters(state: state);
+
+            final body = _TasksBody(
+              companyId: widget.companyId,
+              assignedTo: widget.assignedTo,
+              state: state,
+              canManageTasks: widget.canManageTasks,
+              uid: widget.uid,
+              users: users,
+            );
+
+            if (isMobile) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: AppSpacing.md),
+                    filters,
+                    const SizedBox(height: AppSpacing.md),
+                    body,
+                    const SizedBox(height: 96),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                const SizedBox(height: AppSpacing.md),
+                filters,
+                const SizedBox(height: AppSpacing.md),
+                Expanded(child: body),
+              ],
+            );
+          },
         );
       },
         );
@@ -566,19 +592,20 @@ class _TasksBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
-          return ListView.separated(
-            itemCount: state.filteredTasks.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              return _TaskCard(
-                task: state.filteredTasks[index],
-                companyId: companyId,
-                canManageTasks: canManageTasks,
-                uid: uid,
-                users: users,
-              );
-            },
+          return Column(
+            children: [
+              for (var index = 0; index < state.filteredTasks.length; index++) ...[
+                _TaskCard(
+                  task: state.filteredTasks[index],
+                  companyId: companyId,
+                  canManageTasks: canManageTasks,
+                  uid: uid,
+                  users: users,
+                ),
+                if (index != state.filteredTasks.length - 1)
+                  const SizedBox(height: AppSpacing.sm),
+              ],
+            ],
           );
         }
 

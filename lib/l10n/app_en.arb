@@ -18,6 +18,7 @@
   "createTask": "Create task",
   "editTask": "Edit task",
   "updateTask": "Update task",
+  "searchReports": "Search reports",
   "taskCreatedSuccessfully": "Task created successfully.",
   "taskUpdatedSuccessfully": "Task updated successfully.",
   "taskCompletedSuccessfully": "Task marked completed.",

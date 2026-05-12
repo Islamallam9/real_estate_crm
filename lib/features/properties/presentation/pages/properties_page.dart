@@ -141,56 +141,90 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
       },
       child: BlocBuilder<PropertiesCubit, PropertiesState>(
         builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    localizations.propertiesSubtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondaryColor(context),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 720;
+
+              final header = Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      localizations.propertiesSubtitle,
+                      maxLines: isMobile ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                AppButton(
-                  label: localizations.createProperty,
-                  onPressed: widget.canCreate
-                      ? () => context.go(RouteNames.propertiesCreate)
-                      : null,
-                ),
-              ],
-            ),
-            if (state.status == PropertiesStatus.failure &&
-                state.properties.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              AppErrorView(
+                  const SizedBox(width: AppSpacing.md),
+                  AppButton(
+                    label: localizations.createProperty,
+                    onPressed: widget.canCreate
+                        ? () => context.go(RouteNames.propertiesCreate)
+                        : null,
+                  ),
+                ],
+              );
+
+              final failureBanner =
+              state.status == PropertiesStatus.failure && state.properties.isNotEmpty
+                  ? AppErrorView(
                 message: localizeErrorMessage(localizations, state.message),
                 onRetry: () {
                   context.read<PropertiesCubit>().watchProperties(
                     companyId: widget.companyId,
                   );
                 },
-              ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            _PropertiesFilters(state: state),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: _PropertiesBody(
+              )
+                  : null;
+
+              final filters = _PropertiesFilters(state: state);
+
+              final body = _PropertiesBody(
                 companyId: widget.companyId,
                 state: state,
                 canEdit: widget.canEdit,
                 canDeactivate: widget.canDeactivate,
                 uid: widget.uid,
-              ),
-            ),
-          ],
-        );
+              );
+
+              if (isMobile) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      header,
+                      if (failureBanner != null) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        failureBanner,
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      filters,
+                      const SizedBox(height: AppSpacing.md),
+                      body,
+                      const SizedBox(height: 96),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  if (failureBanner != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    failureBanner,
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  filters,
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(child: body),
+                ],
+              );
+            },
+          );
       },
       ),
     );
@@ -257,23 +291,24 @@ class _PropertiesBody extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 720) {
-              return ListView.separated(
-                itemCount: state.filteredProperties.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  return PropertyCard(
-                    property: state.filteredProperties[index],
-                    canEdit: canEdit,
-                    canDeactivate: canDeactivate,
-                    onDeactivate: (property) => _confirmDeactivate(
-                      context,
-                      property: property,
-                      companyId: companyId,
-                      updatedBy: uid,
+              return Column(
+                children: [
+                  for (var index = 0; index < state.filteredProperties.length; index++) ...[
+                    PropertyCard(
+                      property: state.filteredProperties[index],
+                      canEdit: canEdit,
+                      canDeactivate: canDeactivate,
+                      onDeactivate: (property) => _confirmDeactivate(
+                        context,
+                        property: property,
+                        companyId: companyId,
+                        updatedBy: uid,
+                      ),
                     ),
-                  );
-                },
+                    if (index != state.filteredProperties.length - 1)
+                      const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
               );
             }
 

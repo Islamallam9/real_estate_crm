@@ -18,6 +18,7 @@
   "createTask": "إنشاء مهمة",
   "editTask": "تعديل المهمة",
   "updateTask": "تحديث المهمة",
+  "searchReports": "ابحث في التقارير",
   "taskCreatedSuccessfully": "تم إنشاء المهمة بنجاح.",
   "taskUpdatedSuccessfully": "تم تحديث المهمة بنجاح.",
   "taskCompletedSuccessfully": "تم وضع علامة مكتملة على المهمة.",

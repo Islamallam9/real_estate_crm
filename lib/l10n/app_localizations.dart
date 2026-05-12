@@ -206,6 +206,12 @@ abstract class AppLocalizations {
   /// **'Update task'**
   String get updateTask;
 
+  /// No description provided for @searchReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Search reports'**
+  String get searchReports;
+
   /// No description provided for @taskCreatedSuccessfully.
   ///
   /// In en, this message translates to:

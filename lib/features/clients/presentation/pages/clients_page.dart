@@ -198,15 +198,16 @@ class _ClientsListContentState extends State<_ClientsListContent> {
               }
               final users = usersSnapshot.data ?? const [];
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 720;
+
+                  final header = Row(
                     children: [
                       Expanded(
                         child: Text(
                           localizations.clientsSubtitle,
-                          maxLines: 2,
+                          maxLines: isMobile ? 3 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondaryColor(context),
@@ -221,28 +222,53 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                         ),
                       ],
                     ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _ClientsFilters(
+                  );
+
+                  final filters = _ClientsFilters(
                     state: state,
                     users: users,
                     showAssigneeFilter: widget.showAssigneeFilter,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Expanded(
-                    child: _ClientsBody(
-                      companyId: widget.companyId,
-                      assignedTo: widget.assignedTo,
-                      state: state,
-                      canEdit: widget.canEdit,
-                      canArchive: widget.canArchive,
-                      canAssign: widget.canAssign,
-                      uid: widget.uid,
-                      users: users,
-                      isSalesAgentView: widget.isSalesAgentView,
-                    ),
-                  ),
-                ],
+                  );
+
+                  final body = _ClientsBody(
+                    companyId: widget.companyId,
+                    assignedTo: widget.assignedTo,
+                    state: state,
+                    canEdit: widget.canEdit,
+                    canArchive: widget.canArchive,
+                    canAssign: widget.canAssign,
+                    uid: widget.uid,
+                    users: users,
+                    isSalesAgentView: widget.isSalesAgentView,
+                  );
+
+                  if (isMobile) {
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          header,
+                          const SizedBox(height: AppSpacing.md),
+                          filters,
+                          const SizedBox(height: AppSpacing.md),
+                          body,
+                          const SizedBox(height: 96),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      header,
+                      const SizedBox(height: AppSpacing.md),
+                      filters,
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: body),
+                    ],
+                  );
+                },
               );
             },
           );
@@ -559,27 +585,28 @@ class _ClientsBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
-          return ListView.separated(
-            itemCount: state.filteredClients.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              return _ClientCard(
-                client: state.filteredClients[index],
-                canEdit: canEdit,
-                canArchive: canArchive,
-                canAssign: canAssign,
-                users: users,
-                companyId: companyId,
-                updatedBy: uid,
-                onArchive: (client) => _confirmArchive(
-                  context,
-                  client: client,
+          return Column(
+            children: [
+              for (var index = 0; index < state.filteredClients.length; index++) ...[
+                _ClientCard(
+                  client: state.filteredClients[index],
+                  canEdit: canEdit,
+                  canArchive: canArchive,
+                  canAssign: canAssign,
+                  users: users,
                   companyId: companyId,
                   updatedBy: uid,
+                  onArchive: (client) => _confirmArchive(
+                    context,
+                    client: client,
+                    companyId: companyId,
+                    updatedBy: uid,
+                  ),
                 ),
-              );
-            },
+                if (index != state.filteredClients.length - 1)
+                  const SizedBox(height: AppSpacing.sm),
+              ],
+            ],
           );
         }
 

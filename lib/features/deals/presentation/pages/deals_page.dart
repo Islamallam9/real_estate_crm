@@ -143,24 +143,20 @@ class _DealsViewState extends State<_DealsView> {
                   },
                   child: BlocBuilder<DealsCubit, DealsState>(
                     builder: (context, state) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobile = constraints.maxWidth < 720;
+
+                          final header = Row(
                             children: [
                               Expanded(
                                 child: Text(
                                   l.dealsSubtitle,
-                                  maxLines: 2,
+                                  maxLines: isMobile ? 3 : 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: AppColors.textSecondaryColor(
-                                          context,
-                                        ),
-                                      ),
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textSecondaryColor(context),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.md),
@@ -172,26 +168,51 @@ class _DealsViewState extends State<_DealsView> {
                                     : null,
                               ),
                             ],
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _DealsFilters(
+                          );
+
+                          final filters = _DealsFilters(
                             state: state,
                             searchController: _searchController,
                             canFilterAssignee: canFilterAssignee,
                             users: users,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Expanded(
-                            child: _DealsBody(
-                              companyId: companyId,
-                              uid: user.uid,
-                              state: state,
-                              canEdit: canEdit,
-                              canArchive: canArchive,
-                              canUpdateStage: canUpdateStage,
-                            ),
-                          ),
-                        ],
+                          );
+
+                          final body = _DealsBody(
+                            companyId: companyId,
+                            uid: user.uid,
+                            state: state,
+                            canEdit: canEdit,
+                            canArchive: canArchive,
+                            canUpdateStage: canUpdateStage,
+                          );
+
+                          if (isMobile) {
+                            return SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  header,
+                                  const SizedBox(height: AppSpacing.md),
+                                  filters,
+                                  const SizedBox(height: AppSpacing.md),
+                                  body,
+                                  const SizedBox(height: 96),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              header,
+                              const SizedBox(height: AppSpacing.md),
+                              filters,
+                              const SizedBox(height: AppSpacing.md),
+                              Expanded(child: body),
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -500,36 +521,40 @@ class _DealsBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
-          return ListView.separated(
-            itemCount: state.filteredDeals.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final deal = state.filteredDeals[index];
-              return DealCard(
-                deal: deal,
-                onTap: () => context.go(RouteNames.dealDetails(deal.id)),
-                onEdit: canEdit
-                    ? () => context.go(RouteNames.dealEdit(deal.id))
-                    : null,
-                onUpdateStage: canUpdateStage
-                    ? () => showDealStageDialog(
-                          context,
-                          companyId: companyId,
-                          deal: deal,
-                          updatedBy: uid,
-                        )
-                    : null,
-                onArchive: canArchive
-                    ? () => showArchiveDealDialog(
-                          context,
-                          companyId: companyId,
-                          deal: deal,
-                          updatedBy: uid,
-                        )
-                    : null,
-              );
-            },
+          return Column(
+            children: [
+              for (var index = 0; index < state.filteredDeals.length; index++) ...[
+                DealCard(
+                  deal: state.filteredDeals[index],
+                  onTap: () => context.go(
+                    RouteNames.dealDetails(state.filteredDeals[index].id),
+                  ),
+                  onEdit: canEdit
+                      ? () => context.go(
+                    RouteNames.dealEdit(state.filteredDeals[index].id),
+                  )
+                      : null,
+                  onUpdateStage: canUpdateStage
+                      ? () => showDealStageDialog(
+                    context,
+                    companyId: companyId,
+                    deal: state.filteredDeals[index],
+                    updatedBy: uid,
+                  )
+                      : null,
+                  onArchive: canArchive
+                      ? () => showArchiveDealDialog(
+                    context,
+                    companyId: companyId,
+                    deal: state.filteredDeals[index],
+                    updatedBy: uid,
+                  )
+                      : null,
+                ),
+                if (index != state.filteredDeals.length - 1)
+                  const SizedBox(height: AppSpacing.sm),
+              ],
+            ],
           );
         }
 
