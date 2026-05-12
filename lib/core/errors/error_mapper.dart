@@ -10,12 +10,16 @@ abstract final class AppErrorMessages {
   static const notFound = 'The requested data could not be found.';
   static const cancelled = 'The request was cancelled. Please try again.';
   static const unknown = 'Something went wrong. Please try again.';
+  static const connectionTimeout =
+      'Unable to load data. Check your connection and try again.';
 }
 
 String localizeErrorMessage(AppLocalizations l, String? message) {
   switch (message) {
     case AppErrorMessages.unableToConnect:
       return l.unableToConnect;
+    case AppErrorMessages.connectionTimeout:
+      return l.connectionTimeout;
     case AppErrorMessages.permissionDenied:
       return l.permissionDenied;
     case AppErrorMessages.unauthenticated:

@@ -922,15 +922,12 @@ Future<void> _confirmCancelTask(
                 isLoading: isSubmitting,
                 onPressed: () async {
                   setDialogState(() => isSubmitting = true);
-                  await cubit.cancelTask(
+                  final success = await cubit.cancelTask(
                     companyId: companyId,
                     task: task,
                     updatedBy: updatedBy,
                   );
-                  final completed =
-                      cubit.state.status == TasksStatus.saved &&
-                      cubit.state.lastAction == TasksAction.cancelTask;
-                  if (completed && dialogContext.mounted) {
+                  if (success && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }

@@ -41,6 +41,7 @@ class _EditPropertyView extends StatefulWidget {
 }
 
 class _EditPropertyViewState extends State<_EditPropertyView> {
+  bool _isSubmitting = false;
   @override
   void initState() {
     super.initState();
@@ -72,12 +73,14 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                       current.status == PropertiesStatus.failure),
               listener: (context, state) {
                 if (state.status == PropertiesStatus.failure) {
+                  setState(() => _isSubmitting = false);
                   AppFeedback.error(
                     context,
                     localizeErrorMessage(l, state.message),
                   );
                   return;
                 }
+                setState(() => _isSubmitting = false);
                 AppFeedback.success(
                   context,
                   l.propertyUpdatedSuccessfully,
@@ -110,7 +113,7 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                   );
                 }
 
-                final isSaving = state.status == PropertiesStatus.saving;
+                final isSaving = _isSubmitting || state.status == PropertiesStatus.saving;
                 return ListView(
                       primary: true,
                       physics: const ClampingScrollPhysics(),
@@ -132,6 +135,10 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                                   isSaving: isSaving,
                                   submitLabel: l.updateProperty,
                                   onSubmit: (updatedProperty) {
+                                    if (_isSubmitting) {
+                                      return;
+                                    }
+                                    setState(() => _isSubmitting = true);
                                     context.read<PropertiesCubit>().updateProperty(
                                       companyId: companyId,
                                       property: updatedProperty,

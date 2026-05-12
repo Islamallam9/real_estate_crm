@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:intl/intl.dart' as intl;
 import '../../../../core/constants/role_constants.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
@@ -24,6 +25,11 @@ import '../../../clients/domain/entities/client.dart';
 import '../../../clients/presentation/cubit/clients_cubit.dart';
 import '../../../clients/presentation/cubit/clients_state.dart';
 import '../../../clients/presentation/widgets/clients_scope.dart';
+import '../../../deals/domain/entities/deal.dart';
+import '../../../deals/presentation/cubit/deals_cubit.dart';
+import '../../../deals/presentation/cubit/deals_state.dart';
+import '../../../deals/presentation/widgets/deal_card.dart';
+import '../../../deals/presentation/widgets/deals_scope.dart';
 import '../../../leads/domain/entities/lead.dart';
 import '../../../leads/presentation/cubit/leads_cubit.dart';
 import '../../../leads/presentation/cubit/leads_state.dart';
@@ -64,9 +70,11 @@ class DashboardPage extends StatelessWidget {
             child: PropertiesScope(
               child: ClientsScope(
                 child: TasksScope(
-                  child: _DashboardContent(
-                    companyId: companyId,
-                    authState: authState,
+                  child: DealsScope(
+                    child: _DashboardContent(
+                      companyId: companyId,
+                      authState: authState,
+                    ),
                   ),
                 ),
               ),
@@ -112,6 +120,40 @@ class _DashboardContentState extends State<_DashboardContent> {
           companyId: widget.companyId,
           assignedTo: assignedTo,
         );
+    if (role != null && uid.isNotEmpty) {
+      context.read<DealsCubit>().watchDeals(
+            companyId: widget.companyId,
+            role: role,
+            currentUserId: uid,
+      );
+    }
+  }
+
+  void _retry() {
+    final role = widget.authState.userProfile?.role ?? widget.authState.user?.role;
+    final uid = widget.authState.user?.uid ?? '';
+    final assignedTo = role == UserRole.salesAgent ? uid : null;
+
+    context.read<LeadsCubit>().watchLeads(
+          companyId: widget.companyId,
+          assignedTo: assignedTo,
+        );
+    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
+    context.read<ClientsCubit>().watchClients(
+          companyId: widget.companyId,
+          assignedTo: assignedTo,
+        );
+    context.read<TasksCubit>().watchTasks(
+          companyId: widget.companyId,
+          assignedTo: assignedTo,
+        );
+    if (role != null && uid.isNotEmpty) {
+      context.read<DealsCubit>().watchDeals(
+            companyId: widget.companyId,
+            role: role,
+            currentUserId: uid,
+          );
+    }
   }
 
   @override
@@ -124,24 +166,54 @@ class _DashboardContentState extends State<_DashboardContent> {
               builder: (context, clientsState) {
                 return BlocBuilder<TasksCubit, TasksState>(
                   builder: (context, tasksState) {
-                    final data = _DashboardData(
-                      leads: leadsState.leads,
-                      properties: propertiesState.properties,
-                      clients: clientsState.clients,
-                      tasks: tasksState.tasks,
-                    );
+                    return BlocBuilder<DealsCubit, DealsState>(
+                      builder: (context, dealsState) {
+                        final data = _DashboardData(
+                          leads: leadsState.leads,
+                          properties: propertiesState.properties,
+                          clients: clientsState.clients,
+                          tasks: tasksState.tasks,
+                          deals: dealsState.deals,
+                        );
+                        final isLoading =
+                            leadsState.status == LeadsStatus.loading &&
+                                    leadsState.leads.isEmpty ||
+                                propertiesState.status ==
+                                        PropertiesStatus.loading &&
+                                    propertiesState.properties.isEmpty ||
+                                clientsState.status == ClientsStatus.loading &&
+                                    clientsState.clients.isEmpty ||
+                                tasksState.status == TasksStatus.loading &&
+                                    tasksState.tasks.isEmpty ||
+                                dealsState.status == DealsStatus.loading &&
+                                    dealsState.deals.isEmpty;
+                        final hasInitialFailure =
+                            leadsState.status == LeadsStatus.failure &&
+                                    leadsState.leads.isEmpty ||
+                                propertiesState.status ==
+                                        PropertiesStatus.failure &&
+                                    propertiesState.properties.isEmpty ||
+                                clientsState.status == ClientsStatus.failure &&
+                                    clientsState.clients.isEmpty ||
+                                tasksState.status == TasksStatus.failure &&
+                                    tasksState.tasks.isEmpty ||
+                                dealsState.status == DealsStatus.failure &&
+                                    dealsState.deals.isEmpty;
+                        final failureMessage = leadsState.message ??
+                            propertiesState.message ??
+                            clientsState.message ??
+                            tasksState.message ??
+                            dealsState.message;
 
-                    return _DashboardView(
-                      data: data,
-                      authState: widget.authState,
-                      isLoading: leadsState.status == LeadsStatus.loading &&
-                              leadsState.leads.isEmpty ||
-                          propertiesState.status == PropertiesStatus.loading &&
-                              propertiesState.properties.isEmpty ||
-                          clientsState.status == ClientsStatus.loading &&
-                              clientsState.clients.isEmpty ||
-                          tasksState.status == TasksStatus.loading &&
-                              tasksState.tasks.isEmpty,
+                        return _DashboardView(
+                          data: data,
+                          authState: widget.authState,
+                          isLoading: isLoading,
+                          hasInitialFailure: hasInitialFailure,
+                          failureMessage: failureMessage,
+                          onRetry: _retry,
+                        );
+                      },
                     );
                   },
                 );
@@ -159,11 +231,17 @@ class _DashboardView extends StatelessWidget {
     required this.data,
     required this.authState,
     required this.isLoading,
+    required this.hasInitialFailure,
+    required this.failureMessage,
+    required this.onRetry,
   });
 
   final _DashboardData data;
   final AuthState authState;
   final bool isLoading;
+  final bool hasInitialFailure;
+  final String? failureMessage;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +250,13 @@ class _DashboardView extends StatelessWidget {
 
     if (isLoading) {
       return const AppLoading();
+    }
+
+    if (hasInitialFailure) {
+      return AppErrorView(
+        message: localizeErrorMessage(l, failureMessage),
+        onRetry: onRetry,
+      );
     }
 
     return LayoutBuilder(
@@ -213,17 +298,26 @@ class _DashboardView extends StatelessWidget {
                     ),
                   const SizedBox(height: AppSpacing.md),
                   if (compact) ...[
+                    _DealsDashboardSection(data: data),
+                    const SizedBox(height: AppSpacing.md),
+                    _TaskBreakdownSection(data: data),
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _DealsDashboardSection(data: data)),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(child: _TaskBreakdownSection(data: data)),
+                      ],
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (compact) ...[
                     _LeadSection(
                       title: copy.todaysFollowUps,
                       leads: data.todaysFollowUps,
                       emptyMessage: l.noLeads,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    _TaskSection(
-                      title: copy.overdueTasks,
-                      tasks: data.overdueTasks,
-                      emptyMessage: l.noTasksYet,
-                    ),
+
                     const SizedBox(height: AppSpacing.md),
                     _LeadSection(
                       title: copy.unassignedLeads,
@@ -239,14 +333,6 @@ class _DashboardView extends StatelessWidget {
                             title: copy.todaysFollowUps,
                             leads: data.todaysFollowUps,
                             emptyMessage: l.noLeads,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _TaskSection(
-                            title: copy.overdueTasks,
-                            tasks: data.overdueTasks,
-                            emptyMessage: l.noTasksYet,
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
@@ -285,6 +371,8 @@ class _DashboardView extends StatelessWidget {
     final canCreateLead =
         role != null && PermissionService.can(role, AppPermission.createLead);
     final canCreateClient = role == UserRole.admin || role == UserRole.manager;
+    final canCreateDeal =
+        role != null && PermissionService.can(role, AppPermission.createDeal);
 
     return [
       if (canCreateLead)
@@ -298,6 +386,12 @@ class _DashboardView extends StatelessWidget {
           label: l.addClient,
           icon: Icons.group_add_outlined,
           onTap: () => context.go(RouteNames.clientsCreate),
+        ),
+      if (canCreateDeal)
+        _QuickAddAction(
+          label: l.addDeal,
+          icon: Icons.handshake_outlined,
+          onTap: () => context.go(RouteNames.dealsCreate),
         ),
     ];
   }
@@ -351,8 +445,8 @@ class _MobileQuickAddFabState extends State<_MobileQuickAddFab>
           end: AppSpacing.md,
           bottom: AppSpacing.md,
           child: SizedBox(
-            width: 188,
-            height: 168,
+            width: 218,
+            height: 220,
             child: Stack(
               clipBehavior: Clip.none,
               alignment: AlignmentDirectional.bottomEnd,
@@ -422,8 +516,9 @@ class _QuickAddMenuItem extends StatelessWidget {
     final direction = Directionality.of(context);
     final horizontal = direction == TextDirection.rtl ? 64.0 : -64.0;
     final offset = switch (index) {
-      0 => Offset(0, -72),
-      _ => Offset(horizontal, -42),
+      0 => const Offset(0, -72),
+      1 => Offset(horizontal, -42),
+      _ => Offset(horizontal, -112),
     };
 
     return AnimatedBuilder(
@@ -653,6 +748,8 @@ class _SummaryGrid extends StatelessWidget {
           AppStatusTone.error),
       _MetricItem(copy.upcomingFollowUps, data.upcomingFollowUps.length,
           AppStatusTone.info),
+      _MetricItem(l.openDeals, data.openDeals.length, AppStatusTone.warning),
+      _MetricItem(l.wonDeals, data.wonDeals.length, AppStatusTone.success),
       _MetricItem(copy.availableProperties, data.availableProperties.length,
           AppStatusTone.success),
       _MetricItem(l.clients, data.clients.length, AppStatusTone.neutral),
@@ -815,6 +912,20 @@ class _AnalyticsPanel extends StatelessWidget {
                         _ChartSegment(copy.reservedOrClosed,
                             data.reservedOrClosedProperties.length,
                             AppColors.warningColor(context)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _DonutChartCard(
+                      title: l.dealsByStage,
+                      segments: [
+                        for (final stage in DealStage.values)
+                          _ChartSegment(
+                            dealStageLabel(l, stage),
+                            data.dealsByStage(stage).length,
+                            _dealStageColor(context, stage),
+                          ),
                       ],
                     ),
                   ),
@@ -1015,47 +1126,255 @@ class _LeadSection extends StatelessWidget {
   }
 }
 
-class _TaskSection extends StatelessWidget {
-  const _TaskSection({
-    required this.title,
-    required this.tasks,
-    required this.emptyMessage,
-  });
+class _DealsDashboardSection extends StatelessWidget {
+  const _DealsDashboardSection({required this.data});
 
-  final String title;
-  final List<CrmTask> tasks;
-  final String emptyMessage;
+  final _DashboardData data;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionTitle(title: title),
+          _SectionTitle(title: l.dealsReport),
           const SizedBox(height: AppSpacing.sm),
-          if (tasks.isEmpty)
-            _CompactEmpty(message: emptyMessage)
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 286),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (final task in tasks.take(6))
-                      _DashboardListTile(
-                        title: task.title,
-                        subtitle: _taskSubtitle(context, task),
-                        badge: _taskDueLabel(context, task),
-                        tone: _taskDueTone(task),
-                        onTap: () => context.go(RouteNames.tasks),
-                      ),
-                  ],
-                ),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _MiniMetric(label: l.openDeals, value: data.openDeals.length),
+              _MiniMetric(label: l.wonDeals, value: data.wonDeals.length),
+              _MiniMetric(label: l.lostDeals, value: data.lostDeals.length),
+              _MiniMetric(
+                label: l.expectedValueTotal,
+                value: _formatMoney(context, data.expectedValueTotal),
               ),
-            ),
+              _MiniMetric(
+                label: l.commissionTotal,
+                value: _formatMoney(context, data.commissionTotal),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _HorizontalDistribution(
+            rows: [
+              for (final stage in DealStage.values)
+                _DistributionRow(
+                  label: dealStageLabel(l, stage),
+                  value: data.dealsByStage(stage).length,
+                  color: _dealStageColor(context, stage),
+                ),
+            ],
+          ),
+          if (data.recentDeals.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            for (final deal in data.recentDeals.take(4))
+              _DashboardListTile(
+                title: _fallback(deal.clientName, l.deal),
+                subtitle: _fallback(deal.propertyTitle, l.notAvailable),
+                badge: dealStageLabel(l, deal.stage),
+                tone: dealStageTone(deal.stage),
+                onTap: () => context.go(RouteNames.dealDetails(deal.id)),
+              ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _TaskBreakdownSection extends StatelessWidget {
+  const _TaskBreakdownSection({required this.data});
+
+  final _DashboardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final total = data.tasks.length;
+    final completionRate =
+        total == 0 ? 0.0 : data.completedTasks.length / total;
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionTitle(title: l.tasksReport),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _MiniMetric(label: l.overdueTasks, value: data.overdueTasks.length),
+              _MiniMetric(label: l.dueTodayTasks, value: data.todayTasks.length),
+              _MiniMetric(label: l.upcomingTasks, value: data.upcomingTasks.length),
+              _MiniMetric(
+                label: l.completedTasks,
+                value: data.completedTasks.length,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _ProgressRow(
+            label: l.completionRate,
+            value: completionRate,
+            color: AppColors.successColor(context),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (data.attentionTasks.isEmpty)
+            _CompactEmpty(message: l.noTasksYet)
+          else
+            for (final task in data.attentionTasks.take(5))
+              _DashboardListTile(
+                title: task.title,
+                subtitle: _taskSubtitle(context, task),
+                badge: _taskDueLabel(context, task),
+                tone: _taskDueTone(task),
+                onTap: () => context.go(RouteNames.tasks),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({required this.label, required this.value});
+
+  final String label;
+  final Object value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 132,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value.toString(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DistributionRow {
+  const _DistributionRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _HorizontalDistribution extends StatelessWidget {
+  const _HorizontalDistribution({required this.rows});
+
+  final List<_DistributionRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = rows.fold<int>(
+      0,
+      (max, row) => row.value > max ? row.value : max,
+    );
+
+    return Column(
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: _ProgressRow(
+              label: row.label,
+              value: maxValue == 0 ? 0 : row.value / maxValue,
+              trailing: row.value.toString(),
+              color: row.color,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProgressRow extends StatelessWidget {
+  const _ProgressRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.trailing,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = value.clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 116,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: clamped,
+              minHeight: 8,
+              backgroundColor: AppColors.borderColor(context),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        SizedBox(
+          width: 44,
+          child: Text(
+            trailing ?? '${(clamped * 100).round()}%',
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1235,12 +1554,14 @@ class _DashboardData {
     required this.properties,
     required this.clients,
     required this.tasks,
+    required this.deals,
   });
 
   final List<Lead> leads;
   final List<Property> properties;
   final List<Client> clients;
   final List<CrmTask> tasks;
+  final List<Deal> deals;
 
   List<Lead> get newLeads =>
       leads.where((lead) => lead.status == LeadStatus.newLead).toList();
@@ -1314,6 +1635,58 @@ class _DashboardData {
 
   List<CrmTask> get completedTasks =>
       tasks.where((task) => task.status == TaskStatus.completed).toList();
+
+  List<CrmTask> get cancelledTasks =>
+      tasks.where((task) => task.status == TaskStatus.cancelled).toList();
+
+  List<Deal> get openDeals => deals.where((deal) {
+        return deal.stage != DealStage.won && deal.stage != DealStage.lost;
+      }).toList();
+
+  List<Deal> get wonDeals =>
+      deals.where((deal) => deal.stage == DealStage.won).toList();
+
+  List<Deal> get lostDeals =>
+      deals.where((deal) => deal.stage == DealStage.lost).toList();
+
+  List<Deal> dealsByStage(DealStage stage) {
+    return deals.where((deal) => deal.stage == stage).toList();
+  }
+
+  num get expectedValueTotal =>
+      openDeals.fold<num>(0, (sum, deal) => sum + deal.expectedValue);
+
+  num get commissionTotal =>
+      openDeals.fold<num>(0, (sum, deal) => sum + deal.commission);
+
+  List<Deal> get recentDeals {
+    final sorted = [...deals]
+      ..sort((a, b) {
+        final aDate = a.updatedAt ?? a.createdAt ?? DateTime(0);
+        final bDate = b.updatedAt ?? b.createdAt ?? DateTime(0);
+        return bDate.compareTo(aDate);
+      });
+    return sorted;
+  }
+
+  List<CrmTask> get attentionTasks {
+    final selected = [
+      ...overdueTasks,
+      ...todayTasks.where((task) => !overdueTasks.contains(task)),
+    ];
+    selected.sort((a, b) {
+      final priority = _taskPriorityRank(b.priority).compareTo(
+        _taskPriorityRank(a.priority),
+      );
+      if (priority != 0) {
+        return priority;
+      }
+      final aDate = a.dueDate ?? DateTime(9999);
+      final bDate = b.dueDate ?? DateTime(9999);
+      return aDate.compareTo(bDate);
+    });
+    return selected;
+  }
 }
 
 class _MetricItem {
@@ -1452,6 +1825,33 @@ String _taskSubtitle(BuildContext context, CrmTask task) {
     return assignee;
   }
   return copy.generalTask;
+}
+
+String _fallback(String value, String fallback) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? fallback : trimmed;
+}
+
+String _formatMoney(BuildContext context, num value) {
+  final localeName = Localizations.localeOf(context).toString();
+  return intl.NumberFormat.compact(locale: localeName).format(value);}
+
+Color _dealStageColor(BuildContext context, DealStage stage) {
+  return switch (stage) {
+    DealStage.won => AppColors.successColor(context),
+    DealStage.lost => AppColors.errorColor(context),
+    DealStage.negotiation || DealStage.proposal => AppColors.warningColor(context),
+    DealStage.qualified => AppColors.infoColor(context),
+    DealStage.newDeal => AppColors.primaryColor(context),
+  };
+}
+
+int _taskPriorityRank(TaskPriority priority) {
+  return switch (priority) {
+    TaskPriority.high => 3,
+    TaskPriority.medium => 2,
+    TaskPriority.low => 1,
+  };
 }
 
 Color _toneColor(BuildContext context, AppStatusTone tone) {

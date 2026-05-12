@@ -1126,4 +1126,315 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchTasks => 'Search tasks';
+
+  @override
+  String get createDeal => 'Create deal';
+
+  @override
+  String get editDeal => 'Edit deal';
+
+  @override
+  String get updateDeal => 'Update deal';
+
+  @override
+  String get dealDetails => 'Deal details';
+
+  @override
+  String get dealsSubtitle =>
+      'Track client opportunities, property value, commission, and closing progress.';
+
+  @override
+  String get dealInformation => 'Deal information';
+
+  @override
+  String get dealValueAndStage => 'Value and stage';
+
+  @override
+  String get dealSummary => 'Deal summary';
+
+  @override
+  String get noDeals => 'No deals yet.';
+
+  @override
+  String get noDealsAvailable => 'No deals available.';
+
+  @override
+  String get noDealsMatchFilters => 'No deals match the current filters.';
+
+  @override
+  String get searchDeals => 'Search deals';
+
+  @override
+  String get dealStage => 'Deal stage';
+
+  @override
+  String get newDealStage => 'New';
+
+  @override
+  String get qualified => 'Qualified';
+
+  @override
+  String get proposal => 'Proposal';
+
+  @override
+  String get expectedValue => 'Expected value';
+
+  @override
+  String get commission => 'Commission';
+
+  @override
+  String get closingDate => 'Closing date';
+
+  @override
+  String get lostReason => 'Lost reason';
+
+  @override
+  String get assignedAgent => 'Assigned agent';
+
+  @override
+  String get updateStage => 'Update stage';
+
+  @override
+  String get archiveDeal => 'Archive deal';
+
+  @override
+  String get archiveDealConfirmation =>
+      'This deal will be archived and hidden from active deal lists.';
+
+  @override
+  String get dealCreatedSuccessfully => 'Deal created successfully.';
+
+  @override
+  String get dealUpdatedSuccessfully => 'Deal updated successfully.';
+
+  @override
+  String get dealArchivedSuccessfully => 'Deal archived successfully.';
+
+  @override
+  String get dealStageUpdatedSuccessfully => 'Deal stage updated successfully.';
+
+  @override
+  String get unableToSaveDeal => 'Unable to save deal. Please try again.';
+
+  @override
+  String get lostReasonRequired => 'Lost reason is required.';
+
+  @override
+  String get selectClient => 'Select client';
+
+  @override
+  String get selectLead => 'Select lead';
+
+  @override
+  String get selectProperty => 'Select property';
+
+  @override
+  String get selectAssignedAgent => 'Select assigned agent';
+
+  @override
+  String get allClosingDates => 'All closing dates';
+
+  @override
+  String get pastClosing => 'Past closing';
+
+  @override
+  String get thisWeek => 'This week';
+
+  @override
+  String get thisMonth => 'This month';
+
+  @override
+  String get backToDeals => 'Back to deals';
+
+  @override
+  String get dealNotFoundMessage =>
+      'Deal not found. Open it from the deals list.';
+
+  @override
+  String get reportsComingSoon => 'Reports are coming soon.';
+
+  @override
+  String get myProfile => 'My profile';
+
+  @override
+  String get profileInformation => 'Profile information';
+
+  @override
+  String get role => 'Role';
+
+  @override
+  String get accountStatus => 'Account status';
+
+  @override
+  String get active => 'Active';
+
+  @override
+  String get fullName => 'Full name';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get preferences => 'Preferences';
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get aboutApp => 'About app';
+
+  @override
+  String get admin => 'Admin';
+
+  @override
+  String get manager => 'Manager';
+
+  @override
+  String get salesAgent => 'Sales agent';
+
+  @override
+  String get marketing => 'Marketing';
+
+  @override
+  String get viewer => 'Viewer';
+
+  @override
+  String get connectionTimeout =>
+      'Unable to load data. Check your connection and try again.';
+
+  @override
+  String get unableToLoadReports => 'Unable to load reports. Please try again.';
+
+  @override
+  String get reportsOverview =>
+      'Review CRM performance using real leads, deals, tasks, and properties for the selected period.';
+
+  @override
+  String get reportPeriod => 'Report period';
+
+  @override
+  String get selectedPeriod => 'Selected period';
+
+  @override
+  String get allTime => 'All time';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get totalDeals => 'Total deals';
+
+  @override
+  String get wonDeals => 'Won deals';
+
+  @override
+  String get lostDeals => 'Lost deals';
+
+  @override
+  String get expectedValueTotal => 'Expected value total';
+
+  @override
+  String get commissionTotal => 'Commission total';
+
+  @override
+  String get dealsByStage => 'Deals by stage';
+
+  @override
+  String get dealPipeline => 'Deal pipeline';
+
+  @override
+  String get pipelineValue => 'Pipeline value';
+
+  @override
+  String get recentDeals => 'Recent deals';
+
+  @override
+  String get overdueTasks => 'Overdue tasks';
+
+  @override
+  String get dueTodayTasks => 'Due today tasks';
+
+  @override
+  String get upcomingTasks => 'Upcoming tasks';
+
+  @override
+  String get completedTasks => 'Completed tasks';
+
+  @override
+  String get cancelledTasks => 'Cancelled tasks';
+
+  @override
+  String get completionRate => 'Completion rate';
+
+  @override
+  String get overdueRate => 'Overdue rate';
+
+  @override
+  String get leadsReport => 'Leads performance';
+
+  @override
+  String get dealsReport => 'Deals performance';
+
+  @override
+  String get tasksReport => 'Tasks and follow-ups';
+
+  @override
+  String get propertiesReport => 'Properties report';
+
+  @override
+  String get teamReport => 'Agent report';
+
+  @override
+  String get leadsByStatus => 'Leads by status';
+
+  @override
+  String get leadsBySource => 'Leads by source';
+
+  @override
+  String get leadsByPriority => 'Leads by priority';
+
+  @override
+  String get propertiesByStatus => 'Properties by status';
+
+  @override
+  String get propertiesByType => 'Properties by type';
+
+  @override
+  String get taskStatusDistribution => 'Task status distribution';
+
+  @override
+  String get agentPerformance => 'Agent performance';
+
+  @override
+  String get highestPriorityTasks => 'Highest priority tasks';
+
+  @override
+  String get inventoryValue => 'Inventory value';
+
+  @override
+  String get totalListedValue => 'Total listed value';
+
+  @override
+  String get averagePrice => 'Average price';
+
+  @override
+  String get wonValue => 'Won value';
+
+  @override
+  String get lostValue => 'Lost value';
+
+  @override
+  String get noReportData => 'No report data for the selected filters.';
+
+  @override
+  String get addDeal => 'Add deal';
+
+  @override
+  String get appVersion => 'App version';
+
+  @override
+  String get version => 'Version';
 }

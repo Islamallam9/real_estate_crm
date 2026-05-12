@@ -1125,4 +1125,315 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get searchTasks => 'ابحث في المهام';
+
+  @override
+  String get createDeal => 'إنشاء صفقة';
+
+  @override
+  String get editDeal => 'تعديل الصفقة';
+
+  @override
+  String get updateDeal => 'تحديث الصفقة';
+
+  @override
+  String get dealDetails => 'تفاصيل الصفقة';
+
+  @override
+  String get dealsSubtitle =>
+      'تابع فرص العملاء وقيمة العقار والعمولة وحالة الإغلاق.';
+
+  @override
+  String get dealInformation => 'بيانات الصفقة';
+
+  @override
+  String get dealValueAndStage => 'القيمة والمرحلة';
+
+  @override
+  String get dealSummary => 'ملخص الصفقة';
+
+  @override
+  String get noDeals => 'لا توجد صفقات بعد.';
+
+  @override
+  String get noDealsAvailable => 'لا توجد صفقات متاحة.';
+
+  @override
+  String get noDealsMatchFilters => 'لا توجد صفقات تطابق الفلاتر الحالية.';
+
+  @override
+  String get searchDeals => 'ابحث في الصفقات';
+
+  @override
+  String get dealStage => 'مرحلة الصفقة';
+
+  @override
+  String get newDealStage => 'جديدة';
+
+  @override
+  String get qualified => 'مؤهلة';
+
+  @override
+  String get proposal => 'عرض';
+
+  @override
+  String get expectedValue => 'القيمة المتوقعة';
+
+  @override
+  String get commission => 'العمولة';
+
+  @override
+  String get closingDate => 'تاريخ الإغلاق';
+
+  @override
+  String get lostReason => 'سبب الخسارة';
+
+  @override
+  String get assignedAgent => 'الموظف المسؤول';
+
+  @override
+  String get updateStage => 'تحديث المرحلة';
+
+  @override
+  String get archiveDeal => 'أرشفة الصفقة';
+
+  @override
+  String get archiveDealConfirmation =>
+      'سيتم أرشفة هذه الصفقة وإخفاؤها من قوائم الصفقات النشطة.';
+
+  @override
+  String get dealCreatedSuccessfully => 'تم إنشاء الصفقة بنجاح.';
+
+  @override
+  String get dealUpdatedSuccessfully => 'تم تحديث الصفقة بنجاح.';
+
+  @override
+  String get dealArchivedSuccessfully => 'تمت أرشفة الصفقة بنجاح.';
+
+  @override
+  String get dealStageUpdatedSuccessfully => 'تم تحديث مرحلة الصفقة بنجاح.';
+
+  @override
+  String get unableToSaveDeal => 'تعذر حفظ الصفقة. حاول مرة أخرى.';
+
+  @override
+  String get lostReasonRequired => 'سبب الخسارة مطلوب.';
+
+  @override
+  String get selectClient => 'اختر العميل';
+
+  @override
+  String get selectLead => 'اختر العميل المحتمل';
+
+  @override
+  String get selectProperty => 'اختر العقار';
+
+  @override
+  String get selectAssignedAgent => 'اختر الموظف المسؤول';
+
+  @override
+  String get allClosingDates => 'كل تواريخ الإغلاق';
+
+  @override
+  String get pastClosing => 'إغلاق متأخر';
+
+  @override
+  String get thisWeek => 'هذا الأسبوع';
+
+  @override
+  String get thisMonth => 'هذا الشهر';
+
+  @override
+  String get backToDeals => 'العودة إلى الصفقات';
+
+  @override
+  String get dealNotFoundMessage =>
+      'الصفقة غير موجودة. افتحها من قائمة الصفقات.';
+
+  @override
+  String get reportsComingSoon => 'التقارير قادمة قريباً.';
+
+  @override
+  String get myProfile => 'ملفي الشخصي';
+
+  @override
+  String get profileInformation => 'بيانات الملف الشخصي';
+
+  @override
+  String get role => 'الدور';
+
+  @override
+  String get accountStatus => 'حالة الحساب';
+
+  @override
+  String get active => 'نشط';
+
+  @override
+  String get fullName => 'الاسم الكامل';
+
+  @override
+  String get edit => 'تعديل';
+
+  @override
+  String get preferences => 'التفضيلات';
+
+  @override
+  String get appearance => 'المظهر';
+
+  @override
+  String get account => 'الحساب';
+
+  @override
+  String get aboutApp => 'عن التطبيق';
+
+  @override
+  String get admin => 'مسؤول';
+
+  @override
+  String get manager => 'مدير';
+
+  @override
+  String get salesAgent => 'موظف مبيعات';
+
+  @override
+  String get marketing => 'تسويق';
+
+  @override
+  String get viewer => 'مشاهد';
+
+  @override
+  String get connectionTimeout =>
+      'تعذر تحميل البيانات. تحقق من الاتصال وحاول مرة أخرى.';
+
+  @override
+  String get unableToLoadReports => 'تعذر تحميل التقارير. حاول مرة أخرى.';
+
+  @override
+  String get reportsOverview =>
+      'راجع أداء إدارة العملاء باستخدام بيانات العملاء المحتملين والصفقات والمهام والعقارات للفترة المحددة.';
+
+  @override
+  String get reportPeriod => 'فترة التقرير';
+
+  @override
+  String get selectedPeriod => 'الفترة المحددة';
+
+  @override
+  String get allTime => 'كل الفترات';
+
+  @override
+  String get today => 'اليوم';
+
+  @override
+  String get totalDeals => 'إجمالي الصفقات';
+
+  @override
+  String get wonDeals => 'الصفقات الرابحة';
+
+  @override
+  String get lostDeals => 'الصفقات الخاسرة';
+
+  @override
+  String get expectedValueTotal => 'إجمالي القيمة المتوقعة';
+
+  @override
+  String get commissionTotal => 'إجمالي العمولة';
+
+  @override
+  String get dealsByStage => 'الصفقات حسب المرحلة';
+
+  @override
+  String get dealPipeline => 'مسار الصفقات';
+
+  @override
+  String get pipelineValue => 'قيمة المسار';
+
+  @override
+  String get recentDeals => 'أحدث الصفقات';
+
+  @override
+  String get overdueTasks => 'المهام المتأخرة';
+
+  @override
+  String get dueTodayTasks => 'مهام اليوم';
+
+  @override
+  String get upcomingTasks => 'المهام القادمة';
+
+  @override
+  String get completedTasks => 'المهام المكتملة';
+
+  @override
+  String get cancelledTasks => 'المهام الملغاة';
+
+  @override
+  String get completionRate => 'معدل الإنجاز';
+
+  @override
+  String get overdueRate => 'معدل التأخير';
+
+  @override
+  String get leadsReport => 'أداء العملاء المحتملين';
+
+  @override
+  String get dealsReport => 'أداء الصفقات';
+
+  @override
+  String get tasksReport => 'المهام والمتابعات';
+
+  @override
+  String get propertiesReport => 'تقرير العقارات';
+
+  @override
+  String get teamReport => 'تقرير الموظفين';
+
+  @override
+  String get leadsByStatus => 'العملاء المحتملون حسب الحالة';
+
+  @override
+  String get leadsBySource => 'العملاء المحتملون حسب المصدر';
+
+  @override
+  String get leadsByPriority => 'العملاء المحتملون حسب الأولوية';
+
+  @override
+  String get propertiesByStatus => 'العقارات حسب الحالة';
+
+  @override
+  String get propertiesByType => 'العقارات حسب النوع';
+
+  @override
+  String get taskStatusDistribution => 'توزيع حالات المهام';
+
+  @override
+  String get agentPerformance => 'أداء الموظفين';
+
+  @override
+  String get highestPriorityTasks => 'أهم المهام العاجلة';
+
+  @override
+  String get inventoryValue => 'قيمة المخزون';
+
+  @override
+  String get totalListedValue => 'إجمالي قيمة المعروض';
+
+  @override
+  String get averagePrice => 'متوسط السعر';
+
+  @override
+  String get wonValue => 'قيمة الصفقات الرابحة';
+
+  @override
+  String get lostValue => 'قيمة الصفقات الخاسرة';
+
+  @override
+  String get noReportData => 'لا توجد بيانات تقارير للفلاتر المحددة.';
+
+  @override
+  String get addDeal => 'إضافة صفقة';
+
+  @override
+  String get appVersion => 'إصدار التطبيق';
+
+  @override
+  String get version => 'الإصدار';
 }

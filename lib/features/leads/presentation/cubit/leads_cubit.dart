@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/utils/initial_load_timeout.dart';
 import '../../domain/errors/lead_exception.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -53,6 +54,7 @@ class LeadsCubit extends Cubit<LeadsState> {
   StreamSubscription<List<Lead>>? _leadsSubscription;
   StreamSubscription<List<LeadNote>>? _notesSubscription;
   StreamSubscription<List<LeadTimelineEvent>>? _timelineSubscription;
+  final InitialLoadTimeout _leadsInitialLoadTimeout = InitialLoadTimeout();
   static const Duration _firebaseTimeout = Duration(seconds: 10);
 
   Future<bool> _hasConnection() async {
@@ -86,12 +88,24 @@ class LeadsCubit extends Cubit<LeadsState> {
   void watchLeads({required String companyId, String? assignedTo}) {
     emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
     _leadsSubscription?.cancel();
+    _leadsInitialLoadTimeout.start(() {
+      if (isClosed || state.status != LeadsStatus.loading || state.leads.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _leadsSubscription =
         _watchLeadsUseCase(companyId: companyId, assignedTo: assignedTo).listen(
           (leads) {
             if (isClosed) {
               return;
             }
+            _leadsInitialLoadTimeout.complete();
             final filtered = _applyFilters(
               leads,
               searchQuery: state.searchQuery,
@@ -116,10 +130,11 @@ class LeadsCubit extends Cubit<LeadsState> {
             if (isClosed) {
               return;
             }
+            _leadsInitialLoadTimeout.complete();
             emit(
               state.copyWith(
                 status: LeadsStatus.failure,
-                message: 'Unable to load leads. Please try again.',
+                message: AppErrorMessages.connectionTimeout,
               ),
             );
           },
@@ -774,6 +789,7 @@ class LeadsCubit extends Cubit<LeadsState> {
 
   @override
   Future<void> close() {
+    _leadsInitialLoadTimeout.cancel();
     _leadsSubscription?.cancel();
     _notesSubscription?.cancel();
     _timelineSubscription?.cancel();

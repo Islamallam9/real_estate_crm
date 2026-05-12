@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/utils/initial_load_timeout.dart';
 import '../../domain/entities/crm_task.dart';
 import '../../domain/errors/task_exception.dart';
 import '../../domain/usecases/create_task_usecase.dart';
@@ -34,6 +35,8 @@ class TasksCubit extends Cubit<TasksState> {
 
   StreamSubscription<List<CrmTask>>? _tasksSubscription;
   StreamSubscription<CrmTask?>? _taskSubscription;
+  final InitialLoadTimeout _tasksInitialLoadTimeout = InitialLoadTimeout();
+  final InitialLoadTimeout _taskInitialLoadTimeout = InitialLoadTimeout();
 
   void watchTasks({required String companyId, String? assignedTo}) {
     emit(
@@ -44,6 +47,19 @@ class TasksCubit extends Cubit<TasksState> {
       ),
     );
     _tasksSubscription?.cancel();
+    _tasksInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != TasksStatus.loading ||
+          state.tasks.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: TasksStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _tasksSubscription = _watchTasksUseCase(
       companyId: companyId,
       assignedTo: assignedTo,
@@ -52,6 +68,7 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _tasksInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: tasks.isEmpty ? TasksStatus.empty : TasksStatus.loaded,
@@ -65,6 +82,7 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _tasksInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: TasksStatus.failure,
@@ -85,6 +103,19 @@ class TasksCubit extends Cubit<TasksState> {
       ),
     );
     _taskSubscription?.cancel();
+    _taskInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != TasksStatus.loading ||
+          state.selectedTask != null) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: TasksStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _taskSubscription = _watchTaskUseCase(
       companyId: companyId,
       taskId: taskId,
@@ -93,6 +124,7 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _taskInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: task == null ? TasksStatus.empty : TasksStatus.loaded,
@@ -105,6 +137,7 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _taskInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: TasksStatus.failure,
@@ -196,7 +229,7 @@ class TasksCubit extends Cubit<TasksState> {
     );
   }
 
-  Future<void> createTask({
+  Future<bool> createTask({
     required String companyId,
     required CrmTask task,
   }) async {
@@ -210,7 +243,7 @@ class TasksCubit extends Cubit<TasksState> {
     try {
       await _createTaskUseCase(companyId: companyId, task: task);
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -219,9 +252,10 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: TasksAction.createTask,
         ),
       );
+      return true;
     } on TaskException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -230,9 +264,10 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: TasksAction.createTask,
         ),
       );
+      return false;
     } catch (_) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -241,10 +276,11 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: TasksAction.createTask,
         ),
       );
+      return false;
     }
   }
 
-  Future<void> updateTask({
+  Future<bool> updateTask({
     required String companyId,
     required CrmTask task,
     TasksAction action = TasksAction.updateTask,
@@ -259,7 +295,7 @@ class TasksCubit extends Cubit<TasksState> {
     try {
       await _updateTaskUseCase(companyId: companyId, task: task);
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -268,9 +304,10 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: action,
         ),
       );
+      return true;
     } on TaskException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -279,9 +316,10 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: action,
         ),
       );
+      return false;
     } catch (_) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -290,10 +328,11 @@ class TasksCubit extends Cubit<TasksState> {
           lastAction: action,
         ),
       );
+      return false;
     }
   }
 
-  Future<void> markCompleted({
+  Future<bool> markCompleted({
     required String companyId,
     required CrmTask task,
     required String updatedBy,
@@ -305,7 +344,7 @@ class TasksCubit extends Cubit<TasksState> {
     );
   }
 
-  Future<void> cancelTask({
+  Future<bool> cancelTask({
     required String companyId,
     required CrmTask task,
     required String updatedBy,
@@ -322,7 +361,7 @@ class TasksCubit extends Cubit<TasksState> {
     required TaskRelatedType type,
     String? assignedTo,
   }) async {
-    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+    if (type == TaskRelatedType.general) {
       emit(
         state.copyWith(
           clearRelatedRecords: true,
@@ -522,6 +561,8 @@ class TasksCubit extends Cubit<TasksState> {
 
   @override
   Future<void> close() {
+    _tasksInitialLoadTimeout.cancel();
+    _taskInitialLoadTimeout.cancel();
     _tasksSubscription?.cancel();
     _taskSubscription?.cancel();
     return super.close();

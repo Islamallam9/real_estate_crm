@@ -209,8 +209,13 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
             assignedTo: assignedTo,
             limit: limit,
           );
-        case TaskRelatedType.general:
         case TaskRelatedType.deal:
+          return _getDealOptions(
+            companyId: companyId,
+            assignedTo: assignedTo,
+            limit: limit,
+          );
+        case TaskRelatedType.general:
           return const [];
       }
     } on FirebaseException catch (error) {
@@ -320,6 +325,50 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
           type: TaskRelatedType.property,
           title: data['title'] as String? ?? '',
           subtitle: location.isNotEmpty ? location : price?.toString() ?? '',
+        ),
+      );
+    }
+    options.sort((a, b) => a.title.compareTo(b.title));
+    return options;
+  }
+
+  Future<List<TaskRelatedRecordOption>> _getDealOptions({
+    required String companyId,
+    String? assignedTo,
+    required int limit,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore
+        .collection(FirebasePaths.companyDeals(companyId))
+        .where('isActive', isEqualTo: true);
+    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
+    }
+    final snapshot = await query.limit(limit).get();
+    final options = <TaskRelatedRecordOption>[];
+    for (final document in snapshot.docs) {
+      final data = document.data();
+      if ((data['companyId'] as String? ?? '') != companyId) {
+        throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      final clientName = data['clientName'] as String? ?? '';
+      final propertyTitle = data['propertyTitle'] as String? ?? '';
+      final stage = data['stage'] as String? ?? '';
+      final location = data['propertyLocation'] as String? ?? '';
+      final title = clientName.trim().isEmpty
+          ? propertyTitle
+          : propertyTitle.trim().isEmpty
+              ? clientName
+              : '$clientName - $propertyTitle';
+      final subtitle = [
+        if (stage.trim().isNotEmpty) stage,
+        if (location.trim().isNotEmpty) location,
+      ].join(' - ');
+      options.add(
+        TaskRelatedRecordOption(
+          id: document.id,
+          type: TaskRelatedType.deal,
+          title: title,
+          subtitle: subtitle,
         ),
       );
     }

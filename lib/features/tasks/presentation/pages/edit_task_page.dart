@@ -43,6 +43,7 @@ class _EditTaskView extends StatefulWidget {
 }
 
 class _EditTaskViewState extends State<_EditTaskView> {
+  bool _isSubmitting = false;
   @override
   void initState() {
     super.initState();
@@ -79,12 +80,14 @@ class _EditTaskViewState extends State<_EditTaskView> {
                       current.status == TasksStatus.failure),
               listener: (context, state) {
                 if (state.status == TasksStatus.failure) {
+                  setState(() => _isSubmitting = false);
                   AppFeedback.error(
                     context,
                     localizeErrorMessage(l, state.message),
                   );
                   return;
                 }
+                setState(() => _isSubmitting = false);
                 AppFeedback.success(
                   context,
                   l.taskUpdatedSuccessfully,
@@ -118,7 +121,7 @@ class _EditTaskViewState extends State<_EditTaskView> {
                   return AppErrorView(message: l.permissionDenied);
                 }
 
-                final isSaving = state.status == TasksStatus.saving;
+                final isSaving = _isSubmitting || state.status == TasksStatus.saving;
                 final canEditAssignment =
                     role == UserRole.admin || role == UserRole.manager;
                 final form = canEditAssignment
@@ -141,6 +144,10 @@ class _EditTaskViewState extends State<_EditTaskView> {
                             isSaving: isSaving,
                             submitLabel: l.updateTask,
                             onSubmit: (updatedTask) {
+                              if (_isSubmitting) {
+                                return;
+                              }
+                              setState(() => _isSubmitting = true);
                               context.read<TasksCubit>().updateTask(
                                 companyId: companyId,
                                 task: updatedTask,

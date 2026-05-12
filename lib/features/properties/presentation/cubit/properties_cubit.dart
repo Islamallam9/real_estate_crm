@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/utils/initial_load_timeout.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/errors/property_exception.dart';
 import '../../domain/usecases/create_property_usecase.dart';
@@ -30,6 +31,8 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   final DeactivatePropertyUseCase _deactivatePropertyUseCase;
 
   StreamSubscription<List<Property>>? _propertiesSubscription;
+  final InitialLoadTimeout _propertiesInitialLoadTimeout =
+      InitialLoadTimeout();
   static const Duration _firebaseTimeout = Duration(seconds: 10);
 
   Future<bool> _hasConnection() async {
@@ -61,12 +64,26 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       ),
     );
     _propertiesSubscription?.cancel();
+    _propertiesInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != PropertiesStatus.loading ||
+          state.properties.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: PropertiesStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _propertiesSubscription = _watchPropertiesUseCase(companyId: companyId)
         .listen(
           (properties) {
             if (isClosed) {
               return;
             }
+            _propertiesInitialLoadTimeout.complete();
             emit(
               state.copyWith(
                 status: properties.isEmpty
@@ -88,12 +105,13 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             if (isClosed) {
               return;
             }
+            _propertiesInitialLoadTimeout.complete();
             emit(
               state.copyWith(
                 status: PropertiesStatus.failure,
                 message: _propertyErrorMessage(
                   error,
-                  'Unable to load properties. Please try again.',
+                  AppErrorMessages.connectionTimeout,
                 ),
               ),
             );
@@ -391,6 +409,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
 
   @override
   Future<void> close() {
+    _propertiesInitialLoadTimeout.cancel();
     _propertiesSubscription?.cancel();
     return super.close();
   }

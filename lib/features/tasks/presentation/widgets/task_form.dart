@@ -131,6 +131,7 @@ class _TaskFormState extends State<TaskForm> {
                     TaskRelatedType.lead,
                     TaskRelatedType.client,
                     TaskRelatedType.property,
+                    TaskRelatedType.deal,
                   ],
                   itemLabelBuilder: (type) => _relatedTypeLabel(l, type),
                   enabled: !widget.isSaving,
@@ -377,7 +378,7 @@ class _TaskFormState extends State<TaskForm> {
 
   void _loadRelatedOptions(TaskRelatedType type) {
     final cubit = context.read<TasksCubit>();
-    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+    if (type == TaskRelatedType.general) {
       cubit.clearRelatedRecordOptions();
       return;
     }
@@ -404,7 +405,7 @@ class _RelatedRecordPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (type == TaskRelatedType.general || type == TaskRelatedType.deal) {
+    if (type == TaskRelatedType.general) {
       return const SizedBox.shrink();
     }
 
@@ -667,6 +668,7 @@ String _emptyRelatedRecordsLabel(AppLocalizations l, TaskRelatedType type) {
     case TaskRelatedType.property:
       return l.noPropertiesFound;
     case TaskRelatedType.deal:
+      return l.noDealsAvailable;
     case TaskRelatedType.general:
       return l.noData;
   }

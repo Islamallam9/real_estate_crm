@@ -2,7 +2,7 @@
 
 ## Project Name
 
-Masar CRM
+Real Estate CRM
 
 ## Project Description
 
@@ -63,6 +63,107 @@ Build a real estate CRM that allows a real estate company to manage:
 - Audit logs
 
 The system should support both mobile and web.
+
+---
+
+# Current Project Status
+
+These notes reflect the current working state of Masar CRM and should guide future Codex tasks.
+
+## Brand and Website Identity
+
+- App name: Masar CRM.
+- Arabic brand name: مسار.
+- Login brand beside the logo: Masar | مسار.
+- Browser title:
+  - English: Masar CRM.
+  - Arabic: مسار | متابعة مبيعات العقارات.
+- Firebase project, package name, bundle ID, and app identifiers were not renamed as part of the branding work.
+- The visible product brand is Masar even if Firebase Hosting or project IDs still use older technical identifiers.
+
+## Implemented Modules and Current Status
+
+- Authentication, login, logout, user profile loading, and protected routing are implemented.
+- Leads are implemented and tested for the current phase.
+- Properties are implemented and tested for the current phase.
+- Clients are implemented and tested for the current phase.
+- Tasks and follow-ups are implemented and tested enough to move forward.
+- Dashboard exists and shows useful CRM sections/metrics where data is available.
+- Deals is the next core business module.
+- Reports is not implemented yet and must not appear as a working module.
+- Profile and Settings are planned as basic user-facing screens.
+- Manager/team hierarchy is planned later and must not be mixed into unrelated module work.
+
+## Current Visual Identity
+
+Masar uses a warm premium real-estate CRM direction:
+
+```text
+Workspace: cream / warm off-white
+Sidebar: warm beige in light mode
+Primary action accent: premium amber
+Cards: white / warm off-white
+Borders: soft beige-gray
+Text: charcoal / dark brown
+Blue: minimal, mainly for semantic info states
+```
+
+Dashboard welcome cards should use a warm premium background with subtle real-estate or geometric line-art, not a flat plain card.
+
+## Current Unified UI Rules
+
+All modules must feel like one product. Future modules must reuse the same:
+
+- page header style
+- search/filter pattern
+- AppButton style
+- AppDropdown style
+- AppStatusBadge style
+- AppFeedback style
+- circular loading pattern
+- centered create/edit form pattern
+- mobile card behavior
+- table/card density
+- warm Masar color palette
+
+Do not create a different UI style for new modules.
+
+## Current Async UX Rules
+
+- All create/edit/save forms must disable every field while saving.
+- Save/update buttons must show circular loading until the backend request fully completes.
+- Pages, dialogs, and sheets must not close before success.
+- Failures must keep the user on the same page and show modern feedback.
+- Buttons that trigger Firebase/Auth/database/network work must show pending state and final success/error feedback.
+- Actions that only open menus, routes, sheets, or filter panels do not need database loading.
+
+## Current Mobile Dashboard Rule
+
+- Mobile Dashboard uses a floating quick-add FAB for Add Lead and Add Client.
+- The old mobile quick-action panel/cards for Add Lead, Add Client, and Add Property should stay hidden/removed on mobile.
+- Desktop/tablet quick actions may remain.
+- Add Client quick action is admin/manager only.
+- Add Lead follows the existing create-lead permission logic.
+
+## Saved Tasks Backlog
+
+- Tasks should support related Deal records after Deals exists.
+- Check/fix duplicated `initialDate` in the task form if present.
+- Improve complete/cancel row action state if practical.
+- Avoid relying only on global `TasksStatus.saving` for row-level actions if practical.
+- Do not add manager-team logic to Tasks yet.
+
+## Future Manager/Team Plan
+
+This is a future phase, not part of Deals or visual polish tasks.
+
+- Admin will eventually assign managers and team members.
+- Managers will eventually view/manage only their own team performance.
+- Recommended future user fields:
+  - `managerId`
+  - `teamId`
+- Recommended future collection:
+  - `companies/{companyId}/teams/{teamId}`
 
 ---
 
@@ -262,12 +363,12 @@ The design should feel like a premium internal real-estate CRM used every day by
 ## Approved Visual Reference Direction
 
 Use the selected visual references as the approved style direction:
-- Warm beige rounded sidebar shell.
-- Cream / warm off-white workspace.
+- Deep navy rounded sidebar shell.
+- Soft off-white / cool-gray workspace.
 - White cards and tables with subtle borders and shallow shadows.
 - Rounded but disciplined geometry.
-- Premium amber accent for active navigation, selected states, and important actions.
-- Background that is not a dead flat color: use subtle warm geometric forms, soft cream radial tints, dots, or low-opacity warm linework.
+- Controlled blue-violet accent for active navigation, selected states, and important actions.
+- Background that is not a dead flat color: use subtle geometric forms, soft radial tints, dots, or low-opacity network/grid textures.
 - Dense, useful layouts with no dead space, but still enough breathing room to scan comfortably.
 
 The visual result should feel closer to:
@@ -313,18 +414,18 @@ The CRM visual identity should be:
 - real-estate/business oriented
 - human-designed
 
-Use a restrained warm premium CRM palette:
+Use a restrained palette:
 
 ```text
-Shell / sidebar: warm beige / cream
-Primary accent: premium amber
-Secondary accent: restrained warm neutral
-Workspace background: cream / warm off-white
-Surface: white or warm off-white
-Surface elevated: subtle warm neutral
-Text primary: charcoal
-Text secondary: warm gray / taupe
-Border: soft beige-gray
+Shell / sidebar: deep navy / ink blue
+Primary accent: controlled blue-violet
+Secondary accent: muted teal or muted steel blue
+Workspace background: soft off-white / cool gray
+Surface: white or near-white
+Surface elevated: subtle warm/cool neutral
+Text primary: near-black navy
+Text secondary: cool gray / slate
+Border: soft gray
 Success: muted green
 Warning: muted amber
 Error: controlled red
@@ -332,12 +433,11 @@ Info: muted blue
 ```
 
 Color rules:
-- Warm cream and beige are the structural anchors.
-- Amber is for focus, active navigation, selected rows, and primary actions, not for decorating every card.
+- Navy is the structural anchor.
+- Accent colors are for focus, active navigation, selected rows, and primary actions, not for decorating every card.
 - Status colors must be semantic and consistent across all modules.
 - Avoid many unrelated colors on one screen.
 - Dark mode must remain premium and readable, not neon.
-- Blue should be minimal and used mainly for info states.
 
 ## Typography Direction
 
@@ -393,8 +493,8 @@ Use a persistent app shell:
 - Only the inner workspace changes between modules.
 
 Sidebar direction:
-- Warm beige rounded shell.
-- Strong active navigation pill with premium amber accent.
+- Deep navy rounded shell.
+- Strong active navigation pill with controlled accent.
 - Clean iconography.
 - Balanced vertical spacing.
 - Distinctive enough to feel custom, not like a default drawer.
@@ -1603,14 +1703,13 @@ Suggested style:
 ```text
 Primary: Premium amber
 Background: Cream / warm off-white
-Surface: White
-Text: Charcoal
+Surface: White / warm off-white
+Text: Charcoal / dark brown
 Borders: Soft beige-gray
 Success: Green
 Warning: Amber
 Error: Red
 Info: Blue, used sparingly
-Info: Blue
 ```
 
 Do not use too many colors.
@@ -2064,7 +2163,9 @@ Remaining issues:
 
 # Development Order
 
-Do not start with the dashboard.
+This order describes the original build sequence. The current project status is recorded near the top of this file and should be treated as the current source of truth.
+
+Do not start with the dashboard for new greenfield builds.
 
 Build in this order:
 

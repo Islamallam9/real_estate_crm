@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/utils/initial_load_timeout.dart';
 import '../../domain/entities/client.dart';
 import '../../domain/errors/client_exception.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
@@ -38,6 +39,8 @@ class ClientsCubit extends Cubit<ClientsState> {
 
   StreamSubscription<List<Client>>? _clientsSubscription;
   StreamSubscription<Client?>? _clientSubscription;
+  final InitialLoadTimeout _clientsInitialLoadTimeout = InitialLoadTimeout();
+  final InitialLoadTimeout _clientInitialLoadTimeout = InitialLoadTimeout();
 
   void watchClients({required String companyId, String? assignedTo}) {
     emit(
@@ -48,6 +51,19 @@ class ClientsCubit extends Cubit<ClientsState> {
       ),
     );
     _clientsSubscription?.cancel();
+    _clientsInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != ClientsStatus.loading ||
+          state.clients.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _clientsSubscription = _watchClientsUseCase(
       companyId: companyId,
       assignedTo: assignedTo,
@@ -56,6 +72,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         if (isClosed) {
           return;
         }
+        _clientsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: clients.isEmpty ? ClientsStatus.empty : ClientsStatus.loaded,
@@ -73,6 +90,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         if (isClosed) {
           return;
         }
+        _clientsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: ClientsStatus.failure,
@@ -96,6 +114,19 @@ class ClientsCubit extends Cubit<ClientsState> {
       ),
     );
     _clientSubscription?.cancel();
+    _clientInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != ClientsStatus.loading ||
+          state.selectedClient != null) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
     _clientSubscription = _watchClientUseCase(
       companyId: companyId,
       clientId: clientId,
@@ -104,6 +135,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         if (isClosed) {
           return;
         }
+        _clientInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: client == null ? ClientsStatus.empty : ClientsStatus.loaded,
@@ -116,6 +148,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         if (isClosed) {
           return;
         }
+        _clientInitialLoadTimeout.complete();
         emit(
           state.copyWith(
             status: ClientsStatus.failure,
@@ -405,6 +438,8 @@ class ClientsCubit extends Cubit<ClientsState> {
 
   @override
   Future<void> close() {
+    _clientsInitialLoadTimeout.cancel();
+    _clientInitialLoadTimeout.cancel();
     _clientsSubscription?.cancel();
     _clientSubscription?.cancel();
     return super.close();

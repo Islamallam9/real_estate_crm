@@ -16,7 +16,16 @@ import '../routing/route_names.dart';
 import 'app_feedback.dart';
 import 'responsive_layout.dart';
 
-enum CrmNavigationItem { dashboard, leads, properties, clients, tasks, more }
+enum CrmNavigationItem {
+  dashboard,
+  leads,
+  properties,
+  clients,
+  tasks,
+  deals,
+  reports,
+  more,
+}
 
 class CrmAppShell extends StatelessWidget {
   const CrmAppShell({
@@ -57,6 +66,16 @@ class CrmAppShell extends StatelessWidget {
       item: CrmNavigationItem.tasks,
       icon: Icons.checklist_outlined,
       selectedIcon: Icons.checklist,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.deals,
+      icon: Icons.handshake_outlined,
+      selectedIcon: Icons.handshake,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.reports,
+      icon: Icons.bar_chart_outlined,
+      selectedIcon: Icons.bar_chart,
     ),
   ];
 
@@ -133,6 +152,10 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.clients);
     case CrmNavigationItem.tasks:
       context.go(RouteNames.tasks);
+    case CrmNavigationItem.deals:
+      context.go(RouteNames.deals);
+    case CrmNavigationItem.reports:
+      context.go(RouteNames.reports);
     case CrmNavigationItem.more:
       break;
   }
@@ -533,7 +556,9 @@ class _MobileBottomNavigation extends StatelessWidget {
       return true;
     }
     return item == CrmNavigationItem.more &&
-        selectedItem == CrmNavigationItem.tasks;
+        (selectedItem == CrmNavigationItem.tasks ||
+            selectedItem == CrmNavigationItem.deals ||
+            selectedItem == CrmNavigationItem.reports);
   }
 }
 
@@ -659,12 +684,18 @@ void _showMobileMoreSheet(BuildContext context) {
                 _MoreSheetTile(
                   icon: Icons.handshake_outlined,
                   label: localizations.deals,
-                  onTap: () => Navigator.of(sheetContext).pop(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.deals);
+                  },
                 ),
                 _MoreSheetTile(
                   icon: Icons.bar_chart_outlined,
                   label: localizations.reports,
-                  onTap: () => Navigator.of(sheetContext).pop(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.reports);
+                  },
                 ),
 
                 const Divider(height: AppSpacing.lg),
@@ -695,12 +726,14 @@ class _MoreSheetTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.subtitle,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final String? subtitle;
   final bool isDestructive;
 
   @override
@@ -716,6 +749,14 @@ class _MoreSheetTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w600),
       ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colors.textSecondary),
+            ),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
     );
@@ -1414,7 +1455,7 @@ class _NotificationIconButton extends StatelessWidget {
   }
 }
 
-enum _ProfileMenuAction { english, arabic, theme, logout }
+enum _ProfileMenuAction { profile, settings, english, arabic, theme, logout }
 
 class _ProfileMenuButton extends StatelessWidget {
   const _ProfileMenuButton();
@@ -1454,6 +1495,10 @@ class _ProfileMenuButton extends StatelessWidget {
                     context.read<LocaleCubit>().setArabic();
                   case _ProfileMenuAction.theme:
                     context.read<ThemeCubit>().toggle();
+                  case _ProfileMenuAction.profile:
+                    context.go(RouteNames.profile);
+                  case _ProfileMenuAction.settings:
+                    context.go(RouteNames.settings);
                   case _ProfileMenuAction.logout:
                     context.read<AuthBloc>().add(const AuthSignOutRequested());
                 }
@@ -1475,19 +1520,17 @@ class _ProfileMenuButton extends StatelessWidget {
                   ),
                   const PopupMenuDivider(height: 1),
                   PopupMenuItem<_ProfileMenuAction>(
-                    enabled: false,
+                    value: _ProfileMenuAction.profile,
                     child: _ProfileMenuTile(
                       icon: Icons.person_outline,
                       label: l.profile,
-                      trailing: l.comingSoon,
                     ),
                   ),
                   PopupMenuItem<_ProfileMenuAction>(
-                    enabled: false,
+                    value: _ProfileMenuAction.settings,
                     child: _ProfileMenuTile(
                       icon: Icons.settings_outlined,
                       label: l.settings,
-                      trailing: l.comingSoon,
                     ),
                   ),
                   const PopupMenuDivider(height: 1),
@@ -1740,6 +1783,10 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.clients;
     case CrmNavigationItem.tasks:
       return localizations.tasks;
+    case CrmNavigationItem.deals:
+      return localizations.deals;
+    case CrmNavigationItem.reports:
+      return localizations.reports;
     case CrmNavigationItem.more:
       return localizations.more;
   }

@@ -11,6 +11,10 @@ import '../../features/clients/presentation/pages/client_details_page.dart';
 import '../../features/clients/presentation/pages/edit_client_page.dart';
 import '../../features/clients/presentation/pages/clients_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/deals/presentation/pages/create_deal_page.dart';
+import '../../features/deals/presentation/pages/deal_details_page.dart';
+import '../../features/deals/presentation/pages/deals_page.dart';
+import '../../features/deals/presentation/pages/edit_deal_page.dart';
 import '../../features/leads/presentation/pages/create_lead_page.dart';
 import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
@@ -19,6 +23,9 @@ import '../../features/properties/presentation/pages/create_property_page.dart';
 import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/property_details_page.dart';
 import '../../features/properties/presentation/pages/properties_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/reports/presentation/pages/reports_page.dart';
+import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/tasks/presentation/pages/create_task_page.dart';
 import '../../features/tasks/presentation/pages/edit_task_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
@@ -74,6 +81,38 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.tasks,
           builder: (context, state) => const TasksPage(),
+        ),
+        GoRoute(
+          path: RouteNames.deals,
+          builder: (context, state) => const DealsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.reports,
+          builder: (context, state) => const ReportsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.profile,
+          builder: (context, state) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: RouteNames.settings,
+          builder: (context, state) => const SettingsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.dealsCreate,
+          builder: (context, state) => const CreateDealPage(),
+        ),
+        GoRoute(
+          path: '/deals/:dealId/edit',
+          builder: (context, state) {
+            return EditDealPage(dealId: state.pathParameters['dealId'] ?? '');
+          },
+        ),
+        GoRoute(
+          path: '/deals/:dealId',
+          builder: (context, state) {
+            return DealDetailsPage(dealId: state.pathParameters['dealId'] ?? '');
+          },
         ),
         GoRoute(
           path: RouteNames.tasksCreate,

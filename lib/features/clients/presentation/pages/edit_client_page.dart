@@ -45,6 +45,9 @@ class _EditClientView extends StatefulWidget {
 }
 
 class _EditClientViewState extends State<_EditClientView> {
+  bool _isSubmitting = false;
+
+
   @override
   void initState() {
     super.initState();
@@ -78,19 +81,22 @@ class _EditClientViewState extends State<_EditClientView> {
                   (current.status == ClientsStatus.saved ||
                       current.status == ClientsStatus.failure),
               listener: (context, state) {
-                if (state.status == ClientsStatus.failure) {
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-                AppFeedback.success(
-                  context,
-                  l.clientUpdatedSuccessfully,
-                );
-                context.go(RouteNames.clientDetails(widget.clientId));
-              },
+          if (state.status == ClientsStatus.failure) {
+            setState(() => _isSubmitting = false);
+            AppFeedback.error(
+              context,
+              localizeErrorMessage(l, state.message),
+            );
+            return;
+          }
+
+          setState(() => _isSubmitting = false);
+          AppFeedback.success(
+            context,
+            l.clientUpdatedSuccessfully,
+          );
+          context.go(RouteNames.clientDetails(widget.clientId));
+        },
               builder: (context, state) {
                 if (state.status == ClientsStatus.initial ||
                     (state.status == ClientsStatus.loading &&
@@ -119,7 +125,7 @@ class _EditClientViewState extends State<_EditClientView> {
                   return AppErrorView(message: l.permissionDenied);
                 }
 
-                final isSaving = state.status == ClientsStatus.saving;
+                final isSaving = _isSubmitting || state.status == ClientsStatus.saving;
                 final canEditAssignment =
                     role == UserRole.admin || role == UserRole.manager;
                 final form = canEditAssignment
@@ -139,6 +145,10 @@ class _EditClientViewState extends State<_EditClientView> {
                             isSaving: isSaving,
                             submitLabel: l.updateClient,
                             onSubmit: (updatedClient) {
+                              if (_isSubmitting) {
+                                return;
+                              }
+                              setState(() => _isSubmitting = true);
                               context.read<ClientsCubit>().updateClient(
                                 companyId: companyId,
                                 client: updatedClient,

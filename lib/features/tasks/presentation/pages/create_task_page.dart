@@ -26,6 +26,7 @@ import '../widgets/tasks_scope.dart';
 class CreateTaskPage extends StatelessWidget {
   const CreateTaskPage({super.key});
 
+
   @override
   Widget build(BuildContext context) {
     return const TasksScope(child: _CreateTaskView());
@@ -34,6 +35,7 @@ class CreateTaskPage extends StatelessWidget {
 
 class _CreateTaskView extends StatelessWidget {
   const _CreateTaskView();
+
 
   @override
   Widget build(BuildContext context) {

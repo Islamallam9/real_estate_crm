@@ -2233,6 +2233,618 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search tasks'**
   String get searchTasks;
+
+  /// No description provided for @createDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Create deal'**
+  String get createDeal;
+
+  /// No description provided for @editDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit deal'**
+  String get editDeal;
+
+  /// No description provided for @updateDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Update deal'**
+  String get updateDeal;
+
+  /// No description provided for @dealDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal details'**
+  String get dealDetails;
+
+  /// No description provided for @dealsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track client opportunities, property value, commission, and closing progress.'**
+  String get dealsSubtitle;
+
+  /// No description provided for @dealInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal information'**
+  String get dealInformation;
+
+  /// No description provided for @dealValueAndStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Value and stage'**
+  String get dealValueAndStage;
+
+  /// No description provided for @dealSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal summary'**
+  String get dealSummary;
+
+  /// No description provided for @noDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'No deals yet.'**
+  String get noDeals;
+
+  /// No description provided for @noDealsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No deals available.'**
+  String get noDealsAvailable;
+
+  /// No description provided for @noDealsMatchFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'No deals match the current filters.'**
+  String get noDealsMatchFilters;
+
+  /// No description provided for @searchDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Search deals'**
+  String get searchDeals;
+
+  /// No description provided for @dealStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal stage'**
+  String get dealStage;
+
+  /// No description provided for @newDealStage.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newDealStage;
+
+  /// No description provided for @qualified.
+  ///
+  /// In en, this message translates to:
+  /// **'Qualified'**
+  String get qualified;
+
+  /// No description provided for @proposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal'**
+  String get proposal;
+
+  /// No description provided for @expectedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected value'**
+  String get expectedValue;
+
+  /// No description provided for @commission.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission'**
+  String get commission;
+
+  /// No description provided for @closingDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing date'**
+  String get closingDate;
+
+  /// No description provided for @lostReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost reason'**
+  String get lostReason;
+
+  /// No description provided for @assignedAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned agent'**
+  String get assignedAgent;
+
+  /// No description provided for @updateStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Update stage'**
+  String get updateStage;
+
+  /// No description provided for @archiveDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive deal'**
+  String get archiveDeal;
+
+  /// No description provided for @archiveDealConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This deal will be archived and hidden from active deal lists.'**
+  String get archiveDealConfirmation;
+
+  /// No description provided for @dealCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal created successfully.'**
+  String get dealCreatedSuccessfully;
+
+  /// No description provided for @dealUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal updated successfully.'**
+  String get dealUpdatedSuccessfully;
+
+  /// No description provided for @dealArchivedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal archived successfully.'**
+  String get dealArchivedSuccessfully;
+
+  /// No description provided for @dealStageUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal stage updated successfully.'**
+  String get dealStageUpdatedSuccessfully;
+
+  /// No description provided for @unableToSaveDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save deal. Please try again.'**
+  String get unableToSaveDeal;
+
+  /// No description provided for @lostReasonRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost reason is required.'**
+  String get lostReasonRequired;
+
+  /// No description provided for @selectClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Select client'**
+  String get selectClient;
+
+  /// No description provided for @selectLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Select lead'**
+  String get selectLead;
+
+  /// No description provided for @selectProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Select property'**
+  String get selectProperty;
+
+  /// No description provided for @selectAssignedAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Select assigned agent'**
+  String get selectAssignedAgent;
+
+  /// No description provided for @allClosingDates.
+  ///
+  /// In en, this message translates to:
+  /// **'All closing dates'**
+  String get allClosingDates;
+
+  /// No description provided for @pastClosing.
+  ///
+  /// In en, this message translates to:
+  /// **'Past closing'**
+  String get pastClosing;
+
+  /// No description provided for @thisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get thisWeek;
+
+  /// No description provided for @thisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get thisMonth;
+
+  /// No description provided for @backToDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to deals'**
+  String get backToDeals;
+
+  /// No description provided for @dealNotFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal not found. Open it from the deals list.'**
+  String get dealNotFoundMessage;
+
+  /// No description provided for @reportsComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports are coming soon.'**
+  String get reportsComingSoon;
+
+  /// No description provided for @myProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'My profile'**
+  String get myProfile;
+
+  /// No description provided for @profileInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile information'**
+  String get profileInformation;
+
+  /// No description provided for @role.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get role;
+
+  /// No description provided for @accountStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Account status'**
+  String get accountStatus;
+
+  /// No description provided for @active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get active;
+
+  /// No description provided for @fullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name'**
+  String get fullName;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get preferences;
+
+  /// No description provided for @appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearance;
+
+  /// No description provided for @account.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get account;
+
+  /// No description provided for @aboutApp.
+  ///
+  /// In en, this message translates to:
+  /// **'About app'**
+  String get aboutApp;
+
+  /// No description provided for @admin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get admin;
+
+  /// No description provided for @manager.
+  ///
+  /// In en, this message translates to:
+  /// **'Manager'**
+  String get manager;
+
+  /// No description provided for @salesAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales agent'**
+  String get salesAgent;
+
+  /// No description provided for @marketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing'**
+  String get marketing;
+
+  /// No description provided for @viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get viewer;
+
+  /// No description provided for @connectionTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load data. Check your connection and try again.'**
+  String get connectionTimeout;
+
+  /// No description provided for @unableToLoadReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load reports. Please try again.'**
+  String get unableToLoadReports;
+
+  /// No description provided for @reportsOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review CRM performance using real leads, deals, tasks, and properties for the selected period.'**
+  String get reportsOverview;
+
+  /// No description provided for @reportPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Report period'**
+  String get reportPeriod;
+
+  /// No description provided for @selectedPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected period'**
+  String get selectedPeriod;
+
+  /// No description provided for @allTime.
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get allTime;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @totalDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Total deals'**
+  String get totalDeals;
+
+  /// No description provided for @wonDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Won deals'**
+  String get wonDeals;
+
+  /// No description provided for @lostDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost deals'**
+  String get lostDeals;
+
+  /// No description provided for @expectedValueTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected value total'**
+  String get expectedValueTotal;
+
+  /// No description provided for @commissionTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission total'**
+  String get commissionTotal;
+
+  /// No description provided for @dealsByStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals by stage'**
+  String get dealsByStage;
+
+  /// No description provided for @dealPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal pipeline'**
+  String get dealPipeline;
+
+  /// No description provided for @pipelineValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline value'**
+  String get pipelineValue;
+
+  /// No description provided for @recentDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent deals'**
+  String get recentDeals;
+
+  /// No description provided for @overdueTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue tasks'**
+  String get overdueTasks;
+
+  /// No description provided for @dueTodayTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today tasks'**
+  String get dueTodayTasks;
+
+  /// No description provided for @upcomingTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming tasks'**
+  String get upcomingTasks;
+
+  /// No description provided for @completedTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed tasks'**
+  String get completedTasks;
+
+  /// No description provided for @cancelledTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled tasks'**
+  String get cancelledTasks;
+
+  /// No description provided for @completionRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion rate'**
+  String get completionRate;
+
+  /// No description provided for @overdueRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue rate'**
+  String get overdueRate;
+
+  /// No description provided for @leadsReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads performance'**
+  String get leadsReport;
+
+  /// No description provided for @dealsReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals performance'**
+  String get dealsReport;
+
+  /// No description provided for @tasksReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks and follow-ups'**
+  String get tasksReport;
+
+  /// No description provided for @propertiesReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Properties report'**
+  String get propertiesReport;
+
+  /// No description provided for @teamReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent report'**
+  String get teamReport;
+
+  /// No description provided for @leadsByStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads by status'**
+  String get leadsByStatus;
+
+  /// No description provided for @leadsBySource.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads by source'**
+  String get leadsBySource;
+
+  /// No description provided for @leadsByPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads by priority'**
+  String get leadsByPriority;
+
+  /// No description provided for @propertiesByStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Properties by status'**
+  String get propertiesByStatus;
+
+  /// No description provided for @propertiesByType.
+  ///
+  /// In en, this message translates to:
+  /// **'Properties by type'**
+  String get propertiesByType;
+
+  /// No description provided for @taskStatusDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Task status distribution'**
+  String get taskStatusDistribution;
+
+  /// No description provided for @agentPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent performance'**
+  String get agentPerformance;
+
+  /// No description provided for @highestPriorityTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Highest priority tasks'**
+  String get highestPriorityTasks;
+
+  /// No description provided for @inventoryValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Inventory value'**
+  String get inventoryValue;
+
+  /// No description provided for @totalListedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Total listed value'**
+  String get totalListedValue;
+
+  /// No description provided for @averagePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Average price'**
+  String get averagePrice;
+
+  /// No description provided for @wonValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Won value'**
+  String get wonValue;
+
+  /// No description provided for @lostValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost value'**
+  String get lostValue;
+
+  /// No description provided for @noReportData.
+  ///
+  /// In en, this message translates to:
+  /// **'No report data for the selected filters.'**
+  String get noReportData;
+
+  /// No description provided for @addDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Add deal'**
+  String get addDeal;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get appVersion;
+
+  /// No description provided for @version.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get version;
 }
 
 class _AppLocalizationsDelegate
