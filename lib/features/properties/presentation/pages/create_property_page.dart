@@ -107,10 +107,15 @@ class _CreatePropertyView extends StatelessWidget {
                               actorUid: uid,
                               isSaving: isSaving,
                               submitLabel: l.createProperty,
-                              onSubmit: (property) {
+                              onSubmit: (
+                                property, {
+                                newImages = const [],
+                                removedImageStoragePaths = const [],
+                              }) {
                                 context.read<PropertiesCubit>().createProperty(
                                   companyId: companyId,
                                   property: property,
+                                  newImages: newImages,
                                 );
                               },
                             ),

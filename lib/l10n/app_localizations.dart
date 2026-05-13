@@ -1358,6 +1358,60 @@ abstract class AppLocalizations {
   /// **'Owner information'**
   String get propertyOwnerSection;
 
+  /// No description provided for @propertyImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Property images'**
+  String get propertyImages;
+
+  /// No description provided for @propertyImagesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload clear property photos. The first image is used as the cover.'**
+  String get propertyImagesHint;
+
+  /// No description provided for @addPropertyImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Add images'**
+  String get addPropertyImages;
+
+  /// No description provided for @noPropertyImagesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No property images yet.'**
+  String get noPropertyImagesYet;
+
+  /// No description provided for @removeImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get removeImage;
+
+  /// No description provided for @newImage.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get newImage;
+
+  /// No description provided for @propertyImageInvalidType.
+  ///
+  /// In en, this message translates to:
+  /// **'Only image files are allowed.'**
+  String get propertyImageInvalidType;
+
+  /// No description provided for @propertyImageTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Each property image must be 5 MB or smaller.'**
+  String get propertyImageTooLarge;
+
+  /// No description provided for @unableToPickPropertyImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to select property images. Please try again.'**
+  String get unableToPickPropertyImages;
+
   /// No description provided for @propertyCreatedSuccessfully.
   ///
   /// In en, this message translates to:

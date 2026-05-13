@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../domain/entities/property.dart';
+import '../../domain/entities/property_image_upload.dart';
 import '../../domain/errors/property_exception.dart';
 import '../../domain/usecases/create_property_usecase.dart';
 import '../../domain/usecases/deactivate_property_usecase.dart';
@@ -197,6 +198,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   Future<void> createProperty({
     required String companyId,
     required Property property,
+    List<PropertyImageUpload> newImages = const [],
   }) async {
     emit(
       state.copyWith(
@@ -210,6 +212,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         () => _createPropertyUseCase(
           companyId: companyId,
           property: property,
+          newImages: newImages,
         ),
       );
       if (isClosed) {
@@ -252,6 +255,8 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   Future<void> updateProperty({
     required String companyId,
     required Property property,
+    List<PropertyImageUpload> newImages = const [],
+    List<String> removedImageStoragePaths = const [],
   }) async {
     emit(
       state.copyWith(
@@ -265,6 +270,8 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         () => _updatePropertyUseCase(
           companyId: companyId,
           property: property,
+          newImages: newImages,
+          removedImageStoragePaths: removedImageStoragePaths,
         ),
       );
       if (isClosed) {

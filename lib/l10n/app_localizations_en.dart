@@ -659,6 +659,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propertyOwnerSection => 'Owner information';
 
   @override
+  String get propertyImages => 'Property images';
+
+  @override
+  String get propertyImagesHint =>
+      'Upload clear property photos. The first image is used as the cover.';
+
+  @override
+  String get addPropertyImages => 'Add images';
+
+  @override
+  String get noPropertyImagesYet => 'No property images yet.';
+
+  @override
+  String get removeImage => 'Remove image';
+
+  @override
+  String get newImage => 'New';
+
+  @override
+  String get propertyImageInvalidType => 'Only image files are allowed.';
+
+  @override
+  String get propertyImageTooLarge =>
+      'Each property image must be 5 MB or smaller.';
+
+  @override
+  String get unableToPickPropertyImages =>
+      'Unable to select property images. Please try again.';
+
+  @override
   String get propertyCreatedSuccessfully => 'Property created successfully.';
 
   @override

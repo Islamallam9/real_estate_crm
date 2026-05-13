@@ -1,13 +1,25 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/property.dart';
+import '../../domain/entities/property_image_upload.dart';
 import 'property_labels.dart';
+
+typedef PropertyFormSubmit = void Function(
+  Property property, {
+  List<PropertyImageUpload> newImages,
+  List<String> removedImageStoragePaths,
+});
 
 class PropertyForm extends StatefulWidget {
   const PropertyForm({
@@ -22,7 +34,7 @@ class PropertyForm extends StatefulWidget {
 
   final String companyId;
   final String actorUid;
-  final ValueChanged<Property> onSubmit;
+  final PropertyFormSubmit onSubmit;
   final Property? property;
   final bool isSaving;
   final String? submitLabel;
@@ -33,6 +45,7 @@ class PropertyForm extends StatefulWidget {
 
 class _PropertyFormState extends State<PropertyForm> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
@@ -44,9 +57,16 @@ class _PropertyFormState extends State<PropertyForm> {
   final _ownerNameController = TextEditingController();
   final _ownerPhoneController = TextEditingController();
 
+  static const int _maxImageBytes = 5 * 1024 * 1024;
+
   PropertyType _propertyType = PropertyType.apartment;
   PropertyListingType _listingType = PropertyListingType.sale;
   PropertyStatus _status = PropertyStatus.available;
+  List<String> _existingImageUrls = const [];
+  List<String> _existingImageStoragePaths = const [];
+  final List<String> _removedImageStoragePaths = [];
+  final List<_PendingPropertyImage> _pendingImages = [];
+  bool _isPickingImages = false;
 
   @override
   void initState() {
@@ -73,6 +93,8 @@ class _PropertyFormState extends State<PropertyForm> {
     _propertyType = property.propertyType;
     _listingType = property.listingType;
     _status = property.status;
+    _existingImageUrls = List<String>.from(property.imageUrls);
+    _existingImageStoragePaths = List<String>.from(property.imageStoragePaths);
   }
 
   @override
@@ -93,6 +115,7 @@ class _PropertyFormState extends State<PropertyForm> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final isBusy = widget.isSaving || _isPickingImages;
     return Form(
       key: _formKey,
       child: Column(
@@ -102,21 +125,21 @@ class _PropertyFormState extends State<PropertyForm> {
             AppTextField(
               controller: _titleController,
               label: l.propertyTitle,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _requiredValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               controller: _descriptionController,
               label: l.description,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               maxLines: 3,
             ),
             const SizedBox(height: AppSpacing.md),
             AppDropdown<PropertyType>(
               label: l.propertyType,
               value: _propertyType,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               items: PropertyType.values,
               itemLabelBuilder: (value) => propertyTypeLabel(l, value),
               onChanged: (value) => setState(() => _propertyType = value),
@@ -125,7 +148,7 @@ class _PropertyFormState extends State<PropertyForm> {
             AppDropdown<PropertyListingType>(
               label: l.listingType,
               value: _listingType,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               items: PropertyListingType.values,
               itemLabelBuilder: (value) => propertyListingTypeLabel(l, value),
               onChanged: (value) => setState(() => _listingType = value),
@@ -134,10 +157,21 @@ class _PropertyFormState extends State<PropertyForm> {
             AppDropdown<PropertyStatus>(
               label: l.status,
               value: _status,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               items: PropertyStatus.values,
               itemLabelBuilder: (value) => propertyStatusLabel(l, value),
               onChanged: (value) => setState(() => _status = value),
+            ),
+          ]),
+          const SizedBox(height: AppSpacing.lg),
+          _section(context, l.propertyImages, [
+            _PropertyImagesPicker(
+              existingImageUrls: _existingImageUrls,
+              pendingImages: _pendingImages,
+              isBusy: isBusy,
+              onPickImages: _pickImages,
+              onRemoveExisting: _removeExistingImage,
+              onRemovePending: _removePendingImage,
             ),
           ]),
           const SizedBox(height: AppSpacing.lg),
@@ -146,7 +180,7 @@ class _PropertyFormState extends State<PropertyForm> {
               controller: _priceController,
               label: l.price,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _positiveNumberValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -154,7 +188,7 @@ class _PropertyFormState extends State<PropertyForm> {
               controller: _areaController,
               label: l.area,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _positiveNumberValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -162,7 +196,7 @@ class _PropertyFormState extends State<PropertyForm> {
               controller: _bedroomsController,
               label: l.bedrooms,
               keyboardType: TextInputType.number,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _nonNegativeNumberValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -170,7 +204,7 @@ class _PropertyFormState extends State<PropertyForm> {
               controller: _bathroomsController,
               label: l.bathrooms,
               keyboardType: TextInputType.number,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _nonNegativeNumberValidator(value, l),
             ),
           ]),
@@ -179,14 +213,14 @@ class _PropertyFormState extends State<PropertyForm> {
             AppTextField(
               controller: _locationController,
               label: l.location,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
               validator: (value) => _requiredValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               controller: _compoundController,
               label: l.compound,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
             ),
           ]),
           const SizedBox(height: AppSpacing.lg),
@@ -194,21 +228,21 @@ class _PropertyFormState extends State<PropertyForm> {
             AppTextField(
               controller: _ownerNameController,
               label: l.ownerName,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               controller: _ownerPhoneController,
               label: l.ownerPhone,
               keyboardType: TextInputType.phone,
-              enabled: !widget.isSaving,
+              enabled: !isBusy,
             ),
           ]),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
             label: widget.submitLabel ?? l.createProperty,
             isLoading: widget.isSaving,
-            onPressed: widget.isSaving ? null : _submit,
+            onPressed: isBusy ? null : _submit,
           ),
         ],
       ),
@@ -237,6 +271,88 @@ class _PropertyFormState extends State<PropertyForm> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickImages() async {
+    final l = AppLocalizations.of(context)!;
+    setState(() => _isPickingImages = true);
+    try {
+      final pickedFiles = await _imagePicker.pickMultiImage(imageQuality: 82);
+      if (pickedFiles.isEmpty) {
+        return;
+      }
+
+      final validImages = <_PendingPropertyImage>[];
+      var rejectedByType = false;
+      var rejectedBySize = false;
+
+      for (final pickedFile in pickedFiles) {
+        final contentType = _contentTypeFor(pickedFile);
+        if (!contentType.startsWith('image/')) {
+          rejectedByType = true;
+          continue;
+        }
+
+        final bytes = await pickedFile.readAsBytes();
+        if (bytes.lengthInBytes > _maxImageBytes) {
+          rejectedBySize = true;
+          continue;
+        }
+
+        validImages.add(
+          _PendingPropertyImage(
+            fileName: pickedFile.name,
+            bytes: bytes,
+            contentType: contentType,
+          ),
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+      if (validImages.isNotEmpty) {
+        setState(() => _pendingImages.addAll(validImages));
+      }
+      if (rejectedByType) {
+        AppFeedback.warning(context, l.propertyImageInvalidType);
+      }
+      if (rejectedBySize) {
+        AppFeedback.warning(context, l.propertyImageTooLarge);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppFeedback.error(context, l.unableToPickPropertyImages);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImages = false);
+      }
+    }
+  }
+
+  void _removeExistingImage(int index) {
+    if (index < 0 || index >= _existingImageUrls.length) {
+      return;
+    }
+
+    setState(() {
+      _existingImageUrls.removeAt(index);
+      if (index < _existingImageStoragePaths.length) {
+        final storagePath = _existingImageStoragePaths.removeAt(index).trim();
+        if (storagePath.isNotEmpty) {
+          _removedImageStoragePaths.add(storagePath);
+        }
+      }
+    });
+  }
+
+  void _removePendingImage(int index) {
+    if (index < 0 || index >= _pendingImages.length) {
+      return;
+    }
+
+    setState(() => _pendingImages.removeAt(index));
   }
 
   String? _requiredValidator(String? value, AppLocalizations l) {
@@ -283,6 +399,10 @@ class _PropertyFormState extends State<PropertyForm> {
 
     final now = DateTime.now();
     final previous = widget.property;
+    final retainedCoverImageUrl = _resolveRetainedCoverImageUrl(
+      previousCoverImageUrl: previous?.coverImageUrl,
+      retainedImageUrls: _existingImageUrls,
+    );
 
     widget.onSubmit(
       Property(
@@ -302,12 +422,246 @@ class _PropertyFormState extends State<PropertyForm> {
         ownerName: _ownerNameController.text.trim(),
         ownerPhone: _ownerPhoneController.text.trim(),
         assignedTo: previous?.assignedTo ?? '',
-        imageUrls: previous?.imageUrls ?? const <String>[],
+        imageUrls: List<String>.unmodifiable(_existingImageUrls),
+        coverImageUrl: retainedCoverImageUrl,
+        imageStoragePaths: List<String>.unmodifiable(_existingImageStoragePaths),
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,
         createdBy: previous?.createdBy ?? widget.actorUid,
         updatedBy: widget.actorUid,
       ),
+      newImages: _pendingImages
+          .map(
+            (image) => PropertyImageUpload(
+              fileName: image.fileName,
+              bytes: image.bytes,
+              contentType: image.contentType,
+            ),
+          )
+          .toList(growable: false),
+      removedImageStoragePaths: List<String>.unmodifiable(
+        _removedImageStoragePaths,
+      ),
     );
   }
+}
+
+class _PropertyImagesPicker extends StatelessWidget {
+  const _PropertyImagesPicker({
+    required this.existingImageUrls,
+    required this.pendingImages,
+    required this.isBusy,
+    required this.onPickImages,
+    required this.onRemoveExisting,
+    required this.onRemovePending,
+  });
+
+  final List<String> existingImageUrls;
+  final List<_PendingPropertyImage> pendingImages;
+  final bool isBusy;
+  final VoidCallback onPickImages;
+  final ValueChanged<int> onRemoveExisting;
+  final ValueChanged<int> onRemovePending;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final hasImages = existingImageUrls.isNotEmpty || pendingImages.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l.propertyImagesHint,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondaryColor(context),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: AppButton(
+            label: l.addPropertyImages,
+            icon: Icons.add_photo_alternate_outlined,
+            variant: AppButtonVariant.secondary,
+            isLoading: isBusy,
+            onPressed: isBusy ? null : onPickImages,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (!hasImages)
+          _PropertyImagePlaceholder(label: l.noPropertyImagesYet)
+        else
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              for (var index = 0; index < existingImageUrls.length; index += 1)
+                _PropertyImageTile(
+                  image: Image.network(
+                    existingImageUrls[index],
+                    fit: BoxFit.cover,
+                    webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.textMutedColor(context),
+                    ),
+                  ),
+                  onRemove: isBusy ? null : () => onRemoveExisting(index),
+                ),
+              for (var index = 0; index < pendingImages.length; index += 1)
+                _PropertyImageTile(
+                  image: Image.memory(pendingImages[index].bytes, fit: BoxFit.cover),
+                  badge: l.newImage,
+                  onRemove: isBusy ? null : () => onRemovePending(index),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _PropertyImageTile extends StatelessWidget {
+  const _PropertyImageTile({required this.image, this.badge, this.onRemove});
+
+  final Image image;
+  final String? badge;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 118,
+      height: 92,
+      child: ClipRRect(
+        borderRadius: AppRadius.medium,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(color: AppColors.appBackground(context)),
+              child: image,
+            ),
+            if (badge != null)
+              PositionedDirectional(
+                start: 6,
+                bottom: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface(context).withValues(alpha: 0.9),
+                    borderRadius: AppRadius.large,
+                  ),
+                  child: Text(
+                    badge!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            PositionedDirectional(
+              top: 4,
+              end: 4,
+              child: IconButton.filledTonal(
+                tooltip: AppLocalizations.of(context)!.removeImage,
+                onPressed: onRemove,
+                icon: const Icon(Icons.close, size: 16),
+                constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PropertyImagePlaceholder extends StatelessWidget {
+  const _PropertyImagePlaceholder({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 96,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.appBackground(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.medium,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.image_outlined,
+            color: AppColors.textMutedColor(context),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingPropertyImage {
+  const _PendingPropertyImage({
+    required this.fileName,
+    required this.bytes,
+    required this.contentType,
+  });
+
+  final String fileName;
+  final Uint8List bytes;
+  final String contentType;
+}
+
+String _contentTypeFor(XFile file) {
+  final mimeType = file.mimeType;
+  if (mimeType != null && mimeType.trim().isNotEmpty) {
+    return mimeType.trim().toLowerCase();
+  }
+
+  final lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lowerName.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (lowerName.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  return 'image/jpeg';
+}
+
+String? _resolveRetainedCoverImageUrl({
+  required String? previousCoverImageUrl,
+  required List<String> retainedImageUrls,
+}) {
+  final trimmedCover = previousCoverImageUrl?.trim();
+  if (trimmedCover != null &&
+      trimmedCover.isNotEmpty &&
+      retainedImageUrls.contains(trimmedCover)) {
+    return trimmedCover;
+  }
+
+  for (final imageUrl in retainedImageUrls) {
+    final trimmedUrl = imageUrl.trim();
+    if (trimmedUrl.isNotEmpty) {
+      return trimmedUrl;
+    }
+  }
+
+  return null;
 }

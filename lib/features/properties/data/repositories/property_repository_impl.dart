@@ -1,4 +1,5 @@
 import '../../domain/entities/property.dart';
+import '../../domain/entities/property_image_upload.dart';
 import '../../domain/repositories/property_repository.dart';
 import '../datasources/properties_remote_data_source.dart';
 import '../models/property_model.dart';
@@ -15,10 +16,12 @@ class PropertyRepositoryImpl implements PropertyRepository {
   Future<Property> createProperty({
     required String companyId,
     required Property property,
+    List<PropertyImageUpload> newImages = const [],
   }) {
     return _remoteDataSource.createProperty(
       companyId: companyId,
       property: PropertyModel.fromEntity(property),
+      newImages: newImages,
     );
   }
 
@@ -26,10 +29,14 @@ class PropertyRepositoryImpl implements PropertyRepository {
   Future<Property> updateProperty({
     required String companyId,
     required Property property,
+    List<PropertyImageUpload> newImages = const [],
+    List<String> removedImageStoragePaths = const [],
   }) {
     return _remoteDataSource.updateProperty(
       companyId: companyId,
       property: PropertyModel.fromEntity(property),
+      newImages: newImages,
+      removedImageStoragePaths: removedImageStoragePaths,
     );
   }
 

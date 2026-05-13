@@ -112,8 +112,7 @@
   "lightMode": "الوضع الفاتح",
   "darkMode": "الوضع الداكن",
   "arabic": "العربية",
-  "english": "الإنجليزية"
-  ,
+  "english": "الإنجليزية",
   "salesWorkspace": "من العميل المحتمل إلى الصفقة، مسار واضح واحد.",
   "searchCrm": "البحث في مسار CRM",
   "notifications": "الإشعارات",
@@ -129,25 +128,21 @@
   "openDeals": "الصفقات المفتوحة",
   "availableProperties": "العقارات المتاحة",
   "authScreenPlaceholder": "شاشة تسجيل دخول مؤقتة",
-  "openDashboard": "فتح لوحة التحكم"
-  ,
+  "openDashboard": "فتح لوحة التحكم",
   "welcomeBack": "مرحباً بعودتك",
   "loginSubtitle": "من العميل المحتمل إلى الصفقة، مسار واضح واحد.",
   "emailRequired": "البريد الإلكتروني مطلوب.",
   "passwordRequired": "كلمة المرور مطلوبة.",
   "invalidEmail": "أدخل بريداً إلكترونياً صحيحاً.",
   "forgotPassword": "نسيت كلمة المرور؟",
-  "signingIn": "جاري تسجيل الدخول..."
-  ,
+  "signingIn": "جاري تسجيل الدخول...",
   "authErrorInvalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   "authErrorConnection": "حدث خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
   "authErrorSignInFailed": "تعذر تسجيل الدخول. حاول مرة أخرى.",
   "authErrorSignOutFailed": "تعذر تسجيل الخروج. حاول مرة أخرى.",
   "authErrorProfileMissing": "تعذر تحميل ملف المستخدم الخاص بك.",
-  "authErrorInactiveAccount": "حسابك غير مفعل. يرجى التواصل مع مسؤول النظام."
-  ,
-  "logoutTooltip": "تسجيل الخروج"
-  ,
+  "authErrorInactiveAccount": "حسابك غير مفعل. يرجى التواصل مع مسؤول النظام.",
+  "logoutTooltip": "تسجيل الخروج",
   "createLead": "إضافة عميل محتمل",
   "quickAdd": "إضافة سريعة",
   "addLead": "إضافة عميل محتمل",
@@ -236,6 +231,15 @@
   "propertyMetrics": "بيانات العقار",
   "propertyLocationSection": "الموقع",
   "propertyOwnerSection": "بيانات المالك",
+  "propertyImages": "صور العقار",
+  "propertyImagesHint": "ارفع صورًا واضحة للعقار. سيتم استخدام أول صورة كصورة الغلاف.",
+  "addPropertyImages": "إضافة صور",
+  "noPropertyImagesYet": "لا توجد صور للعقار حتى الآن.",
+  "removeImage": "حذف الصورة",
+  "newImage": "جديد",
+  "propertyImageInvalidType": "يُسمح بملفات الصور فقط.",
+  "propertyImageTooLarge": "يجب ألا يتجاوز حجم كل صورة 5 ميجابايت.",
+  "unableToPickPropertyImages": "تعذر اختيار صور العقار. حاول مرة أخرى.",
   "propertyCreatedSuccessfully": "تم إنشاء العقار بنجاح.",
   "propertyUpdatedSuccessfully": "تم تحديث العقار بنجاح.",
   "propertyDetails": "تفاصيل العقار",
@@ -282,8 +286,7 @@
   "whatsapp": "واتساب",
   "referral": "ترشيح",
   "walkIn": "زيارة مباشرة",
-  "other": "أخرى"
-  ,
+  "other": "أخرى",
   "leadsSubtitle": "تابع الاستفسارات الجديدة وتواصل مع العملاء المحتملين.",
   "cancel": "إلغاء",
   "back": "رجوع",
@@ -303,17 +306,14 @@
   "nextFollowUp": "المتابعة القادمة",
   "clearDate": "مسح التاريخ",
   "leadPreferences": "تفضيلات العميل المحتمل",
-  "leadAssignment": "الإسناد والملاحظات"
-  ,
-  "missingCompanyProfile": "تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى."
-  ,
+  "leadAssignment": "الإسناد والملاحظات",
+  "missingCompanyProfile": "تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى.",
   "editLead": "تعديل العميل المحتمل",
   "updateLead": "تحديث العميل المحتمل",
   "leadUpdated": "تم تحديث العميل المحتمل بنجاح.",
   "searchLeads": "البحث في العملاء المحتملين",
   "allStatuses": "كل الحالات",
   "allSources": "كل المصادر",
-  "allPriorities": "كل الأولويات",
   "allAgents": "كل الموظفين",
   "assignee": "المسؤول",
   "allAssignees": "كل المسؤولين",
@@ -328,8 +328,7 @@
   "activeUsers": "المستخدمون النشطون",
   "unassigned": "غير مسند",
   "onlyAdminsManagersCanAssign": "يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.",
-  "cannotAssignAcrossCompanies": "لا يمكن إسناد عميل محتمل خارج شركتك."
-  ,
+  "cannotAssignAcrossCompanies": "لا يمكن إسناد عميل محتمل خارج شركتك.",
   "accessDenied": "تم رفض الوصول",
   "assignedUser": "المستخدم المسند إليه",
   "assignedUserUnavailable": "المستخدم المسند غير متوفر",
@@ -344,9 +343,7 @@
   "archivedEvent": "تمت أرشفة العميل المحتمل",
   "updatedEvent": "تم تحديث العميل المحتمل",
   "changedFrom": "تم التغيير من",
-  "changedTo": "تم التغيير إلى"
-  ,
-  "unknownUser": "مستخدم غير معروف",
+  "changedTo": "تم التغيير إلى",
   "leadCreatedBy": "تم إنشاء العميل المحتمل بواسطة {user}",
   "@leadCreatedBy": {
     "placeholders": {
@@ -378,10 +375,8 @@
       "user": {}
     }
   },
-  "noLeadsAvailable": "لا توجد عملاء محتملون متاحون."
-  ,
-  "noNotesAvailable": "لا توجد ملاحظات متاحة."
-  ,
+  "noLeadsAvailable": "لا توجد عملاء محتملون متاحون.",
+  "noNotesAvailable": "لا توجد ملاحظات متاحة.",
   "noTimelineEvents": "لا توجد أحداث في الخط الزمني بعد.",
   "fieldChangedBy": "تم تغيير {field} بواسطة {user}",
   "@fieldChangedBy": {
@@ -412,20 +407,16 @@
   "priorityUpdated": "الأولوية",
   "budgetUpdated": "الميزانية",
   "preferredLocationUpdated": "الموقع المفضل",
-  "preferredPropertyTypeUpdated": "نوع العقار المفضل"
-  ,
+  "preferredPropertyTypeUpdated": "نوع العقار المفضل",
   "more": "المزيد",
   "filters": "الفلاتر",
   "applyFilters": "تطبيق الفلاتر",
-  "clearFilters": "مسح الفلاتر",
-  "updated": "تم التحديث"
-  ,
+  "updated": "تم التحديث",
   "somethingWentWrong": "حدث خطأ ما",
   "tryAgain": "حاول مرة أخرى",
   "unableToConnect": "تعذر الاتصال. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
   "leadUpdateFailed": "تعذر تحديث العميل المحتمل. حاول مرة أخرى.",
-  "noData": "لا توجد بيانات متاحة."
-  ,
+  "noData": "لا توجد بيانات متاحة.",
   "leadReassignedFromToBy": "تم إعادة إسناد العميل المحتمل من {fromUser} إلى {toUser} بواسطة {actor}",
   "@leadReassignedFromToBy": {
     "placeholders": {
@@ -456,8 +447,8 @@
   "markContactedToday": "تسجيل التواصل اليوم",
   "leadMarkedContactedToday": "تم تسجيل التواصل مع العميل المحتمل اليوم.",
   "scheduleFollowUp": "جدولة متابعة",
-  "duplicateLeadFound": "يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني."
-  ,"dashboardGoodMorning": "صباح الخير",
+  "duplicateLeadFound": "يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.",
+  "dashboardGoodMorning": "صباح الخير",
   "dashboardGoodAfternoon": "مساء الخير",
   "dashboardGoodEvening": "مساء الخير",
   "dashboardOverdueFollowUps": "متابعات متأخرة",
@@ -544,7 +535,6 @@
   "allTime": "كل الفترات",
   "today": "اليوم",
   "totalDeals": "إجمالي الصفقات",
-  "wonDeals": "الصفقات الرابحة",
   "lostDeals": "الصفقات الخاسرة",
   "expectedValueTotal": "إجمالي القيمة المتوقعة",
   "commissionTotal": "إجمالي العمولة",
@@ -552,7 +542,6 @@
   "dealPipeline": "مسار الصفقات",
   "pipelineValue": "قيمة المسار",
   "recentDeals": "أحدث الصفقات",
-  "overdueTasks": "المهام المتأخرة",
   "dueTodayTasks": "مهام اليوم",
   "upcomingTasks": "المهام القادمة",
   "completedTasks": "المهام المكتملة",

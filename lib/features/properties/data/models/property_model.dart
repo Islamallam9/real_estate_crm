@@ -21,6 +21,8 @@ class PropertyModel extends Property {
     required super.ownerPhone,
     required super.assignedTo,
     required super.imageUrls,
+    required super.coverImageUrl,
+    required super.imageStoragePaths,
     required super.createdAt,
     required super.updatedAt,
     required super.createdBy,
@@ -46,6 +48,8 @@ class PropertyModel extends Property {
       ownerPhone: property.ownerPhone,
       assignedTo: property.assignedTo,
       imageUrls: property.imageUrls,
+      coverImageUrl: property.coverImageUrl,
+      imageStoragePaths: property.imageStoragePaths,
       createdAt: property.createdAt,
       updatedAt: property.updatedAt,
       createdBy: property.createdBy,
@@ -83,6 +87,11 @@ class PropertyModel extends Property {
       ownerPhone: data['ownerPhone'] as String? ?? '',
       assignedTo: data['assignedTo'] as String? ?? '',
       imageUrls: _stringListFromValue(data['imageUrls']),
+      coverImageUrl: _coverImageUrlFromValue(
+        data['coverImageUrl'],
+        data['imageUrls'],
+      ),
+      imageStoragePaths: _stringListFromValue(data['imageStoragePaths']),
       createdAt: _dateTimeFromValue(data['createdAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       createdBy: data['createdBy'] as String? ?? '',
@@ -109,6 +118,8 @@ class PropertyModel extends Property {
       'ownerPhone': ownerPhone,
       'assignedTo': assignedTo,
       'imageUrls': imageUrls,
+      'coverImageUrl': coverImageUrl,
+      'imageStoragePaths': imageStoragePaths,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'createdBy': createdBy,
@@ -243,4 +254,21 @@ int _intFromValue(Object? value) {
   }
 
   return 0;
+}
+
+
+String? _coverImageUrlFromValue(Object? coverImageUrl, Object? imageUrls) {
+  if (coverImageUrl is String && coverImageUrl.trim().isNotEmpty) {
+    return coverImageUrl.trim();
+  }
+
+  final urls = _stringListFromValue(imageUrls);
+  for (final url in urls) {
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.isNotEmpty) {
+      return trimmedUrl;
+    }
+  }
+
+  return null;
 }

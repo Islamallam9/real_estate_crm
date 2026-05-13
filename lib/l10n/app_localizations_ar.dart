@@ -660,6 +660,35 @@ class AppLocalizationsAr extends AppLocalizations {
   String get propertyOwnerSection => 'بيانات المالك';
 
   @override
+  String get propertyImages => 'صور العقار';
+
+  @override
+  String get propertyImagesHint =>
+      'ارفع صورًا واضحة للعقار. سيتم استخدام أول صورة كصورة الغلاف.';
+
+  @override
+  String get addPropertyImages => 'إضافة صور';
+
+  @override
+  String get noPropertyImagesYet => 'لا توجد صور للعقار حتى الآن.';
+
+  @override
+  String get removeImage => 'حذف الصورة';
+
+  @override
+  String get newImage => 'جديد';
+
+  @override
+  String get propertyImageInvalidType => 'يُسمح بملفات الصور فقط.';
+
+  @override
+  String get propertyImageTooLarge => 'يجب ألا يتجاوز حجم كل صورة 5 ميجابايت.';
+
+  @override
+  String get unableToPickPropertyImages =>
+      'تعذر اختيار صور العقار. حاول مرة أخرى.';
+
+  @override
   String get propertyCreatedSuccessfully => 'تم إنشاء العقار بنجاح.';
 
   @override

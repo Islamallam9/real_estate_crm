@@ -40,7 +40,6 @@ class PropertyCard extends StatelessWidget {
         onTap: () => context.go(RouteNames.propertyDetails(property.id)),
         borderRadius: AppRadius.large,
         child: Ink(
-          padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.borderColor(context)),
             borderRadius: AppRadius.large,
@@ -51,77 +50,252 @@ class PropertyCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _displayText(localizations, property.title),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  0,
+                ),
+                child: _PropertyImageCarousel(property: property),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _displayText(localizations, property.title),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: AppStatusBadge(
+                                label: propertyStatusLabel(
+                                  localizations,
+                                  property.status,
+                                ),
+                                tone: propertyStatusTone(property.status),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      _displayText(localizations, property.location),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Flexible(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: AppStatusBadge(
-                          label: propertyStatusLabel(
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        _MetaChip(
+                          label: propertyTypeLabel(
                             localizations,
-                            property.status,
+                            property.propertyType,
                           ),
-                          tone: propertyStatusTone(property.status),
                         ),
-                      ),
+                        _MetaChip(
+                          label: propertyListingTypeLabel(
+                            localizations,
+                            property.listingType,
+                          ),
+                        ),
+                        _MetaChip(label: _formatNumber(context, property.price)),
+                        if (property.area > 0)
+                          _MetaChip(label: _formatNumber(context, property.area)),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  _MetaChip(
-                    label:
-                        '${propertyTypeLabel(localizations, property.propertyType)} / '
-                        '${propertyListingTypeLabel(localizations, property.listingType)}',
-                  ),
-                  _MetaChip(label: _formatNumber(context, property.price)),
-                  _MetaChip(label: _displayText(localizations, property.location)),
-                ],
-              ),
-              if (canEdit ||
-                  (canDeactivate && property.status != PropertyStatus.inactive)) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    if (canEdit)
-                      TextButton.icon(
-                        onPressed: () => context.go(
-                          RouteNames.propertyEdit(property.id),
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: Text(localizations.editProperty),
-                      ),
-                    if (canDeactivate &&
-                        property.status != PropertyStatus.inactive)
-                      TextButton.icon(
-                        onPressed: () => onDeactivate(property),
-                        icon: const Icon(Icons.archive_outlined, size: 18),
-                        label: Text(localizations.deactivateProperty),
-                      ),
                   ],
                 ),
-              ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PropertyImageCarousel extends StatefulWidget {
+  const _PropertyImageCarousel({required this.property});
+
+  final Property property;
+
+  @override
+  State<_PropertyImageCarousel> createState() => _PropertyImageCarouselState();
+}
+
+class _PropertyImageCarouselState extends State<_PropertyImageCarousel> {
+  late final PageController _controller;
+  var _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.property.imageUrls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .take(10)
+        .toList(growable: false);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final carouselHeight = (constraints.maxWidth * 0.58)
+            .clamp(118.0, 170.0)
+            .toDouble();
+
+        return ClipRRect(
+          borderRadius: AppRadius.medium,
+          child: SizedBox(
+            height: carouselHeight,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (images.isEmpty)
+                  ColoredBox(
+                    color: AppColors.appBackground(context),
+                    child: Icon(
+                      Icons.real_estate_agent_outlined,
+                      size: 40,
+                      color: AppColors.textMutedColor(context),
+                    ),
+                  )
+                else
+                  PageView.builder(
+                    controller: _controller,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: images.length,
+                    onPageChanged: (index) {
+                      setState(() => _currentIndex = index);
+                    },
+                    itemBuilder: (context, index) {
+                      return Image.network(
+                        images[index],
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                        errorBuilder: (context, error, stackTrace) => ColoredBox(
+                          color: AppColors.appBackground(context),
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: AppColors.textMutedColor(context),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                if (images.length > 1) ...[
+                  PositionedDirectional(
+                    start: AppSpacing.sm,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _ImageArrowButton(
+                        icon: Icons.chevron_left,
+                        onPressed: () {
+                          final nextIndex = _currentIndex == 0
+                              ? images.length - 1
+                              : _currentIndex - 1;
+                          _controller.animateToPage(
+                            nextIndex,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  PositionedDirectional(
+                    end: AppSpacing.sm,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _ImageArrowButton(
+                        icon: Icons.chevron_right,
+                        onPressed: () {
+                          final nextIndex = _currentIndex == images.length - 1
+                              ? 0
+                              : _currentIndex + 1;
+                          _controller.animateToPage(
+                            nextIndex,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ImageArrowButton extends StatelessWidget {
+  const _ImageArrowButton({
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.35),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            icon,
+            size: 20,
+            color: Colors.white,
           ),
         ),
       ),
@@ -152,7 +326,7 @@ class _MetaChip extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: AppColors.textSecondaryColor(context),
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

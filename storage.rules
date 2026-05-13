@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function companyUserDoc(companyId) {
+      return firestore.get(
+        /databases/(default)/documents/companies/$(companyId)/users/$(request.auth.uid)
+      );
+    }
+
+    function isActiveCompanyUser(companyId) {
+      return signedIn()
+        && companyUserDoc(companyId).data.companyId == companyId
+        && companyUserDoc(companyId).data.isActive == true;
+    }
+
+    function isAdminOrManager(companyId) {
+      return isActiveCompanyUser(companyId)
+        && companyUserDoc(companyId).data.role in ['admin', 'manager'];
+    }
+
+    match /companies/{companyId}/properties/{propertyId}/images/{fileName} {
+      allow read: if isActiveCompanyUser(companyId);
+
+      allow create, update: if isAdminOrManager(companyId)
+        && request.resource != null
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isAdminOrManager(companyId);
+    }
+  }
+}

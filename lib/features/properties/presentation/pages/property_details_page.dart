@@ -130,7 +130,8 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
                             AppButton(
                               label: l.backToProperties,
                               variant: AppButtonVariant.secondary,
-                              onPressed: () => context.go(RouteNames.properties),
+                              onPressed: () =>
+                                  context.go(RouteNames.properties),
                             ),
                             if (canEdit)
                               AppButton(
@@ -154,6 +155,8 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.lg),
+                        _PropertyImagesSection(property: property),
+                        const SizedBox(height: AppSpacing.md),
                         _DetailsSection(
                           title: l.details,
                           children: [
@@ -350,6 +353,153 @@ Future<void> _confirmDeactivateFromDetails(
   } else if (cubit.state.status == PropertiesStatus.failure &&
       cubit.state.lastAction == PropertiesAction.deactivateProperty) {
     AppFeedback.error(context, l.unableToDeactivateProperty);
+  }
+}
+
+class _PropertyImagesSection extends StatelessWidget {
+  const _PropertyImagesSection({required this.property});
+
+  final Property property;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final imageUrls = property.imageUrls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .take(10)
+        .toList(growable: false);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.propertyImages,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            height: 158,
+            child: imageUrls.isEmpty
+                ? _PropertyImagePreviewPlaceholder(message: l.noPropertyImagesYet)
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: imageUrls.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: AppSpacing.sm),
+                    itemBuilder: (context, index) {
+                      return _PropertyImagePreviewCard(
+                        imageUrl: imageUrls[index],
+                        index: index + 1,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PropertyImagePreviewCard extends StatelessWidget {
+  const _PropertyImagePreviewCard({required this.imageUrl, required this.index});
+
+  final String imageUrl;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 230,
+        height: 158,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+              errorBuilder: (context, error, stackTrace) => ColoredBox(
+                color: AppColors.appBackground(context),
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  size: 38,
+                  color: AppColors.textMutedColor(context),
+                ),
+              ),
+            ),
+            PositionedDirectional(
+              start: AppSpacing.sm,
+              top: AppSpacing.sm,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.52),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  index.toString(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PropertyImagePreviewPlaceholder extends StatelessWidget {
+  const _PropertyImagePreviewPlaceholder({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.appBackground(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.real_estate_agent_outlined,
+            size: 42,
+            color: AppColors.textMutedColor(context),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

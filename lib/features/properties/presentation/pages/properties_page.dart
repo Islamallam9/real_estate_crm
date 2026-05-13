@@ -24,7 +24,6 @@ import '../cubit/properties_state.dart';
 import '../widgets/properties_scope.dart';
 import '../widgets/property_card.dart';
 import '../widgets/property_labels.dart';
-import '../widgets/property_list_table.dart';
 
 class PropertiesPage extends StatelessWidget {
   const PropertiesPage({super.key});
@@ -290,34 +289,36 @@ class _PropertiesBody extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth < 720) {
-              return Column(
-                children: [
-                  for (var index = 0; index < state.filteredProperties.length; index++) ...[
-                    PropertyCard(
-                      property: state.filteredProperties[index],
-                      canEdit: canEdit,
-                      canDeactivate: canDeactivate,
-                      onDeactivate: (property) => _confirmDeactivate(
-                        context,
-                        property: property,
-                        companyId: companyId,
-                        updatedBy: uid,
-                      ),
-                    ),
-                    if (index != state.filteredProperties.length - 1)
-                      const SizedBox(height: AppSpacing.sm),
-                  ],
-                ],
-              );
-            }
+            final crossAxisCount = constraints.maxWidth >= 1080
+                ? 4
+                : constraints.maxWidth >= 760
+                ? 3
+                : 2;
 
-            return Align(
-              alignment: AlignmentDirectional.topStart,
-              child: SizedBox(
-                height: _tableHeightForRows(state.filteredProperties.length),
-                child: PropertyListTable(
-                  properties: state.filteredProperties,
+            final cardExtent = constraints.maxWidth >= 1080
+                ? 318.0
+                : constraints.maxWidth >= 760
+                ? 312.0
+                : 305.0;
+
+            final isNestedInPageScroll = !constraints.hasBoundedHeight;
+
+            return GridView.builder(
+              shrinkWrap: isNestedInPageScroll,
+              physics: isNestedInPageScroll
+                  ? const NeverScrollableScrollPhysics()
+                  : const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: state.filteredProperties.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: AppSpacing.md,
+                mainAxisSpacing: AppSpacing.md,
+                mainAxisExtent: cardExtent,
+              ),
+              itemBuilder: (context, index) {
+                return PropertyCard(
+                  property: state.filteredProperties[index],
                   canEdit: canEdit,
                   canDeactivate: canDeactivate,
                   onDeactivate: (property) => _confirmDeactivate(
@@ -326,8 +327,8 @@ class _PropertiesBody extends StatelessWidget {
                     companyId: companyId,
                     updatedBy: uid,
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),
@@ -747,7 +748,3 @@ List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
   ];
 }
 
-double _tableHeightForRows(int rowCount) {
-  final ideal = 54.0 * (rowCount + 1) + 2;
-  return ideal.clamp(180.0, 520.0).toDouble();
-}

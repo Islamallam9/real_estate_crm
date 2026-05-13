@@ -134,7 +134,11 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                                   property: property,
                                   isSaving: isSaving,
                                   submitLabel: l.updateProperty,
-                                  onSubmit: (updatedProperty) {
+                                  onSubmit: (
+                                    updatedProperty, {
+                                    newImages = const [],
+                                    removedImageStoragePaths = const [],
+                                  }) {
                                     if (_isSubmitting) {
                                       return;
                                     }
@@ -142,6 +146,9 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                                     context.read<PropertiesCubit>().updateProperty(
                                       companyId: companyId,
                                       property: updatedProperty,
+                                      newImages: newImages,
+                                      removedImageStoragePaths:
+                                          removedImageStoragePaths,
                                     );
                                   },
                                 ),

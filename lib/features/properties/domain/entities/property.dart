@@ -34,6 +34,8 @@ class Property extends Equatable {
     required this.ownerPhone,
     required this.assignedTo,
     required this.imageUrls,
+    required this.coverImageUrl,
+    required this.imageStoragePaths,
     required this.createdAt,
     required this.updatedAt,
     required this.createdBy,
@@ -57,10 +59,28 @@ class Property extends Equatable {
   final String ownerPhone;
   final String assignedTo;
   final List<String> imageUrls;
+  final String? coverImageUrl;
+  final List<String> imageStoragePaths;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String createdBy;
   final String updatedBy;
+
+  String? get effectiveCoverImageUrl {
+    final trimmedCover = coverImageUrl?.trim();
+    if (trimmedCover != null && trimmedCover.isNotEmpty) {
+      return trimmedCover;
+    }
+
+    for (final imageUrl in imageUrls) {
+      final trimmedUrl = imageUrl.trim();
+      if (trimmedUrl.isNotEmpty) {
+        return trimmedUrl;
+      }
+    }
+
+    return null;
+  }
 
   Property copyWith({
     String? id,
@@ -80,10 +100,13 @@ class Property extends Equatable {
     String? ownerPhone,
     String? assignedTo,
     List<String>? imageUrls,
+    String? coverImageUrl,
+    List<String>? imageStoragePaths,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? createdBy,
     String? updatedBy,
+    bool clearCoverImageUrl = false,
   }) {
     return Property(
       id: id ?? this.id,
@@ -103,6 +126,10 @@ class Property extends Equatable {
       ownerPhone: ownerPhone ?? this.ownerPhone,
       assignedTo: assignedTo ?? this.assignedTo,
       imageUrls: imageUrls ?? this.imageUrls,
+      coverImageUrl: clearCoverImageUrl
+          ? null
+          : coverImageUrl ?? this.coverImageUrl,
+      imageStoragePaths: imageStoragePaths ?? this.imageStoragePaths,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,
@@ -129,6 +156,8 @@ class Property extends Equatable {
     ownerPhone,
     assignedTo,
     imageUrls,
+    coverImageUrl,
+    imageStoragePaths,
     createdAt,
     updatedAt,
     createdBy,
