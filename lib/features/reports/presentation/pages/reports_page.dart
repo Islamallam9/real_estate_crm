@@ -1055,6 +1055,253 @@ class _ValueReportCard extends StatelessWidget {
   }
 }
 
+class _AgentActivityCard extends StatelessWidget {
+  const _AgentActivityCard({required this.row});
+
+  final _AgentRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final completionPercent = (row.completionRate * 100).round();
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            row.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          _AgentMetricGroup(
+            title: l.workload,
+            tone: AppStatusTone.info,
+            items: [
+              _AgentMetricItem(l.leads, row.leads),
+              _AgentMetricItem(l.deals, row.deals),
+              _AgentMetricItem(l.tasks, row.tasks),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          _AgentMetricGroup(
+            title: l.results,
+            tone: AppStatusTone.success,
+            items: [
+              _AgentMetricItem(l.wonDeals, row.wonDeals),
+              _AgentMetricItem(l.completedTasks, row.completedTasks),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.taskCompletion,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                '$completionPercent%',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: completionPercent >= 80
+                      ? AppColors.successColor(context)
+                      : completionPercent >= 50
+                      ? AppColors.warningColor(context)
+                      : AppColors.errorColor(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: row.completionRate.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: AppColors.borderColor(context),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                completionPercent >= 80
+                    ? AppColors.successColor(context)
+                    : completionPercent >= 50
+                    ? AppColors.warningColor(context)
+                    : AppColors.errorColor(context),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          _AgentFollowUpLine(row: row),
+        ],
+      ),
+    );
+  }
+}
+class _AgentMetricItem {
+  const _AgentMetricItem(this.label, this.value);
+
+  final String label;
+  final int value;
+}
+
+class _AgentMetricGroup extends StatelessWidget {
+  const _AgentMetricGroup({
+    required this.title,
+    required this.items,
+    required this.tone,
+  });
+
+  final String title;
+  final List<_AgentMetricItem> items;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _toneColor(context, tone);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+        borderRadius: AppRadius.medium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                Expanded(
+                  child: _AgentMetricValue(item: items[index], color: color),
+                ),
+                if (index != items.length - 1)
+                  const SizedBox(width: AppSpacing.sm),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentMetricValue extends StatelessWidget {
+  const _AgentMetricValue({
+    required this.item,
+    required this.color,
+  });
+
+  final _AgentMetricItem item;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          item.value.toString(),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          item.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.textSecondaryColor(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentFollowUpLine extends StatelessWidget {
+  const _AgentFollowUpLine({required this.row});
+
+  final _AgentRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final hasOverdue = row.overdueTasks > 0;
+    final color = hasOverdue
+        ? AppColors.warningColor(context)
+        : AppColors.successColor(context);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        borderRadius: AppRadius.medium,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasOverdue
+                ? Icons.schedule_rounded
+                : Icons.check_circle_outline_rounded,
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              l.followUps,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Text(
+            '${l.overdueTasks}: ${row.overdueTasks}',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AgentReportSection extends StatelessWidget {
   const _AgentReportSection({required this.data, required this.users});
 
@@ -1071,65 +1318,47 @@ class _AgentReportSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            l.agentPerformance,
+            l.agentActivityResults,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            l.agentActivityResultsSummary,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (rows.isEmpty)
             Text(
               l.noReportData,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                  ),
+                color: AppColors.textSecondaryColor(context),
+              ),
             )
           else
-            for (final row in rows.take(8))
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 900 ? 2 : 1;
+                final cardWidth =
+                    (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
+                        columns;
+
+                return Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: Text(
-                        row.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                    for (final row in rows.take(8))
+                      SizedBox(
+                        width: cardWidth,
+                        child: _AgentActivityCard(row: row),
                       ),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Wrap(
-                        spacing: AppSpacing.xs,
-                        runSpacing: AppSpacing.xs,
-                        children: [
-                          AppStatusBadge(
-                            label: '${l.leads}: ${row.leads}',
-                            tone: AppStatusTone.info,
-                          ),
-                          AppStatusBadge(
-                            label: '${l.deals}: ${row.deals}',
-                            tone: AppStatusTone.warning,
-                          ),
-                          AppStatusBadge(
-                            label: '${l.completed}: ${row.completedTasks}',
-                            tone: AppStatusTone.success,
-                          ),
-                          if (row.overdueTasks > 0)
-                            AppStatusBadge(
-                              label: '${l.overdue}: ${row.overdueTasks}',
-                              tone: AppStatusTone.error,
-                            ),
-                        ],
-                      ),
-                    ),
                   ],
-                ),
-              ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1572,16 +1801,28 @@ class _ReportsData {
               : _assigneeLabelById(users, id),
           leads: leads.where((lead) => lead.assignedTo == id).length,
           deals: deals.where((deal) => deal.assignedTo == id).length,
-          completedTasks: tasks
-              .where((task) =>
-                  task.assignedTo == id && task.status == TaskStatus.completed)
+          wonDeals: deals
+              .where((deal) => deal.assignedTo == id && deal.stage == DealStage.won)
               .length,
-          overdueTasks:
-              overdueTasks.where((task) => task.assignedTo == id).length,
+          tasks: tasks.where((task) => task.assignedTo == id).length,
+          completedTasks: tasks
+              .where(
+                (task) =>
+            task.assignedTo == id && task.status == TaskStatus.completed,
+          )
+              .length,
+          overdueTasks: overdueTasks.where((task) => task.assignedTo == id).length,
         ),
     ];
-    rows.sort((a, b) => b.score.compareTo(a.score));
-    return rows;
+    rows.sort((a, b) {
+      final wonCompare = b.wonDeals.compareTo(a.wonDeals);
+      if (wonCompare != 0) return wonCompare;
+
+      final completedCompare = b.completedTasks.compareTo(a.completedTasks);
+      if (completedCompare != 0) return completedCompare;
+
+      return a.overdueTasks.compareTo(b.overdueTasks);
+    });    return rows;
   }
 }
 
@@ -1590,6 +1831,8 @@ class _AgentRow {
     required this.name,
     required this.leads,
     required this.deals,
+    required this.wonDeals,
+    required this.tasks,
     required this.completedTasks,
     required this.overdueTasks,
   });
@@ -1597,10 +1840,12 @@ class _AgentRow {
   final String name;
   final int leads;
   final int deals;
+  final int wonDeals;
+  final int tasks;
   final int completedTasks;
   final int overdueTasks;
 
-  int get score => leads + deals + completedTasks - overdueTasks;
+  double get completionRate => tasks == 0 ? 0 : completedTasks / tasks;
 }
 
 class _AssigneeOption {
