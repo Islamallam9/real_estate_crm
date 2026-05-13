@@ -1,4 +1,4 @@
-﻿name: real_estate_crm
+name: real_estate_crm
 description: Real estate CRM built with Flutter and Firebase.
 publish_to: 'none'
 version: 0.1.0+1
@@ -26,6 +26,7 @@ dependencies:
   firebase_crashlytics: ^5.0.5
   intl: ^0.20.2
   connectivity_plus: ^7.1.1
+  visibility_detector: ^0.4.0+2
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -140,23 +141,23 @@ class _ReportsContentState extends State<_ReportsContent> {
         ? widget.currentUserId
         : null;
     context.read<LeadsCubit>().watchLeads(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
     context.read<ClientsCubit>().watchClients(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     context.read<TasksCubit>().watchTasks(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     context.read<DealsCubit>().watchDeals(
-          companyId: widget.companyId,
-          role: widget.role,
-          currentUserId: widget.currentUserId,
-        );
+      companyId: widget.companyId,
+      role: widget.role,
+      currentUserId: widget.currentUserId,
+    );
   }
 
   @override
@@ -177,12 +178,12 @@ class _ReportsContentState extends State<_ReportsContent> {
                           builder: (context, dealsState) {
                             final isLoading =
                                 leadsState.status == LeadsStatus.loading &&
-                                        leadsState.leads.isEmpty ||
+                                    leadsState.leads.isEmpty ||
                                     propertiesState.status ==
-                                            PropertiesStatus.loading &&
+                                        PropertiesStatus.loading &&
                                         propertiesState.properties.isEmpty ||
                                     clientsState.status ==
-                                            ClientsStatus.loading &&
+                                        ClientsStatus.loading &&
                                         clientsState.clients.isEmpty ||
                                     tasksState.status == TasksStatus.loading &&
                                         tasksState.tasks.isEmpty ||
@@ -190,12 +191,12 @@ class _ReportsContentState extends State<_ReportsContent> {
                                         dealsState.deals.isEmpty;
                             final hasFailure =
                                 leadsState.status == LeadsStatus.failure &&
-                                        leadsState.leads.isEmpty ||
+                                    leadsState.leads.isEmpty ||
                                     propertiesState.status ==
-                                            PropertiesStatus.failure &&
+                                        PropertiesStatus.failure &&
                                         propertiesState.properties.isEmpty ||
                                     clientsState.status ==
-                                            ClientsStatus.failure &&
+                                        ClientsStatus.failure &&
                                         clientsState.clients.isEmpty ||
                                     tasksState.status == TasksStatus.failure &&
                                         tasksState.tasks.isEmpty ||
@@ -235,7 +236,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                               return AppEmptyState(
                                 title: AppLocalizations.of(context)!.noReportData,
                                 message:
-                                    AppLocalizations.of(context)!.reportsOverview,
+                                AppLocalizations.of(context)!.reportsOverview,
                                 icon: Icons.bar_chart_outlined,
                               );
                             }
@@ -319,8 +320,13 @@ class _ReportsView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _ReportHeader(),
+          const _ReportReveal(
+            id: 'header',
+            delay: Duration.zero,
+            child: _ReportHeader(),
+          ),
           const SizedBox(height: AppSpacing.md),
+
           _ReportsSearchFilterRow(
             users: users,
             canFilterAssignee: canFilterAssignee,
@@ -335,160 +341,336 @@ class _ReportsView extends StatelessWidget {
             onClearFilters: onClearFilters,
           ),
           const SizedBox(height: AppSpacing.md),
-          _ExecutiveSummary(data: data),
+
+          _ReportReveal(
+            id: 'summary',
+            delay: const Duration(milliseconds: 60),
+            child: _ExecutiveSummary(data: data),
+          ),
           const SizedBox(height: AppSpacing.md),
-          _ReportSection(
-            title: l.leadsReport,
-            children: [
-              _DonutReportCard(
-                title: l.leadsByStatus,
-                segments: [
-                  for (final status in LeadStatus.values)
+
+          _ReportReveal(
+            id: 'leads-report',
+            delay: const Duration(milliseconds: 120),
+            child: _ReportSection(
+              title: l.leadsReport,
+              children: [
+                _DonutReportCard(
+                  title: l.leadsByStatus,
+                  segments: [
+                    for (final status in LeadStatus.values)
+                      _ChartSegment(
+                        _leadStatusLabel(l, status),
+                        data.leadsByStatus(status).length,
+                        _leadStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.leadsBySource,
+                  rows: [
+                    for (final source in LeadSource.values)
+                      _BarRow(
+                        label: _leadSourceLabel(l, source),
+                        value: data.leadsBySource(source).length,
+                        color: AppColors.primaryColor(context),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.leadsByPriority,
+                  rows: [
+                    for (final priority in LeadPriority.values)
+                      _BarRow(
+                        label: _leadPriorityLabel(l, priority),
+                        value: data.leadsByPriority(priority).length,
+                        color: _leadPriorityColor(context, priority),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          _ReportReveal(
+            id: 'deals-report',
+            delay: const Duration(milliseconds: 160),
+            child: _ReportSection(
+              title: l.dealsReport,
+              children: [
+                _DonutReportCard(
+                  title: l.dealPipeline,
+                  segments: [
                     _ChartSegment(
-                      _leadStatusLabel(l, status),
-                      data.leadsByStatus(status).length,
-                      _leadStatusColor(context, status),
+                      l.openDeals,
+                      data.openDeals.length,
+                      AppColors.warningColor(context),
                     ),
-                ],
-              ),
-              _BarReportCard(
-                title: l.leadsBySource,
-                rows: [
-                  for (final source in LeadSource.values)
-                    _BarRow(
-                      label: _leadSourceLabel(l, source),
-                      value: data.leadsBySource(source).length,
-                      color: AppColors.primaryColor(context),
-                    ),
-                ],
-              ),
-              _BarReportCard(
-                title: l.leadsByPriority,
-                rows: [
-                  for (final priority in LeadPriority.values)
-                    _BarRow(
-                      label: _leadPriorityLabel(l, priority),
-                      value: data.leadsByPriority(priority).length,
-                      color: _leadPriorityColor(context, priority),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _ReportSection(
-            title: l.dealsReport,
-            children: [
-              _DonutReportCard(
-                title: l.dealPipeline,
-                segments: [
-                  _ChartSegment(
-                    l.openDeals,
-                    data.openDeals.length,
-                    AppColors.warningColor(context),
-                  ),
-                  _ChartSegment(
-                    l.wonDeals,
-                    data.wonDeals.length,
-                    AppColors.successColor(context),
-                  ),
-                  _ChartSegment(
-                    l.lostDeals,
-                    data.lostDeals.length,
-                    AppColors.errorColor(context),
-                  ),
-                ],
-              ),
-              _BarReportCard(
-                title: l.dealsByStage,
-                rows: [
-                  for (final stage in DealStage.values)
-                    _BarRow(
-                      label: dealStageLabel(l, stage),
-                      value: data.dealsByStage(stage).length,
-                      amount: data.dealValueByStage(stage),
-                      color: _dealStageColor(context, stage),
-                    ),
-                ],
-              ),
-              _ValueReportCard(
-                title: l.pipelineValue,
-                values: [
-                  _ValueLine(l.expectedValueTotal, data.expectedValueTotal),
-                  _ValueLine(l.commissionTotal, data.commissionTotal),
-                  _ValueLine(l.wonValue, data.wonValue),
-                  _ValueLine(l.lostValue, data.lostValue),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _ReportSection(
-            title: l.tasksReport,
-            children: [
-              _DonutReportCard(
-                title: l.taskStatusDistribution,
-                segments: [
-                  for (final status in TaskStatus.values)
                     _ChartSegment(
-                      _taskStatusLabel(l, status),
-                      data.tasksByStatus(status).length,
-                      _taskStatusColor(context, status),
+                      l.wonDeals,
+                      data.wonDeals.length,
+                      AppColors.successColor(context),
                     ),
-                ],
-              ),
-              _ProgressReportCard(
-                title: l.completionRate,
-                value: data.completionRate,
-                color: AppColors.successColor(context),
-              ),
-              _AttentionReportCard(tasks: data.attentionTasks),
-            ],
+                    _ChartSegment(
+                      l.lostDeals,
+                      data.lostDeals.length,
+                      AppColors.errorColor(context),
+                    ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.dealsByStage,
+                  rows: [
+                    for (final stage in DealStage.values)
+                      _BarRow(
+                        label: dealStageLabel(l, stage),
+                        value: data.dealsByStage(stage).length,
+                        amount: data.dealValueByStage(stage),
+                        color: _dealStageColor(context, stage),
+                      ),
+                  ],
+                ),
+                _ValueReportCard(
+                  title: l.pipelineValue,
+                  values: [
+                    _ValueLine(l.expectedValueTotal, data.expectedValueTotal),
+                    _ValueLine(l.commissionTotal, data.commissionTotal),
+                    _ValueLine(l.wonValue, data.wonValue),
+                    _ValueLine(l.lostValue, data.lostValue),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _ReportSection(
-            title: l.propertiesReport,
-            children: [
-              _DonutReportCard(
-                title: l.propertiesByStatus,
-                segments: [
-                  for (final status in PropertyStatus.values)
-                    _ChartSegment(
-                      propertyStatusLabel(l, status),
-                      data.propertiesByStatus(status).length,
-                      _propertyStatusColor(context, status),
-                    ),
-                ],
-              ),
-              _BarReportCard(
-                title: l.propertiesByType,
-                rows: [
-                  for (final type in PropertyType.values)
-                    _BarRow(
-                      label: propertyTypeLabel(l, type),
-                      value: data.propertiesByType(type).length,
-                      color: AppColors.primaryColor(context),
-                    ),
-                ],
-              ),
-              _ValueReportCard(
-                title: l.inventoryValue,
-                values: [
-                  _ValueLine(l.totalListedValue, data.totalListedValue),
-                  _ValueLine(l.averagePrice, data.averagePrice),
-                ],
-              ),
-            ],
+
+          _ReportReveal(
+            id: 'tasks-report',
+            delay: const Duration(milliseconds: 200),
+            child: _ReportSection(
+              title: l.tasksReport,
+              children: [
+                _DonutReportCard(
+                  title: l.taskStatusDistribution,
+                  segments: [
+                    for (final status in TaskStatus.values)
+                      _ChartSegment(
+                        _taskStatusLabel(l, status),
+                        data.tasksByStatus(status).length,
+                        _taskStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _ProgressReportCard(
+                  title: l.completionRate,
+                  value: data.completionRate,
+                  color: AppColors.successColor(context),
+                ),
+                _AttentionReportCard(tasks: data.attentionTasks),
+              ],
+            ),
           ),
+          const SizedBox(height: AppSpacing.md),
+
+          _ReportReveal(
+            id: 'properties-report',
+            delay: const Duration(milliseconds: 240),
+            child: _ReportSection(
+              title: l.propertiesReport,
+              children: [
+                _DonutReportCard(
+                  title: l.propertiesByStatus,
+                  segments: [
+                    for (final status in PropertyStatus.values)
+                      _ChartSegment(
+                        propertyStatusLabel(l, status),
+                        data.propertiesByStatus(status).length,
+                        _propertyStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.propertiesByType,
+                  rows: [
+                    for (final type in PropertyType.values)
+                      _BarRow(
+                        label: propertyTypeLabel(l, type),
+                        value: data.propertiesByType(type).length,
+                        color: AppColors.primaryColor(context),
+                      ),
+                  ],
+                ),
+                _ValueReportCard(
+                  title: l.inventoryValue,
+                  values: [
+                    _ValueLine(l.totalListedValue, data.totalListedValue),
+                    _ValueLine(l.averagePrice, data.averagePrice),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           if (canFilterAssignee) ...[
             const SizedBox(height: AppSpacing.md),
-            _AgentReportSection(data: data, users: users),
+            _ReportReveal(
+              id: 'agent-activity',
+              delay: const Duration(milliseconds: 280),
+              child: _AgentReportSection(data: data, users: users),
+            ),
           ],
         ],
       ),
     );
   }
 }
+
+class _ReportReveal extends StatefulWidget {
+  const _ReportReveal({
+    required this.id,
+    required this.child,
+    this.delay = Duration.zero,
+    this.threshold = 0.03,
+  });
+
+  final String id;
+  final Widget child;
+  final Duration delay;
+  final double threshold;
+
+  @override
+  State<_ReportReveal> createState() => _ReportRevealState();
+}
+
+class _ReportRevealState extends State<_ReportReveal> {
+  bool _visible = false;
+  bool _queued = false;
+
+  void _show() {
+    if (_visible || _queued) return;
+
+    _queued = true;
+    Future.delayed(widget.delay, () {
+      if (!mounted) return;
+      setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return VisibilityDetector(
+      key: ValueKey('report-reveal-${widget.id}'),
+      onVisibilityChanged: (info) {
+        if (info.visibleFraction >= widget.threshold) {
+          _show();
+        }
+      },
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 620),
+        curve: Curves.easeOutCubic,
+        child: AnimatedSlide(
+          offset: _visible ? Offset.zero : const Offset(0, 0.045),
+          duration: const Duration(milliseconds: 620),
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Hover-lift + press-scale for report cards.
+const double _kReportHoverBreakpoint = 900;
+
+
+class _ReportHoverCard extends StatefulWidget {
+  const _ReportHoverCard({
+    required this.child,
+    this.borderRadius,
+  });
+
+  final Widget child;
+  final BorderRadius? borderRadius;
+
+  @override
+  State<_ReportHoverCard> createState() => _ReportHoverCardState();
+}
+
+class _ReportHoverCardState extends State<_ReportHoverCard> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final hoverEnabled = width >= _kReportHoverBreakpoint;
+    final activeHover = hoverEnabled && _hovered;
+    final radius = widget.borderRadius ?? AppRadius.xLarge;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final scale = _pressed
+        ? 0.99
+        : activeHover
+        ? 1.018
+        : 1.0;
+    final yOffset = activeHover ? -7.0 : 0.0;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (hoverEnabled) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (hoverEnabled) setState(() => _hovered = false);
+      },
+      child: Listener(
+        onPointerDown: (_) => setState(() => _pressed = true),
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
+        child: AnimatedSlide(
+          offset: Offset(0, yOffset / 100),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(
+                  color: activeHover
+                      ? AppColors.primaryColor(context).withValues(alpha: 0.38)
+                      : AppColors.borderColor(context),
+                ),
+                boxShadow: isDark
+                    ? null
+                    : [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: activeHover ? 0.13 : 0.05,
+                    ),
+                    blurRadius: activeHover ? 20 : 8,
+                    offset: Offset(0, activeHover ? 8 : 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _ReportHeader extends StatelessWidget {
   const _ReportHeader();
@@ -695,26 +877,63 @@ class _ExecutiveSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final items = [
-      _SummaryItem(l.totalLeads, data.leads.length, AppStatusTone.info),
-      _SummaryItem(l.totalDeals, data.deals.length, AppStatusTone.warning),
-      _SummaryItem(l.openDeals, data.openDeals.length, AppStatusTone.warning),
-      _SummaryItem(l.completedTasks, data.completedTasks.length,
-          AppStatusTone.success),
-      _SummaryItem(l.availableProperties, data.availableProperties.length,
-          AppStatusTone.success),
+      _SummaryItem(
+        l.totalLeads,
+        data.leads.length,
+        AppStatusTone.info,
+        Icons.people_alt_outlined,
+      ),
+      _SummaryItem(
+        l.totalDeals,
+        data.deals.length,
+        AppStatusTone.warning,
+        Icons.handshake_outlined,
+      ),
+      _SummaryItem(
+        l.openDeals,
+        data.openDeals.length,
+        AppStatusTone.warning,
+        Icons.trending_up_outlined,
+      ),
+      _SummaryItem(
+        l.completedTasks,
+        data.completedTasks.length,
+        AppStatusTone.success,
+        Icons.task_alt_outlined,
+      ),
+      _SummaryItem(
+        l.availableProperties,
+        data.availableProperties.length,
+        AppStatusTone.success,
+        Icons.apartment_outlined,
+      ),
     ];
 
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        for (final item in items)
-          SizedBox(width: 168, child: _SummaryCard(item: item)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1000
+            ? 5
+            : constraints.maxWidth >= 700
+            ? 3
+            : 2;
+        final gap = AppSpacing.sm;
+        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: _SummaryCard(item: item),
+              ),
+          ],
+        );
+      },
     );
   }
 }
-
 class _ReportSection extends StatelessWidget {
   const _ReportSection({
     required this.title,
@@ -733,8 +952,8 @@ class _ReportSection extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           LayoutBuilder(
@@ -742,16 +961,18 @@ class _ReportSection extends StatelessWidget {
               final columns = constraints.maxWidth >= 920
                   ? 3
                   : constraints.maxWidth >= 620
-                      ? 2
-                      : 1;
+                  ? 2
+                  : 1;
               final width =
                   (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
                       columns;
+
               return Wrap(
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: [
-                  for (final child in children) SizedBox(width: width, child: child),
+                  for (final child in children)
+                    SizedBox(width: width, child: child),
                 ],
               );
             },
@@ -761,7 +982,6 @@ class _ReportSection extends StatelessWidget {
     );
   }
 }
-
 class _ReportCard extends StatelessWidget {
   const _ReportCard({required this.child});
 
@@ -776,7 +996,7 @@ class _ReportCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.xLarge,
         boxShadow:
-            Theme.of(context).brightness == Brightness.dark ? null : AppShadows.card,
+        Theme.of(context).brightness == Brightness.dark ? null : AppShadows.card,
       ),
       child: child,
     );
@@ -784,13 +1004,13 @@ class _ReportCard extends StatelessWidget {
 }
 
 class _SummaryItem {
-  const _SummaryItem(this.label, this.value, this.tone);
+  const _SummaryItem(this.label, this.value, this.tone, this.icon);
 
   final String label;
   final int value;
   final AppStatusTone tone;
+  final IconData icon;
 }
-
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.item});
 
@@ -799,34 +1019,76 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _toneColor(context, item.tone);
-    return _ReportCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.insights_outlined, color: color, size: 20),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            item.value.toString(),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
+
+    return _ReportHoverCard(
+      borderRadius: AppRadius.xLarge,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface(context),
+          border: Border.all(color: AppColors.borderColor(context)),
+          borderRadius: AppRadius.xLarge,
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : AppShadows.card,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: AppRadius.large,
+              ),
+              child: Icon(item.icon, color: color, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey('report-summary-${item.label}-${item.value}'),
+                    tween: Tween<double>(
+                      begin: 0,
+                      end: item.value.toDouble(),
+                    ),
+                    duration: const Duration(milliseconds: 520),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return Text(
+                        value.round().toString(),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimaryColor(context),
+                        ),
+                      );
+                    },
+                  ),
+                  Text(
+                    item.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-
-class _DonutReportCard extends StatelessWidget {
+class _DonutReportCard extends StatefulWidget {
   const _DonutReportCard({
     required this.title,
     required this.segments,
@@ -836,35 +1098,146 @@ class _DonutReportCard extends StatelessWidget {
   final List<_ChartSegment> segments;
 
   @override
+  State<_DonutReportCard> createState() => _DonutReportCardState();
+}
+
+class _DonutReportCardState extends State<_DonutReportCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _sweep;
+  late Animation<double> _legend;
+  late Animation<double> _centerScale;
+
+  String _signature = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1050),
+    );
+
+    _setupAnimations();
+    _signature = _buildSignature(widget.segments);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.forward(from: 0);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _DonutReportCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final nextSignature = _buildSignature(widget.segments);
+    if (nextSignature != _signature) {
+      _signature = nextSignature;
+      _controller.forward(from: 0);
+    }
+  }
+
+  void _setupAnimations() {
+    _sweep = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.00, 0.72, curve: Curves.easeOutCubic),
+    );
+
+    _legend = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.32, 1.00, curve: Curves.easeOutCubic),
+    );
+
+    _centerScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.88, end: 1.06)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 55,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.06, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 45,
+      ),
+    ]).animate(_controller);
+  }
+
+  String _buildSignature(List<_ChartSegment> segments) {
+    return segments.map((segment) => '${segment.label}:${segment.value}').join('|');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final total = segments.fold<int>(0, (sum, item) => sum + item.value);
+    final total = widget.segments.fold<int>(0, (sum, item) => sum + item.value);
 
     return _InnerReportCard(
-      title: title,
+      title: widget.title,
       child: Row(
         children: [
-          CustomPaint(
-            size: const Size.square(82),
-            painter: _DonutPainter(segments: segments),
-            child: SizedBox.square(
-              dimension: 82,
-              child: Center(
-                child: Text(
-                  total.toString(),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return Transform.scale(
+                scale: _centerScale.value,
+                child: CustomPaint(
+                  size: const Size.square(82),
+                  painter: _DonutPainter(
+                    segments: widget.segments,
+                    progress: _sweep.value,
+                  ),
+                  child: SizedBox.square(
+                    dimension: 82,
+                    child: Center(
+                      child: TweenAnimationBuilder<double>(
+                        key: ValueKey('report-donut-total-$_signature'),
+                        tween: Tween(begin: 0.0, end: total.toDouble()),
+                        duration: const Duration(milliseconds: 760),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) {
+                          return Text(
+                            value.round().toString(),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          );
+                        },
                       ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Column(
-              children: [
-                for (final segment in segments)
-                  _LegendRow(segment: segment),
-              ],
+            child: AnimatedBuilder(
+              animation: _legend,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _legend.value,
+                  child: Transform.translate(
+                    offset: Offset(10 * (1 - _legend.value), 0),
+                    child: child,
+                  ),
+                );
+              },
+              child: Column(
+                children: [
+                  for (var index = 0; index < widget.segments.length; index++)
+                    _AnimatedLegendRow(
+                      segment: widget.segments[index],
+                      index: index,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -886,7 +1259,7 @@ class _BarReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxValue = rows.fold<num>(
       0,
-      (max, row) => row.metric > max ? row.metric : max,
+          (max, row) => row.metric > max ? row.metric : max,
     );
 
     return _InnerReportCard(
@@ -929,18 +1302,25 @@ class _ProgressReportCard extends StatelessWidget {
           Text(
             '${(clamped * 100).round()}%',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: clamped,
-              minHeight: 10,
-              backgroundColor: AppColors.borderColor(context),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: clamped),
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.easeOutCubic,
+            builder: (context, animValue, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: animValue,
+                  minHeight: 10,
+                  backgroundColor: AppColors.borderColor(context),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -960,49 +1340,49 @@ class _AttentionReportCard extends StatelessWidget {
       title: l.highestPriorityTasks,
       child: tasks.isEmpty
           ? Text(
-              l.noTasksYet,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                  ),
-            )
+        l.noTasksYet,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondaryColor(context),
+        ),
+      )
           : Column(
-              children: [
-                for (final task in tasks.take(5))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: Row(
+        children: [
+          for (final task in tasks.take(5))
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                task.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              Text(
-                                _taskSubtitle(l, task),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
+                        Text(
+                          task.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        AppStatusBadge(
-                          label: _taskDueLabel(l, task),
-                          tone: _taskDueTone(task),
+                        Text(
+                          _taskSubtitle(l, task),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
-              ],
+                  AppStatusBadge(
+                    label: _taskDueLabel(l, task),
+                    tone: _taskDueTone(task),
+                  ),
+                ],
+              ),
             ),
+        ],
+      ),
     );
   }
 }
@@ -1043,8 +1423,8 @@ class _ValueReportCard extends StatelessWidget {
                   Text(
                     _formatMoney(context, value.value),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -1133,20 +1513,28 @@ class _AgentActivityCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: row.completionRate.clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: AppColors.borderColor(context),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                completionPercent >= 80
-                    ? AppColors.successColor(context)
-                    : completionPercent >= 50
-                    ? AppColors.warningColor(context)
-                    : AppColors.errorColor(context),
-              ),
-            ),
+          TweenAnimationBuilder<double>(
+            tween: Tween(
+                begin: 0.0, end: row.completionRate.clamp(0.0, 1.0)),
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.easeOutCubic,
+            builder: (context, animValue, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: animValue,
+                  minHeight: 8,
+                  backgroundColor: AppColors.borderColor(context),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    completionPercent >= 80
+                        ? AppColors.successColor(context)
+                        : completionPercent >= 50
+                        ? AppColors.warningColor(context)
+                        : AppColors.errorColor(context),
+                  ),
+                ),
+              );
+            },
           ),
 
           const SizedBox(height: AppSpacing.md),
@@ -1391,8 +1779,8 @@ class _InnerReportCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           child,
@@ -1411,40 +1799,83 @@ class _ChartSegment {
 }
 
 class _DonutPainter extends CustomPainter {
-  const _DonutPainter({required this.segments});
+  const _DonutPainter({required this.segments, this.progress = 1.0});
 
   final List<_ChartSegment> segments;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     final total = segments.fold<int>(0, (sum, segment) => sum + segment.value);
     final rect = Offset.zero & size;
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFE9E1D3);
+
+    canvas.drawArc(
+      rect.deflate(8),
+      -math.pi / 2,
+      math.pi * 2,
+      false,
+      trackPaint,
+    );
+
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
+      ..strokeWidth = 11
       ..strokeCap = StrokeCap.round;
 
     if (total == 0) {
-      paint.color = const Color(0xFFD8D0C2);
-      canvas.drawArc(rect.deflate(8), -math.pi / 2, math.pi * 2, false, paint);
       return;
     }
 
     var start = -math.pi / 2;
     for (final segment in segments.where((segment) => segment.value > 0)) {
-      final sweep = math.pi * 2 * segment.value / total;
+      final fullSweep = math.pi * 2 * segment.value / total;
+      final sweep = fullSweep * progress;
       paint.color = segment.color;
       canvas.drawArc(rect.deflate(8), start, sweep, false, paint);
-      start += sweep;
+      start += fullSweep;
     }
   }
 
   @override
   bool shouldRepaint(covariant _DonutPainter oldDelegate) {
-    return oldDelegate.segments != segments;
+    return oldDelegate.segments != segments ||
+        oldDelegate.progress != progress;
   }
 }
+class _AnimatedLegendRow extends StatelessWidget {
+  const _AnimatedLegendRow({
+    required this.segment,
+    required this.index,
+  });
 
+  final _ChartSegment segment;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 420 + index * 70),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(8 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: _LegendRow(segment: segment),
+    );
+  }
+}
 class _LegendRow extends StatelessWidget {
   const _LegendRow({required this.segment});
 
@@ -1476,8 +1907,8 @@ class _LegendRow extends StatelessWidget {
           Text(
             segment.value.toString(),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -1523,14 +1954,21 @@ class _BarLine extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: clamped,
-              minHeight: 8,
-              backgroundColor: AppColors.borderColor(context),
-              valueColor: AlwaysStoppedAnimation<Color>(row.color),
-            ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: clamped),
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.easeOutCubic,
+            builder: (context, animValue, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: animValue,
+                  minHeight: 8,
+                  backgroundColor: AppColors.borderColor(context),
+                  valueColor: AlwaysStoppedAnimation<Color>(row.color),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -1542,8 +1980,8 @@ class _BarLine extends StatelessWidget {
                 : _formatCompact(context, row.amount!),
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -1682,10 +2120,10 @@ class _ReportsData {
 
   bool get hasAnyData =>
       leads.isNotEmpty ||
-      properties.isNotEmpty ||
-      clients.isNotEmpty ||
-      tasks.isNotEmpty ||
-      deals.isNotEmpty;
+          properties.isNotEmpty ||
+          clients.isNotEmpty ||
+          tasks.isNotEmpty ||
+          deals.isNotEmpty;
 
   List<Lead> leadsByStatus(LeadStatus status) =>
       leads.where((lead) => lead.status == status).toList();
@@ -1711,7 +2149,7 @@ class _ReportsData {
   num dealValueByStage(DealStage stage) {
     return dealsByStage(stage).fold<num>(
       0,
-      (sum, deal) => sum + deal.expectedValue,
+          (sum, deal) => sum + deal.expectedValue,
     );
   }
 
@@ -1733,22 +2171,22 @@ class _ReportsData {
   List<CrmTask> get completedTasks => tasksByStatus(TaskStatus.completed);
 
   List<CrmTask> get overdueTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return date != null &&
-            task.status != TaskStatus.completed &&
-            task.status != TaskStatus.cancelled &&
-            _dateOnly(date.toLocal()).isBefore(_today);
-      }).toList();
+    final date = task.dueDate;
+    return date != null &&
+        task.status != TaskStatus.completed &&
+        task.status != TaskStatus.cancelled &&
+        _dateOnly(date.toLocal()).isBefore(_today);
+  }).toList();
 
   List<CrmTask> get dueTodayTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return date != null && _dateOnly(date.toLocal()) == _today;
-      }).toList();
+    final date = task.dueDate;
+    return date != null && _dateOnly(date.toLocal()) == _today;
+  }).toList();
 
   List<CrmTask> get upcomingTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return date != null && _dateOnly(date.toLocal()).isAfter(_today);
-      }).toList();
+    final date = task.dueDate;
+    return date != null && _dateOnly(date.toLocal()).isAfter(_today);
+  }).toList();
 
   double get completionRate =>
       tasks.isEmpty ? 0 : completedTasks.length / tasks.length;
@@ -1903,12 +2341,12 @@ List<T> _filterBySearch<T>(
 }
 
 List<T> _filterByDateAndAssignee<T>(
-  List<T> items,
-  _ReportPeriod period,
-  String assignedTo,
-  DateTime? Function(T item) dateOf,
-  String Function(T item) assignedToOf,
-) {
+    List<T> items,
+    _ReportPeriod period,
+    String assignedTo,
+    DateTime? Function(T item) dateOf,
+    String Function(T item) assignedToOf,
+    ) {
   final selectedAssignee = assignedTo.trim();
   return items.where((item) {
     if (selectedAssignee.isNotEmpty && assignedToOf(item) != selectedAssignee) {
@@ -2076,7 +2514,7 @@ Color _leadStatusColor(BuildContext context, LeadStatus status) {
     LeadStatus.won => AppColors.successColor(context),
     LeadStatus.lost => AppColors.errorColor(context),
     LeadStatus.negotiation || LeadStatus.visitScheduled =>
-      AppColors.warningColor(context),
+        AppColors.warningColor(context),
     LeadStatus.contacted || LeadStatus.interested => AppColors.infoColor(context),
     LeadStatus.newLead => AppColors.primaryColor(context),
   };

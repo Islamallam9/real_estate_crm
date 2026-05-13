@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../../../properties/presentation/widgets/property_labels.dart';
-import '../../../users/domain/entities/user_profile.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import 'package:go_router/go_router.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
@@ -67,7 +67,9 @@ class DashboardPage extends StatelessWidget {
           }
 
           final companyId =
-              authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
+              authState.userProfile?.companyId ??
+              authState.user?.companyId ??
+              '';
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
@@ -93,10 +95,7 @@ class DashboardPage extends StatelessWidget {
 }
 
 class _DashboardContent extends StatefulWidget {
-  const _DashboardContent({
-    required this.companyId,
-    required this.authState,
-  });
+  const _DashboardContent({required this.companyId, required this.authState});
 
   final String companyId;
   final AuthState authState;
@@ -109,56 +108,62 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
-    final role = widget.authState.userProfile?.role ?? widget.authState.user?.role;
+    final role =
+        widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = role == UserRole.salesAgent ? uid : null;
 
     context.read<LeadsCubit>().watchLeads(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
-    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
+    context.read<PropertiesCubit>().watchProperties(
+      companyId: widget.companyId,
+    );
     context.read<ClientsCubit>().watchClients(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     context.read<TasksCubit>().watchTasks(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     if (role != null && uid.isNotEmpty) {
       context.read<DealsCubit>().watchDeals(
-            companyId: widget.companyId,
-            role: role,
-            currentUserId: uid,
+        companyId: widget.companyId,
+        role: role,
+        currentUserId: uid,
       );
     }
   }
 
   void _retry() {
-    final role = widget.authState.userProfile?.role ?? widget.authState.user?.role;
+    final role =
+        widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = role == UserRole.salesAgent ? uid : null;
 
     context.read<LeadsCubit>().watchLeads(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
-    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
+    context.read<PropertiesCubit>().watchProperties(
+      companyId: widget.companyId,
+    );
     context.read<ClientsCubit>().watchClients(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     context.read<TasksCubit>().watchTasks(
-          companyId: widget.companyId,
-          assignedTo: assignedTo,
-        );
+      companyId: widget.companyId,
+      assignedTo: assignedTo,
+    );
     if (role != null && uid.isNotEmpty) {
       context.read<DealsCubit>().watchDeals(
-            companyId: widget.companyId,
-            role: role,
-            currentUserId: uid,
-          );
+        companyId: widget.companyId,
+        role: role,
+        currentUserId: uid,
+      );
     }
   }
 
@@ -198,30 +203,31 @@ class _DashboardContentState extends State<_DashboardContent> {
                             final isLoading =
                                 leadsState.status == LeadsStatus.loading &&
                                     leadsState.leads.isEmpty ||
-                                    propertiesState.status ==
+                                propertiesState.status ==
                                         PropertiesStatus.loading &&
-                                        propertiesState.properties.isEmpty ||
-                                    clientsState.status == ClientsStatus.loading &&
-                                        clientsState.clients.isEmpty ||
-                                    tasksState.status == TasksStatus.loading &&
-                                        tasksState.tasks.isEmpty ||
-                                    dealsState.status == DealsStatus.loading &&
-                                        dealsState.deals.isEmpty;
+                                    propertiesState.properties.isEmpty ||
+                                clientsState.status == ClientsStatus.loading &&
+                                    clientsState.clients.isEmpty ||
+                                tasksState.status == TasksStatus.loading &&
+                                    tasksState.tasks.isEmpty ||
+                                dealsState.status == DealsStatus.loading &&
+                                    dealsState.deals.isEmpty;
 
                             final hasInitialFailure =
                                 leadsState.status == LeadsStatus.failure &&
                                     leadsState.leads.isEmpty ||
-                                    propertiesState.status ==
+                                propertiesState.status ==
                                         PropertiesStatus.failure &&
-                                        propertiesState.properties.isEmpty ||
-                                    clientsState.status == ClientsStatus.failure &&
-                                        clientsState.clients.isEmpty ||
-                                    tasksState.status == TasksStatus.failure &&
-                                        tasksState.tasks.isEmpty ||
-                                    dealsState.status == DealsStatus.failure &&
-                                        dealsState.deals.isEmpty;
+                                    propertiesState.properties.isEmpty ||
+                                clientsState.status == ClientsStatus.failure &&
+                                    clientsState.clients.isEmpty ||
+                                tasksState.status == TasksStatus.failure &&
+                                    tasksState.tasks.isEmpty ||
+                                dealsState.status == DealsStatus.failure &&
+                                    dealsState.deals.isEmpty;
 
-                            final failureMessage = leadsState.message ??
+                            final failureMessage =
+                                leadsState.message ??
                                 propertiesState.message ??
                                 clientsState.message ??
                                 tasksState.message ??
@@ -248,7 +254,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         );
       },
     );
-  }}
+  }
+}
 
 class _RecentActivityPanel extends StatelessWidget {
   const _RecentActivityPanel({
@@ -353,74 +360,75 @@ class _RecentActivityTile extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       key: ValueKey(item.id),
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
           child: Transform.translate(
-            offset: Offset(0, 10 * (1 - value)),
+            offset: Offset(0, 14 * (1 - value)),
             child: child,
           ),
         );
       },
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: item.onTap == null ? null : () => item.onTap!(context),
-          borderRadius: AppRadius.large,
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.inputSurface(context),
-              border: Border.all(color: AppColors.borderColor(context)),
-              borderRadius: AppRadius.large,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(999),
+      child: _HoverLiftPanel(
+        borderRadius: AppRadius.large,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: item.onTap == null ? null : () => item.onTap!(context),
+            borderRadius: AppRadius.large,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.inputSurface(context),
+                borderRadius: AppRadius.large,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Icon(item.icon, size: 18, color: color),
                   ),
-                  child: Icon(item.icon, size: 18, color: color),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.action,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.action,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
-                      ),
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                      ),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
+                        Text(
+                          meta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: AppColors.textSecondaryColor(context),
+                              ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -479,111 +487,199 @@ class _DashboardView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _WelcomePanel(authState: authState),
+                  _DashboardReveal(
+                    id: 'welcome',
+                    delay: Duration.zero,
+                    child: _WelcomePanel(authState: authState),
+                  ),
                   const SizedBox(height: AppSpacing.md),
-                  _SummaryGrid(data: data),
+
+                  _DashboardReveal(
+                    id: 'summary-grid',
+                    delay: const Duration(milliseconds: 60),
+                    child: _SummaryGrid(data: data),
+                  ),
                   const SizedBox(height: AppSpacing.md),
+
                   if (compact) ...[
-                    _AnalyticsPanel(data: data),
+                    _DashboardReveal(
+                      id: 'analytics-compact',
+                      delay: const Duration(milliseconds: 120),
+                      child: _AnalyticsPanel(data: data),
+                    ),
+
                     if (!mobile) ...[
                       const SizedBox(height: AppSpacing.md),
-                      _ActionPanel(authState: authState),
+                      _DashboardReveal(
+                        id: 'actions-compact',
+                        delay: const Duration(milliseconds: 160),
+                        child: _ActionPanel(authState: authState),
+                      ),
                     ],
-                    const SizedBox(height: AppSpacing.md),
-                    _RecentActivityPanel(
-                      data: data,
-                      users: users,
-                      authState: authState,
-                    ),
+
+                    if (_canViewRecentActivity(authState)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _DashboardReveal(
+                        id: 'recent-activity-compact',
+                        delay: const Duration(milliseconds: 200),
+                        child: _RecentActivityPanel(
+                          data: data,
+                          users: users,
+                          authState: authState,
+                        ),
+                      ),
+                    ],
                   ] else
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 3, child: _AnalyticsPanel(data: data)),
+                        Expanded(
+                          flex: 3,
+                          child: _DashboardReveal(
+                            id: 'analytics-desktop',
+                            delay: const Duration(milliseconds: 120),
+                            child: _AnalyticsPanel(data: data),
+                          ),
+                        ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           flex: 2,
                           child: Column(
                             children: [
-                              _ActionPanel(authState: authState),
-                              const SizedBox(height: AppSpacing.md),
-                              _RecentActivityPanel(
-                                data: data,
-                                users: users,
-                                authState: authState,
+                              _DashboardReveal(
+                                id: 'actions-desktop',
+                                delay: const Duration(milliseconds: 160),
+                                child: _ActionPanel(authState: authState),
                               ),
+                              if (_canViewRecentActivity(authState)) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                _DashboardReveal(
+                                  id: 'recent-activity-desktop',
+                                  delay: const Duration(milliseconds: 200),
+                                  child: _RecentActivityPanel(
+                                    data: data,
+                                    users: users,
+                                    authState: authState,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                     ),
+
                   const SizedBox(height: AppSpacing.md),
+
                   if (compact) ...[
-                    _DealsDashboardSection(data: data),
+                    _DashboardReveal(
+                      id: 'deals-compact',
+                      delay: const Duration(milliseconds: 220),
+                      child: _DealsDashboardSection(data: data),
+                    ),
                     const SizedBox(height: AppSpacing.md),
-                    _TaskBreakdownSection(data: data),
+                    _DashboardReveal(
+                      id: 'tasks-compact',
+                      delay: const Duration(milliseconds: 260),
+                      child: _TaskBreakdownSection(data: data),
+                    ),
                   ] else
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: _DealsDashboardSection(data: data)),
+                        Expanded(
+                          child: _DashboardReveal(
+                            id: 'deals-desktop',
+                            delay: const Duration(milliseconds: 220),
+                            child: _DealsDashboardSection(data: data),
+                          ),
+                        ),
                         const SizedBox(width: AppSpacing.md),
-                        Expanded(child: _TaskBreakdownSection(data: data)),
+                        Expanded(
+                          child: _DashboardReveal(
+                            id: 'tasks-desktop',
+                            delay: const Duration(milliseconds: 260),
+                            child: _TaskBreakdownSection(data: data),
+                          ),
+                        ),
                       ],
-                    ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (compact) ...[
-                    _LeadSection(
-                      title: copy.todaysFollowUps,
-                      leads: data.todaysFollowUps,
-                      emptyMessage: l.noLeads,
                     ),
 
+                  const SizedBox(height: AppSpacing.md),
+
+                  if (compact) ...[
+                    _DashboardReveal(
+                      id: 'today-followups-compact',
+                      delay: const Duration(milliseconds: 300),
+                      child: _LeadSection(
+                        title: copy.todaysFollowUps,
+                        leads: data.todaysFollowUps,
+                        emptyMessage: l.noLeads,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.md),
-                    _LeadSection(
-                      title: copy.unassignedLeads,
-                      leads: data.unassignedLeads,
-                      emptyMessage: l.noLeads,
+                    _DashboardReveal(
+                      id: 'unassigned-leads-compact',
+                      delay: const Duration(milliseconds: 340),
+                      child: _LeadSection(
+                        title: copy.unassignedLeads,
+                        leads: data.unassignedLeads,
+                        emptyMessage: l.noLeads,
+                      ),
                     ),
                   ] else
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: _LeadSection(
-                            title: copy.todaysFollowUps,
-                            leads: data.todaysFollowUps,
-                            emptyMessage: l.noLeads,
+                          child: _DashboardReveal(
+                            id: 'today-followups-desktop',
+                            delay: const Duration(milliseconds: 300),
+                            child: _LeadSection(
+                              title: copy.todaysFollowUps,
+                              leads: data.todaysFollowUps,
+                              emptyMessage: l.noLeads,
+                            ),
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
-                          child: _LeadSection(
-                            title: copy.unassignedLeads,
-                            leads: data.unassignedLeads,
-                            emptyMessage: l.noLeads,
+                          child: _DashboardReveal(
+                            id: 'unassigned-leads-desktop',
+                            delay: const Duration(milliseconds: 340),
+                            child: _LeadSection(
+                              title: copy.unassignedLeads,
+                              leads: data.unassignedLeads,
+                              emptyMessage: l.noLeads,
+                            ),
                           ),
                         ),
                       ],
                     ),
+
                   const SizedBox(height: AppSpacing.md),
-                  _LeadSection(
-                    title: copy.recentlyUpdatedLeads,
-                    leads: data.recentLeads,
-                    emptyMessage: l.noLeads,
+
+                  _DashboardReveal(
+                    id: 'recently-updated-leads',
+                    delay: const Duration(milliseconds: 380),
+                    child: _LeadSection(
+                      title: copy.recentlyUpdatedLeads,
+                      leads: data.recentLeads,
+                      emptyMessage: l.noLeads,
+                    ),
                   ),
                 ],
               ),
             ),
             if (mobile && quickAddActions.isNotEmpty)
-              Positioned.fill(child: _MobileQuickAddFab(actions: quickAddActions)),
+              Positioned.fill(
+                child: _MobileQuickAddFab(actions: quickAddActions),
+              ),
           ],
         );
       },
     );
   }
-
-
 
   List<_QuickAddAction> _quickAddActions(
     BuildContext context,
@@ -751,7 +847,10 @@ class _QuickAddMenuItem extends StatelessWidget {
           end: offset.dx.abs() < 1 ? 0 : null,
           bottom: 0,
           child: Transform.translate(
-            offset: Offset(offset.dx * animation.value, offset.dy * animation.value),
+            offset: Offset(
+              offset.dx * animation.value,
+              offset.dy * animation.value,
+            ),
             child: Transform.scale(
               scale: 0.86 + (0.14 * animation.value),
               child: Opacity(
@@ -791,6 +890,149 @@ class _QuickAddAction {
   final VoidCallback onTap;
 }
 
+/// Visible fade + slide-up reveal with optional stagger delay.
+/// Uses a real [AnimationController] so [delay] produces true stagger.
+class _DashboardReveal extends StatefulWidget {
+  const _DashboardReveal({
+    required this.id,
+    required this.child,
+    this.delay = Duration.zero,
+    this.threshold = 0.03,
+  });
+
+  final String id;
+  final Widget child;
+  final Duration delay;
+  final double threshold;
+
+  @override
+  State<_DashboardReveal> createState() => _DashboardRevealState();
+}
+
+class _DashboardRevealState extends State<_DashboardReveal> {
+  bool _visible = false;
+  bool _queued = false;
+
+  void _show() {
+    if (_visible || _queued) return;
+
+    _queued = true;
+    Future.delayed(widget.delay, () {
+      if (!mounted) return;
+      setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return VisibilityDetector(
+      key: ValueKey('dashboard-reveal-${widget.id}'),
+      onVisibilityChanged: (info) {
+        if (info.visibleFraction >= widget.threshold) {
+          _show();
+        }
+      },
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 480),
+        curve: Curves.easeOutCubic,
+        child: AnimatedSlide(
+          offset: _visible ? Offset.zero : const Offset(0, 0.045),
+          duration: const Duration(milliseconds: 620),
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Reusable card that lifts on hover (desktop) and scales on press (all).
+/// Safe on mobile — hover only triggers above [_kHoverBreakpoint].
+const double _kHoverBreakpoint = 900;
+
+class _HoverLiftPanel extends StatefulWidget {
+  const _HoverLiftPanel({required this.child, this.borderRadius});
+
+  final Widget child;
+  final BorderRadius? borderRadius;
+
+  @override
+  State<_HoverLiftPanel> createState() => _HoverLiftPanelState();
+}
+
+class _HoverLiftPanelState extends State<_HoverLiftPanel> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final hoverEnabled = width >= 900;
+    final activeHover = hoverEnabled && _hovered;
+    final radius = widget.borderRadius ?? AppRadius.xLarge;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final scale = _pressed
+        ? 0.99
+        : activeHover
+        ? 1.018
+        : 1.0;
+    final yOffset = activeHover ? -7.0 : 0.0;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (hoverEnabled) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (hoverEnabled) setState(() => _hovered = false);
+      },
+      child: Listener(
+        onPointerDown: (_) => setState(() => _pressed = true),
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
+        child: AnimatedSlide(
+          offset: Offset(0, yOffset / 100),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(
+                  color: activeHover
+                      ? AppColors.primaryColor(context).withValues(alpha: 0.38)
+                      : AppColors.borderColor(context),
+                ),
+                boxShadow: isDark
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: activeHover ? 0.13 : 0.05,
+                          ),
+                          blurRadius: activeHover ? 20 : 8,
+                          offset: Offset(0, activeHover ? 8 : 3),
+                        ),
+                      ],
+              ),
+              child: ClipRRect(borderRadius: radius, child: widget.child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _WelcomePanel extends StatelessWidget {
   const _WelcomePanel({required this.authState});
 
@@ -800,8 +1042,9 @@ class _WelcomePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final copy = _DashboardCopy.of(context);
-    final name = (authState.userProfile?.fullName ?? authState.user?.fullName ?? '')
-        .trim();
+    final name =
+        (authState.userProfile?.fullName ?? authState.user?.fullName ?? '')
+            .trim();
     final displayName = name.isEmpty ? l.crmUser : name;
     final now = DateTime.now();
     final date = MaterialLocalizations.of(context).formatFullDate(now);
@@ -812,7 +1055,9 @@ class _WelcomePanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardSurface : AppColors.backgroundHighlight,
+        color: isDark
+            ? AppColors.darkCardSurface
+            : AppColors.backgroundHighlight,
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.xLarge,
         boxShadow: Theme.of(context).brightness == Brightness.dark
@@ -835,9 +1080,9 @@ class _WelcomePanel extends StatelessWidget {
                   Text(
                     copy.greeting(now),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimaryColor(context),
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimaryColor(context),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
@@ -845,16 +1090,16 @@ class _WelcomePanel extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimaryColor(context),
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimaryColor(context),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     date,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
-                        ),
+                      color: AppColors.textSecondaryColor(context),
+                    ),
                   ),
                 ],
               ),
@@ -964,36 +1209,74 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final copy = _DashboardCopy.of(context);
+    // Ordered for a clean 4-col × 2-row desktop grid
     final cards = [
-      _MetricItem(l.totalLeads, data.leads.length, AppStatusTone.info),
-      _MetricItem(l.newLeads, data.newLeads.length, AppStatusTone.info),
-      _MetricItem(copy.overdueFollowUps, data.overdueFollowUps.length,
-          AppStatusTone.error),
-      _MetricItem(copy.upcomingFollowUps, data.upcomingFollowUps.length,
-          AppStatusTone.info),
-      _MetricItem(l.openDeals, data.openDeals.length, AppStatusTone.warning),
-      _MetricItem(l.wonDeals, data.wonDeals.length, AppStatusTone.success),
-      _MetricItem(copy.availableProperties, data.availableProperties.length,
-          AppStatusTone.success),
-      _MetricItem(l.clients, data.clients.length, AppStatusTone.neutral),
+      _MetricItem(
+        l.totalLeads,
+        data.leads.length,
+        AppStatusTone.info,
+        Icons.people_alt_outlined,
+      ),
+      _MetricItem(
+        l.newLeads,
+        data.newLeads.length,
+        AppStatusTone.neutral,
+        Icons.person_add_alt_outlined,
+      ),
+      _MetricItem(
+        copy.upcomingFollowUps,
+        data.upcomingFollowUps.length,
+        AppStatusTone.info,
+        Icons.upcoming_outlined,
+      ),
+      _MetricItem(
+        copy.overdueFollowUps,
+        data.overdueFollowUps.length,
+        AppStatusTone.error,
+        Icons.schedule_outlined,
+      ),
+      _MetricItem(
+        l.openDeals,
+        data.openDeals.length,
+        AppStatusTone.warning,
+        Icons.handshake_outlined,
+      ),
+      _MetricItem(
+        l.wonDeals,
+        data.wonDeals.length,
+        AppStatusTone.success,
+        Icons.emoji_events_outlined,
+      ),
+      _MetricItem(
+        copy.availableProperties,
+        data.availableProperties.length,
+        AppStatusTone.success,
+        Icons.apartment_outlined,
+      ),
+      _MetricItem(
+        l.clients,
+        data.clients.length,
+        AppStatusTone.neutral,
+        Icons.group_outlined,
+      ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 980
-            ? 6
-            : constraints.maxWidth >= 680
-                ? 3
-                : 2;
-        final width = (constraints.maxWidth - (columns - 1) * AppSpacing.sm) /
-            columns;
+        // Desktop: 4 columns, Tablet: 2 columns, Mobile: 2 columns
+        final columns = constraints.maxWidth >= 860 ? 4 : 2;
+        final gap = AppSpacing.sm;
+        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
 
         return Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
+          spacing: gap,
+          runSpacing: gap,
           children: [
             for (final card in cards)
-              SizedBox(width: width, child: _MetricCard(item: card)),
+              SizedBox(
+                width: width,
+                child: _MetricCard(item: card),
+              ),
           ],
         );
       },
@@ -1009,50 +1292,55 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _toneColor(context, item.tone);
-    return _Panel(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0, end: item.value.toDouble()),
-                  duration: const Duration(milliseconds: 220),
-                  builder: (context, value, _) {
-                    return Text(
-                      value.round().toString(),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimaryColor(context),
-                          ),
-                    );
-                  },
-                ),
-              ],
+    return _HoverLiftPanel(
+      borderRadius: AppRadius.xLarge,
+      child: _Panel(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0, end: item.value.toDouble()),
+                    duration: const Duration(milliseconds: 480),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return Text(
+                        value.round().toString(),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimaryColor(context),
+                            ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: AppRadius.large,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: AppRadius.large,
+              ),
+              child: Icon(item.icon, size: 18, color: color),
             ),
-            child: Icon(Icons.trending_up, size: 18, color: color),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1079,11 +1367,11 @@ class _AnalyticsPanel extends StatelessWidget {
               final columns = constraints.maxWidth >= 900
                   ? 3
                   : constraints.maxWidth >= 600
-                      ? 2
-                      : 1;
+                  ? 2
+                  : 1;
               final cardWidth =
                   (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
-                      columns;
+                  columns;
 
               return Wrap(
                 spacing: AppSpacing.md,
@@ -1094,14 +1382,26 @@ class _AnalyticsPanel extends StatelessWidget {
                     child: _DonutChartCard(
                       title: copy.leadStatusDistribution,
                       segments: [
-                        _ChartSegment(l.newLead, data.newLeads.length,
-                            AppColors.primaryColor(context)),
-                        _ChartSegment(copy.active, data.activeLeads.length,
-                            AppColors.successColor(context)),
-                        _ChartSegment(l.won, data.wonLeads.length,
-                            AppColors.primaryPressed),
-                        _ChartSegment(l.lost, data.lostLeads.length,
-                            AppColors.errorColor(context)),
+                        _ChartSegment(
+                          l.newLead,
+                          data.newLeads.length,
+                          AppColors.primaryColor(context),
+                        ),
+                        _ChartSegment(
+                          copy.active,
+                          data.activeLeads.length,
+                          AppColors.successColor(context),
+                        ),
+                        _ChartSegment(
+                          l.won,
+                          data.wonLeads.length,
+                          AppColors.primaryPressed,
+                        ),
+                        _ChartSegment(
+                          l.lost,
+                          data.lostLeads.length,
+                          AppColors.errorColor(context),
+                        ),
                       ],
                     ),
                   ),
@@ -1110,14 +1410,26 @@ class _AnalyticsPanel extends StatelessWidget {
                     child: _DonutChartCard(
                       title: copy.tasksDueBreakdown,
                       segments: [
-                        _ChartSegment(l.overdue, data.overdueTasks.length,
-                            AppColors.errorColor(context)),
-                        _ChartSegment(l.dueToday, data.todayTasks.length,
-                            AppColors.warningColor(context)),
-                        _ChartSegment(l.upcoming, data.upcomingTasks.length,
-                            AppColors.primaryPressed),
-                        _ChartSegment(l.completed, data.completedTasks.length,
-                            AppColors.successColor(context)),
+                        _ChartSegment(
+                          l.overdue,
+                          data.overdueTasks.length,
+                          AppColors.errorColor(context),
+                        ),
+                        _ChartSegment(
+                          l.dueToday,
+                          data.todayTasks.length,
+                          AppColors.warningColor(context),
+                        ),
+                        _ChartSegment(
+                          l.upcoming,
+                          data.upcomingTasks.length,
+                          AppColors.primaryPressed,
+                        ),
+                        _ChartSegment(
+                          l.completed,
+                          data.completedTasks.length,
+                          AppColors.successColor(context),
+                        ),
                       ],
                     ),
                   ),
@@ -1126,15 +1438,21 @@ class _AnalyticsPanel extends StatelessWidget {
                     child: _DonutChartCard(
                       title: copy.propertyStatusDistribution,
                       segments: [
-                        _ChartSegment(copy.availableProperties,
-                            data.availableProperties.length,
-                            AppColors.successColor(context)),
-                        _ChartSegment(copy.inactive,
-                            data.inactiveProperties.length,
-                            const Color(0xFFD8D0C2)),
-                        _ChartSegment(copy.reservedOrClosed,
-                            data.reservedOrClosedProperties.length,
-                            AppColors.warningColor(context)),
+                        _ChartSegment(
+                          copy.availableProperties,
+                          data.availableProperties.length,
+                          AppColors.successColor(context),
+                        ),
+                        _ChartSegment(
+                          copy.inactive,
+                          data.inactiveProperties.length,
+                          const Color(0xFFD8D0C2),
+                        ),
+                        _ChartSegment(
+                          copy.reservedOrClosed,
+                          data.reservedOrClosedProperties.length,
+                          AppColors.warningColor(context),
+                        ),
                       ],
                     ),
                   ),
@@ -1162,7 +1480,7 @@ class _AnalyticsPanel extends StatelessWidget {
   }
 }
 
-class _DonutChartCard extends StatelessWidget {
+class _DonutChartCard extends StatefulWidget {
   const _DonutChartCard({
     required this.title,
     required this.segments,
@@ -1172,57 +1490,185 @@ class _DonutChartCard extends StatelessWidget {
   final List<_ChartSegment> segments;
 
   @override
-  Widget build(BuildContext context) {
-    final total = segments.fold<int>(0, (sum, item) => sum + item.value);
+  State<_DonutChartCard> createState() => _DonutChartCardState();
+}
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.inputSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: AppRadius.large,
+class _DonutChartCardState extends State<_DonutChartCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _sweep;
+  late Animation<double> _legend;
+  late Animation<double> _centerScale;
+
+  String _signature = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1050),
+    );
+
+    _setupAnimations();
+    _signature = _buildSignature(widget.segments);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _controller.forward(from: 0);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _DonutChartCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final nextSignature = _buildSignature(widget.segments);
+    if (nextSignature != _signature) {
+      _signature = nextSignature;
+      _controller.forward(from: 0);
+    }
+  }
+
+  void _setupAnimations() {
+    _sweep = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.00, 0.72, curve: Curves.easeOutCubic),
+    );
+
+    _legend = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.32, 1.00, curve: Curves.easeOutCubic),
+    );
+
+    _centerScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.88, end: 1.06)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 55,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              CustomPaint(
-                size: const Size.square(76),
-                painter: _DonutPainter(segments: segments),
-                child: SizedBox.square(
-                  dimension: 76,
-                  child: Center(
-                    child: Text(
-                      total.toString(),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+      TweenSequenceItem(
+        tween: Tween(begin: 1.06, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 45,
+      ),
+    ]).animate(_controller);
+  }
+
+  String _buildSignature(List<_ChartSegment> segments) {
+    return segments
+        .map((segment) => '${segment.label}:${segment.value}')
+        .join('|');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.segments.fold<int>(
+      0,
+          (sum, item) => sum + item.value,
+    );
+
+    return _HoverLiftPanel(
+      borderRadius: AppRadius.large,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.inputSurface(context),
+          border: Border.all(color: AppColors.borderColor(context)),
+          borderRadius: AppRadius.large,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    return Transform.scale(
+                      scale: _centerScale.value,
+                      child: CustomPaint(
+                        size: const Size.square(82),
+                        painter: _DonutPainter(
+                          segments: widget.segments,
+                          progress: _sweep.value,
+                        ),
+                        child: SizedBox.square(
+                          dimension: 82,
+                          child: Center(
+                            child: TweenAnimationBuilder<double>(
+                              key: ValueKey('donut-total-$_signature'),
+                              tween: Tween(
+                                begin: 0.0,
+                                end: total.toDouble(),
+                              ),
+                              duration: const Duration(milliseconds: 760),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) {
+                                return Text(
+                                  value.round().toString(),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: _legend,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _legend.value,
+                        child: Transform.translate(
+                          offset: Offset(10 * (1 - _legend.value), 0),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Column(
+                      children: [
+                        for (var index = 0;
+                        index < widget.segments.length;
+                        index++)
+                          _AnimatedLegendRow(
+                            segment: widget.segments[index],
+                            index: index,
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  children: [
-                    for (final segment in segments)
-                      _LegendRow(segment: segment),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1258,48 +1704,96 @@ class _LegendRow extends StatelessWidget {
           ),
           Text(
             segment.value.toString(),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ),
     );
   }
 }
+class _AnimatedLegendRow extends StatelessWidget {
+  const _AnimatedLegendRow({
+    required this.segment,
+    required this.index,
+  });
 
+  final _ChartSegment segment;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 420 + index * 70),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(8 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: _LegendRow(segment: segment),
+    );
+  }
+}
 class _DonutPainter extends CustomPainter {
-  const _DonutPainter({required this.segments});
+  const _DonutPainter({required this.segments, this.progress = 1.0});
 
   final List<_ChartSegment> segments;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     final total = segments.fold<int>(0, (sum, segment) => sum + segment.value);
     final rect = Offset.zero & size;
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFE9E1D3);
+
+    canvas.drawArc(
+      rect.deflate(8),
+      -math.pi / 2,
+      math.pi * 2,
+      false,
+      trackPaint,
+    );
     final stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
+      ..strokeWidth = 11
       ..strokeCap = StrokeCap.round;
 
     if (total == 0) {
       stroke.color = const Color(0xFFDCE3EC);
-      canvas.drawArc(rect.deflate(8), -math.pi / 2, math.pi * 2, false, stroke);
+      canvas.drawArc(
+        rect.deflate(8),
+        -math.pi / 2,
+        math.pi * 2 * progress,
+        false,
+        stroke,
+      );
       return;
     }
 
     var start = -math.pi / 2;
     for (final segment in segments.where((segment) => segment.value > 0)) {
-      final sweep = math.pi * 2 * segment.value / total;
+      final fullSweep = math.pi * 2 * segment.value / total;
+      final sweep = fullSweep * progress;
       stroke.color = segment.color;
       canvas.drawArc(rect.deflate(8), start, sweep, false, stroke);
-      start += sweep;
+      start += fullSweep; // advance by full so proportions stay correct
     }
   }
 
   @override
   bool shouldRepaint(covariant _DonutPainter oldDelegate) {
-    return oldDelegate.segments != segments;
+    return oldDelegate.segments != segments || oldDelegate.progress != progress;
   }
 }
 
@@ -1333,11 +1827,13 @@ class _LeadSection extends StatelessWidget {
                     for (final lead in leads.take(6))
                       _DashboardListTile(
                         title: lead.fullName,
-                        subtitle:
-                            lead.phone.isNotEmpty ? lead.phone : lead.email,
+                        subtitle: lead.phone.isNotEmpty
+                            ? lead.phone
+                            : lead.email,
                         badge: _leadStatusLabel(context, lead.status),
                         tone: _leadStatusTone(lead.status),
-                        onTap: () => context.go(RouteNames.leadDetails(lead.id)),
+                        onTap: () =>
+                            context.go(RouteNames.leadDetails(lead.id)),
                       ),
                   ],
                 ),
@@ -1417,8 +1913,9 @@ class _TaskBreakdownSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final total = data.tasks.length;
-    final completionRate =
-        total == 0 ? 0.0 : data.completedTasks.length / total;
+    final completionRate = total == 0
+        ? 0.0
+        : data.completedTasks.length / total;
 
     return _Panel(
       child: Column(
@@ -1430,9 +1927,18 @@ class _TaskBreakdownSection extends StatelessWidget {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              _MiniMetric(label: l.overdueTasks, value: data.overdueTasks.length),
-              _MiniMetric(label: l.dueTodayTasks, value: data.todayTasks.length),
-              _MiniMetric(label: l.upcomingTasks, value: data.upcomingTasks.length),
+              _MiniMetric(
+                label: l.overdueTasks,
+                value: data.overdueTasks.length,
+              ),
+              _MiniMetric(
+                label: l.dueTodayTasks,
+                value: data.todayTasks.length,
+              ),
+              _MiniMetric(
+                label: l.upcomingTasks,
+                value: data.upcomingTasks.length,
+              ),
               _MiniMetric(
                 label: l.completedTasks,
                 value: data.completedTasks.length,
@@ -1487,18 +1993,18 @@ class _MiniMetric extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                  fontWeight: FontWeight.w700,
-                ),
+              color: AppColors.textSecondaryColor(context),
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             value.toString(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -1576,14 +2082,21 @@ class _ProgressRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: clamped,
-              minHeight: 8,
-              backgroundColor: AppColors.borderColor(context),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: clamped),
+            duration: const Duration(milliseconds: 850),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: animatedValue,
+                  minHeight: 8,
+                  backgroundColor: AppColors.borderColor(context),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -1592,9 +2105,9 @@ class _ProgressRow extends StatelessWidget {
           child: Text(
             trailing ?? '${(clamped * 100).round()}%',
             textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
       ],
@@ -1615,8 +2128,8 @@ class _CompactEmpty extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondaryColor(context),
-            ),
+          color: AppColors.textSecondaryColor(context),
+        ),
       ),
     );
   }
@@ -1657,8 +2170,8 @@ class _DashboardListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     if (subtitle.trim().isNotEmpty)
                       Text(
@@ -1691,7 +2204,8 @@ class _ActionPanel extends StatelessWidget {
     final canCreateLead =
         role != null && PermissionService.can(role, AppPermission.createLead);
     final canCreateProperty =
-        role != null && PermissionService.can(role, AppPermission.createProperty);
+        role != null &&
+        PermissionService.can(role, AppPermission.createProperty);
     final canCreateClient =
         role != null && PermissionService.can(role, AppPermission.createClient);
 
@@ -1704,15 +2218,18 @@ class _ActionPanel extends StatelessWidget {
           AppButton(
             label: l.createLead,
             icon: Icons.person_add_alt_outlined,
-            onPressed: canCreateLead ? () => context.go(RouteNames.leadsCreate) : null,
+            onPressed: canCreateLead
+                ? () => context.go(RouteNames.leadsCreate)
+                : null,
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
             label: l.createClient,
             icon: Icons.group_add_outlined,
             variant: AppButtonVariant.secondary,
-            onPressed:
-                canCreateClient ? () => context.go(RouteNames.clientsCreate) : null,
+            onPressed: canCreateClient
+                ? () => context.go(RouteNames.clientsCreate)
+                : null,
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
@@ -1764,9 +2281,9 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
     );
   }
 }
@@ -1790,11 +2307,11 @@ class _DashboardData {
       leads.where((lead) => lead.status == LeadStatus.newLead).toList();
 
   List<Lead> get activeLeads => leads.where((lead) {
-        return lead.status == LeadStatus.contacted ||
-            lead.status == LeadStatus.interested ||
-            lead.status == LeadStatus.visitScheduled ||
-            lead.status == LeadStatus.negotiation;
-      }).toList();
+    return lead.status == LeadStatus.contacted ||
+        lead.status == LeadStatus.interested ||
+        lead.status == LeadStatus.visitScheduled ||
+        lead.status == LeadStatus.negotiation;
+  }).toList();
 
   List<Lead> get wonLeads =>
       leads.where((lead) => lead.status == LeadStatus.won).toList();
@@ -1806,22 +2323,23 @@ class _DashboardData {
       leads.where((lead) => lead.assignedTo.trim().isEmpty).toList();
 
   List<Lead> get overdueFollowUps => leads.where((lead) {
-        final date = lead.nextFollowUpAt;
-        return date != null && _dateOnly(date.toLocal()).isBefore(_today);
-      }).toList();
+    final date = lead.nextFollowUpAt;
+    return date != null && _dateOnly(date.toLocal()).isBefore(_today);
+  }).toList();
 
   List<Lead> get upcomingFollowUps => leads.where((lead) {
-        final date = lead.nextFollowUpAt;
-        return date != null && _dateOnly(date.toLocal()).isAfter(_today);
-      }).toList();
+    final date = lead.nextFollowUpAt;
+    return date != null && _dateOnly(date.toLocal()).isAfter(_today);
+  }).toList();
 
   List<Lead> get todaysFollowUps => leads.where((lead) {
-        final date = lead.nextFollowUpAt;
-        return date != null && _dateOnly(date.toLocal()) == _today;
-      }).toList();
+    final date = lead.nextFollowUpAt;
+    return date != null && _dateOnly(date.toLocal()) == _today;
+  }).toList();
 
   List<Lead> get recentLeads {
-    final sorted = [...leads]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final sorted = [...leads]
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return sorted;
   }
 
@@ -1834,27 +2352,30 @@ class _DashboardData {
       .toList();
 
   List<Property> get reservedOrClosedProperties => properties
-      .where((property) => property.status != PropertyStatus.available &&
-          property.status != PropertyStatus.inactive)
+      .where(
+        (property) =>
+            property.status != PropertyStatus.available &&
+            property.status != PropertyStatus.inactive,
+      )
       .toList();
 
   List<CrmTask> get overdueTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return task.status != TaskStatus.completed &&
-            task.status != TaskStatus.cancelled &&
-            date != null &&
-            _dateOnly(date.toLocal()).isBefore(_today);
-      }).toList();
+    final date = task.dueDate;
+    return task.status != TaskStatus.completed &&
+        task.status != TaskStatus.cancelled &&
+        date != null &&
+        _dateOnly(date.toLocal()).isBefore(_today);
+  }).toList();
 
   List<CrmTask> get todayTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return date != null && _dateOnly(date.toLocal()) == _today;
-      }).toList();
+    final date = task.dueDate;
+    return date != null && _dateOnly(date.toLocal()) == _today;
+  }).toList();
 
   List<CrmTask> get upcomingTasks => tasks.where((task) {
-        final date = task.dueDate;
-        return date != null && _dateOnly(date.toLocal()).isAfter(_today);
-      }).toList();
+    final date = task.dueDate;
+    return date != null && _dateOnly(date.toLocal()).isAfter(_today);
+  }).toList();
 
   List<CrmTask> get completedTasks =>
       tasks.where((task) => task.status == TaskStatus.completed).toList();
@@ -1863,8 +2384,8 @@ class _DashboardData {
       tasks.where((task) => task.status == TaskStatus.cancelled).toList();
 
   List<Deal> get openDeals => deals.where((deal) {
-        return deal.stage != DealStage.won && deal.stage != DealStage.lost;
-      }).toList();
+    return deal.stage != DealStage.won && deal.stage != DealStage.lost;
+  }).toList();
 
   List<Deal> get wonDeals =>
       deals.where((deal) => deal.stage == DealStage.won).toList();
@@ -1898,9 +2419,9 @@ class _DashboardData {
       ...todayTasks.where((task) => !overdueTasks.contains(task)),
     ];
     selected.sort((a, b) {
-      final priority = _taskPriorityRank(b.priority).compareTo(
-        _taskPriorityRank(a.priority),
-      );
+      final priority = _taskPriorityRank(
+        b.priority,
+      ).compareTo(_taskPriorityRank(a.priority));
       if (priority != 0) {
         return priority;
       }
@@ -1910,10 +2431,11 @@ class _DashboardData {
     });
     return selected;
   }
+
   List<_RecentActivityItem> recentActivities(
-      BuildContext context,
-      List<UserProfile> users,
-      ) {
+    BuildContext context,
+    List<UserProfile> users,
+  ) {
     final l = AppLocalizations.of(context)!;
     final items = <_RecentActivityItem>[];
 
@@ -1969,7 +2491,8 @@ class _DashboardData {
           timeLabel: _relativeTimeLabel(context, time),
           icon: Icons.business_outlined,
           tone: _propertyStatusTone(property.status),
-          onTap: (context) => context.go(RouteNames.propertyDetails(property.id)),
+          onTap: (context) =>
+              context.go(RouteNames.propertyDetails(property.id)),
         ),
       );
     }
@@ -2009,7 +2532,10 @@ class _DashboardData {
               ? l.dashboardActivityDealLost
               : l.dashboardActivityDealUpdated,
           title: _fallback(deal.clientName, l.deal),
-          subtitle: _fallback(deal.propertyTitle, dealStageLabel(l, deal.stage)),
+          subtitle: _fallback(
+            deal.propertyTitle,
+            dealStageLabel(l, deal.stage),
+          ),
           actorName: _actorNameFromId(l, users, deal.updatedBy),
           time: time,
           timeLabel: _relativeTimeLabel(context, time),
@@ -2026,11 +2552,12 @@ class _DashboardData {
 }
 
 class _MetricItem {
-  const _MetricItem(this.label, this.value, this.tone);
+  const _MetricItem(this.label, this.value, this.tone, this.icon);
 
   final String label;
   final int value;
   final AppStatusTone tone;
+  final IconData icon;
 }
 
 class _ChartSegment {
@@ -2059,13 +2586,15 @@ class _DashboardCopy {
     }
     return l.dashboardGoodEvening;
   }
+
   String get overdueFollowUps => l.dashboardOverdueFollowUps;
   String get upcomingFollowUps => l.dashboardUpcomingFollowUps;
   String get availableProperties => l.dashboardAvailableProperties;
   String get visualAnalytics => l.dashboardVisualAnalytics;
   String get leadStatusDistribution => l.dashboardLeadStatusDistribution;
   String get tasksDueBreakdown => l.dashboardTasksDueBreakdown;
-  String get propertyStatusDistribution => l.dashboardPropertyStatusDistribution;
+  String get propertyStatusDistribution =>
+      l.dashboardPropertyStatusDistribution;
   String get todaysFollowUps => l.dashboardTodaysFollowUps;
   String get overdueTasks => l.dashboardOverdueTasks;
   String get unassignedLeads => l.dashboardUnassignedLeads;
@@ -2084,10 +2613,10 @@ DateTime _dateOnly(DateTime value) {
 }
 
 String _actorNameFromId(
-    AppLocalizations l,
-    List<UserProfile> users,
-    String? uid,
-    ) {
+  AppLocalizations l,
+  List<UserProfile> users,
+  String? uid,
+) {
   final value = uid?.trim() ?? '';
   if (value.isEmpty) {
     return l.unknownUser;
@@ -2159,7 +2688,8 @@ AppStatusTone _leadStatusTone(LeadStatus status) {
   return switch (status) {
     LeadStatus.won => AppStatusTone.success,
     LeadStatus.lost => AppStatusTone.error,
-    LeadStatus.negotiation || LeadStatus.visitScheduled => AppStatusTone.warning,
+    LeadStatus.negotiation ||
+    LeadStatus.visitScheduled => AppStatusTone.warning,
     LeadStatus.contacted || LeadStatus.interested => AppStatusTone.info,
     LeadStatus.newLead => AppStatusTone.neutral,
   };
@@ -2228,13 +2758,15 @@ String _fallback(String value, String fallback) {
 
 String _formatMoney(BuildContext context, num value) {
   final localeName = Localizations.localeOf(context).toString();
-  return intl.NumberFormat.compact(locale: localeName).format(value);}
+  return intl.NumberFormat.compact(locale: localeName).format(value);
+}
 
 Color _dealStageColor(BuildContext context, DealStage stage) {
   return switch (stage) {
     DealStage.won => AppColors.successColor(context),
     DealStage.lost => AppColors.errorColor(context),
-    DealStage.negotiation || DealStage.proposal => AppColors.warningColor(context),
+    DealStage.negotiation ||
+    DealStage.proposal => AppColors.warningColor(context),
     DealStage.qualified => AppColors.infoColor(context),
     DealStage.newDeal => AppColors.primaryColor(context),
   };
@@ -2257,9 +2789,15 @@ Color _toneColor(BuildContext context, AppStatusTone tone) {
     AppStatusTone.neutral => AppColors.primaryColor(context),
   };
 }
+
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
   final repository = UserProfileRepositoryImpl(
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+bool _canViewRecentActivity(AuthState authState) {
+  final role = authState.userProfile?.role ?? authState.user?.role;
+  return role == UserRole.admin || role == UserRole.manager;
 }

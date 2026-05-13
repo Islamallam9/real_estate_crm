@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:visibility_detector/visibility_detector.dart';
 import 'app.dart';
 import 'core/firebase/firebase_initializer.dart';
 import 'core/localization/locale_cubit.dart';
@@ -9,6 +9,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final initialLocale = await _loadInitialLocale();
   await FirebaseInitializer.initialize();
+  VisibilityDetectorController.instance.updateInterval =
+  const Duration(milliseconds: 500);
   runApp(RealEstateCrmApp(initialLocale: initialLocale));
 }
 
