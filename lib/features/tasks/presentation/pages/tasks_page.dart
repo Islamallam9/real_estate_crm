@@ -608,7 +608,6 @@ class _TasksBody extends StatelessWidget {
             ],
           );
         }
-
         return Align(
           alignment: AlignmentDirectional.topStart,
           child: SizedBox(
