@@ -21,10 +21,10 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     required UpdatePropertyUseCase updatePropertyUseCase,
     required DeactivatePropertyUseCase deactivatePropertyUseCase,
   }) : _watchPropertiesUseCase = watchPropertiesUseCase,
-       _createPropertyUseCase = createPropertyUseCase,
-       _updatePropertyUseCase = updatePropertyUseCase,
-       _deactivatePropertyUseCase = deactivatePropertyUseCase,
-       super(const PropertiesState.initial());
+        _createPropertyUseCase = createPropertyUseCase,
+        _updatePropertyUseCase = updatePropertyUseCase,
+        _deactivatePropertyUseCase = deactivatePropertyUseCase,
+        super(const PropertiesState.initial());
 
   final WatchPropertiesUseCase _watchPropertiesUseCase;
   final CreatePropertyUseCase _createPropertyUseCase;
@@ -33,15 +33,19 @@ class PropertiesCubit extends Cubit<PropertiesState> {
 
   StreamSubscription<List<Property>>? _propertiesSubscription;
   final InitialLoadTimeout _propertiesInitialLoadTimeout =
-      InitialLoadTimeout();
-  static const Duration _firebaseTimeout = Duration(seconds: 10);
+  InitialLoadTimeout();
+  static const Duration _defaultFirebaseTimeout = Duration(seconds: 15);
+  static const Duration _imageUploadFirebaseTimeout = Duration(minutes: 4);
 
   Future<bool> _hasConnection() async {
     final results = await Connectivity().checkConnectivity();
     return results.any((result) => result != ConnectivityResult.none);
   }
 
-  Future<T> _guardFirebaseAction<T>(Future<T> Function() action) async {
+  Future<T> _guardFirebaseAction<T>(
+      Future<T> Function() action, {
+        Duration timeout = _defaultFirebaseTimeout,
+      }) async {
     final connected = await _hasConnection();
 
     if (!connected) {
@@ -49,7 +53,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     }
 
     return action().timeout(
-      _firebaseTimeout,
+      timeout,
       onTimeout: () {
         throw const PropertyException(AppErrorMessages.unableToConnect);
       },
@@ -81,43 +85,43 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     _propertiesSubscription = _watchPropertiesUseCase(companyId: companyId)
         .listen(
           (properties) {
-            if (isClosed) {
-              return;
-            }
-            _propertiesInitialLoadTimeout.complete();
-            emit(
-              state.copyWith(
-                status: properties.isEmpty
-                    ? PropertiesStatus.empty
-                    : PropertiesStatus.loaded,
-                properties: properties,
-                filteredProperties: _applyFilters(
-                  properties,
-                  searchQuery: state.searchQuery,
-                  propertyTypeFilter: state.propertyTypeFilter,
-                  listingTypeFilter: state.listingTypeFilter,
-                  statusFilter: state.statusFilter,
-                ),
-                clearMessage: true,
-              ),
-            );
-          },
-          onError: (error) {
-            if (isClosed) {
-              return;
-            }
-            _propertiesInitialLoadTimeout.complete();
-            emit(
-              state.copyWith(
-                status: PropertiesStatus.failure,
-                message: _propertyErrorMessage(
-                  error,
-                  AppErrorMessages.connectionTimeout,
-                ),
-              ),
-            );
-          },
+        if (isClosed) {
+          return;
+        }
+        _propertiesInitialLoadTimeout.complete();
+        emit(
+          state.copyWith(
+            status: properties.isEmpty
+                ? PropertiesStatus.empty
+                : PropertiesStatus.loaded,
+            properties: properties,
+            filteredProperties: _applyFilters(
+              properties,
+              searchQuery: state.searchQuery,
+              propertyTypeFilter: state.propertyTypeFilter,
+              listingTypeFilter: state.listingTypeFilter,
+              statusFilter: state.statusFilter,
+            ),
+            clearMessage: true,
+          ),
         );
+      },
+      onError: (error) {
+        if (isClosed) {
+          return;
+        }
+        _propertiesInitialLoadTimeout.complete();
+        emit(
+          state.copyWith(
+            status: PropertiesStatus.failure,
+            message: _propertyErrorMessage(
+              error,
+              AppErrorMessages.connectionTimeout,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void setSearchQuery(String query) {
@@ -209,11 +213,14 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     );
     try {
       await _guardFirebaseAction(
-        () => _createPropertyUseCase(
+            () => _createPropertyUseCase(
           companyId: companyId,
           property: property,
           newImages: newImages,
         ),
+        timeout: newImages.isEmpty
+            ? _defaultFirebaseTimeout
+            : _imageUploadFirebaseTimeout,
       );
       if (isClosed) {
         return;
@@ -267,12 +274,15 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     );
     try {
       await _guardFirebaseAction(
-        () => _updatePropertyUseCase(
+            () => _updatePropertyUseCase(
           companyId: companyId,
           property: property,
           newImages: newImages,
           removedImageStoragePaths: removedImageStoragePaths,
         ),
+        timeout: newImages.isEmpty && removedImageStoragePaths.isEmpty
+            ? _defaultFirebaseTimeout
+            : _imageUploadFirebaseTimeout,
       );
       if (isClosed) {
         return;
@@ -325,7 +335,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     );
     try {
       await _guardFirebaseAction(
-        () => _deactivatePropertyUseCase(
+            () => _deactivatePropertyUseCase(
           companyId: companyId,
           propertyId: propertyId,
           updatedBy: updatedBy,
@@ -386,21 +396,21 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   }
 
   List<Property> _applyFilters(
-    List<Property> properties, {
-    String? searchQuery,
-    PropertyType? propertyTypeFilter,
-    PropertyListingType? listingTypeFilter,
-    PropertyStatus? statusFilter,
-  }) {
+      List<Property> properties, {
+        String? searchQuery,
+        PropertyType? propertyTypeFilter,
+        PropertyListingType? listingTypeFilter,
+        PropertyStatus? statusFilter,
+      }) {
     final query = (searchQuery ?? '').trim().toLowerCase();
     final filtered = properties.where((property) {
       final matchesQuery =
           query.isEmpty ||
-          property.title.toLowerCase().contains(query) ||
-          property.location.toLowerCase().contains(query) ||
-          property.compound.toLowerCase().contains(query) ||
-          property.ownerName.toLowerCase().contains(query) ||
-          property.ownerPhone.toLowerCase().contains(query);
+              property.title.toLowerCase().contains(query) ||
+              property.location.toLowerCase().contains(query) ||
+              property.compound.toLowerCase().contains(query) ||
+              property.ownerName.toLowerCase().contains(query) ||
+              property.ownerPhone.toLowerCase().contains(query);
       final matchesType =
           propertyTypeFilter == null || property.propertyType == propertyTypeFilter;
       final matchesListingType =

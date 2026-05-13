@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -16,10 +16,10 @@ import '../../domain/entities/property_image_upload.dart';
 import 'property_labels.dart';
 
 typedef PropertyFormSubmit = void Function(
-  Property property, {
-  List<PropertyImageUpload> newImages,
-  List<String> removedImageStoragePaths,
-});
+    Property property, {
+    List<PropertyImageUpload> newImages,
+    List<String> removedImageStoragePaths,
+    });
 
 class PropertyForm extends StatefulWidget {
   const PropertyForm({
@@ -45,7 +45,6 @@ class PropertyForm extends StatefulWidget {
 
 class _PropertyFormState extends State<PropertyForm> {
   final _formKey = GlobalKey<FormState>();
-  final _imagePicker = ImagePicker();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
@@ -58,6 +57,7 @@ class _PropertyFormState extends State<PropertyForm> {
   final _ownerPhoneController = TextEditingController();
 
   static const int _maxImageBytes = 5 * 1024 * 1024;
+  static const int _maxOriginalImageBytes = 20 * 1024 * 1024;
 
   PropertyType _propertyType = PropertyType.apartment;
   PropertyListingType _listingType = PropertyListingType.sale;
@@ -276,51 +276,62 @@ class _PropertyFormState extends State<PropertyForm> {
   Future<void> _pickImages() async {
     final l = AppLocalizations.of(context)!;
     setState(() => _isPickingImages = true);
+
     try {
-      final pickedFiles = await _imagePicker.pickMultiImage(imageQuality: 82);
-      if (pickedFiles.isEmpty) {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
         return;
       }
 
-      final validImages = <_PendingPropertyImage>[];
-      var rejectedByType = false;
-      var rejectedBySize = false;
+      final pickedFile = result.files.first;
+      final bytes = pickedFile.bytes;
 
-      for (final pickedFile in pickedFiles) {
-        final contentType = _contentTypeFor(pickedFile);
-        if (!contentType.startsWith('image/')) {
-          rejectedByType = true;
-          continue;
+      if (bytes == null || bytes.isEmpty) {
+        if (mounted) {
+          AppFeedback.error(context, l.unableToPickPropertyImages);
         }
+        return;
+      }
 
-        final bytes = await pickedFile.readAsBytes();
-        if (bytes.lengthInBytes > _maxImageBytes) {
-          rejectedBySize = true;
-          continue;
+      final contentType = _contentTypeForFileName(pickedFile.name);
+      if (!contentType.startsWith('image/')) {
+        if (mounted) {
+          AppFeedback.warning(context, l.propertyImageInvalidType);
         }
+        return;
+      }
 
-        validImages.add(
-          _PendingPropertyImage(
-            fileName: pickedFile.name,
-            bytes: bytes,
-            contentType: contentType,
-          ),
-        );
+      if (bytes.lengthInBytes > _maxOriginalImageBytes) {
+        if (mounted) {
+          AppFeedback.warning(context, l.propertyImageTooLarge);
+        }
+        return;
       }
 
       if (!mounted) {
         return;
       }
-      if (validImages.isNotEmpty) {
-        setState(() => _pendingImages.addAll(validImages));
-      }
-      if (rejectedByType) {
-        AppFeedback.warning(context, l.propertyImageInvalidType);
-      }
-      if (rejectedBySize) {
-        AppFeedback.warning(context, l.propertyImageTooLarge);
-      }
-    } catch (_) {
+
+      setState(() {
+        _pendingImages.add(
+          _PendingPropertyImage(
+            fileName: pickedFile.name.isNotEmpty
+                ? pickedFile.name
+                : 'property_image_${DateTime.now().microsecondsSinceEpoch}.jpg',
+            bytes: bytes,
+            contentType: contentType,
+          ),
+        );
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Property image pick failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (mounted) {
         AppFeedback.error(context, l.unableToPickPropertyImages);
       }
@@ -397,6 +408,7 @@ class _PropertyFormState extends State<PropertyForm> {
       return;
     }
 
+    final l = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final previous = widget.property;
     final retainedCoverImageUrl = _resolveRetainedCoverImageUrl(
@@ -433,11 +445,11 @@ class _PropertyFormState extends State<PropertyForm> {
       newImages: _pendingImages
           .map(
             (image) => PropertyImageUpload(
-              fileName: image.fileName,
-              bytes: image.bytes,
-              contentType: image.contentType,
-            ),
-          )
+          fileName: image.fileName,
+          bytes: image.bytes,
+          contentType: image.contentType,
+        ),
+      )
           .toList(growable: false),
       removedImageStoragePaths: List<String>.unmodifiable(
         _removedImageStoragePaths,
@@ -511,7 +523,12 @@ class _PropertyImagesPicker extends StatelessWidget {
                 ),
               for (var index = 0; index < pendingImages.length; index += 1)
                 _PropertyImageTile(
-                  image: Image.memory(pendingImages[index].bytes, fit: BoxFit.cover),
+                  image: Image.memory(
+                    pendingImages[index].bytes,
+                    fit: BoxFit.cover,
+                    cacheWidth: 236,
+                    cacheHeight: 184,
+                  ),
                   badge: l.newImage,
                   onRemove: isBusy ? null : () => onRemovePending(index),
                 ),
@@ -626,22 +643,26 @@ class _PendingPropertyImage {
   final String contentType;
 }
 
-String _contentTypeFor(XFile file) {
-  final mimeType = file.mimeType;
-  if (mimeType != null && mimeType.trim().isNotEmpty) {
-    return mimeType.trim().toLowerCase();
-  }
 
-  final lowerName = file.name.toLowerCase();
+String _contentTypeForFileName(String fileName) {
+  final lowerName = fileName.toLowerCase();
+
   if (lowerName.endsWith('.png')) {
     return 'image/png';
   }
+
   if (lowerName.endsWith('.webp')) {
     return 'image/webp';
   }
+
   if (lowerName.endsWith('.gif')) {
     return 'image/gif';
   }
+
+  if (lowerName.endsWith('.heic') || lowerName.endsWith('.heif')) {
+    return 'image/heic';
+  }
+
   return 'image/jpeg';
 }
 

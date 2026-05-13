@@ -1,3 +1,5 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -172,7 +174,7 @@ class _PropertyImageCarouselState extends State<_PropertyImageCarousel> {
     final images = widget.property.imageUrls
         .map((url) => url.trim())
         .where((url) => url.isNotEmpty)
-        .take(10)
+        .take(5)
         .toList(growable: false);
 
     return LayoutBuilder(
@@ -207,18 +209,8 @@ class _PropertyImageCarouselState extends State<_PropertyImageCarousel> {
                       setState(() => _currentIndex = index);
                     },
                     itemBuilder: (context, index) {
-                      return Image.network(
-                        images[index],
-                        fit: BoxFit.cover,
-                        alignment: Alignment.center,
-                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-                        errorBuilder: (context, error, stackTrace) => ColoredBox(
-                          color: AppColors.appBackground(context),
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: AppColors.textMutedColor(context),
-                          ),
-                        ),
+                      return _PropertyCardNetworkImage(
+                        imageUrl: images[index],
                       );
                     },
                   ),
@@ -269,6 +261,72 @@ class _PropertyImageCarouselState extends State<_PropertyImageCarousel> {
           ),
         );
       },
+    );
+  }
+}
+
+class _PropertyCardNetworkImage extends StatelessWidget {
+  const _PropertyCardNetworkImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+
+          return ColoredBox(
+            color: AppColors.appBackground(context),
+            child: const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => ColoredBox(
+          color: AppColors.appBackground(context),
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: AppColors.textMutedColor(context),
+          ),
+        ),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      memCacheWidth: 600,
+      memCacheHeight: 420,
+      placeholder: (context, url) => ColoredBox(
+        color: AppColors.appBackground(context),
+        child: const Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => ColoredBox(
+        color: AppColors.appBackground(context),
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: AppColors.textMutedColor(context),
+        ),
+      ),
     );
   }
 }

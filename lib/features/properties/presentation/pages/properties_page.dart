@@ -309,6 +309,7 @@ class _PropertiesBody extends StatelessWidget {
                   ? const NeverScrollableScrollPhysics()
                   : const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
+              cacheExtent: 600,
               itemCount: state.filteredProperties.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,

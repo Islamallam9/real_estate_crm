@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/entities/property.dart';
@@ -40,12 +41,14 @@ class FirestorePropertiesRemoteDataSource
     FirebaseFirestore? firestore,
     firebase_storage.FirebaseStorage? storage,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? firebase_storage.FirebaseStorage.instance;
+        _storage = storage ?? firebase_storage.FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final firebase_storage.FirebaseStorage _storage;
 
   static const int _maxImageBytes = 5 * 1024 * 1024;
+  static const Duration _imageUploadTimeout = Duration(seconds: 90);
+  static const Duration _firestoreWriteTimeout = Duration(seconds: 30);
 
   @override
   Future<PropertyModel> createProperty({
@@ -91,7 +94,9 @@ class FirestorePropertiesRemoteDataSource
         ),
       );
 
-      await document.set(propertyToSave.toFirestore());
+      await document
+          .set(propertyToSave.toFirestore())
+          .timeout(_firestoreWriteTimeout);
       return propertyToSave;
     } on PropertyException {
       await _deleteStoragePaths(uploadedStoragePaths);
@@ -147,9 +152,11 @@ class FirestorePropertiesRemoteDataSource
         ),
       );
 
-      await document.update(propertyToSave.toFirestore());
+      await document
+          .update(propertyToSave.toFirestore())
+          .timeout(_firestoreWriteTimeout);
       await _deleteStoragePaths(removedImageStoragePaths);
-      final snapshot = await document.get();
+      final snapshot = await document.get().timeout(_firestoreWriteTimeout);
       return PropertyModel.fromFirestore(snapshot);
     } on PropertyException {
       await _deleteStoragePaths(uploadedStoragePaths);
@@ -193,8 +200,8 @@ class FirestorePropertiesRemoteDataSource
     int limit = 30,
   }) {
     return _propertiesCollection(companyId).limit(limit).snapshots().map((
-      snapshot,
-    ) {
+        snapshot,
+        ) {
       final properties = snapshot.docs.map((document) {
         final property = PropertyModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, property: property);
@@ -207,8 +214,8 @@ class FirestorePropertiesRemoteDataSource
   }
 
   CollectionReference<Map<String, dynamic>> _propertiesCollection(
-    String companyId,
-  ) {
+      String companyId,
+      ) {
     return _firestore.collection(FirebasePaths.companyProperties(companyId));
   }
 
@@ -218,23 +225,40 @@ class FirestorePropertiesRemoteDataSource
     required List<PropertyImageUpload> images,
   }) async {
     final uploadedImages = <_UploadedPropertyImage>[];
+
     for (final image in images) {
       _validateImage(image);
+
       final storagePath = _propertyImageStoragePath(
         companyId: companyId,
         propertyId: propertyId,
         fileName: image.fileName,
       );
+
       final storageReference = _storage.ref().child(storagePath);
-      await storageReference.putData(
-        image.bytes,
-        firebase_storage.SettableMetadata(contentType: image.contentType),
-      );
-      final downloadUrl = await storageReference.getDownloadURL();
-      uploadedImages.add(
-        _UploadedPropertyImage(url: downloadUrl, path: storagePath),
-      );
+
+      try {
+        await storageReference
+            .putData(
+          image.bytes,
+          firebase_storage.SettableMetadata(
+            contentType: image.contentType,
+          ),
+        )
+            .timeout(_imageUploadTimeout);
+
+        final downloadUrl = await storageReference
+            .getDownloadURL()
+            .timeout(_firestoreWriteTimeout);
+
+        uploadedImages.add(
+          _UploadedPropertyImage(url: downloadUrl, path: storagePath),
+        );
+      } on TimeoutException {
+        throw const PropertyException(AppErrorMessages.unableToConnect);
+      }
     }
+
     return uploadedImages;
   }
 
