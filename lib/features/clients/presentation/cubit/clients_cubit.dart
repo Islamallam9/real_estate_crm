@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../domain/entities/client.dart';
 import '../../domain/errors/client_exception.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
@@ -22,12 +24,14 @@ class ClientsCubit extends Cubit<ClientsState> {
     required UpdateClientUseCase updateClientUseCase,
     required AssignClientUseCase assignClientUseCase,
     required ArchiveClientUseCase archiveClientUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchClientsUseCase = watchClientsUseCase,
        _watchClientUseCase = watchClientUseCase,
        _createClientUseCase = createClientUseCase,
        _updateClientUseCase = updateClientUseCase,
        _assignClientUseCase = assignClientUseCase,
        _archiveClientUseCase = archiveClientUseCase,
+       _createAuditLogUseCase = createAuditLogUseCase,
       super(const ClientsState.initial());
 
   final WatchClientsUseCase _watchClientsUseCase;
@@ -36,6 +40,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   final UpdateClientUseCase _updateClientUseCase;
   final AssignClientUseCase _assignClientUseCase;
   final ArchiveClientUseCase _archiveClientUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Client>>? _clientsSubscription;
   StreamSubscription<Client?>? _clientSubscription;
@@ -194,7 +199,24 @@ class ClientsCubit extends Cubit<ClientsState> {
       ),
     );
     try {
-      await _createClientUseCase(companyId: companyId, client: client);
+      final createdClient = await _createClientUseCase(
+        companyId: companyId,
+        client: client,
+      );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: createdClient.createdBy,
+          action: AuditLogAction.create,
+          recordId: createdClient.id,
+          recordTitle: _clientTitle(createdClient),
+          recordSubtitle: _clientSubtitle(createdClient),
+          metadata: {
+            'assignedTo': createdClient.assignedTo,
+            'assignedToName': createdClient.assignedToName,
+          },
+        ),
+      );
       if (isClosed) {
         return;
       }
@@ -242,7 +264,24 @@ class ClientsCubit extends Cubit<ClientsState> {
       ),
     );
     try {
-      await _updateClientUseCase(companyId: companyId, client: client);
+      final updatedClient = await _updateClientUseCase(
+        companyId: companyId,
+        client: client,
+      );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedClient.updatedBy,
+          action: AuditLogAction.update,
+          recordId: updatedClient.id,
+          recordTitle: _clientTitle(updatedClient),
+          recordSubtitle: _clientSubtitle(updatedClient),
+          metadata: {
+            'assignedTo': updatedClient.assignedTo,
+            'assignedToName': updatedClient.assignedToName,
+          },
+        ),
+      );
       if (isClosed) {
         return;
       }
@@ -302,6 +341,21 @@ class ClientsCubit extends Cubit<ClientsState> {
         assignedToEmail: assignedToEmail,
         updatedBy: updatedBy,
       );
+      final client = _clientById(clientId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedBy,
+          action: AuditLogAction.assign,
+          recordId: clientId,
+          recordTitle: client == null ? 'Client' : _clientTitle(client),
+          recordSubtitle: client == null ? '' : _clientSubtitle(client),
+          metadata: {
+            'assignedTo': assignedTo,
+            'assignedToName': assignedToName,
+          },
+        ),
+      );
       if (isClosed) {
         return;
       }
@@ -355,6 +409,18 @@ class ClientsCubit extends Cubit<ClientsState> {
         clientId: clientId,
         updatedBy: updatedBy,
       );
+      final client = _clientById(clientId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedBy,
+          action: AuditLogAction.archive,
+          recordId: clientId,
+          recordTitle: client == null ? 'Client' : _clientTitle(client),
+          recordSubtitle: client == null ? '' : _clientSubtitle(client),
+          metadata: const {},
+        ),
+      );
       if (isClosed) {
         return;
       }
@@ -402,6 +468,51 @@ class ClientsCubit extends Cubit<ClientsState> {
     return fallback;
   }
 
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: '',
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.clients,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block client workflows.
+    }
+  }
+
+  Client? _clientById(String clientId) {
+    if (state.selectedClient?.id == clientId) {
+      return state.selectedClient;
+    }
+    for (final client in state.clients) {
+      if (client.id == clientId) {
+        return client;
+      }
+    }
+    return null;
+  }
+
   List<Client> _applyFilters(
     List<Client> clients, {
     String? searchQuery,
@@ -444,4 +555,17 @@ class ClientsCubit extends Cubit<ClientsState> {
     _clientSubscription?.cancel();
     return super.close();
   }
+}
+
+String _clientTitle(Client client) {
+  final name = client.fullName.trim();
+  return name.isEmpty ? 'Client' : name;
+}
+
+String _clientSubtitle(Client client) {
+  final phone = client.phone.trim();
+  if (phone.isNotEmpty) {
+    return phone;
+  }
+  return client.email.trim();
 }

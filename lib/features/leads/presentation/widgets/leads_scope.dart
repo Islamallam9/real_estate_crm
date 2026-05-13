@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/leads_remote_data_source.dart';
 import '../../data/datasources/lead_notes_remote_data_source.dart';
 import '../../data/datasources/lead_timeline_remote_data_source.dart';
@@ -33,6 +36,9 @@ class LeadsScope extends StatelessWidget {
     final timelineRepository = LeadTimelineRepositoryImpl(
       remoteDataSource: FirestoreLeadTimelineRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => LeadsCubit(
@@ -53,6 +59,7 @@ class LeadsScope extends StatelessWidget {
           timelineRepository,
         ),
         watchLeadTimelineUseCase: WatchLeadTimelineUseCase(timelineRepository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,
     );

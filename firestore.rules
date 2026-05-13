@@ -644,6 +644,68 @@ service cloud.firestore {
           && resource.data.isActive == true);
     }
 
+    function auditLogFields() {
+      return [
+        'id',
+        'companyId',
+        'actorId',
+        'actorName',
+        'actorEmail',
+        'actorRole',
+        'action',
+        'module',
+        'recordId',
+        'recordTitle',
+        'recordSubtitle',
+        'createdAt',
+        'metadata'
+      ];
+    }
+
+    function validAuditLogCreate(companyId, auditLogId) {
+      return isActiveCompanyUser(companyId)
+        && request.resource.data.keys().hasAll(auditLogFields())
+        && request.resource.data.keys().hasOnly(auditLogFields())
+        && request.resource.data.id == auditLogId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.actorName is string
+        && request.resource.data.actorEmail is string
+        && request.resource.data.actorRole == role(companyId)
+        && request.resource.data.actorRole in [
+          'admin',
+          'manager',
+          'salesAgent',
+          'marketing',
+          'viewer'
+        ]
+        && request.resource.data.action in [
+          'create',
+          'update',
+          'archive',
+          'deactivate',
+          'assign',
+          'statusChange',
+          'stageChange',
+          'complete',
+          'cancel',
+          'imageAdded',
+          'imageRemoved'
+        ]
+        && request.resource.data.module in [
+          'leads',
+          'clients',
+          'properties',
+          'tasks',
+          'deals'
+        ]
+        && request.resource.data.recordId is string
+        && request.resource.data.recordTitle is string
+        && request.resource.data.recordSubtitle is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.metadata is map;
+    }
+
     match /companies/{companyId} {
       allow get: if isActiveCompanyUser(companyId);
       allow list, create, update, delete: if false;
@@ -795,7 +857,8 @@ service cloud.firestore {
 
       match /audit_logs/{auditLogId} {
         allow get, list: if isAdminOrManager(companyId);
-        allow create, update, delete: if false;
+        allow create: if validAuditLogCreate(companyId, auditLogId);
+        allow update, delete: if false;
       }
 
       match /appointments/{appointmentId} {

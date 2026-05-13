@@ -5,7 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/deals_remote_data_source.dart';
+import '../../data/models/deal_model.dart';
 import '../../domain/entities/deal.dart';
 import '../../domain/usecases/archive_deal_usecase.dart';
 import '../../domain/usecases/create_deal_usecase.dart';
@@ -21,11 +24,13 @@ class DealsCubit extends Cubit<DealsState> {
     required UpdateDealUseCase updateDealUseCase,
     required UpdateDealStageUseCase updateDealStageUseCase,
     required ArchiveDealUseCase archiveDealUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchDealsUseCase = watchDealsUseCase,
        _createDealUseCase = createDealUseCase,
        _updateDealUseCase = updateDealUseCase,
        _updateDealStageUseCase = updateDealStageUseCase,
        _archiveDealUseCase = archiveDealUseCase,
+       _createAuditLogUseCase = createAuditLogUseCase,
        super(const DealsState.initial());
 
   final WatchDealsUseCase _watchDealsUseCase;
@@ -33,6 +38,7 @@ class DealsCubit extends Cubit<DealsState> {
   final UpdateDealUseCase _updateDealUseCase;
   final UpdateDealStageUseCase _updateDealStageUseCase;
   final ArchiveDealUseCase _archiveDealUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Deal>>? _dealsSubscription;
   final InitialLoadTimeout _dealsInitialLoadTimeout = InitialLoadTimeout();
@@ -170,6 +176,24 @@ class DealsCubit extends Cubit<DealsState> {
     return _save(
       action: DealsAction.createDeal,
       operation: () => _createDealUseCase(companyId: companyId, deal: deal),
+      afterSuccess: (result) {
+        final createdDeal = result as Deal;
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: createdDeal.createdBy,
+            action: AuditLogAction.create,
+            recordId: createdDeal.id,
+            recordTitle: _dealTitle(createdDeal),
+            recordSubtitle: _dealSubtitle(createdDeal),
+            metadata: {
+              'newStage': dealStageToValue(createdDeal.stage),
+              'assignedTo': createdDeal.assignedTo,
+              'assignedToName': createdDeal.assignedToName,
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -177,9 +201,35 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required Deal deal,
   }) {
+    final previousDeal = dealById(deal.id);
     return _save(
       action: DealsAction.updateDeal,
       operation: () => _updateDealUseCase(companyId: companyId, deal: deal),
+      afterSuccess: (result) {
+        final updatedDeal = result as Deal;
+        final stageChanged =
+            previousDeal != null && previousDeal.stage != updatedDeal.stage;
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedDeal.updatedBy,
+            action: stageChanged
+                ? AuditLogAction.stageChange
+                : AuditLogAction.update,
+            recordId: updatedDeal.id,
+            recordTitle: _dealTitle(updatedDeal),
+            recordSubtitle: _dealSubtitle(updatedDeal),
+            metadata: {
+              if (previousDeal != null) ...{
+                'previousStage': dealStageToValue(previousDeal.stage),
+                'newStage': dealStageToValue(updatedDeal.stage),
+              },
+              'assignedTo': updatedDeal.assignedTo,
+              'assignedToName': updatedDeal.assignedToName,
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -190,6 +240,7 @@ class DealsCubit extends Cubit<DealsState> {
     required String lostReason,
     required String updatedBy,
   }) {
+    final previousDeal = dealById(dealId);
     return _save(
       action: DealsAction.updateStage,
       operation: () => _updateDealStageUseCase(
@@ -199,6 +250,25 @@ class DealsCubit extends Cubit<DealsState> {
         lostReason: lostReason,
         updatedBy: updatedBy,
       ),
+      afterSuccess: (_) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedBy,
+            action: AuditLogAction.stageChange,
+            recordId: dealId,
+            recordTitle: previousDeal == null ? 'Deal' : _dealTitle(previousDeal),
+            recordSubtitle: previousDeal == null
+                ? ''
+                : _dealSubtitle(previousDeal),
+            metadata: {
+              if (previousDeal != null)
+                'previousStage': dealStageToValue(previousDeal.stage),
+              'newStage': dealStageToValue(stage),
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -207,6 +277,7 @@ class DealsCubit extends Cubit<DealsState> {
     required String dealId,
     required String updatedBy,
   }) {
+    final deal = dealById(dealId);
     return _save(
       action: DealsAction.archiveDeal,
       operation: () => _archiveDealUseCase(
@@ -214,12 +285,26 @@ class DealsCubit extends Cubit<DealsState> {
         dealId: dealId,
         updatedBy: updatedBy,
       ),
+      afterSuccess: (_) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedBy,
+            action: AuditLogAction.archive,
+            recordId: dealId,
+            recordTitle: deal == null ? 'Deal' : _dealTitle(deal),
+            recordSubtitle: deal == null ? '' : _dealSubtitle(deal),
+            metadata: const {},
+          ),
+        );
+      },
     );
   }
 
   Future<bool> _save({
     required DealsAction action,
     required Future<dynamic> Function() operation,
+    void Function(dynamic result)? afterSuccess,
   }) async {
     emit(
       state.copyWith(
@@ -229,7 +314,8 @@ class DealsCubit extends Cubit<DealsState> {
       ),
     );
     try {
-      await operation();
+      final result = await operation();
+      afterSuccess?.call(result);
       if (isClosed) {
         return false;
       }
@@ -354,10 +440,66 @@ class DealsCubit extends Cubit<DealsState> {
     return AppErrorMessages.unknown;
   }
 
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: '',
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.deals,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block deal workflows.
+    }
+  }
+
   @override
   Future<void> close() {
     _dealsInitialLoadTimeout.cancel();
     _dealsSubscription?.cancel();
     return super.close();
   }
+}
+
+String _dealTitle(Deal deal) {
+  final clientName = deal.clientName.trim();
+  final propertyTitle = deal.propertyTitle.trim();
+  if (clientName.isNotEmpty && propertyTitle.isNotEmpty) {
+    return '$clientName - $propertyTitle';
+  }
+  if (clientName.isNotEmpty) {
+    return clientName;
+  }
+  if (propertyTitle.isNotEmpty) {
+    return propertyTitle;
+  }
+  return 'Deal';
+}
+
+String _dealSubtitle(Deal deal) {
+  final location = deal.propertyLocation.trim();
+  if (location.isNotEmpty) {
+    return location;
+  }
+  return dealStageToValue(deal.stage);
 }

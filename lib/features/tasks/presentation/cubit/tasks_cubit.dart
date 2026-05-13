@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../domain/entities/crm_task.dart';
 import '../../domain/errors/task_exception.dart';
 import '../../domain/usecases/create_task_usecase.dart';
@@ -20,11 +22,13 @@ class TasksCubit extends Cubit<TasksState> {
     required CreateTaskUseCase createTaskUseCase,
     required UpdateTaskUseCase updateTaskUseCase,
     required GetTaskRelatedRecordOptionsUseCase getRelatedRecordOptionsUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchTasksUseCase = watchTasksUseCase,
        _watchTaskUseCase = watchTaskUseCase,
        _createTaskUseCase = createTaskUseCase,
        _updateTaskUseCase = updateTaskUseCase,
        _getRelatedRecordOptionsUseCase = getRelatedRecordOptionsUseCase,
+       _createAuditLogUseCase = createAuditLogUseCase,
        super(const TasksState.initial());
 
   final WatchTasksUseCase _watchTasksUseCase;
@@ -32,6 +36,7 @@ class TasksCubit extends Cubit<TasksState> {
   final CreateTaskUseCase _createTaskUseCase;
   final UpdateTaskUseCase _updateTaskUseCase;
   final GetTaskRelatedRecordOptionsUseCase _getRelatedRecordOptionsUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<CrmTask>>? _tasksSubscription;
   StreamSubscription<CrmTask?>? _taskSubscription;
@@ -241,7 +246,26 @@ class TasksCubit extends Cubit<TasksState> {
       ),
     );
     try {
-      await _createTaskUseCase(companyId: companyId, task: task);
+      final createdTask = await _createTaskUseCase(
+        companyId: companyId,
+        task: task,
+      );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: createdTask.createdBy,
+          action: AuditLogAction.create,
+          recordId: createdTask.id,
+          recordTitle: _taskTitle(createdTask),
+          recordSubtitle: _taskSubtitle(createdTask),
+          metadata: {
+            'status': _taskStatusValue(createdTask.status),
+            'assignedTo': createdTask.assignedTo,
+            'assignedToName': createdTask.assignedToName,
+            'relatedType': createdTask.relatedType.name,
+          },
+        ),
+      );
       if (isClosed) {
         return false;
       }
@@ -293,7 +317,35 @@ class TasksCubit extends Cubit<TasksState> {
       ),
     );
     try {
-      await _updateTaskUseCase(companyId: companyId, task: task);
+      final previousTask = _taskById(task.id);
+      final updatedTask = await _updateTaskUseCase(
+        companyId: companyId,
+        task: task,
+      );
+      final auditAction = switch (action) {
+        TasksAction.markCompleted => AuditLogAction.complete,
+        TasksAction.cancelTask => AuditLogAction.cancel,
+        _ => AuditLogAction.update,
+      };
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedTask.updatedBy,
+          action: auditAction,
+          recordId: updatedTask.id,
+          recordTitle: _taskTitle(updatedTask),
+          recordSubtitle: _taskSubtitle(updatedTask),
+          metadata: {
+            if (previousTask != null) ...{
+              'previousStatus': _taskStatusValue(previousTask.status),
+              'newStatus': _taskStatusValue(updatedTask.status),
+            },
+            'assignedTo': updatedTask.assignedTo,
+            'assignedToName': updatedTask.assignedToName,
+            'relatedType': updatedTask.relatedType.name,
+          },
+        ),
+      );
       if (isClosed) {
         return false;
       }
@@ -559,6 +611,51 @@ class TasksCubit extends Cubit<TasksState> {
     return fallback;
   }
 
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: '',
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.tasks,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block task workflows.
+    }
+  }
+
+  CrmTask? _taskById(String taskId) {
+    if (state.selectedTask?.id == taskId) {
+      return state.selectedTask;
+    }
+    for (final task in state.tasks) {
+      if (task.id == taskId) {
+        return task;
+      }
+    }
+    return null;
+  }
+
   @override
   Future<void> close() {
     _tasksInitialLoadTimeout.cancel();
@@ -567,4 +664,37 @@ class TasksCubit extends Cubit<TasksState> {
     _taskSubscription?.cancel();
     return super.close();
   }
+}
+
+String _taskTitle(CrmTask task) {
+  final title = task.title.trim();
+  return title.isEmpty ? 'Task' : title;
+}
+
+String _taskSubtitle(CrmTask task) {
+  final relatedTitle = task.relatedTitle.trim();
+  if (relatedTitle.isNotEmpty) {
+    return relatedTitle;
+  }
+  final dueDate = task.dueDate;
+  if (dueDate != null) {
+    return _formatAuditDate(dueDate);
+  }
+  return task.assignedToName.trim();
+}
+
+String _taskStatusValue(TaskStatus status) {
+  return switch (status) {
+    TaskStatus.pending => 'pending',
+    TaskStatus.inProgress => 'inProgress',
+    TaskStatus.completed => 'completed',
+    TaskStatus.cancelled => 'cancelled',
+  };
+}
+
+String _formatAuditDate(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }

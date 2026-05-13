@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/deals_remote_data_source.dart';
 import '../../data/repositories/deal_repository_impl.dart';
 import '../../domain/usecases/archive_deal_usecase.dart';
@@ -20,6 +23,9 @@ class DealsScope extends StatelessWidget {
     final repository = DealRepositoryImpl(
       remoteDataSource: FirestoreDealsRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => DealsCubit(
@@ -28,6 +34,7 @@ class DealsScope extends StatelessWidget {
         updateDealUseCase: UpdateDealUseCase(repository),
         updateDealStageUseCase: UpdateDealStageUseCase(repository),
         archiveDealUseCase: ArchiveDealUseCase(repository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,
     );

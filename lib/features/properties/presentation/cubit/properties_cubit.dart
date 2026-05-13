@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/property_image_upload.dart';
 import '../../domain/errors/property_exception.dart';
@@ -20,16 +22,19 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     required CreatePropertyUseCase createPropertyUseCase,
     required UpdatePropertyUseCase updatePropertyUseCase,
     required DeactivatePropertyUseCase deactivatePropertyUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchPropertiesUseCase = watchPropertiesUseCase,
         _createPropertyUseCase = createPropertyUseCase,
         _updatePropertyUseCase = updatePropertyUseCase,
         _deactivatePropertyUseCase = deactivatePropertyUseCase,
+        _createAuditLogUseCase = createAuditLogUseCase,
         super(const PropertiesState.initial());
 
   final WatchPropertiesUseCase _watchPropertiesUseCase;
   final CreatePropertyUseCase _createPropertyUseCase;
   final UpdatePropertyUseCase _updatePropertyUseCase;
   final DeactivatePropertyUseCase _deactivatePropertyUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Property>>? _propertiesSubscription;
   final InitialLoadTimeout _propertiesInitialLoadTimeout =
@@ -212,7 +217,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       ),
     );
     try {
-      await _guardFirebaseAction(
+      final createdProperty = await _guardFirebaseAction(
             () => _createPropertyUseCase(
           companyId: companyId,
           property: property,
@@ -222,6 +227,33 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             ? _defaultFirebaseTimeout
             : _imageUploadFirebaseTimeout,
       );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: createdProperty.createdBy,
+          action: AuditLogAction.create,
+          recordId: createdProperty.id,
+          recordTitle: _propertyTitle(createdProperty),
+          recordSubtitle: _propertySubtitle(createdProperty),
+          metadata: {
+            'status': _propertyStatusValue(createdProperty.status),
+            'imageCount': createdProperty.imageUrls.length,
+          },
+        ),
+      );
+      if (newImages.isNotEmpty) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: createdProperty.createdBy,
+            action: AuditLogAction.imageAdded,
+            recordId: createdProperty.id,
+            recordTitle: _propertyTitle(createdProperty),
+            recordSubtitle: _propertySubtitle(createdProperty),
+            metadata: {'imageCount': newImages.length},
+          ),
+        );
+      }
       if (isClosed) {
         return;
       }
@@ -273,7 +305,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       ),
     );
     try {
-      await _guardFirebaseAction(
+      final updatedProperty = await _guardFirebaseAction(
             () => _updatePropertyUseCase(
           companyId: companyId,
           property: property,
@@ -284,6 +316,46 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             ? _defaultFirebaseTimeout
             : _imageUploadFirebaseTimeout,
       );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedProperty.updatedBy,
+          action: AuditLogAction.update,
+          recordId: updatedProperty.id,
+          recordTitle: _propertyTitle(updatedProperty),
+          recordSubtitle: _propertySubtitle(updatedProperty),
+          metadata: {
+            'status': _propertyStatusValue(updatedProperty.status),
+            'imageCount': updatedProperty.imageUrls.length,
+          },
+        ),
+      );
+      if (newImages.isNotEmpty) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedProperty.updatedBy,
+            action: AuditLogAction.imageAdded,
+            recordId: updatedProperty.id,
+            recordTitle: _propertyTitle(updatedProperty),
+            recordSubtitle: _propertySubtitle(updatedProperty),
+            metadata: {'imageCount': newImages.length},
+          ),
+        );
+      }
+      if (removedImageStoragePaths.isNotEmpty) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedProperty.updatedBy,
+            action: AuditLogAction.imageRemoved,
+            recordId: updatedProperty.id,
+            recordTitle: _propertyTitle(updatedProperty),
+            recordSubtitle: _propertySubtitle(updatedProperty),
+            metadata: {'imageCount': removedImageStoragePaths.length},
+          ),
+        );
+      }
       if (isClosed) {
         return;
       }
@@ -341,6 +413,18 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           updatedBy: updatedBy,
         ),
       );
+      final property = _propertyById(propertyId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedBy,
+          action: AuditLogAction.deactivate,
+          recordId: propertyId,
+          recordTitle: property == null ? 'Property' : _propertyTitle(property),
+          recordSubtitle: property == null ? '' : _propertySubtitle(property),
+          metadata: const {'newStatus': 'inactive'},
+        ),
+      );
       if (isClosed) {
         return;
       }
@@ -395,6 +479,48 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     return fallback;
   }
 
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: '',
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.properties,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block property workflows.
+    }
+  }
+
+  Property? _propertyById(String propertyId) {
+    for (final property in state.properties) {
+      if (property.id == propertyId) {
+        return property;
+      }
+    }
+    return null;
+  }
+
   List<Property> _applyFilters(
       List<Property> properties, {
         String? searchQuery,
@@ -430,4 +556,27 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     _propertiesSubscription?.cancel();
     return super.close();
   }
+}
+
+String _propertyTitle(Property property) {
+  final title = property.title.trim();
+  return title.isEmpty ? 'Property' : title;
+}
+
+String _propertySubtitle(Property property) {
+  final location = property.location.trim();
+  if (location.isNotEmpty) {
+    return location;
+  }
+  return property.price.toString();
+}
+
+String _propertyStatusValue(PropertyStatus status) {
+  return switch (status) {
+    PropertyStatus.available => 'available',
+    PropertyStatus.reserved => 'reserved',
+    PropertyStatus.sold => 'sold',
+    PropertyStatus.rented => 'rented',
+    PropertyStatus.inactive => 'inactive',
+  };
 }

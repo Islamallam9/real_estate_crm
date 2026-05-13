@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/properties_remote_data_source.dart';
 import '../../data/repositories/property_repository_impl.dart';
 import '../../domain/usecases/create_property_usecase.dart';
@@ -19,6 +22,9 @@ class PropertiesScope extends StatelessWidget {
     final repository = PropertyRepositoryImpl(
       remoteDataSource: FirestorePropertiesRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => PropertiesCubit(
@@ -26,6 +32,7 @@ class PropertiesScope extends StatelessWidget {
         createPropertyUseCase: CreatePropertyUseCase(repository),
         updatePropertyUseCase: UpdatePropertyUseCase(repository),
         deactivatePropertyUseCase: DeactivatePropertyUseCase(repository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,
     );

@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/clients_remote_data_source.dart';
 import '../../data/repositories/client_repository_impl.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
@@ -21,6 +24,9 @@ class ClientsScope extends StatelessWidget {
     final repository = ClientRepositoryImpl(
       remoteDataSource: FirestoreClientsRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => ClientsCubit(
@@ -30,6 +36,7 @@ class ClientsScope extends StatelessWidget {
         updateClientUseCase: UpdateClientUseCase(repository),
         assignClientUseCase: AssignClientUseCase(repository),
         archiveClientUseCase: ArchiveClientUseCase(repository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,
     );

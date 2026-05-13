@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../data/datasources/tasks_remote_data_source.dart';
 import '../../data/repositories/task_repository_impl.dart';
 import '../../domain/usecases/create_task_usecase.dart';
@@ -20,6 +23,9 @@ class TasksScope extends StatelessWidget {
     final repository = TaskRepositoryImpl(
       remoteDataSource: FirestoreTasksRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => TasksCubit(
@@ -29,6 +35,7 @@ class TasksScope extends StatelessWidget {
         updateTaskUseCase: UpdateTaskUseCase(repository),
         getRelatedRecordOptionsUseCase:
             GetTaskRelatedRecordOptionsUseCase(repository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,
     );

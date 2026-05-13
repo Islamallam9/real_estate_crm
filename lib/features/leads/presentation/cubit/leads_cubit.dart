@@ -2,6 +2,8 @@ import 'dart:async';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../domain/errors/lead_exception.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -30,6 +32,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required WatchLeadNotesUseCase watchLeadNotesUseCase,
     required AddLeadTimelineEventUseCase addLeadTimelineEventUseCase,
     required WatchLeadTimelineUseCase watchLeadTimelineUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _createLeadUseCase = createLeadUseCase,
        _archiveLeadUseCase = archiveLeadUseCase,
        _updateLeadUseCase = updateLeadUseCase,
@@ -39,6 +42,7 @@ class LeadsCubit extends Cubit<LeadsState> {
        _watchLeadNotesUseCase = watchLeadNotesUseCase,
        _addLeadTimelineEventUseCase = addLeadTimelineEventUseCase,
        _watchLeadTimelineUseCase = watchLeadTimelineUseCase,
+       _createAuditLogUseCase = createAuditLogUseCase,
        super(const LeadsState.initial());
 
   final CreateLeadUseCase _createLeadUseCase;
@@ -50,6 +54,7 @@ class LeadsCubit extends Cubit<LeadsState> {
   final WatchLeadNotesUseCase _watchLeadNotesUseCase;
   final AddLeadTimelineEventUseCase _addLeadTimelineEventUseCase;
   final WatchLeadTimelineUseCase _watchLeadTimelineUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Lead>>? _leadsSubscription;
   StreamSubscription<List<LeadNote>>? _notesSubscription;
@@ -284,6 +289,39 @@ class LeadsCubit extends Cubit<LeadsState> {
           createdByName: actorName,
         );
       }
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: createdLead.createdBy,
+          actorName: actorName,
+          action: AuditLogAction.create,
+          recordId: createdLead.id,
+          recordTitle: _leadTitle(createdLead),
+          recordSubtitle: _leadSubtitle(createdLead),
+          metadata: {
+            'status': _leadStatusValue(createdLead.status),
+            'assignedTo': createdLead.assignedTo,
+            'assignedToName': createdLead.assignedToName,
+          },
+        ),
+      );
+      if (createdLead.assignedTo.isNotEmpty) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: createdLead.createdBy,
+            actorName: actorName,
+            action: AuditLogAction.assign,
+            recordId: createdLead.id,
+            recordTitle: _leadTitle(createdLead),
+            recordSubtitle: _leadSubtitle(createdLead),
+            metadata: {
+              'assignedTo': createdLead.assignedTo,
+              'assignedToName': createdLead.assignedToName,
+            },
+          ),
+        );
+      }
       if (isClosed) {
         return;
       }
@@ -341,6 +379,32 @@ class LeadsCubit extends Cubit<LeadsState> {
         oldLead: current,
         newLead: updated,
         actorName: actorName,
+      );
+      final auditAction = current.status != updated.status
+          ? AuditLogAction.statusChange
+          : current.assignedTo != updated.assignedTo
+          ? AuditLogAction.assign
+          : AuditLogAction.update;
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updated.updatedBy,
+          actorName: actorName,
+          action: auditAction,
+          recordId: updated.id,
+          recordTitle: _leadTitle(updated),
+          recordSubtitle: _leadSubtitle(updated),
+          metadata: {
+            if (current.status != updated.status) ...{
+              'previousStatus': _leadStatusValue(current.status),
+              'newStatus': _leadStatusValue(updated.status),
+            },
+            if (current.assignedTo != updated.assignedTo) ...{
+              'assignedTo': updated.assignedTo,
+              'assignedToName': updated.assignedToName,
+            },
+          },
+        ),
       );
       if (isClosed) {
         return;
@@ -426,6 +490,19 @@ class LeadsCubit extends Cubit<LeadsState> {
         newValue: '',
         createdBy: archivedBy,
         createdByName: actorName,
+      );
+      final lead = state.selectedLead ?? _leadById(leadId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: archivedBy,
+          actorName: actorName,
+          action: AuditLogAction.archive,
+          recordId: leadId,
+          recordTitle: lead == null ? 'Lead' : _leadTitle(lead),
+          recordSubtitle: lead == null ? '' : _leadSubtitle(lead),
+          metadata: const {},
+        ),
       );
       if (isClosed) {
         return;
@@ -746,6 +823,49 @@ class LeadsCubit extends Cubit<LeadsState> {
     }
   }
 
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required String actorName,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: actorName,
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.leads,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block lead workflows.
+    }
+  }
+
+  Lead? _leadById(String leadId) {
+    for (final lead in state.leads) {
+      if (lead.id == leadId) {
+        return lead;
+      }
+    }
+    return null;
+  }
+
   List<Lead> _applyFilters(
     List<Lead> leads, {
     String? searchQuery,
@@ -881,4 +1001,29 @@ String _timelineDateValue(DateTime? value) {
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
   return '${local.year}-$month-$day';
+}
+
+String _leadTitle(Lead lead) {
+  final name = lead.fullName.trim();
+  return name.isEmpty ? 'Lead' : name;
+}
+
+String _leadSubtitle(Lead lead) {
+  final phone = lead.phone.trim();
+  if (phone.isNotEmpty) {
+    return phone;
+  }
+  return _leadStatusValue(lead.status);
+}
+
+String _leadStatusValue(LeadStatus status) {
+  return switch (status) {
+    LeadStatus.newLead => 'new',
+    LeadStatus.contacted => 'contacted',
+    LeadStatus.interested => 'interested',
+    LeadStatus.visitScheduled => 'visitScheduled',
+    LeadStatus.negotiation => 'negotiation',
+    LeadStatus.won => 'won',
+    LeadStatus.lost => 'lost',
+  };
 }
