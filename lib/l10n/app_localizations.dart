@@ -206,6 +206,24 @@ abstract class AppLocalizations {
   /// **'Update task'**
   String get updateTask;
 
+  /// No description provided for @agentPerformanceSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare agent workload, deal activity, task completion, and overdue risk.'**
+  String get agentPerformanceSummary;
+
+  /// No description provided for @agent.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get agent;
+
+  /// No description provided for @performanceScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get performanceScore;
+
   /// No description provided for @searchReports.
   ///
   /// In en, this message translates to:
@@ -314,6 +332,54 @@ abstract class AppLocalizations {
   /// **'No leads found.'**
   String get noLeadsFound;
 
+  /// No description provided for @agentActivityResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent activity and results'**
+  String get agentActivityResults;
+
+  /// No description provided for @agentActivityResultsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Review workload, won deals, completed tasks, and overdue follow-ups by agent.'**
+  String get agentActivityResultsSummary;
+
+  /// No description provided for @workload.
+  ///
+  /// In en, this message translates to:
+  /// **'Workload'**
+  String get workload;
+
+  /// No description provided for @results.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get results;
+
+  /// No description provided for @followUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups'**
+  String get followUps;
+
+  /// No description provided for @wonDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Won deals'**
+  String get wonDeals;
+
+  /// No description provided for @taskCompletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Task completion'**
+  String get taskCompletion;
+
+  /// No description provided for @overdueTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue tasks'**
+  String get overdueTasks;
+
   /// No description provided for @noPropertiesFound.
   ///
   /// In en, this message translates to:
@@ -337,6 +403,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Due date'**
   String get dueDate;
+
+  /// No description provided for @dashboardRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get dashboardRecentActivity;
+
+  /// No description provided for @dashboardRecentActivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest changes from the records you can access.'**
+  String get dashboardRecentActivitySubtitle;
+
+  /// No description provided for @dashboardNoRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent activity yet.'**
+  String get dashboardNoRecentActivity;
+
+  /// No description provided for @dashboardActivityLeadUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead updated'**
+  String get dashboardActivityLeadUpdated;
+
+  /// No description provided for @dashboardActivityClientUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Client updated'**
+  String get dashboardActivityClientUpdated;
+
+  /// No description provided for @dashboardActivityPropertyUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Property updated'**
+  String get dashboardActivityPropertyUpdated;
+
+  /// No description provided for @dashboardActivityTaskUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Task updated'**
+  String get dashboardActivityTaskUpdated;
+
+  /// No description provided for @dashboardActivityTaskCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Task completed'**
+  String get dashboardActivityTaskCompleted;
+
+  /// No description provided for @dashboardActivityDealUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal updated'**
+  String get dashboardActivityDealUpdated;
+
+  /// No description provided for @dashboardActivityDealWon.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal won'**
+  String get dashboardActivityDealWon;
+
+  /// No description provided for @dashboardActivityDealLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal lost'**
+  String get dashboardActivityDealLost;
+
+  /// No description provided for @dashboardJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get dashboardJustNow;
+
+  /// No description provided for @dashboardMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min ago'**
+  String dashboardMinutesAgo(int count);
+
+  /// No description provided for @dashboardHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} hr ago'**
+  String dashboardHoursAgo(int count);
+
+  /// No description provided for @dashboardYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get dashboardYesterday;
+
+  /// No description provided for @byUser.
+  ///
+  /// In en, this message translates to:
+  /// **'By {name}'**
+  String byUser(String name);
+
+  /// No description provided for @unknownUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user'**
+  String get unknownUser;
 
   /// No description provided for @dueDateRequired.
   ///
@@ -1778,12 +1946,6 @@ abstract class AppLocalizations {
   /// **'Changed to'**
   String get changedTo;
 
-  /// No description provided for @unknownUser.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown user'**
-  String get unknownUser;
-
   /// No description provided for @leadCreatedBy.
   ///
   /// In en, this message translates to:
@@ -2630,12 +2792,6 @@ abstract class AppLocalizations {
   /// **'Total deals'**
   String get totalDeals;
 
-  /// No description provided for @wonDeals.
-  ///
-  /// In en, this message translates to:
-  /// **'Won deals'**
-  String get wonDeals;
-
   /// No description provided for @lostDeals.
   ///
   /// In en, this message translates to:
@@ -2677,12 +2833,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Recent deals'**
   String get recentDeals;
-
-  /// No description provided for @overdueTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'Overdue tasks'**
-  String get overdueTasks;
 
   /// No description provided for @dueTodayTasks.
   ///

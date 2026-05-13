@@ -64,6 +64,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get updateTask => 'تحديث المهمة';
 
   @override
+  String get agentPerformanceSummary =>
+      'قارن بين حجم العمل ونشاط الصفقات وإنجاز المهام ومخاطر التأخير لكل مسؤول.';
+
+  @override
+  String get agent => 'المسؤول';
+
+  @override
+  String get performanceScore => 'التقييم';
+
+  @override
   String get searchReports => 'ابحث في التقارير';
 
   @override
@@ -120,6 +130,31 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noLeadsFound => 'لا توجد عملاء محتملون.';
 
   @override
+  String get agentActivityResults => 'نشاط ونتائج الموظفين';
+
+  @override
+  String get agentActivityResultsSummary =>
+      'راجع حجم العمل، الصفقات الرابحة، إنجاز المهام، والمتأخرات لكل موظف.';
+
+  @override
+  String get workload => 'حجم العمل';
+
+  @override
+  String get results => 'النتائج';
+
+  @override
+  String get followUps => 'المتابعات';
+
+  @override
+  String get wonDeals => 'الصفقات الرابحة';
+
+  @override
+  String get taskCompletion => 'إنجاز المهام';
+
+  @override
+  String get overdueTasks => 'المهام المتأخرة';
+
+  @override
   String get noPropertiesFound => 'لا توجد عقارات.';
 
   @override
@@ -130,6 +165,64 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get dueDate => 'تاريخ الاستحقاق';
+
+  @override
+  String get dashboardRecentActivity => 'آخر النشاط';
+
+  @override
+  String get dashboardRecentActivitySubtitle =>
+      'آخر التغييرات من السجلات المتاحة لك.';
+
+  @override
+  String get dashboardNoRecentActivity => 'لا يوجد نشاط حديث بعد.';
+
+  @override
+  String get dashboardActivityLeadUpdated => 'تم تحديث عميل محتمل';
+
+  @override
+  String get dashboardActivityClientUpdated => 'تم تحديث عميل';
+
+  @override
+  String get dashboardActivityPropertyUpdated => 'تم تحديث عقار';
+
+  @override
+  String get dashboardActivityTaskUpdated => 'تم تحديث مهمة';
+
+  @override
+  String get dashboardActivityTaskCompleted => 'تم إكمال مهمة';
+
+  @override
+  String get dashboardActivityDealUpdated => 'تم تحديث صفقة';
+
+  @override
+  String get dashboardActivityDealWon => 'صفقة رابحة';
+
+  @override
+  String get dashboardActivityDealLost => 'صفقة خاسرة';
+
+  @override
+  String get dashboardJustNow => 'الآن';
+
+  @override
+  String dashboardMinutesAgo(int count) {
+    return 'منذ $count دقيقة';
+  }
+
+  @override
+  String dashboardHoursAgo(int count) {
+    return 'منذ $count ساعة';
+  }
+
+  @override
+  String get dashboardYesterday => 'أمس';
+
+  @override
+  String byUser(String name) {
+    return 'بواسطة $name';
+  }
+
+  @override
+  String get unknownUser => 'مستخدم غير معروف';
 
   @override
   String get dueDateRequired => 'تاريخ الاستحقاق مطلوب.';
@@ -875,9 +968,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get changedTo => 'تم التغيير إلى';
 
   @override
-  String get unknownUser => 'مستخدم غير معروف';
-
-  @override
   String leadCreatedBy(Object user) {
     return 'تم إنشاء العميل المحتمل بواسطة $user';
   }
@@ -1330,9 +1420,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get totalDeals => 'إجمالي الصفقات';
 
   @override
-  String get wonDeals => 'الصفقات الرابحة';
-
-  @override
   String get lostDeals => 'الصفقات الخاسرة';
 
   @override
@@ -1352,9 +1439,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get recentDeals => 'أحدث الصفقات';
-
-  @override
-  String get overdueTasks => 'المهام المتأخرة';
 
   @override
   String get dueTodayTasks => 'مهام اليوم';

@@ -16,7 +16,56 @@
   "tasks": "المهام",
   "tasksSubtitle": "نظم المتابعات ومهام الفريق حسب تاريخ الاستحقاق والحالة والأولوية.",
   "createTask": "إنشاء مهمة",
+  "agentPerformanceSummary": "قارن بين حجم العمل ونشاط الصفقات وإنجاز المهام ومخاطر التأخير لكل مسؤول.",
+  "agent": "المسؤول",
+  "performanceScore": "التقييم",
+  "agentActivityResults": "نشاط ونتائج الموظفين",
+  "agentActivityResultsSummary": "راجع حجم العمل، الصفقات الرابحة، إنجاز المهام، والمتأخرات لكل موظف.",
+  "workload": "حجم العمل",
+  "results": "النتائج",
+  "followUps": "المتابعات",
+  "wonDeals": "الصفقات الرابحة",
+  "taskCompletion": "إنجاز المهام",
+  "overdueTasks": "المهام المتأخرة",
   "editTask": "تعديل المهمة",
+  "dashboardRecentActivity": "آخر النشاط",
+  "dashboardRecentActivitySubtitle": "آخر التغييرات من السجلات المتاحة لك.",
+  "dashboardNoRecentActivity": "لا يوجد نشاط حديث بعد.",
+  "dashboardActivityLeadUpdated": "تم تحديث عميل محتمل",
+  "dashboardActivityClientUpdated": "تم تحديث عميل",
+  "dashboardActivityPropertyUpdated": "تم تحديث عقار",
+  "dashboardActivityTaskUpdated": "تم تحديث مهمة",
+  "dashboardActivityTaskCompleted": "تم إكمال مهمة",
+  "dashboardActivityDealUpdated": "تم تحديث صفقة",
+  "dashboardActivityDealWon": "صفقة رابحة",
+  "dashboardActivityDealLost": "صفقة خاسرة",
+  "dashboardJustNow": "الآن",
+  "dashboardMinutesAgo": "منذ {count} دقيقة",
+  "@dashboardMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardHoursAgo": "منذ {count} ساعة",
+  "@dashboardHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardYesterday": "أمس",
+  "byUser": "بواسطة {name}",
+  "@byUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownUser": "مستخدم غير معروف",
   "updateTask": "تحديث المهمة",
   "searchReports": "ابحث في التقارير",
   "taskCreatedSuccessfully": "تم إنشاء المهمة بنجاح.",

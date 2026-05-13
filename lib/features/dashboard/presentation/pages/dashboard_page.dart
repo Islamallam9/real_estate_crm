@@ -1,8 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../properties/presentation/widgets/property_labels.dart';
+import '../../../users/domain/entities/user_profile.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import 'package:intl/intl.dart' as intl;
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -158,60 +164,79 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<LeadsCubit, LeadsState>(
-      builder: (context, leadsState) {
-        return BlocBuilder<PropertiesCubit, PropertiesState>(
-          builder: (context, propertiesState) {
-            return BlocBuilder<ClientsCubit, ClientsState>(
-              builder: (context, clientsState) {
-                return BlocBuilder<TasksCubit, TasksState>(
-                  builder: (context, tasksState) {
-                    return BlocBuilder<DealsCubit, DealsState>(
-                      builder: (context, dealsState) {
-                        final data = _DashboardData(
-                          leads: leadsState.leads,
-                          properties: propertiesState.properties,
-                          clients: clientsState.clients,
-                          tasks: tasksState.tasks,
-                          deals: dealsState.deals,
-                        );
-                        final isLoading =
-                            leadsState.status == LeadsStatus.loading &&
-                                    leadsState.leads.isEmpty ||
-                                propertiesState.status ==
-                                        PropertiesStatus.loading &&
-                                    propertiesState.properties.isEmpty ||
-                                clientsState.status == ClientsStatus.loading &&
-                                    clientsState.clients.isEmpty ||
-                                tasksState.status == TasksStatus.loading &&
-                                    tasksState.tasks.isEmpty ||
-                                dealsState.status == DealsStatus.loading &&
-                                    dealsState.deals.isEmpty;
-                        final hasInitialFailure =
-                            leadsState.status == LeadsStatus.failure &&
-                                    leadsState.leads.isEmpty ||
-                                propertiesState.status ==
-                                        PropertiesStatus.failure &&
-                                    propertiesState.properties.isEmpty ||
-                                clientsState.status == ClientsStatus.failure &&
-                                    clientsState.clients.isEmpty ||
-                                tasksState.status == TasksStatus.failure &&
-                                    tasksState.tasks.isEmpty ||
-                                dealsState.status == DealsStatus.failure &&
-                                    dealsState.deals.isEmpty;
-                        final failureMessage = leadsState.message ??
-                            propertiesState.message ??
-                            clientsState.message ??
-                            tasksState.message ??
-                            dealsState.message;
+    return StreamBuilder<List<UserProfile>>(
+      stream: _watchActiveUsers(widget.companyId),
+      builder: (context, usersSnapshot) {
+        final currentProfile = widget.authState.userProfile;
+        final loadedUsers = usersSnapshot.data ?? const <UserProfile>[];
 
-                        return _DashboardView(
-                          data: data,
-                          authState: widget.authState,
-                          isLoading: isLoading,
-                          hasInitialFailure: hasInitialFailure,
-                          failureMessage: failureMessage,
-                          onRetry: _retry,
+        final users = <UserProfile>[
+          ...loadedUsers,
+          if (currentProfile != null &&
+              !loadedUsers.any((user) => user.uid == currentProfile.uid))
+            currentProfile,
+        ];
+
+        return BlocBuilder<LeadsCubit, LeadsState>(
+          builder: (context, leadsState) {
+            return BlocBuilder<PropertiesCubit, PropertiesState>(
+              builder: (context, propertiesState) {
+                return BlocBuilder<ClientsCubit, ClientsState>(
+                  builder: (context, clientsState) {
+                    return BlocBuilder<TasksCubit, TasksState>(
+                      builder: (context, tasksState) {
+                        return BlocBuilder<DealsCubit, DealsState>(
+                          builder: (context, dealsState) {
+                            final data = _DashboardData(
+                              leads: leadsState.leads,
+                              properties: propertiesState.properties,
+                              clients: clientsState.clients,
+                              tasks: tasksState.tasks,
+                              deals: dealsState.deals,
+                            );
+
+                            final isLoading =
+                                leadsState.status == LeadsStatus.loading &&
+                                    leadsState.leads.isEmpty ||
+                                    propertiesState.status ==
+                                        PropertiesStatus.loading &&
+                                        propertiesState.properties.isEmpty ||
+                                    clientsState.status == ClientsStatus.loading &&
+                                        clientsState.clients.isEmpty ||
+                                    tasksState.status == TasksStatus.loading &&
+                                        tasksState.tasks.isEmpty ||
+                                    dealsState.status == DealsStatus.loading &&
+                                        dealsState.deals.isEmpty;
+
+                            final hasInitialFailure =
+                                leadsState.status == LeadsStatus.failure &&
+                                    leadsState.leads.isEmpty ||
+                                    propertiesState.status ==
+                                        PropertiesStatus.failure &&
+                                        propertiesState.properties.isEmpty ||
+                                    clientsState.status == ClientsStatus.failure &&
+                                        clientsState.clients.isEmpty ||
+                                    tasksState.status == TasksStatus.failure &&
+                                        tasksState.tasks.isEmpty ||
+                                    dealsState.status == DealsStatus.failure &&
+                                        dealsState.deals.isEmpty;
+
+                            final failureMessage = leadsState.message ??
+                                propertiesState.message ??
+                                clientsState.message ??
+                                tasksState.message ??
+                                dealsState.message;
+
+                            return _DashboardView(
+                              data: data,
+                              users: users,
+                              authState: widget.authState,
+                              isLoading: isLoading,
+                              hasInitialFailure: hasInitialFailure,
+                              failureMessage: failureMessage,
+                              onRetry: _retry,
+                            );
+                          },
                         );
                       },
                     );
@@ -223,12 +248,191 @@ class _DashboardContentState extends State<_DashboardContent> {
         );
       },
     );
+  }}
+
+class _RecentActivityPanel extends StatelessWidget {
+  const _RecentActivityPanel({
+    required this.data,
+    required this.users,
+    required this.authState,
+  });
+
+  final _DashboardData data;
+  final List<UserProfile> users;
+  final AuthState authState;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = authState.userProfile?.role ?? authState.user?.role;
+    final canViewRecentActivity =
+        role == UserRole.admin || role == UserRole.manager;
+
+    if (!canViewRecentActivity) {
+      return const SizedBox.shrink();
+    }
+
+    final l = AppLocalizations.of(context)!;
+    final items = data.recentActivities(context, users).take(5).toList();
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionTitle(title: l.dashboardRecentActivity),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            l.dashboardRecentActivitySubtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (items.isEmpty)
+            _CompactEmpty(message: l.dashboardNoRecentActivity)
+          else
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: Column(
+                key: ValueKey(items.map((item) => item.id).join('|')),
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    _RecentActivityTile(item: items[index]),
+                    if (index != items.length - 1)
+                      const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentActivityItem {
+  const _RecentActivityItem({
+    required this.id,
+    required this.action,
+    required this.title,
+    required this.subtitle,
+    required this.actorName,
+    required this.time,
+    required this.timeLabel,
+    required this.icon,
+    required this.tone,
+    this.onTap,
+  });
+
+  final String id;
+  final String action;
+  final String title;
+  final String subtitle;
+  final String actorName;
+  final DateTime time;
+  final String timeLabel;
+  final IconData icon;
+  final AppStatusTone tone;
+  final void Function(BuildContext context)? onTap;
+}
+
+class _RecentActivityTile extends StatelessWidget {
+  const _RecentActivityTile({required this.item});
+
+  final _RecentActivityItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final color = _toneColor(context, item.tone);
+    final meta = item.subtitle.trim().isEmpty
+        ? '${l.byUser(item.actorName)} • ${item.timeLabel}'
+        : '${item.subtitle} • ${l.byUser(item.actorName)} • ${item.timeLabel}';
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(item.id),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: item.onTap == null ? null : () => item.onTap!(context),
+          borderRadius: AppRadius.large,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.inputSurface(context),
+              border: Border.all(color: AppColors.borderColor(context)),
+              borderRadius: AppRadius.large,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Icon(item.icon, size: 18, color: color),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.action,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _DashboardView extends StatelessWidget {
   const _DashboardView({
     required this.data,
+    required this.users,
     required this.authState,
     required this.isLoading,
     required this.hasInitialFailure,
@@ -238,6 +442,7 @@ class _DashboardView extends StatelessWidget {
 
   final _DashboardData data;
   final AuthState authState;
+  final List<UserProfile> users;
   final bool isLoading;
   final bool hasInitialFailure;
   final String? failureMessage;
@@ -284,6 +489,12 @@ class _DashboardView extends StatelessWidget {
                       const SizedBox(height: AppSpacing.md),
                       _ActionPanel(authState: authState),
                     ],
+                    const SizedBox(height: AppSpacing.md),
+                    _RecentActivityPanel(
+                      data: data,
+                      users: users,
+                      authState: authState,
+                    ),
                   ] else
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +503,17 @@ class _DashboardView extends StatelessWidget {
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           flex: 2,
-                          child: _ActionPanel(authState: authState),
+                          child: Column(
+                            children: [
+                              _ActionPanel(authState: authState),
+                              const SizedBox(height: AppSpacing.md),
+                              _RecentActivityPanel(
+                                data: data,
+                                users: users,
+                                authState: authState,
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -361,6 +582,8 @@ class _DashboardView extends StatelessWidget {
       },
     );
   }
+
+
 
   List<_QuickAddAction> _quickAddActions(
     BuildContext context,
@@ -1687,6 +1910,119 @@ class _DashboardData {
     });
     return selected;
   }
+  List<_RecentActivityItem> recentActivities(
+      BuildContext context,
+      List<UserProfile> users,
+      ) {
+    final l = AppLocalizations.of(context)!;
+    final items = <_RecentActivityItem>[];
+
+    for (final lead in leads) {
+      items.add(
+        _RecentActivityItem(
+          id: 'lead-${lead.id}-${lead.updatedAt.millisecondsSinceEpoch}',
+          action: l.dashboardActivityLeadUpdated,
+          title: _fallback(lead.fullName, l.lead),
+          subtitle: _leadStatusLabel(context, lead.status),
+          actorName: _actorNameFromId(l, users, lead.updatedBy),
+          time: lead.updatedAt,
+          timeLabel: _relativeTimeLabel(context, lead.updatedAt),
+          icon: Icons.person_search_outlined,
+          tone: _leadStatusTone(lead.status),
+          onTap: (context) => context.go(RouteNames.leadDetails(lead.id)),
+        ),
+      );
+    }
+
+    for (final client in clients) {
+      final time = client.updatedAt ?? client.createdAt;
+      if (time == null) continue;
+
+      items.add(
+        _RecentActivityItem(
+          id: 'client-${client.id}-${time.millisecondsSinceEpoch}',
+          action: l.dashboardActivityClientUpdated,
+          title: _fallback(client.fullName, l.client),
+          subtitle: _fallback(client.preferredLocation, client.phone),
+          actorName: _actorNameFromId(l, users, client.updatedBy),
+          time: time,
+          timeLabel: _relativeTimeLabel(context, time),
+          icon: Icons.person_outline_rounded,
+          tone: AppStatusTone.info,
+          onTap: (context) => context.go(RouteNames.clientDetails(client.id)),
+        ),
+      );
+    }
+
+    for (final property in properties) {
+      final time = property.updatedAt ?? property.createdAt;
+      if (time == null) continue;
+
+      items.add(
+        _RecentActivityItem(
+          id: 'property-${property.id}-${time.millisecondsSinceEpoch}',
+          action: l.dashboardActivityPropertyUpdated,
+          title: _fallback(property.title, l.property),
+          subtitle: propertyStatusLabel(l, property.status),
+          actorName: _actorNameFromId(l, users, property.updatedBy),
+          time: time,
+          timeLabel: _relativeTimeLabel(context, time),
+          icon: Icons.business_outlined,
+          tone: _propertyStatusTone(property.status),
+          onTap: (context) => context.go(RouteNames.propertyDetails(property.id)),
+        ),
+      );
+    }
+
+    for (final task in tasks) {
+      final time = task.updatedAt ?? task.createdAt;
+      if (time == null) continue;
+
+      items.add(
+        _RecentActivityItem(
+          id: 'task-${task.id}-${time.millisecondsSinceEpoch}',
+          action: task.status == TaskStatus.completed
+              ? l.dashboardActivityTaskCompleted
+              : l.dashboardActivityTaskUpdated,
+          title: _fallback(task.title, l.tasks),
+          subtitle: _taskSubtitle(context, task),
+          actorName: _actorNameFromId(l, users, task.updatedBy),
+          time: time,
+          timeLabel: _relativeTimeLabel(context, time),
+          icon: Icons.checklist_rtl_rounded,
+          tone: _taskDueTone(task),
+          onTap: (context) => context.go(RouteNames.tasks),
+        ),
+      );
+    }
+
+    for (final deal in deals) {
+      final time = deal.updatedAt ?? deal.createdAt;
+      if (time == null) continue;
+
+      items.add(
+        _RecentActivityItem(
+          id: 'deal-${deal.id}-${time.millisecondsSinceEpoch}',
+          action: deal.stage == DealStage.won
+              ? l.dashboardActivityDealWon
+              : deal.stage == DealStage.lost
+              ? l.dashboardActivityDealLost
+              : l.dashboardActivityDealUpdated,
+          title: _fallback(deal.clientName, l.deal),
+          subtitle: _fallback(deal.propertyTitle, dealStageLabel(l, deal.stage)),
+          actorName: _actorNameFromId(l, users, deal.updatedBy),
+          time: time,
+          timeLabel: _relativeTimeLabel(context, time),
+          icon: Icons.handshake_outlined,
+          tone: dealStageTone(deal.stage),
+          onTap: (context) => context.go(RouteNames.dealDetails(deal.id)),
+        ),
+      );
+    }
+
+    items.sort((a, b) => b.time.compareTo(a.time));
+    return items.take(5).toList();
+  }
 }
 
 class _MetricItem {
@@ -1723,7 +2059,6 @@ class _DashboardCopy {
     }
     return l.dashboardGoodEvening;
   }
-
   String get overdueFollowUps => l.dashboardOverdueFollowUps;
   String get upcomingFollowUps => l.dashboardUpcomingFollowUps;
   String get availableProperties => l.dashboardAvailableProperties;
@@ -1746,6 +2081,65 @@ DateTime get _today => _dateOnly(DateTime.now());
 
 DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
+}
+
+String _actorNameFromId(
+    AppLocalizations l,
+    List<UserProfile> users,
+    String? uid,
+    ) {
+  final value = uid?.trim() ?? '';
+  if (value.isEmpty) {
+    return l.unknownUser;
+  }
+
+  for (final user in users) {
+    if (user.uid == value) {
+      final name = user.fullName.trim();
+      if (name.isNotEmpty) return name;
+
+      final email = user.email.trim();
+      if (email.isNotEmpty) return email;
+    }
+  }
+
+  return l.unknownUser;
+}
+
+String _relativeTimeLabel(BuildContext context, DateTime time) {
+  final l = AppLocalizations.of(context)!;
+  final now = DateTime.now();
+  final localTime = time.toLocal();
+  final diff = now.difference(localTime);
+
+  if (diff.inMinutes < 1) {
+    return l.dashboardJustNow;
+  }
+
+  if (diff.inMinutes < 60) {
+    return l.dashboardMinutesAgo(diff.inMinutes);
+  }
+
+  if (diff.inHours < 24 && _dateOnly(localTime) == _today) {
+    return l.dashboardHoursAgo(diff.inHours);
+  }
+
+  if (_dateOnly(localTime) == _today.subtract(const Duration(days: 1))) {
+    return l.dashboardYesterday;
+  }
+
+  return intl.DateFormat.MMMd(
+    Localizations.localeOf(context).toString(),
+  ).format(localTime);
+}
+
+AppStatusTone _propertyStatusTone(PropertyStatus status) {
+  return switch (status) {
+    PropertyStatus.available => AppStatusTone.success,
+    PropertyStatus.reserved => AppStatusTone.warning,
+    PropertyStatus.sold || PropertyStatus.rented => AppStatusTone.info,
+    PropertyStatus.inactive => AppStatusTone.neutral,
+  };
 }
 
 String _leadStatusLabel(BuildContext context, LeadStatus status) {
@@ -1862,4 +2256,10 @@ Color _toneColor(BuildContext context, AppStatusTone tone) {
     AppStatusTone.info => AppColors.infoColor(context),
     AppStatusTone.neutral => AppColors.primaryColor(context),
   };
+}
+Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: companyId);
 }

@@ -18,6 +18,9 @@
   "createTask": "Create task",
   "editTask": "Edit task",
   "updateTask": "Update task",
+  "agentPerformanceSummary": "Compare agent workload, deal activity, task completion, and overdue risk.",
+  "agent": "Agent",
+  "performanceScore": "Score",
   "searchReports": "Search reports",
   "taskCreatedSuccessfully": "Task created successfully.",
   "taskUpdatedSuccessfully": "Task updated successfully.",
@@ -36,10 +39,56 @@
   "relatedRecordRequired": "Select a related record.",
   "relatedRecordUnavailable": "Related record unavailable",
   "noLeadsFound": "No leads found.",
+  "agentActivityResults": "Agent activity and results",
+  "agentActivityResultsSummary": "Review workload, won deals, completed tasks, and overdue follow-ups by agent.",
+  "workload": "Workload",
+  "results": "Results",
+  "followUps": "Follow-ups",
+  "wonDeals": "Won deals",
+  "taskCompletion": "Task completion",
+  "overdueTasks": "Overdue tasks",
   "noPropertiesFound": "No properties found.",
   "scheduleAndPriority": "Schedule and priority",
   "selectDueDate": "Select due date",
   "dueDate": "Due date",
+  "dashboardRecentActivity": "Recent activity",
+  "dashboardRecentActivitySubtitle": "Latest changes from the records you can access.",
+  "dashboardNoRecentActivity": "No recent activity yet.",
+  "dashboardActivityLeadUpdated": "Lead updated",
+  "dashboardActivityClientUpdated": "Client updated",
+  "dashboardActivityPropertyUpdated": "Property updated",
+  "dashboardActivityTaskUpdated": "Task updated",
+  "dashboardActivityTaskCompleted": "Task completed",
+  "dashboardActivityDealUpdated": "Deal updated",
+  "dashboardActivityDealWon": "Deal won",
+  "dashboardActivityDealLost": "Deal lost",
+  "dashboardJustNow": "Just now",
+  "dashboardMinutesAgo": "{count} min ago",
+  "@dashboardMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardHoursAgo": "{count} hr ago",
+  "@dashboardHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardYesterday": "Yesterday",
+  "byUser": "By {name}",
+  "@byUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownUser": "Unknown user",
   "dueDateRequired": "Due date is required.",
   "pending": "Pending",
   "inProgress": "In progress",

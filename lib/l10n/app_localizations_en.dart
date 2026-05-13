@@ -64,6 +64,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateTask => 'Update task';
 
   @override
+  String get agentPerformanceSummary =>
+      'Compare agent workload, deal activity, task completion, and overdue risk.';
+
+  @override
+  String get agent => 'Agent';
+
+  @override
+  String get performanceScore => 'Score';
+
+  @override
   String get searchReports => 'Search reports';
 
   @override
@@ -119,6 +129,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noLeadsFound => 'No leads found.';
 
   @override
+  String get agentActivityResults => 'Agent activity and results';
+
+  @override
+  String get agentActivityResultsSummary =>
+      'Review workload, won deals, completed tasks, and overdue follow-ups by agent.';
+
+  @override
+  String get workload => 'Workload';
+
+  @override
+  String get results => 'Results';
+
+  @override
+  String get followUps => 'Follow-ups';
+
+  @override
+  String get wonDeals => 'Won deals';
+
+  @override
+  String get taskCompletion => 'Task completion';
+
+  @override
+  String get overdueTasks => 'Overdue tasks';
+
+  @override
   String get noPropertiesFound => 'No properties found.';
 
   @override
@@ -129,6 +164,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dueDate => 'Due date';
+
+  @override
+  String get dashboardRecentActivity => 'Recent activity';
+
+  @override
+  String get dashboardRecentActivitySubtitle =>
+      'Latest changes from the records you can access.';
+
+  @override
+  String get dashboardNoRecentActivity => 'No recent activity yet.';
+
+  @override
+  String get dashboardActivityLeadUpdated => 'Lead updated';
+
+  @override
+  String get dashboardActivityClientUpdated => 'Client updated';
+
+  @override
+  String get dashboardActivityPropertyUpdated => 'Property updated';
+
+  @override
+  String get dashboardActivityTaskUpdated => 'Task updated';
+
+  @override
+  String get dashboardActivityTaskCompleted => 'Task completed';
+
+  @override
+  String get dashboardActivityDealUpdated => 'Deal updated';
+
+  @override
+  String get dashboardActivityDealWon => 'Deal won';
+
+  @override
+  String get dashboardActivityDealLost => 'Deal lost';
+
+  @override
+  String get dashboardJustNow => 'Just now';
+
+  @override
+  String dashboardMinutesAgo(int count) {
+    return '$count min ago';
+  }
+
+  @override
+  String dashboardHoursAgo(int count) {
+    return '$count hr ago';
+  }
+
+  @override
+  String get dashboardYesterday => 'Yesterday';
+
+  @override
+  String byUser(String name) {
+    return 'By $name';
+  }
+
+  @override
+  String get unknownUser => 'Unknown user';
 
   @override
   String get dueDateRequired => 'Due date is required.';
@@ -876,9 +969,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get changedTo => 'Changed to';
 
   @override
-  String get unknownUser => 'Unknown user';
-
-  @override
   String leadCreatedBy(Object user) {
     return 'Lead created by $user';
   }
@@ -1331,9 +1421,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalDeals => 'Total deals';
 
   @override
-  String get wonDeals => 'Won deals';
-
-  @override
   String get lostDeals => 'Lost deals';
 
   @override
@@ -1353,9 +1440,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recentDeals => 'Recent deals';
-
-  @override
-  String get overdueTasks => 'Overdue tasks';
 
   @override
   String get dueTodayTasks => 'Due today tasks';
