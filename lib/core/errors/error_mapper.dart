@@ -61,3 +61,26 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
       return message ?? l.somethingWentWrong;
   }
 }
+
+String localizeThrownErrorMessage(
+  AppLocalizations l,
+  Object? error, {
+  String? fallbackMessage,
+}) {
+  final text = error?.toString().toLowerCase() ?? '';
+
+  if (text.contains('permission-denied') ||
+      text.contains('permission denied')) {
+    return l.permissionDenied;
+  }
+
+  if (text.contains('unavailable') ||
+      text.contains('network') ||
+      text.contains('timeout')) {
+    return l.unableToConnect;
+  }
+
+  return fallbackMessage == null
+      ? l.unableToConnect
+      : localizeErrorMessage(l, fallbackMessage);
+}

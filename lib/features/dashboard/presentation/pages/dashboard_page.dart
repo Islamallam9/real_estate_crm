@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../../properties/presentation/widgets/property_labels.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:go_router/go_router.dart';
@@ -617,14 +616,14 @@ class _DashboardView extends StatelessWidget {
                     delay: Duration.zero,
                     child: _WelcomePanel(authState: authState),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: _kDashboardSectionGap),
 
                   _DashboardReveal(
                     id: 'summary-grid',
                     delay: const Duration(milliseconds: 60),
                     child: _SummaryGrid(data: data),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
                     _DashboardReveal(
@@ -634,7 +633,7 @@ class _DashboardView extends StatelessWidget {
                     ),
 
                     if (!mobile) ...[
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: _kDashboardSectionGap),
                       _DashboardReveal(
                         id: 'actions-compact',
                         delay: const Duration(milliseconds: 160),
@@ -643,7 +642,7 @@ class _DashboardView extends StatelessWidget {
                     ],
 
                     if (_canViewRecentActivity(authState)) ...[
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: _kDashboardSectionGap),
                       _DashboardReveal(
                         id: 'recent-activity-compact',
                         delay: const Duration(milliseconds: 200),
@@ -664,7 +663,7 @@ class _DashboardView extends StatelessWidget {
                             child: _AnalyticsPanel(data: data),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
+                        const SizedBox(width: _kDashboardSectionGap),
                         Expanded(
                           flex: 2,
                           child: Column(
@@ -675,7 +674,7 @@ class _DashboardView extends StatelessWidget {
                                 child: _ActionPanel(authState: authState),
                               ),
                               if (_canViewRecentActivity(authState)) ...[
-                                const SizedBox(height: AppSpacing.md),
+                                const SizedBox(height: _kDashboardSectionGap),
                                 _DashboardReveal(
                                   id: 'recent-activity-desktop',
                                   delay: const Duration(milliseconds: 200),
@@ -690,7 +689,7 @@ class _DashboardView extends StatelessWidget {
                       ],
                     ),
 
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
                     _DashboardReveal(
@@ -698,7 +697,7 @@ class _DashboardView extends StatelessWidget {
                       delay: const Duration(milliseconds: 220),
                       child: _DealsDashboardSection(data: data),
                     ),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: _kDashboardSectionGap),
                     _DashboardReveal(
                       id: 'tasks-compact',
                       delay: const Duration(milliseconds: 260),
@@ -715,7 +714,7 @@ class _DashboardView extends StatelessWidget {
                             child: _DealsDashboardSection(data: data),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
+                        const SizedBox(width: _kDashboardSectionGap),
                         Expanded(
                           child: _DashboardReveal(
                             id: 'tasks-desktop',
@@ -726,7 +725,7 @@ class _DashboardView extends StatelessWidget {
                       ],
                     ),
 
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
                     _DashboardReveal(
@@ -738,7 +737,7 @@ class _DashboardView extends StatelessWidget {
                         emptyMessage: l.noLeads,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: _kDashboardSectionGap),
                     _DashboardReveal(
                       id: 'unassigned-leads-compact',
                       delay: const Duration(milliseconds: 340),
@@ -763,7 +762,7 @@ class _DashboardView extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
+                        const SizedBox(width: _kDashboardSectionGap),
                         Expanded(
                           child: _DashboardReveal(
                             id: 'unassigned-leads-desktop',
@@ -778,7 +777,7 @@ class _DashboardView extends StatelessWidget {
                       ],
                     ),
 
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: _kDashboardSectionGap),
 
                   _DashboardReveal(
                     id: 'recently-updated-leads',
@@ -1011,6 +1010,9 @@ class _QuickAddAction {
   final VoidCallback onTap;
 }
 
+const double _kDashboardRevealThreshold = 0.03;
+const double _kDashboardSectionGap = 12;
+
 /// Visible fade + slide-up reveal with optional stagger delay.
 /// Uses a real [AnimationController] so [delay] produces true stagger.
 class _DashboardReveal extends StatefulWidget {
@@ -1018,13 +1020,11 @@ class _DashboardReveal extends StatefulWidget {
     required this.id,
     required this.child,
     this.delay = Duration.zero,
-    this.threshold = 0.03,
   });
 
   final String id;
   final Widget child;
   final Duration delay;
-  final double threshold;
 
   @override
   State<_DashboardReveal> createState() => _DashboardRevealState();
@@ -1049,7 +1049,7 @@ class _DashboardRevealState extends State<_DashboardReveal> {
     return VisibilityDetector(
       key: ValueKey('dashboard-reveal-${widget.id}'),
       onVisibilityChanged: (info) {
-        if (info.visibleFraction >= widget.threshold) {
+        if (info.visibleFraction >= _kDashboardRevealThreshold) {
           _show();
         }
       },
@@ -1090,7 +1090,7 @@ class _HoverLiftPanelState extends State<_HoverLiftPanel> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final hoverEnabled = width >= 900;
+    final hoverEnabled = width >= _kHoverBreakpoint;
     final activeHover = hoverEnabled && _hovered;
     final radius = widget.borderRadius ?? AppRadius.xLarge;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1174,7 +1174,7 @@ class _WelcomePanel extends StatelessWidget {
     final direction = Directionality.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.darkCardSurface
@@ -1200,7 +1200,7 @@ class _WelcomePanel extends StatelessWidget {
                 children: [
                   Text(
                     copy.greeting(now),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimaryColor(context),
                     ),
@@ -1226,8 +1226,8 @@ class _WelcomePanel extends StatelessWidget {
               ),
             ),
             Container(
-              width: 54,
-              height: 54,
+              width: 46,
+              height: 46,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AppColors.selectedSurface(context),
@@ -1236,7 +1236,7 @@ class _WelcomePanel extends StatelessWidget {
               child: Icon(
                 Icons.real_estate_agent_outlined,
                 color: AppColors.primaryColor(context),
-                size: 28,
+                size: 24,
               ),
             ),
           ],
@@ -1330,7 +1330,7 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final copy = _DashboardCopy.of(context);
-    // Ordered for a clean 4-col × 2-row desktop grid
+    // Ordered for a clean 4-column by 2-row desktop grid.
     final cards = [
       _MetricItem(
         l.totalLeads,
@@ -1416,7 +1416,7 @@ class _MetricCard extends StatelessWidget {
     return _HoverLiftPanel(
       borderRadius: AppRadius.xLarge,
       child: _Panel(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Expanded(
@@ -1440,7 +1440,7 @@ class _MetricCard extends StatelessWidget {
                     builder: (context, value, _) {
                       return Text(
                         value.round().toString(),
-                        style: Theme.of(context).textTheme.headlineSmall
+                        style: Theme.of(context).textTheme.titleLarge
                             ?.copyWith(
                               fontWeight: FontWeight.w800,
                               color: AppColors.textPrimaryColor(context),
@@ -1478,25 +1478,22 @@ class _AnalyticsPanel extends StatelessWidget {
     final copy = _DashboardCopy.of(context);
 
     return _Panel(
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SectionTitle(title: copy.visualAnalytics),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 600
-                  ? 2
-                  : 1;
+              final columns = constraints.maxWidth >= 560 ? 2 : 1;
+              const gap = AppSpacing.sm;
               final cardWidth =
-                  (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
-                  columns;
+                  (constraints.maxWidth - (columns - 1) * gap) / columns;
 
               return Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
+                spacing: gap,
+                runSpacing: gap,
                 children: [
                   SizedBox(
                     width: cardWidth,
@@ -1700,7 +1697,7 @@ class _DonutChartCardState extends State<_DonutChartCard>
     return _HoverLiftPanel(
       borderRadius: AppRadius.large,
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
           color: AppColors.inputSurface(context),
           border: Border.all(color: AppColors.borderColor(context)),
@@ -1717,7 +1714,7 @@ class _DonutChartCardState extends State<_DonutChartCard>
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 AnimatedBuilder(
@@ -1726,13 +1723,13 @@ class _DonutChartCardState extends State<_DonutChartCard>
                     return Transform.scale(
                       scale: _centerScale.value,
                       child: CustomPaint(
-                        size: const Size.square(82),
+                        size: const Size.square(72),
                         painter: _DonutPainter(
                           segments: widget.segments,
                           progress: _sweep.value,
                         ),
                         child: SizedBox.square(
-                          dimension: 82,
+                          dimension: 72,
                           child: Center(
                             child: TweenAnimationBuilder<double>(
                               key: ValueKey('donut-total-$_signature'),
@@ -1760,7 +1757,7 @@ class _DonutChartCardState extends State<_DonutChartCard>
                     );
                   },
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: AnimatedBuilder(
                     animation: _legend,
@@ -1941,7 +1938,7 @@ class _LeadSection extends StatelessWidget {
             _CompactEmpty(message: emptyMessage)
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 286),
+              constraints: const BoxConstraints(maxHeight: 248),
               child: SingleChildScrollView(
                 child: Column(
                   children: [
@@ -2099,7 +2096,7 @@ class _MiniMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 132,
+      width: 118,
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
@@ -2193,7 +2190,7 @@ class _ProgressRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 116,
+          width: 104,
           child: Text(
             label,
             maxLines: 1,
@@ -2244,7 +2241,7 @@ class _CompactEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Text(
         message,
         textAlign: TextAlign.center,
@@ -2370,7 +2367,7 @@ class _ActionPanel extends StatelessWidget {
 class _Panel extends StatelessWidget {
   const _Panel({
     required this.child,
-    this.padding = const EdgeInsets.all(AppSpacing.md),
+    this.padding = const EdgeInsets.all(12),
   });
 
   final Widget child;

@@ -125,7 +125,10 @@ class _EditLeadViewState extends State<_EditLeadView> {
                     }
                     if (snapshot.hasError) {
                       return AppErrorView(
-                        message: localizations.unableToConnect,
+                        message: localizeThrownErrorMessage(
+                          localizations,
+                          snapshot.error,
+                        ),
                         onRetry: () {
                           context.read<LeadsCubit>().loadLead(
                             companyId: companyId,

@@ -325,7 +325,7 @@ class _ReportsView extends StatelessWidget {
             delay: Duration.zero,
             child: _ReportHeader(),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportsSearchFilterRow(
             users: users,
@@ -340,14 +340,14 @@ class _ReportsView extends StatelessWidget {
             onAssignedToChanged: onAssignedToChanged,
             onClearFilters: onClearFilters,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportReveal(
             id: 'summary',
             delay: const Duration(milliseconds: 60),
             child: _ExecutiveSummary(data: data),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportReveal(
             id: 'leads-report',
@@ -391,7 +391,7 @@ class _ReportsView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportReveal(
             id: 'deals-report',
@@ -443,7 +443,7 @@ class _ReportsView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportReveal(
             id: 'tasks-report',
@@ -471,7 +471,7 @@ class _ReportsView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
           _ReportReveal(
             id: 'properties-report',
@@ -513,7 +513,7 @@ class _ReportsView extends StatelessWidget {
           ),
 
           if (canFilterAssignee) ...[
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             _ReportReveal(
               id: 'agent-activity',
               delay: const Duration(milliseconds: 280),
@@ -531,17 +531,17 @@ class _ReportReveal extends StatefulWidget {
     required this.id,
     required this.child,
     this.delay = Duration.zero,
-    this.threshold = 0.03,
   });
 
   final String id;
   final Widget child;
   final Duration delay;
-  final double threshold;
 
   @override
   State<_ReportReveal> createState() => _ReportRevealState();
 }
+
+const double _kReportRevealThreshold = 0.03;
 
 class _ReportRevealState extends State<_ReportReveal> {
   bool _visible = false;
@@ -562,7 +562,7 @@ class _ReportRevealState extends State<_ReportReveal> {
     return VisibilityDetector(
       key: ValueKey('report-reveal-${widget.id}'),
       onVisibilityChanged: (info) {
-        if (info.visibleFraction >= widget.threshold) {
+        if (info.visibleFraction >= _kReportRevealThreshold) {
           _show();
         }
       },

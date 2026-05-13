@@ -1455,7 +1455,7 @@ class _NotificationIconButton extends StatelessWidget {
   }
 }
 
-enum _ProfileMenuAction { profile, settings, english, arabic, theme, logout }
+enum _ProfileMenuAction { profile, settings, logout }
 
 class _ProfileMenuButton extends StatelessWidget {
   const _ProfileMenuButton();
@@ -1473,89 +1473,78 @@ class _ProfileMenuButton extends StatelessWidget {
                 '')
             .trim();
 
-        return BlocBuilder<ThemeCubit, ThemeMode>(
-          builder: (context, themeMode) {
-
-            return PopupMenuButton<_ProfileMenuAction>(
-              tooltip: l.profile,
-              position: PopupMenuPosition.under,
-              offset: const Offset(0, AppSpacing.xs),
-              color: colors.cardSurface,
-              elevation: 10,
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.xLarge,
-                side: BorderSide(color: colors.border),
-              ),
-              onSelected: (action) {
-                switch (action) {
-                  case _ProfileMenuAction.english:
-                    context.read<LocaleCubit>().setEnglish();
-                  case _ProfileMenuAction.arabic:
-                    context.read<LocaleCubit>().setArabic();
-                  case _ProfileMenuAction.theme:
-                    context.read<ThemeCubit>().toggle();
-                  case _ProfileMenuAction.profile:
-                    context.go(RouteNames.profile);
-                  case _ProfileMenuAction.settings:
-                    context.go(RouteNames.settings);
-                  case _ProfileMenuAction.logout:
-                    context.read<AuthBloc>().add(const AuthSignOutRequested());
-                }
-              },
-              itemBuilder: (menuContext) {
-                return [
-                  PopupMenuItem<_ProfileMenuAction>(
-                    enabled: false,
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
-                      AppSpacing.md,
-                      AppSpacing.md,
-                      AppSpacing.sm,
-                    ),
-                    child: _ProfileMenuHeader(
-                      name: userName,
-                      subtitle: email,
-                    ),
-                  ),
-                  const PopupMenuDivider(height: 1),
-                  PopupMenuItem<_ProfileMenuAction>(
-                    value: _ProfileMenuAction.profile,
-                    child: _ProfileMenuTile(
-                      icon: Icons.person_outline,
-                      label: l.profile,
-                    ),
-                  ),
-                  PopupMenuItem<_ProfileMenuAction>(
-                    value: _ProfileMenuAction.settings,
-                    child: _ProfileMenuTile(
-                      icon: Icons.settings_outlined,
-                      label: l.settings,
-                    ),
-                  ),
-                  const PopupMenuDivider(height: 1),
-                  PopupMenuItem<_ProfileMenuAction>(
-                    value: _ProfileMenuAction.logout,
-                    child: _ProfileMenuTile(
-                      icon: Icons.logout,
-                      label: l.logout,
-                      destructive: true,
-                    ),
-                  ),
-                ];
-              },
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colors.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: _UserAvatar(name: userName),
-                ),
-              ),
-            );
+        return PopupMenuButton<_ProfileMenuAction>(
+          tooltip: l.profile,
+          position: PopupMenuPosition.under,
+          offset: const Offset(0, AppSpacing.xs),
+          color: colors.cardSurface,
+          elevation: 10,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.xLarge,
+            side: BorderSide(color: colors.border),
+          ),
+          onSelected: (action) {
+            switch (action) {
+              case _ProfileMenuAction.profile:
+                context.go(RouteNames.profile);
+              case _ProfileMenuAction.settings:
+                context.go(RouteNames.settings);
+              case _ProfileMenuAction.logout:
+                context.read<AuthBloc>().add(const AuthSignOutRequested());
+            }
           },
+          itemBuilder: (menuContext) {
+            return [
+              PopupMenuItem<_ProfileMenuAction>(
+                enabled: false,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                ),
+                child: _ProfileMenuHeader(
+                  name: userName,
+                  subtitle: email,
+                ),
+              ),
+              const PopupMenuDivider(height: 1),
+              PopupMenuItem<_ProfileMenuAction>(
+                value: _ProfileMenuAction.profile,
+                child: _ProfileMenuTile(
+                  icon: Icons.person_outline,
+                  label: l.profile,
+                ),
+              ),
+              PopupMenuItem<_ProfileMenuAction>(
+                value: _ProfileMenuAction.settings,
+                child: _ProfileMenuTile(
+                  icon: Icons.settings_outlined,
+                  label: l.settings,
+                ),
+              ),
+              const PopupMenuDivider(height: 1),
+              PopupMenuItem<_ProfileMenuAction>(
+                value: _ProfileMenuAction.logout,
+                child: _ProfileMenuTile(
+                  icon: Icons.logout,
+                  label: l.logout,
+                  destructive: true,
+                ),
+              ),
+            ];
+          },
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: colors.border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: _UserAvatar(name: userName),
+            ),
+          ),
         );
       },
     );

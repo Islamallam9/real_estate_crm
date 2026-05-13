@@ -194,7 +194,12 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                 : null,
             builder: (context, usersSnapshot) {
               if (usersSnapshot.hasError) {
-                return AppErrorView(message: localizations.unableToConnect);
+                return AppErrorView(
+                  message: localizeThrownErrorMessage(
+                    localizations,
+                    usersSnapshot.error,
+                  ),
+                );
               }
               final users = usersSnapshot.data ?? const [];
 
@@ -207,7 +212,7 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                       Expanded(
                         child: Text(
                           localizations.clientsSubtitle,
-                          maxLines: isMobile ? 3 : 2,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondaryColor(context),
@@ -248,9 +253,9 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           header,
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
                           filters,
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
                           body,
                           const SizedBox(height: 96),
                         ],
@@ -262,9 +267,9 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       header,
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                       filters,
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                       Expanded(child: body),
                     ],
                   );

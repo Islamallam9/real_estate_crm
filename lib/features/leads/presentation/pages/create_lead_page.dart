@@ -153,7 +153,10 @@ class _CreateLeadFormContent extends StatelessWidget {
                     }
                     if (snapshot.hasError) {
                       return AppErrorView(
-                        message: l.unableToConnect,
+                        message: localizeThrownErrorMessage(
+                          l,
+                          snapshot.error,
+                        ),
                         onRetry: () {
                           context.read<LeadsCubit>().watchLeads(
                             companyId: companyId,

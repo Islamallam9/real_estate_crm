@@ -129,7 +129,12 @@ class _EditTaskViewState extends State<_EditTaskView> {
                         stream: _watchActiveUsers(companyId),
                         builder: (context, usersSnapshot) {
                           if (usersSnapshot.hasError) {
-                            return AppErrorView(message: l.unableToConnect);
+                            return AppErrorView(
+                              message: localizeThrownErrorMessage(
+                                l,
+                                usersSnapshot.error,
+                              ),
+                            );
                           }
                           final users = usersSnapshot.data ?? const [];
                           return TaskForm(

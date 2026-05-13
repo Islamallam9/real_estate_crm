@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -93,25 +94,39 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
       stream: _watchClients(widget.companyId, assignedTo: widget.assignedTo),
       builder: (context, clientsSnapshot) {
         if (clientsSnapshot.hasError) {
-          return AppErrorView(message: l.unableToConnect);
+          return AppErrorView(
+            message: localizeThrownErrorMessage(l, clientsSnapshot.error),
+          );
         }
         return StreamBuilder<List<Lead>>(
           stream: _watchLeads(widget.companyId, assignedTo: widget.assignedTo),
           builder: (context, leadsSnapshot) {
             if (leadsSnapshot.hasError) {
-              return AppErrorView(message: l.unableToConnect);
+              return AppErrorView(
+                message: localizeThrownErrorMessage(l, leadsSnapshot.error),
+              );
             }
             return StreamBuilder<List<Property>>(
               stream: _watchProperties(widget.companyId),
               builder: (context, propertiesSnapshot) {
                 if (propertiesSnapshot.hasError) {
-                  return AppErrorView(message: l.unableToConnect);
+                  return AppErrorView(
+                    message: localizeThrownErrorMessage(
+                      l,
+                      propertiesSnapshot.error,
+                    ),
+                  );
                 }
                 return StreamBuilder<List<UserProfile>>(
                   stream: _watchActiveUsers(widget.companyId),
                   builder: (context, usersSnapshot) {
                     if (usersSnapshot.hasError) {
-                      return AppErrorView(message: l.unableToConnect);
+                      return AppErrorView(
+                        message: localizeThrownErrorMessage(
+                          l,
+                          usersSnapshot.error,
+                        ),
+                      );
                     }
                     final hasInitialData = clientsSnapshot.hasData &&
                         leadsSnapshot.hasData &&

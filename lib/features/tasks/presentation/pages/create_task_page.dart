@@ -112,7 +112,12 @@ class _CreateTaskView extends StatelessWidget {
                               stream: _watchActiveUsers(userProfile.companyId),
                               builder: (context, usersSnapshot) {
                                 if (usersSnapshot.hasError) {
-                                  return AppErrorView(message: l.unableToConnect);
+                                  return AppErrorView(
+                                    message: localizeThrownErrorMessage(
+                                      l,
+                                      usersSnapshot.error,
+                                    ),
+                                  );
                                 }
                                 final users = usersSnapshot.data ?? const [];
                                 return TaskForm(

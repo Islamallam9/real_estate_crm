@@ -155,7 +155,7 @@ class _DealsViewState extends State<_DealsView> {
                               Expanded(
                                 child: Text(
                                   l.dealsSubtitle,
-                                  maxLines: isMobile ? 3 : 2,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textSecondaryColor(context),
@@ -195,9 +195,9 @@ class _DealsViewState extends State<_DealsView> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   header,
-                                  const SizedBox(height: AppSpacing.md),
+                                  const SizedBox(height: AppSpacing.sm),
                                   filters,
-                                  const SizedBox(height: AppSpacing.md),
+                                  const SizedBox(height: AppSpacing.sm),
                                   body,
                                   const SizedBox(height: 96),
                                 ],
@@ -209,9 +209,9 @@ class _DealsViewState extends State<_DealsView> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               header,
-                              const SizedBox(height: AppSpacing.md),
+                              const SizedBox(height: AppSpacing.sm),
                               filters,
-                              const SizedBox(height: AppSpacing.md),
+                              const SizedBox(height: AppSpacing.sm),
                               Expanded(child: body),
                             ],
                           );

@@ -407,7 +407,6 @@ class _PropertyFormState extends State<PropertyForm> {
       return;
     }
 
-    final l = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final previous = widget.property;
     final retainedCoverImageUrl = _resolveRetainedCoverImageUrl(

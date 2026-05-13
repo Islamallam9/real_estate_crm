@@ -149,7 +149,7 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                   Expanded(
                     child: Text(
                       localizations.propertiesSubtitle,
-                      maxLines: isMobile ? 3 : 2,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryColor(context),
@@ -195,12 +195,12 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                     children: [
                       header,
                       if (failureBanner != null) ...[
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         failureBanner,
                       ],
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                       filters,
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                       body,
                       const SizedBox(height: 96),
                     ],
@@ -213,12 +213,12 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                 children: [
                   header,
                   if (failureBanner != null) ...[
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.sm),
                     failureBanner,
                   ],
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                   filters,
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                   Expanded(child: body),
                 ],
               );
@@ -313,8 +313,8 @@ class _PropertiesBody extends StatelessWidget {
               itemCount: state.filteredProperties.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                crossAxisSpacing: AppSpacing.md,
-                mainAxisSpacing: AppSpacing.md,
+                crossAxisSpacing: AppSpacing.sm,
+                mainAxisSpacing: AppSpacing.sm,
                 mainAxisExtent: cardExtent,
               ),
               itemBuilder: (context, index) {
@@ -748,4 +748,3 @@ List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
     for (final value in values) _FilterOption<T>.value(value),
   ];
 }
-
