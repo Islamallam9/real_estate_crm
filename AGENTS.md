@@ -83,16 +83,22 @@ These notes reflect the current working state of Masar CRM and should guide futu
 
 ## Implemented Modules and Current Status
 
+These notes are the current source of truth for the app after the latest Dashboard/Reports motion pass.
+
 - Authentication, login, logout, user profile loading, and protected routing are implemented.
 - Leads are implemented and tested for the current phase.
 - Properties are implemented and tested for the current phase.
 - Clients are implemented and tested for the current phase.
 - Tasks and follow-ups are implemented and tested enough to move forward.
-- Dashboard exists and shows useful CRM sections/metrics where data is available.
-- Deals is the next core business module.
-- Reports is not implemented yet and must not appear as a working module.
-- Profile and Settings are planned as basic user-facing screens.
+- Deals are implemented and connected to Leads, Clients, Properties, Tasks where relevant, and Dashboard/Reports.
+- Dashboard is implemented with real data, useful KPI cards, analytics charts, quick actions, recent activity, deals/tasks summaries, follow-up sections, responsive layout, and professional motion polish.
+- Reports is implemented with period/search/filter controls, summary KPIs, lead/deal/task/property reports, agent activity/results, animated charts/bars, and responsive layout.
+- Recent Activity on Dashboard is visible only to Admin and Manager for now. Sales Agent must not see it.
+- Recent Activity is currently based on latest accessible record updates, not a full audit-log event stream. Do not call it Audit Log or System History yet.
+- Profile and Settings exist/planned as basic user-facing screens; do not expand them unless explicitly requested.
 - Manager/team hierarchy is planned later and must not be mixed into unrelated module work.
+- Property image upload and Cloud Storage rules are not completed yet.
+- Advanced notifications, appointments, and real audit-log implementation are future phases.
 
 ## Current Visual Identity
 
@@ -137,17 +143,28 @@ Do not create a different UI style for new modules.
 - Buttons that trigger Firebase/Auth/database/network work must show pending state and final success/error feedback.
 - Actions that only open menus, routes, sheets, or filter panels do not need database loading.
 
+## Current Dashboard and Reports UI/Motion Status
+
+- Dashboard KPI cards use a balanced responsive grid instead of uneven wrapping.
+- Dashboard and Reports use subtle but noticeable professional motion: section reveal, scroll reveal where added, card hover/tap lift, count-up numbers, animated donut sweeps, animated legends, and animated progress bars.
+- `visibility_detector` is currently used to support scroll-triggered reveal behavior.
+- `VisibilityDetectorController.instance.updateInterval` is configured in `main.dart` to reduce scroll jank.
+- Animations must remain professional: no bouncing, no glowing, no infinite movement, no auto-scrolling activity feed, and no distracting decorative animation.
+- Dashboard chart cards and Reports chart cards should feel alive through one-time sweep/count/legend animations and hover feedback.
+- If scrolling becomes janky, prefer tuning reveal thresholds/durations/updateInterval and reducing heavy shadows before adding more animation packages.
+
 ## Current Mobile Dashboard Rule
 
-- Mobile Dashboard uses a floating quick-add FAB for Add Lead and Add Client.
-- The old mobile quick-action panel/cards for Add Lead, Add Client, and Add Property should stay hidden/removed on mobile.
+- Mobile Dashboard uses a floating quick-add FAB for Add Lead, Add Client, and allowed quick actions according to permissions.
+- The old mobile quick-action panel/cards should stay hidden/removed on mobile.
 - Desktop/tablet quick actions may remain.
 - Add Client quick action is admin/manager only.
 - Add Lead follows the existing create-lead permission logic.
+- Recent Activity remains hidden for Sales Agent on all screen sizes.
 
 ## Saved Tasks Backlog
 
-- Tasks should support related Deal records after Deals exists.
+- Verify Tasks support related Deal records now that Deals exists; improve if any flow still lacks Deal linking/display.
 - Check/fix duplicated `initialDate` in the task form if present.
 - Improve complete/cancel row action state if practical.
 - Avoid relying only on global `TasksStatus.saving` for row-level actions if practical.
@@ -320,6 +337,7 @@ companies/{companyId}/audit_logs/{auditLogId}
 ## Package Defaults
 
 - Do not add packages unless required by the task.
+- `visibility_detector` is currently approved and used for Dashboard/Reports scroll reveal behavior. Do not remove it unless replacing the scroll reveal approach intentionally.
 - If a package is needed, explain why in the report.
 - Packages must improve production quality, visual consistency, accessibility, maintainability, or developer efficiency.
 - Do not add decorative packages randomly.
