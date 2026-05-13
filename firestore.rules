@@ -183,10 +183,9 @@ service cloud.firestore {
     }
 
     function canReadLead(companyId) {
-      return resource.data.companyId == companyId
-        && (companyReadableRecord(companyId)
-          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-          || (isMarketing(companyId) && activeAssignedRecord(resource.data)));
+      return companyReadableRecord(companyId)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+        || (isMarketing(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canCreateLead(companyId) {
@@ -284,9 +283,8 @@ service cloud.firestore {
     }
 
     function canReadClient(companyId) {
-      return resource.data.companyId == companyId
-        && (companyReadableRecord(companyId)
-          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data)));
+      return companyReadableRecord(companyId)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data));
     }
 
     function propertyFields() {
@@ -464,10 +462,9 @@ service cloud.firestore {
     }
 
     function canReadTask(companyId) {
-      return resource.data.companyId == companyId
-        && (companyReadableRecord(companyId)
-          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-          || (isMarketing(companyId) && activeAssignedRecord(resource.data)));
+      return companyReadableRecord(companyId)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+        || (isMarketing(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canUpdateTask(companyId) {
@@ -576,9 +573,8 @@ service cloud.firestore {
     }
 
     function canReadDeal(companyId) {
-      return resource.data.companyId == companyId
-        && (companyReadableRecord(companyId)
-          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data)));
+      return companyReadableRecord(companyId)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canUpdateDeal(companyId) {
@@ -642,13 +638,10 @@ service cloud.firestore {
     }
 
     function canReadUserProfile(companyId, userId) {
-      return resource.data.companyId == companyId
-        && ((signedIn()
-          && userId == request.auth.uid
-          && resource.data.companyId == companyId)
-          || isAdminOrManager(companyId)
-          || (isActiveCompanyUser(companyId)
-            && resource.data.isActive == true));
+      return (signedIn() && userId == request.auth.uid)
+        || isAdminOrManager(companyId)
+        || (isActiveCompanyUser(companyId)
+          && resource.data.isActive == true);
     }
 
     match /companies/{companyId} {
@@ -685,7 +678,6 @@ service cloud.firestore {
 
         match /notes/{noteId} {
           allow get, list: if commonCrmRead(companyId)
-            && get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.companyId == companyId
             && (companyReadableRecord(companyId)
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow create: if isActiveCompanyUser(companyId)
@@ -710,7 +702,6 @@ service cloud.firestore {
 
         match /timeline/{eventId} {
           allow get, list: if commonCrmRead(companyId)
-            && get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.companyId == companyId
             && (companyReadableRecord(companyId)
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow create: if isActiveCompanyUser(companyId)
@@ -760,7 +751,6 @@ service cloud.firestore {
 
       match /properties/{propertyId} {
         allow get, list: if commonCrmRead(companyId)
-          && resource.data.companyId == companyId
           && role(companyId) in [
             'admin',
             'manager',
@@ -804,8 +794,7 @@ service cloud.firestore {
       }
 
       match /audit_logs/{auditLogId} {
-        allow get, list: if isAdminOrManager(companyId)
-          && resource.data.companyId == companyId;
+        allow get, list: if isAdminOrManager(companyId);
         allow create, update, delete: if false;
       }
 
