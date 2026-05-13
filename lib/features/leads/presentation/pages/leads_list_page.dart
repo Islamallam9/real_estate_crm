@@ -105,7 +105,9 @@ class _LeadsListContentState extends State<_LeadsListContent> {
     final authState = context.read<AuthBloc>().state;
     final role = authState.userProfile?.role ?? authState.user?.role;
     final uid = authState.user?.uid ?? '';
-    return role?.name == 'salesAgent' ? uid : null;
+    return role?.name == 'salesAgent' || role?.name == 'marketing'
+        ? uid
+        : null;
   }
 
   @override

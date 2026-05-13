@@ -23,8 +23,19 @@ service firebase.storage {
         && companyUserDoc(companyId).data.role in ['admin', 'manager'];
     }
 
+    function canReadPropertyImages(companyId) {
+      return isActiveCompanyUser(companyId)
+        && companyUserDoc(companyId).data.role in [
+          'admin',
+          'manager',
+          'salesAgent',
+          'marketing',
+          'viewer'
+        ];
+    }
+
     match /companies/{companyId}/properties/{propertyId}/images/{fileName} {
-      allow read: if isActiveCompanyUser(companyId);
+      allow read: if canReadPropertyImages(companyId);
 
       allow create, update: if isAdminOrManager(companyId)
         && request.resource != null

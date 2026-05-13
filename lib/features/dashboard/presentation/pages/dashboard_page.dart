@@ -111,24 +111,35 @@ class _DashboardContentState extends State<_DashboardContent> {
     final role =
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
-    final assignedTo = role == UserRole.salesAgent ? uid : null;
+    final assignedTo = _assignedOnlyScope(role) ? uid : null;
 
-    context.read<LeadsCubit>().watchLeads(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    context.read<PropertiesCubit>().watchProperties(
-      companyId: widget.companyId,
-    );
-    context.read<ClientsCubit>().watchClients(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    context.read<TasksCubit>().watchTasks(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    if (role != null && uid.isNotEmpty) {
+    if (role != null && PermissionService.can(role, AppPermission.viewLeads)) {
+      context.read<LeadsCubit>().watchLeads(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null &&
+        PermissionService.can(role, AppPermission.viewProperties)) {
+      context.read<PropertiesCubit>().watchProperties(
+        companyId: widget.companyId,
+      );
+    }
+    if (role != null && PermissionService.can(role, AppPermission.viewClients)) {
+      context.read<ClientsCubit>().watchClients(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null && PermissionService.can(role, AppPermission.viewTasks)) {
+      context.read<TasksCubit>().watchTasks(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null &&
+        uid.isNotEmpty &&
+        PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
         role: role,
@@ -141,24 +152,35 @@ class _DashboardContentState extends State<_DashboardContent> {
     final role =
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
-    final assignedTo = role == UserRole.salesAgent ? uid : null;
+    final assignedTo = _assignedOnlyScope(role) ? uid : null;
 
-    context.read<LeadsCubit>().watchLeads(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    context.read<PropertiesCubit>().watchProperties(
-      companyId: widget.companyId,
-    );
-    context.read<ClientsCubit>().watchClients(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    context.read<TasksCubit>().watchTasks(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-    );
-    if (role != null && uid.isNotEmpty) {
+    if (role != null && PermissionService.can(role, AppPermission.viewLeads)) {
+      context.read<LeadsCubit>().watchLeads(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null &&
+        PermissionService.can(role, AppPermission.viewProperties)) {
+      context.read<PropertiesCubit>().watchProperties(
+        companyId: widget.companyId,
+      );
+    }
+    if (role != null && PermissionService.can(role, AppPermission.viewClients)) {
+      context.read<ClientsCubit>().watchClients(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null && PermissionService.can(role, AppPermission.viewTasks)) {
+      context.read<TasksCubit>().watchTasks(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+      );
+    }
+    if (role != null &&
+        uid.isNotEmpty &&
+        PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
         role: role,
@@ -2800,4 +2822,8 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
 bool _canViewRecentActivity(AuthState authState) {
   final role = authState.userProfile?.role ?? authState.user?.role;
   return role == UserRole.admin || role == UserRole.manager;
+}
+
+bool _assignedOnlyScope(UserRole? role) {
+  return role == UserRole.salesAgent || role == UserRole.marketing;
 }

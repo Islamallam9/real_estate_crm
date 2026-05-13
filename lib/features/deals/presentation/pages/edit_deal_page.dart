@@ -51,7 +51,10 @@ class _EditDealViewState extends State<_EditDealView> {
     final companyId = authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
     final role = authState.userProfile?.role ?? authState.user?.role;
     final uid = authState.user?.uid ?? '';
-    if (companyId.isNotEmpty && role != null && uid.isNotEmpty) {
+    if (companyId.isNotEmpty &&
+        role != null &&
+        uid.isNotEmpty &&
+        PermissionService.can(role, AppPermission.editDeal)) {
       context.read<DealsCubit>().watchDeals(
         companyId: companyId,
         role: role,

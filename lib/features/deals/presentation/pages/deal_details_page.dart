@@ -52,7 +52,10 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
     final companyId = authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
     final role = authState.userProfile?.role ?? authState.user?.role;
     final uid = authState.user?.uid ?? '';
-    if (companyId.isNotEmpty && role != null && uid.isNotEmpty) {
+    if (companyId.isNotEmpty &&
+        role != null &&
+        uid.isNotEmpty &&
+        PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: companyId,
         role: role,
@@ -70,16 +73,19 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
     final role = userProfile?.role ?? user?.role;
     final companyId = userProfile?.companyId ?? user?.companyId ?? '';
     final uid = user?.uid ?? '';
+    final canView =
+        role != null && PermissionService.can(role, AppPermission.viewDeals);
     final canEdit = role != null && PermissionService.can(role, AppPermission.editDeal);
     final canArchive =
         role != null && PermissionService.can(role, AppPermission.archiveDeal);
-    final canUpdateStage =
-        role != null && role != UserRole.viewer && PermissionService.can(role, AppPermission.viewDeals);
+    final canUpdateStage = role != null && role != UserRole.viewer && canView;
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.deals,
       title: l.dealDetails,
-      child: BlocListener<DealsCubit, DealsState>(
+      child: !canView
+          ? AppErrorView(message: l.permissionDenied)
+          : BlocListener<DealsCubit, DealsState>(
         listenWhen: (previous, current) =>
             previous.status != current.status ||
             previous.lastAction != current.lastAction ||

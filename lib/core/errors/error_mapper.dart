@@ -12,6 +12,9 @@ abstract final class AppErrorMessages {
   static const unknown = 'Something went wrong. Please try again.';
   static const connectionTimeout =
       'Unable to load data. Check your connection and try again.';
+  static const propertyImageInvalidType = 'Only image files are allowed.';
+  static const propertyImageTooLarge =
+      'Each property image must be 5 MB or smaller.';
 }
 
 String localizeErrorMessage(AppLocalizations l, String? message) {
@@ -49,6 +52,11 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
       return l.unableToAddNote;
     case 'Unable to load lead timeline.':
       return l.somethingWentWrong;
+    case AppErrorMessages.propertyImageInvalidType:
+      return l.propertyImageInvalidType;
+    case AppErrorMessages.propertyImageTooLarge:
+    case 'Property image must be 5 MB or smaller.':
+      return l.propertyImageTooLarge;
     default:
       return message ?? l.somethingWentWrong;
   }

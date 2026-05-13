@@ -104,6 +104,7 @@ class _CreateDealView extends StatelessWidget {
                             const SizedBox(height: AppSpacing.md),
                             DealFormDataLoader(
                               companyId: userProfile.companyId,
+                              assignedTo: canEditAssignment ? null : user.uid,
                               builder: (context, data) {
                                 return DealForm(
                                   companyId: userProfile.companyId,

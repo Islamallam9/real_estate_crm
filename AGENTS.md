@@ -2,15 +2,15 @@
 
 ## Project Name
 
-Real Estate CRM
+Masar CRM
 
 ## Project Description
 
-This project is a full functional CRM system for a real estate company.
+Masar CRM is a full functional CRM system for a real estate company.
 
-It will be built using Flutter for mobile and web, with Firebase as the backend.
+It is built using Flutter for web/mobile with Firebase as the backend.
 
-The project must be clean, scalable, professional, and easy to maintain.
+The project must be clean, scalable, professional, secure, and easy to maintain.
 
 The app is not a simple demo.
 
@@ -37,7 +37,7 @@ It should be treated as a real production project.
 
 - Firebase Authentication
 - Cloud Firestore
-- Cloud Storage
+- Firebase Storage
 - Firebase Cloud Functions when needed
 - Firebase Cloud Messaging when needed
 - Firebase Hosting for Flutter Web
@@ -66,124 +66,6 @@ The system should support both mobile and web.
 
 ---
 
-# Current Project Status
-
-These notes reflect the current working state of Masar CRM and should guide future Codex tasks.
-
-## Brand and Website Identity
-
-- App name: Masar CRM.
-- Arabic brand name: مسار.
-- Login brand beside the logo: Masar | مسار.
-- Browser title:
-  - English: Masar CRM.
-  - Arabic: مسار | متابعة مبيعات العقارات.
-- Firebase project, package name, bundle ID, and app identifiers were not renamed as part of the branding work.
-- The visible product brand is Masar even if Firebase Hosting or project IDs still use older technical identifiers.
-
-## Implemented Modules and Current Status
-
-These notes are the current source of truth for the app after the latest Dashboard/Reports motion pass.
-
-- Authentication, login, logout, user profile loading, and protected routing are implemented.
-- Leads are implemented and tested for the current phase.
-- Properties are implemented and tested for the current phase.
-- Clients are implemented and tested for the current phase.
-- Tasks and follow-ups are implemented and tested enough to move forward.
-- Deals are implemented and connected to Leads, Clients, Properties, Tasks where relevant, and Dashboard/Reports.
-- Dashboard is implemented with real data, useful KPI cards, analytics charts, quick actions, recent activity, deals/tasks summaries, follow-up sections, responsive layout, and professional motion polish.
-- Reports is implemented with period/search/filter controls, summary KPIs, lead/deal/task/property reports, agent activity/results, animated charts/bars, and responsive layout.
-- Recent Activity on Dashboard is visible only to Admin and Manager for now. Sales Agent must not see it.
-- Recent Activity is currently based on latest accessible record updates, not a full audit-log event stream. Do not call it Audit Log or System History yet.
-- Profile and Settings exist/planned as basic user-facing screens; do not expand them unless explicitly requested.
-- Manager/team hierarchy is planned later and must not be mixed into unrelated module work.
-- Property image upload and Cloud Storage rules are not completed yet.
-- Advanced notifications, appointments, and real audit-log implementation are future phases.
-
-## Current Visual Identity
-
-Masar uses a warm premium real-estate CRM direction:
-
-```text
-Workspace: cream / warm off-white
-Sidebar: warm beige in light mode
-Primary action accent: premium amber
-Cards: white / warm off-white
-Borders: soft beige-gray
-Text: charcoal / dark brown
-Blue: minimal, mainly for semantic info states
-```
-
-Dashboard welcome cards should use a warm premium background with subtle real-estate or geometric line-art, not a flat plain card.
-
-## Current Unified UI Rules
-
-All modules must feel like one product. Future modules must reuse the same:
-
-- page header style
-- search/filter pattern
-- AppButton style
-- AppDropdown style
-- AppStatusBadge style
-- AppFeedback style
-- circular loading pattern
-- centered create/edit form pattern
-- mobile card behavior
-- table/card density
-- warm Masar color palette
-
-Do not create a different UI style for new modules.
-
-## Current Async UX Rules
-
-- All create/edit/save forms must disable every field while saving.
-- Save/update buttons must show circular loading until the backend request fully completes.
-- Pages, dialogs, and sheets must not close before success.
-- Failures must keep the user on the same page and show modern feedback.
-- Buttons that trigger Firebase/Auth/database/network work must show pending state and final success/error feedback.
-- Actions that only open menus, routes, sheets, or filter panels do not need database loading.
-
-## Current Dashboard and Reports UI/Motion Status
-
-- Dashboard KPI cards use a balanced responsive grid instead of uneven wrapping.
-- Dashboard and Reports use subtle but noticeable professional motion: section reveal, scroll reveal where added, card hover/tap lift, count-up numbers, animated donut sweeps, animated legends, and animated progress bars.
-- `visibility_detector` is currently used to support scroll-triggered reveal behavior.
-- `VisibilityDetectorController.instance.updateInterval` is configured in `main.dart` to reduce scroll jank.
-- Animations must remain professional: no bouncing, no glowing, no infinite movement, no auto-scrolling activity feed, and no distracting decorative animation.
-- Dashboard chart cards and Reports chart cards should feel alive through one-time sweep/count/legend animations and hover feedback.
-- If scrolling becomes janky, prefer tuning reveal thresholds/durations/updateInterval and reducing heavy shadows before adding more animation packages.
-
-## Current Mobile Dashboard Rule
-
-- Mobile Dashboard uses a floating quick-add FAB for Add Lead, Add Client, and allowed quick actions according to permissions.
-- The old mobile quick-action panel/cards should stay hidden/removed on mobile.
-- Desktop/tablet quick actions may remain.
-- Add Client quick action is admin/manager only.
-- Add Lead follows the existing create-lead permission logic.
-- Recent Activity remains hidden for Sales Agent on all screen sizes.
-
-## Saved Tasks Backlog
-
-- Verify Tasks support related Deal records now that Deals exists; improve if any flow still lacks Deal linking/display.
-- Check/fix duplicated `initialDate` in the task form if present.
-- Improve complete/cancel row action state if practical.
-- Avoid relying only on global `TasksStatus.saving` for row-level actions if practical.
-- Do not add manager-team logic to Tasks yet.
-
-## Future Manager/Team Plan
-
-This is a future phase, not part of Deals or visual polish tasks.
-
-- Admin will eventually assign managers and team members.
-- Managers will eventually view/manage only their own team performance.
-- Recommended future user fields:
-  - `managerId`
-  - `teamId`
-- Recommended future collection:
-  - `companies/{companyId}/teams/{teamId}`
-
----
-
 # Very Important Rules
 
 ## General Rules
@@ -201,6 +83,9 @@ This is a future phase, not part of Deals or visual polish tasks.
 - Do not put business logic inside UI widgets.
 - Do not create huge files.
 - Keep each file focused on one responsibility.
+- Avoid changing Firestore structure unless explicitly requested.
+- Avoid changing permission/security logic unless explicitly requested.
+- Do not rename Firebase project IDs, package IDs, app IDs, bundle IDs, or Hosting targets unless explicitly requested.
 
 ---
 
@@ -213,7 +98,7 @@ These rules apply to every Codex task unless the user explicitly says otherwise.
 - Work on branch `dev`.
 - Do not work directly on `main`.
 - Do not assume changes are committed.
-- Keep each task small and focused.
+- Keep each task focused.
 
 ## Command Usage
 
@@ -224,13 +109,11 @@ These rules apply to every Codex task unless the user explicitly says otherwise.
   - flutter gen-l10n
   - dart format
   - flutter run
+  - flutter build
   - firebase commands
   - git commands
 - The user will run checks locally.
 - Only edit files and report changed files.
-- Read-only inspection of target files is allowed when needed to complete the requested task.
-- Inspect only files directly relevant to the task.
-- Do not inspect unrelated files.
 
 ## File Editing Rules
 
@@ -241,2057 +124,11 @@ These rules apply to every Codex task unless the user explicitly says otherwise.
 - If a reusable widget API is unknown, inspect the existing widget file before using it.
 - Do not assume constructor names for existing widgets.
 - Do not create duplicate UI components if an existing reusable component can be used.
+- Do not leave temporary zip, patch, or generated test files inside the repo.
 
 ## Reporting Format
 
-After every task, report only:
-
-```text
-Files changed:
-What was implemented:
-How to test:
-Assumptions:
-Remaining issues:
-```
-
-If there are no remaining issues, write:
-
-```text
-Remaining issues:
-- None known
-```
-
-Do not include long explanations unless there is a real problem.
-
-## Architecture Defaults
-
-- Use feature-first Clean Architecture.
-- Use BLoC/Cubit only.
-- Do not use Riverpod, Provider directly, GetX, or MobX.
-- UI must call BLoC/Cubit.
-- BLoC/Cubit must call use cases.
-- Use cases must call repositories.
-- Repositories must call data sources.
-- Firebase calls must stay inside data sources only.
-
-## Firebase and Company Isolation Defaults
-
-- Never create global CRM collections such as:
-  - `/leads`
-  - `/clients`
-  - `/properties`
-  - `/tasks`
-  - `/deals`
-- All company data must live under:
-
-```text
-companies/{companyId}
-companies/{companyId}/users/{userId}
-companies/{companyId}/leads/{leadId}
-companies/{companyId}/clients/{clientId}
-companies/{companyId}/properties/{propertyId}
-companies/{companyId}/tasks/{taskId}
-companies/{companyId}/deals/{dealId}
-companies/{companyId}/audit_logs/{auditLogId}
-```
-
-- Every CRM operation must require `companyId`.
-- Never allow cross-company access.
-- Never hard delete CRM business records unless explicitly requested.
-- Prefer archive/soft delete for leads, clients, properties, tasks, and deals.
-
-## Security Defaults
-
-- Do not add secrets.
-- Do not add `.env` files.
-- Do not add Firebase Admin SDK keys.
-- Do not add service account JSON files.
-- Do not store passwords in Firestore.
-- Do not store auth tokens in SharedPreferences.
-- SharedPreferences may only be used for non-sensitive preferences such as selected language.
-
-## Localization Defaults
-
-- The app supports Arabic and English.
-- Arabic must support RTL.
-- English must support LTR.
-- Do not hardcode visible UI text.
-- Add English and Arabic ARB keys for all new visible text.
-- Use localized labels, errors, empty states, buttons, and navigation text.
-- Keep layouts working in both RTL and LTR.
-
-## UI/UX Defaults
-
-- Design must look like a real CRM, not a generic AI-generated dashboard.
-- Style matters as much as functionality.
-- Avoid flashy gradients, glassmorphism, huge shadows, fake futuristic cards, and decorative clutter.
-- Avoid generic AI/SaaS visual defaults.
-- Use the Frontend Visual Design Skill rules for colors, typography, spacing, cards, filters, buttons, motion, and mobile behavior.
-- Web layout should use sidebar/top bar/content.
-- Mobile layout should use app bar/bottom navigation/card lists.
-- Mobile cards should be tappable when the card has a details page.
-- Tables/lists must not overflow on web resize.
-- Forms must be smooth, readable, and consistent.
-- Use existing core widgets before creating new widgets.
-
-## Package Defaults
-
-- Do not add packages unless required by the task.
-- `visibility_detector` is currently approved and used for Dashboard/Reports scroll reveal behavior. Do not remove it unless replacing the scroll reveal approach intentionally.
-- If a package is needed, explain why in the report.
-- Packages must improve production quality, visual consistency, accessibility, maintainability, or developer efficiency.
-- Do not add decorative packages randomly.
-- Do not add a package just to imitate a trend.
-- Prefer small, mature, well-maintained packages with strong pub.dev health and active usage.
-- Approved package categories when useful:
-  - Typography and bilingual font system.
-  - Subtle UI animation and micro-interactions.
-  - Professional in-app messages/toasts.
-  - Skeleton/loading placeholders for list/card loading states.
-- Preferred packages when a task clearly needs them:
-  - `shared_preferences` for non-sensitive local preferences only.
-  - `google_fonts` for the app typography system.
-  - `flutter_animate` for subtle, functional micro-interactions only.
-  - `toastification` or a similarly professional toast package for internal success/error messages if SnackBars become too limited.
-  - `skeletonizer` for non-blocking skeleton loading states when list/card screens need a better loading experience.
-- If adding `google_fonts`, prefer pre-bundled fonts/assets for production reliability when practical.
-- If adding animation packages, keep animations subtle, short, and functional.
-- If adding toast/message packages, keep messages professional, not playful.
-- Do not replace the whole design system with a package-driven UI kit unless explicitly requested.
-
----
-
-# Frontend Visual Design Skill
-
-These rules define the permanent visual direction of the CRM. They must be followed before creating or modifying any UI.
-
-## Design Goal
-
-The UI must look human-designed, intentional, and production-grade.
-
-The app must not look like a generic AI-generated SaaS demo.
-
-The design should feel like a premium internal real-estate CRM used every day by a real sales team:
-- calm
-- efficient
-- spatially deliberate
-- visually distinctive
-- businesslike without feeling old
-
-## Approved Visual Reference Direction
-
-Use the selected visual references as the approved style direction:
-- Deep navy rounded sidebar shell.
-- Soft off-white / cool-gray workspace.
-- White cards and tables with subtle borders and shallow shadows.
-- Rounded but disciplined geometry.
-- Controlled blue-violet accent for active navigation, selected states, and important actions.
-- Background that is not a dead flat color: use subtle geometric forms, soft radial tints, dots, or low-opacity network/grid textures.
-- Dense, useful layouts with no dead space, but still enough breathing room to scan comfortably.
-
-The visual result should feel closer to:
-- premium product design
-- refined enterprise software
-- crafted real-estate operations software
-
-It should not feel like:
-- a tutorial app
-- a default Flutter admin template
-- a generic AI dashboard
-- a flashy startup landing page
-
-## Anti-AI Visual Rules
-
-Avoid common AI-generated frontend patterns:
-- Inter/Roboto/default-font-only appearance without a typography decision.
-- Purple gradients on white backgrounds as the main identity.
-- Random blue/purple SaaS palettes without discipline.
-- Overused glassmorphism.
-- Overly large rounded cards everywhere.
-- Excessive shadows or glowing cards.
-- Random decorative illustrations.
-- Bouncy or playful animation.
-- Fake dashboard cards.
-- Random icon usage without hierarchy.
-- Inconsistent spacing from module to module.
-- Different search/filter UI between modules.
-- Different button styles for the same action type.
-- Raw Firestore/Auth IDs visible in UI.
-- Giant empty headers or blank panels that waste useful workspace.
-- Per-module styling that makes the product feel stitched together.
-
-## Visual Identity Direction
-
-The CRM visual identity should be:
-- serious
-- calm
-- premium but not flashy
-- efficient
-- clear
-- modern
-- real-estate/business oriented
-- human-designed
-
-Use a restrained palette:
-
-```text
-Shell / sidebar: deep navy / ink blue
-Primary accent: controlled blue-violet
-Secondary accent: muted teal or muted steel blue
-Workspace background: soft off-white / cool gray
-Surface: white or near-white
-Surface elevated: subtle warm/cool neutral
-Text primary: near-black navy
-Text secondary: cool gray / slate
-Border: soft gray
-Success: muted green
-Warning: muted amber
-Error: controlled red
-Info: muted blue
-```
-
-Color rules:
-- Navy is the structural anchor.
-- Accent colors are for focus, active navigation, selected rows, and primary actions, not for decorating every card.
-- Status colors must be semantic and consistent across all modules.
-- Avoid many unrelated colors on one screen.
-- Dark mode must remain premium and readable, not neon.
-
-## Typography Direction
-
-Typography matters as much as layout.
-
-Do not rely on generic default typography for the final product.
-
-Preferred bilingual font direction:
-```text
-English: Plus Jakarta Sans or Manrope
-Arabic: IBM Plex Sans Arabic
-```
-
-Allowed fallback direction only if needed:
-```text
-English: IBM Plex Sans or Source Sans 3
-Arabic: Noto Kufi Arabic
-```
-
-Typography rules:
-- Use one approved English family and one approved Arabic family consistently across the app.
-- Arabic must look intentional, not like a fallback font.
-- Titles should feel confident but not oversized.
-- Body text must remain highly readable in dense tables, cards, and forms.
-- Labels must not be tiny or faint.
-- Use hierarchy through weight, size, and spacing, not decoration.
-- Avoid too many font weights.
-- Avoid all-caps styling except rare technical/status cases.
-- Keep numbers, dates, currencies, and table values visually aligned across modules.
-
-## Background Treatment
-
-The workspace background must not feel like a flat empty sheet.
-
-Desktop/web:
-- Use a soft workspace background with subtle geometric shapes, radial tints, dotted fields, low-opacity linework, or a restrained network/grid texture.
-- Background treatment must sit behind content and never reduce readability.
-- Ambient movement is allowed only if extremely subtle, slow, and performance-safe.
-- Avoid repeated real-estate icons as a loud pattern.
-
-Mobile/mobile-browser:
-- Keep the background quieter than desktop.
-- Prefer a subtle tint or corner geometry rather than busy repeated patterns.
-- Do not sacrifice vertical content space for decoration.
-
-## App Shell and Navigation
-
-### Desktop/Web Shell
-
-Use a persistent app shell:
-- Sidebar stays stable.
-- Top bar stays stable.
-- Only the inner workspace changes between modules.
-
-Sidebar direction:
-- Deep navy rounded shell.
-- Strong active navigation pill with controlled accent.
-- Clean iconography.
-- Balanced vertical spacing.
-- Distinctive enough to feel custom, not like a default drawer.
-- Optional lower utility/profile area may exist if useful, but it must stay restrained.
-
-### Module Opening Behavior
-
-Opening a new module must not feel like the whole screen was overwritten.
-
-Preferred behavior:
-- Keep the shell persistent.
-- Transition only the inner workspace.
-- Use a short fade plus slight directional motion.
-- Preserve context where practical.
-
-Desktop detail behavior:
-- Prefer master-detail or side-panel patterns for details where practical.
-- Do not always replace the whole workspace with a details page if a split or side-panel layout is cleaner.
-- Use full pages only for long forms or workflows that genuinely need them.
-
-Mobile behavior:
-- Keep main navigation stable.
-- Use pushed pages for real navigation.
-- Use bottom sheets for lightweight actions.
-- Keep the header/app bar fixed where practical.
-- Search/filter/content may scroll under the fixed header to preserve card visibility.
-
-## Layout and Density
-
-- Use space intentionally; no dead regions.
-- Keep breathing room, but favor productive density over oversized decorative gaps.
-- Use content-aligned grids instead of random card placement.
-- Larger screens should show more useful information, not only larger margins.
-- List pages should reveal useful records quickly without excessive header height.
-- Tables should be compact, clean, and scannable.
-- Mobile cards should contain the most useful fields only and remain tappable when the entire card represents a record.
-- Avoid layout choices that make the user scroll through empty air before reaching work content.
-
-## Shared Component Style
-
-Shared components must carry the visual system:
-- Buttons: clear hierarchy, restrained radius, meaningful hover/press states.
-- Inputs: calm surfaces, consistent labels, aligned heights.
-- Search/filter controls: identical interaction pattern across all modules.
-- Cards: subtle borders and shallow shadows only when needed.
-- Badges: compact, consistent, readable.
-- Empty states: useful and compact, not decorative.
-- Tables: row hover, selected-row clarity, no unnecessary numbering.
-- Toasts/snack messages: polished, brief, and consistent.
-- Icons: one family, one visual weight, no random mixtures.
-
-## Motion and Animation Rules
-
-Animations are allowed, but they must be subtle and functional.
-
-Approved animation types:
-- active sidebar item transition
-- inner-workspace fade/slide between modules
-- button hover/press feedback
-- card hover/tap feedback
-- dialog and bottom-sheet transitions
-- loading overlay fade
-- filter chip transitions
-- subtle list item insertion/removal when useful
-- polished toast/message entrance/exit
-- skeleton loading shimmer for non-blocking list/card loads
-
-Avoid:
-- bouncy motion
-- long animations
-- animated gradients as the main style
-- cards flying in from far distances
-- excessive staggered animations
-- repeating decorative animations
-- motion that delays daily work
-
-Animation timing guidance:
-```text
-Micro-interactions: 120ms-180ms
-Bottom sheets/dialogs: 180ms-250ms
-Workspace transitions: 180ms-240ms
-Loading transitions: subtle fade only
-```
-
-If animations are added, they must improve continuity, feedback, or clarity.
-
-## Unified CRM Interaction Patterns
-
-All modules must follow the same interaction model unless there is a strong reason not to.
-
-### Search and Filters
-
-Desktop/tablet:
-- Search field visible.
-- Inline filters in a clean row/wrap.
-- Clear filters button.
-- No wasted space.
-- No overflow.
-
-Mobile/small screens:
-- Search field visible.
-- Filters button beside or below search.
-- Filters button must be identical across modules:
-  - same widget style
-  - same icon
-  - same label
-  - same height
-  - same border radius
-  - same padding
-  - same secondary/outlined style
-- Filters open in a bottom sheet.
-- Bottom sheet must have:
-  - title
-  - close X
-  - clean padding
-  - dropdown filters
-  - clear filters button
-
-Dropdown rule:
-- Do not use raw `null` as the first dropdown item.
-- Use wrapper option objects for "All ..." choices:
-```dart
-_FilterOption.all()
-_FilterOption.value(value)
-_FilterOption.fromValue(value)
-```
-This prevents "All statuses", "All priorities", and similar first options from failing to select.
-
-### Mobile Cards
-
-- Mobile cards should be tappable when they represent a record with a details page.
-- Avoid separate details/eye buttons on mobile when card tap can open details.
-- Keep edit/archive/assign actions in a clear action area.
-- Action icons must not be mysterious; use labels where space allows.
-- Cards must be compact enough to show useful content above the fold.
-
-### App Bar and Scroll Behavior
-
-Mobile/mobile-browser:
-- Keep the app bar/header fixed where practical.
-- Search, filters, and content should scroll under the fixed header.
-- Do not let header + filters consume the entire screen height.
-- Prioritize showing actual records/cards quickly.
-
-### IDs and Display Names
-
-- Never show raw Firestore/Auth UIDs in the UI.
-- IDs are internal only.
-- Show readable names/titles/emails.
-- Store snapshot display fields where it avoids heavy joins:
-  - `assignedToName` / `assignedToEmail`
-  - `relatedTitle` / `relatedSubtitle`
-  - `clientName`, `leadName`, `propertyTitle` when needed
-
-## Form and Details Experience
-
-- Group long forms into visually distinct sections with clear headings.
-- Prefer side sheets or compact panels for light edits on desktop when practical.
-- Use full pages for complex create/edit workflows.
-- Details pages should reveal useful related data, not only static fields.
-- On wide screens, prefer split/master-detail layouts when they improve workflow continuity.
-- Do not make the user lose list context unnecessarily.
-
-## Responsive Visual Rules
-
-Desktop:
-- persistent shell
-- richer information density
-- tables where appropriate
-- side panels or split panes when practical
-
-Tablet:
-- adaptive layout
-- no oversized sidebars
-- no wasted gaps
-
-Mobile/mobile browser:
-- fixed app bar/header where practical
-- search/filter area scrolls with content when needed to preserve card visibility
-- cards are tappable when they represent a record
-- avoid separate redundant details buttons on cards when card tap is clearer
-- bottom sheets should be visually consistent across modules
-- optimize vertical space aggressively without making the interface cramped
-
-## Design System Refactor Guidance
-
-Before large new modules such as Deals or Dashboard, prefer stabilizing shared visual rules and reusable widgets.
-
-Recommended shared widgets when duplication grows:
-```text
-CrmSearchFilterBar
-CrmFilterBottomSheet
-CrmRecordCard
-CrmActionMenu
-CrmStatusBadge
-CrmSectionCard
-CrmPageHeader
-CrmSkeletonList
-CrmToastService
-CrmWorkspaceTransition
-```
-
-Do not create these all at once.
-
-Create shared widgets only when duplication is clear and the API can remain small.
-
-## Visual Update Priority
-
-Before building Dashboard and before making Deals visually final, run a major visual consistency pass:
-1. Lock typography.
-2. Lock color palette.
-3. Lock shell/background/sidebar/top bar.
-4. Lock button styles.
-5. Lock search/filter style.
-6. Lock mobile card style.
-7. Lock table/list style.
-8. Lock empty/loading/error states.
-9. Add subtle animation only after layout consistency is stable.
-10. Apply the system consistently across existing modules before new visual-heavy modules are added.
-
-## Visual Review Checklist
-
-Before finishing any visual task, check:
-- Does this match the approved shell/sidebar direction?
-- Does it look like one designed product, not stitched-together modules?
-- Is the typography deliberate in both English and Arabic?
-- Is there any generic AI-SaaS visual choice that should be removed?
-- Is space used intentionally?
-- Are background, cards, inputs, buttons, and badges consistent?
-- Does navigation feel continuous rather than like full-screen replacement?
-- Are animations restrained and useful?
-- Does mobile preserve useful content space?
-- Does dark mode still feel premium and readable?
-
----
-
-# State Management Rules
-
-Use BLoC / Cubit only.
-
-Allowed:
-
-- flutter_bloc
-- bloc
-- equatable
-
-Not allowed:
-
-- Riverpod
-- Provider
-- GetX
-- MobX
-
-## When to Use Cubit
-
-Use Cubit for simple state flows such as:
-
-- Loading a list
-- Creating an item
-- Updating a form
-- Simple CRUD screens
-- Search and filters
-- UI tab state
-
-## When to Use Bloc
-
-Use Bloc for more complex event-driven flows such as:
-
-- Authentication flow
-- Multi-step forms
-- Lead pipeline updates
-- Role and permission changes
-- Complex dashboard filters
-- Notification handling
-
-## BLoC Rules
-
-- UI should only read states and trigger events or cubit methods.
-- BLoC/Cubit should not call Firebase directly.
-- BLoC/Cubit should call use cases only.
-- Use cases should call repositories.
-- Repositories should communicate with data sources.
-- Firebase logic should stay inside data sources.
-- Every state should clearly represent the UI condition.
-
-Example flow:
-
-```text
-Page
-  -> Bloc/Cubit
-  -> UseCase
-  -> Repository
-  -> RemoteDataSource
-  -> Firebase
-```
-
----
-
-# Architecture Style
-
-Use feature-first Clean Architecture.
-
-Each main feature should have:
-
-```text
-feature/
-  data/
-  domain/
-  presentation/
-```
-
-## Data Layer
-
-Responsible for:
-
-- Firebase calls
-- Firestore queries
-- Storage uploads
-- Model mapping
-- DTOs
-- Remote data sources
-- Repository implementations
-
-## Domain Layer
-
-Responsible for:
-
-- Entities
-- Repository contracts
-- Use cases
-- Business rules
-
-The domain layer must not depend on Firebase.
-
-## Presentation Layer
-
-Responsible for:
-
-- Pages
-- Widgets
-- BLoC/Cubit
-- UI state
-- Form handling
-- User interactions
-
----
-
-# Recommended Folder Structure
-
-Use this structure as the base project structure:
-
-```text
-lib/
-  main.dart
-  app.dart
-
-  core/
-    constants/
-      app_constants.dart
-      firebase_paths.dart
-      role_constants.dart
-
-    errors/
-      app_exception.dart
-      failure.dart
-      error_mapper.dart
-
-    firebase/
-      firebase_initializer.dart
-      firestore_refs.dart
-      firebase_result_handler.dart
-
-    routing/
-      app_router.dart
-      route_names.dart
-      route_guard.dart
-
-    theme/
-      app_theme.dart
-      app_colors.dart
-      app_text_styles.dart
-      app_spacing.dart
-      app_radius.dart
-      app_shadows.dart
-
-    utils/
-      date_formatter.dart
-      validators.dart
-      debounce.dart
-
-    widgets/
-      app_button.dart
-      app_text_field.dart
-      app_dropdown.dart
-      app_search_field.dart
-      app_status_badge.dart
-      app_empty_state.dart
-      app_loading.dart
-      app_error_view.dart
-      responsive_layout.dart
-
-  features/
-    auth/
-      data/
-        datasources/
-          auth_remote_data_source.dart
-        models/
-          app_user_model.dart
-        repositories/
-          auth_repository_impl.dart
-      domain/
-        entities/
-          app_user.dart
-        repositories/
-          auth_repository.dart
-        usecases/
-          sign_in_usecase.dart
-          sign_out_usecase.dart
-          get_current_user_usecase.dart
-      presentation/
-        bloc/
-          auth_bloc.dart
-          auth_event.dart
-          auth_state.dart
-        pages/
-          login_page.dart
-        widgets/
-          login_form.dart
-
-    users/
-      data/
-      domain/
-      presentation/
-
-    leads/
-      data/
-      domain/
-      presentation/
-
-    clients/
-      data/
-      domain/
-      presentation/
-
-    properties/
-      data/
-      domain/
-      presentation/
-
-    deals/
-      data/
-      domain/
-      presentation/
-
-    tasks/
-      data/
-      domain/
-      presentation/
-
-    appointments/
-      data/
-      domain/
-      presentation/
-
-    dashboard/
-      data/
-      domain/
-      presentation/
-
-    reports/
-      data/
-      domain/
-      presentation/
-
-    notifications/
-      data/
-      domain/
-      presentation/
-```
-
-
----
-
-# Localization / Internationalization Rules
-
-The app must support both Arabic and English from the beginning.
-
-Supported languages:
-
-```text
-Arabic: ar
-English: en
-```
-
-## Direction Rules
-
-- Arabic must use RTL layout direction.
-- English must use LTR layout direction.
-- All screens must work correctly in both RTL and LTR.
-- Do not build layouts that break when direction changes.
-- Do not hardcode left/right spacing when directional spacing is needed.
-- Prefer `EdgeInsetsDirectional` instead of `EdgeInsets.only(left/right)` when the spacing depends on reading direction.
-- Prefer `AlignmentDirectional` instead of `Alignment.centerLeft` or `Alignment.centerRight` when alignment depends on reading direction.
-- Icons that imply direction, such as arrows, should behave correctly in RTL and LTR.
-
-## Text Rules
-
-Do not hardcode visible UI text directly inside widgets.
-
-Avoid:
-
-```dart
-Text('Login')
-Text('Dashboard')
-Text('Leads')
-```
-
-Use localization instead.
-
-Preferred approach:
-
-```dart
-Text(context.l10n.login)
-Text(context.l10n.dashboard)
-Text(context.l10n.leads)
-```
-
-or the generated Flutter localization class used in the project.
-
-## Localization Files
-
-Use Flutter localization with ARB files.
-
-Recommended structure:
-
-```text
-lib/l10n/app_en.arb
-lib/l10n/app_ar.arb
-l10n.yaml
-```
-
-The app should include localization keys for all visible text, including:
-
-```text
-appName
-login
-email
-password
-signIn
-logout
-dashboard
-leads
-properties
-clients
-tasks
-deals
-reports
-settings
-language
-arabic
-english
-save
-cancel
-search
-filter
-create
-edit
-delete
-details
-loading
-noData
-tryAgain
-```
-
-## UI Design with Localization
-
-- Arabic text must look natural and professional.
-- English text must remain clean and business-like.
-- Avoid layouts that depend on fixed text length.
-- Buttons, cards, tables, forms, and navigation should handle longer Arabic labels.
-- Mobile and web layouts must both support Arabic and English.
-- Sidebar navigation on web must support RTL positioning when Arabic is active.
-- Bottom navigation on mobile must support translated labels.
-
-## Date, Number, and Currency Formatting
-
-Use localization-aware formatting for:
-
-- Dates
-- Times
-- Numbers
-- Prices
-- Currency
-- Percentages
-
-Do not manually concatenate localized strings in a way that breaks Arabic grammar.
-
-Avoid:
-
-```dart
-Text('Price: $price')
-```
-
-Use proper localized strings or formatting helpers.
-
-## Codex Localization Rules
-
-When adding or editing UI:
-
-- Add English and Arabic keys for new visible text.
-- Do not add English-only screens.
-- Do not hardcode labels, button text, error messages, empty states, or navigation labels.
-- Check that the UI remains usable in RTL and LTR.
-- Keep localization clean and centralized.
-- Do not introduce a localization package unless explicitly requested.
-- Use Flutter's official localization approach unless the project later chooses another approach.
-
-
----
-
-# Firebase Structure
-
-Use a company-based structure from the beginning.
-
-Even if the first version has only one company, the structure must support future multi-company usage.
-
-```text
-companies/{companyId}
-
-companies/{companyId}/users/{userId}
-companies/{companyId}/leads/{leadId}
-companies/{companyId}/clients/{clientId}
-companies/{companyId}/properties/{propertyId}
-companies/{companyId}/deals/{dealId}
-companies/{companyId}/tasks/{taskId}
-companies/{companyId}/appointments/{appointmentId}
-companies/{companyId}/notifications/{notificationId}
-companies/{companyId}/audit_logs/{auditLogId}
-```
-
-Avoid global collections like:
-
-```text
-users/
-leads/
-properties/
-```
-
-unless there is a strong reason.
-
----
-
-# Firebase Auth Rules
-
-Use Firebase Authentication for login.
-
-First version should support:
-
-- Email and password login
-- Logout
-- Current user session
-- Forgot password
-
-User profile and role data should be stored in Firestore:
-
-```text
-companies/{companyId}/users/{userId}
-```
-
-Each user document should include:
-
-```text
-uid
-companyId
-fullName
-email
-phone
-role
-isActive
-createdAt
-updatedAt
-createdBy
-```
-
----
-
-# Roles
-
-The system should support these roles:
-
-```text
-admin
-manager
-salesAgent
-marketing
-viewer
-```
-
-## Role Meaning
-
-### Admin
-
-Can manage everything.
-
-### Manager
-
-Can manage leads, users, properties, deals, and reports, but not system-level settings.
-
-### Sales Agent
-
-Can manage assigned leads, assigned clients, assigned tasks, and assigned deals.
-
-### Marketing
-
-Can create and view leads from campaigns, but limited access to deals and financial data.
-
-### Viewer
-
-Read-only access.
-
----
-
-# Permission Rules
-
-Never rely only on UI hiding.
-
-Permissions must be checked in:
-
-1. UI
-2. BLoC/use cases when needed
-3. Firestore Security Rules
-
-UI hiding is not enough.
-
----
-
-# Main CRM Modules
-
-## 1. Authentication
-
-Required screens:
-
-- Login page
-- Forgot password page
-- Loading/splash page
-
-Required features:
-
-- Login with email/password
-- Logout
-- Auth state listener
-- Role loading from Firestore
-- Route protection
-
----
-
-## 2. Dashboard
-
-Dashboard should show useful CRM information, not fake decorative cards.
-
-Required data:
-
-- Total leads
-- New leads today
-- Follow-ups due today
-- Open deals
-- Won deals
-- Lost deals
-- Available properties
-- Agent performance summary
-
-The dashboard should be simple, practical, and professional.
-
----
-
-## 3. Leads
-
-Lead fields:
-
-```text
-id
-companyId
-fullName
-phone
-email
-source
-status
-priority
-budgetMin
-budgetMax
-preferredLocation
-preferredPropertyType
-assignedTo
-notes
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Lead source values:
-
-```text
-facebook
-website
-phoneCall
-whatsapp
-referral
-walkIn
-other
-```
-
-Lead status values:
-
-```text
-new
-contacted
-interested
-visitScheduled
-negotiation
-won
-lost
-```
-
-Lead priority values:
-
-```text
-low
-medium
-high
-```
-
-Required screens:
-
-- Leads list
-- Lead details
-- Create lead
-- Edit lead
-- Lead filters
-- Assigned leads view
-
-Required features:
-
-- Create lead
-- Edit lead
-- Assign lead to agent
-- Change lead status
-- Search leads
-- Filter by status, source, priority, and assigned agent
-- Add notes
-- View lead history
-
----
-
-## 4. Clients
-
-Client fields:
-
-```text
-id
-companyId
-fullName
-phone
-email
-budgetMin
-budgetMax
-preferredLocation
-preferredPropertyType
-notes
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Required features:
-
-- Create client
-- Edit client
-- View client profile
-- Link client to leads
-- Link client to deals
-- View client interaction history
-
----
-
-## 5. Properties
-
-Property fields:
-
-```text
-id
-companyId
-title
-description
-propertyType
-listingType
-price
-area
-bedrooms
-bathrooms
-location
-compound
-status
-ownerName
-ownerPhone
-assignedTo
-imageUrls
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Property types:
-
-```text
-apartment
-villa
-office
-shop
-land
-studio
-duplex
-penthouse
-```
-
-Listing types:
-
-```text
-sale
-rent
-```
-
-Property status:
-
-```text
-available
-reserved
-sold
-rented
-inactive
-```
-
-Required features:
-
-- Create property
-- Edit property
-- Upload property images
-- View property details
-- Search properties
-- Filter by type, price, location, status, and listing type
-
----
-
-## 6. Deals
-
-Deal fields:
-
-```text
-id
-companyId
-clientId
-leadId
-propertyId
-assignedTo
-stage
-expectedValue
-commission
-closingDate
-lostReason
-notes
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Deal stages:
-
-```text
-new
-qualified
-proposal
-negotiation
-won
-lost
-```
-
-Required features:
-
-- Create deal
-- Update deal stage
-- Assign deal
-- Mark as won
-- Mark as lost
-- Add lost reason
-- Track commission
-
----
-
-## 7. Tasks and Follow-ups
-
-Task fields:
-
-```text
-id
-companyId
-title
-description
-assignedTo
-relatedType
-relatedId
-dueDate
-status
-priority
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Related type values:
-
-```text
-lead
-client
-property
-deal
-general
-```
-
-Task status:
-
-```text
-pending
-inProgress
-completed
-cancelled
-```
-
-Required features:
-
-- Create task
-- Assign task
-- Mark as completed
-- View today's follow-ups
-- View overdue tasks
-- Filter by assigned user
-
----
-
-## 8. Appointments
-
-Appointment fields:
-
-```text
-id
-companyId
-title
-description
-clientId
-leadId
-propertyId
-assignedTo
-startTime
-endTime
-location
-status
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Appointment status:
-
-```text
-scheduled
-completed
-cancelled
-missed
-```
-
----
-
-## 9. Notifications
-
-Notifications should be used for important updates only.
-
-Examples:
-
-- New lead assigned
-- Task due soon
-- Follow-up overdue
-- Deal status changed
-
-Do not overuse notifications in version 1.
-
----
-
-## 10. Audit Logs
-
-Important actions should be logged.
-
-Audit log fields:
-
-```text
-id
-companyId
-userId
-action
-module
-documentId
-oldValue
-newValue
-createdAt
-```
-
-Actions:
-
-```text
-create
-update
-delete
-assign
-statusChange
-login
-logout
-```
-
-Audit logs are important for CRM trust and accountability.
-
----
-
-# UI / UX Design Rules
-
-The design must be modern, professional, and clean.
-
-Very important:
-
-Do not create generic AI-looking designs.
-
-## What “AI-looking design” means
-
-Avoid:
-
-- Random purple/blue gradients everywhere
-- Glassmorphism everywhere
-- Huge glowing cards
-- Fake futuristic dashboards
-- Unnecessary 3D shapes
-- Random illustrations that do not help the user
-- Over-decorated layouts
-- Oversized shadows
-- Too many colors
-- Too many rounded elements
-- Fake charts with no meaning
-- Empty dashboard cards just for decoration
-- Generic SaaS landing-page style inside the actual CRM
-- Complex UI that looks nice but is slow to use
-
-## Desired Design Direction
-
-The CRM should feel like a real business tool.
-
-Design style:
-
-- Modern
-- Minimal
-- Professional
-- Calm
-- Practical
-- Fast to scan
-- Clean spacing
-- Clear hierarchy
-- Real CRM dashboard style
-- Not flashy
-- Not childish
-- Not overdesigned
-
-## Visual Style
-
-Use:
-
-- Neutral background
-- Clean white or dark cards
-- Subtle borders
-- Soft shadows only when needed
-- Consistent spacing
-- Consistent typography
-- Clear status badges
-- Good table design for web
-- Good card/list design for mobile
-- Practical filters
-- Clear empty states
-- Clear loading states
-- Clear error states
-
-## Colors
-
-Use a professional real estate CRM palette.
-
-Suggested style:
-
-```text
-Primary: Premium amber
-Background: Cream / warm off-white
-Surface: White / warm off-white
-Text: Charcoal / dark brown
-Borders: Soft beige-gray
-Success: Green
-Warning: Amber
-Error: Red
-Info: Blue, used sparingly
-```
-
-Do not use too many colors.
-
-Each status should have a clear and consistent color.
-
-## Typography
-
-Use clean typography.
-
-Rules:
-
-- Clear titles
-- Readable body text
-- No tiny unreadable labels
-- No excessive font sizes
-- Use hierarchy, not decoration
-- Keep text aligned and consistent
-
-## Layout Rules
-
-For web:
-
-- Use sidebar navigation.
-- Use top bar for search, profile, and quick actions.
-- Use tables for large data.
-- Use filters above tables.
-- Use dashboard cards only when they show useful data.
-- Use responsive grid layout.
-- Avoid horizontal overflow.
-
-For mobile:
-
-- Use bottom navigation or drawer.
-- Use cards/lists instead of large tables.
-- Keep forms simple.
-- Use clear primary actions.
-- Avoid too many controls on one screen.
-
-## CRM Screen Design Rules
-
-Every list screen should usually include:
-
-- Page title
-- Main action button
-- Search field
-- Filters
-- List/table
-- Empty state
-- Loading state
-- Error state
-- Pagination or lazy loading if needed
-
-Every details screen should usually include:
-
-- Header summary
-- Status badge
-- Key information section
-- Related records
-- Activity history
-- Notes
-- Edit action
-
-Every form screen should usually include:
-
-- Clear section grouping
-- Required field indicators
-- Validation messages
-- Cancel button
-- Save button
-- Loading state while saving
-
----
-
-# Reusable UI Components
-
-Create reusable widgets for:
-
-```text
-AppButton
-AppTextField
-AppDropdown
-AppDatePickerField
-AppSearchField
-AppStatusBadge
-AppUserAvatar
-AppEmptyState
-AppLoadingView
-AppErrorView
-AppTable
-AppDataCard
-AppPageHeader
-AppFilterBar
-ResponsiveLayout
-```
-
-Do not duplicate the same UI code across screens.
-
----
-
-# Responsive Design
-
-The app must work on:
-
-- Mobile
-- Tablet
-- Web desktop
-
-Use breakpoints:
-
-```text
-mobile: width < 600
-tablet: width >= 600 and width < 1024
-desktop: width >= 1024
-```
-
-Use different layouts when needed.
-
-Do not simply stretch mobile UI on web.
-
----
-
-# Firestore Query Rules
-
-Firestore queries must be designed carefully.
-
-Rules:
-
-- Use pagination for large lists.
-- Use indexes where needed.
-- Avoid reading entire collections.
-- Avoid loading unnecessary documents.
-- Avoid deeply nested collections unless needed.
-- Store duplicated summary fields when it improves performance.
-- Keep search and filtering practical for Firestore limitations.
-
----
-
-# Security Rules
-
-Security is required from the beginning.
-
-Firestore rules must protect:
-
-- Company isolation
-- User roles
-- User active status
-- Read permissions
-- Write permissions
-- Delete permissions
-
-Never allow:
-
-```text
-allow read, write: if true;
-```
-
-except for temporary local testing, and it must not stay in production.
-
-
----
-
-# Security Audit and Hardening Roadmap
-
-Security must be reviewed continuously, but security changes must be implemented in small, controlled tasks.
-
-Do not apply broad security rewrites unless explicitly requested.
-
-Do not mix security hardening with normal feature work unless the user explicitly asks.
-
-## Current Security Review Focus
-
-When the user asks to explore vulnerabilities, audit and report first. Do not edit code unless the user explicitly asks for implementation.
-
-The main areas to review are:
-
-```text
-1. Firestore Security Rules
-2. Firebase Auth and role/profile loading
-3. Firestore queries in data sources
-4. Route guard behavior
-5. Firebase API key restrictions
-6. Cloud Storage rules
-7. Cloud Functions/Admin SDK operations when added later
-```
-
-## Known Security Risks to Track
-
-Track these risks during review:
-
-- Firestore update rules may be too broad if they do not validate allowed fields.
-- Client-side route guards are UX protection only and are not a security boundary.
-- Role data stored in Firestore user profiles must not be self-editable for privilege escalation.
-- Sales agent Firestore queries must match rules by filtering assigned records correctly.
-- User profile read access may expose more data than needed for assignment dropdowns.
-- Firebase API keys are not passwords, but production keys should be restricted in Google Cloud/Firebase Console.
-- Client-side values such as `companyId`, `createdBy`, `updatedBy`, `assignedTo`, `role`, `isActive`, `commission`, and archive metadata must not be blindly trusted.
-- Audit logs must not be writable by normal client users.
-- Notifications should not be client-writable unless a safe narrow rule is explicitly designed.
-
-## Security Hardening Version Plan
-
-### Apply During V1 Before Production
-
-These are important before a real production release:
-
-```text
-1. Review and deploy Firestore Security Rules.
-2. Add role-based route protection for UX.
-3. Confirm all Firestore queries are scoped by companyId.
-4. Confirm salesAgent queries match assigned-lead rules.
-5. Restrict Firebase Web API key to Firebase Hosting/custom production domains.
-6. Add or review Cloud Storage rules before enabling uploads.
-7. Ensure route guards, UI permissions, and Firestore rules all agree.
-8. Verify no service account JSON, Admin SDK keys, private keys, or secrets are committed.
-```
-
-### Apply During V1 Stabilization
-
-These should be handled after core V1 modules are usable but before serious customer use:
-
-```text
-1. Tighten field-level Firestore validation for users, leads, clients, properties, tasks, deals, and appointments.
-2. Prevent sensitive field changes unless the role is allowed.
-3. Restrict `assignedTo` changes to admin/manager unless explicitly allowed.
-4. Validate required fields and field types in rules.
-5. Protect archive metadata from unauthorized edits.
-6. Add query/rules test cases where practical.
-7. Review user profile visibility and consider public profile summary fields if needed.
-```
-
-### Delay to V1.5 or V2
-
-These are useful later, but should not block the current V1 CRM build unless explicitly requested:
-
-```text
-1. Firebase custom claims for platform admin/super admin roles.
-2. Platform admin dashboard and platform-level monitoring.
-3. Subscription enforcement and company suspension automation.
-4. Advanced audit log automation with Cloud Functions.
-5. Advanced anomaly detection or suspicious-login monitoring.
-```
-
-## Route Guard Security Rule
-
-Route guards improve user experience, but they are not a security boundary.
-
-The correct protection layers are:
-
-```text
-Route guard -> prevents normal users from opening wrong screens
-UI permission checks -> hides buttons/actions users should not use
-Firestore Security Rules -> actual data security boundary
-```
-
-Do not rely on route guards alone.
-
-## Firebase API Key Rule
-
-Firebase client API keys in Flutter/Firebase apps are not secret passwords.
-
-However, before production:
-
-- Restrict the Web API key by HTTP referrer to the approved Firebase Hosting and custom domains.
-- Restrict Android keys to the app package name and SHA-1/SHA-256 certificates before mobile release.
-- Restrict iOS keys to the final production bundle ID before App Store release.
-- Never commit service account files, Admin SDK keys, private keys, or server secrets.
-
-## Firestore Rule Hardening Rule
-
-When tightening Firestore rules, prefer backward-compatible changes and test carefully.
-
-Do not delete production data to make new rules work.
-
-Do not loosen rules broadly to make the app pass.
-
-If a security change affects production data shape or access patterns, explain:
-
-```text
-Affected collections:
-Affected roles:
-Expected impact:
-Migration/backward-compatibility plan:
-How to test:
-Rollback plan:
-```
-
----
-
-# Cloud Storage Rules
-
-Property images and attachments should be stored under company paths:
-
-```text
-companies/{companyId}/properties/{propertyId}/images/{fileName}
-companies/{companyId}/leads/{leadId}/attachments/{fileName}
-```
-
-Rules:
-
-- Users must be authenticated.
-- Users must belong to the company.
-- File size should be limited.
-- File type should be validated when possible.
-
----
-
-# Cloud Functions Usage
-
-Do not use Cloud Functions for everything.
-
-Use Cloud Functions only when the logic must be trusted server-side.
-
-Possible Cloud Functions:
-
-- Create user profile after Firebase Auth user creation
-- Assign custom claims if needed
-- Send notifications
-- Maintain counters
-- Generate reports
-- Validate sensitive operations
-- Audit important actions
-
-For version 1, avoid overcomplicating Cloud Functions.
-
----
-
-# Code Style
-
-Use clear names.
-
-Good examples:
-
-```text
-CreateLeadUseCase
-LeadRepository
-FirebaseLeadRepository
-LeadRemoteDataSource
-LeadListCubit
-LeadDetailsPage
-LeadStatusBadge
-```
-
-Bad examples:
-
-```text
-Manager
-Helper
-DataService
-Utils2
-NewPage
-TestScreen
-FirebaseStuff
-```
-
-## Naming Rules
-
-- Use meaningful names.
-- Avoid abbreviations.
-- Avoid unclear generic names.
-- Keep folder names lowercase.
-- Keep class names PascalCase.
-- Keep variables camelCase.
-
----
-
-# Error Handling
-
-Do not show raw Firebase errors directly to users.
-
-Use mapped user-friendly errors.
-
-Examples:
-
-```text
-Invalid email or password.
-You do not have permission to perform this action.
-Unable to load leads. Please try again.
-Connection error. Check your internet connection.
-```
-
-Technical errors can be logged, but UI should show clean messages.
-
----
-
-# Loading and Empty States
-
-Every async screen must handle:
-
-- Initial loading
-- Success
-- Empty state
-- Error state
-- Refreshing state when needed
-
-Do not leave blank screens.
-
----
-
-# Forms and Validation
-
-All forms should validate input before saving.
-
-Examples:
-
-- Required fields
-- Valid email
-- Valid phone number
-- Price must be positive
-- Area must be positive
-- End date must be after start date
-
-Validation should be clear and close to the field.
-
----
-
-# Testing Rules
-
-When practical, add tests for:
-
-- Use cases
-- Repositories
-- BLoC/Cubit logic
-- Validators
-
-Do not skip testing critical business logic.
-
----
-
-# Git Rules
-
-When making changes:
-
-- Keep changes small.
-- Do not mix unrelated features in one change.
-- Summarize changed files.
-- Mention how to test.
-- Mention any assumptions.
-
-Each completed task should include:
-
-```text
-Files changed:
-What was implemented:
-How to test:
-Assumptions:
-Remaining issues:
-```
-
----
-
-# Development Order
-
-This order describes the original build sequence. The current project status is recorded near the top of this file and should be treated as the current source of truth.
-
-Do not start with the dashboard for new greenfield builds.
-
-Build in this order:
-
-```text
-1. Project setup
-2. Theme and shared UI components
-3. Firebase initialization
-4. Authentication
-5. User profile and roles
-6. App routing and route guards
-7. Leads module
-8. Properties module
-9. Clients module
-10. Tasks and follow-ups
-11. Deals module
-12. Dashboard
-13. Reports
-14. Notifications
-15. Security rules review
-16. Testing
-17. Deployment
-```
-
-The first complete business module should be Leads.
-
----
-
-# MVP Scope
-
-Version 1 should include:
-
-- Login
-- Logout
-- User roles
-- Leads CRUD
-- Properties CRUD
-- Clients CRUD
-- Tasks/follow-ups
-- Basic deals
-- Basic dashboard
-- Basic reports
-- Firestore security rules
-- Firebase hosting for web
-- Mobile and web responsive UI
-
----
-
-# Delay to Version 2
-
-Do not build these in version 1 unless explicitly requested:
-
-- WhatsApp integration
-- Payment system
-- Subscription billing
-- AI lead scoring
-- Advanced analytics
-- Advanced automation
-- Calendar sync
-- Complex PDF templates
-- Multi-branch accounting
-- Public real estate website
-- SEO website
-- Complex chat system
-
----
-
-# Design Quality Checklist
-
-Before finishing any screen, check:
-
-- Does this look like a real CRM screen?
-- Is the layout useful or only decorative?
-- Is the spacing consistent?
-- Are actions clear?
-- Is the page easy to scan?
-- Is the mobile version usable?
-- Is the web version professional?
-- Are colors consistent?
-- Are loading, empty, and error states handled?
-- Is there any generic AI-style decoration that should be removed?
-
----
-
-# Important Final Instruction
-
-This project must be built carefully.
-
-Do not rush by generating large amounts of random code.
-
-For every task:
-
-1. Understand the existing structure.
-2. Make the smallest clean change.
-3. Follow Clean Architecture.
-4. Use BLoC/Cubit.
-5. Keep Firebase isolated in data sources.
-6. Keep UI professional and realistic.
-7. Avoid generic AI-looking designs.
-8. Support Arabic and English localization.
-9. Make layouts work correctly in RTL and LTR.
-10. Do not hardcode visible UI text.
-11. Summarize the work clearly.
-
----
-
-# How Codex Should Report Back After Each Task
-
-After every completed task, Codex must provide a clear summary using this format:
+After every task, report using this format:
 
 ```text
 Files changed:
@@ -2321,22 +158,899 @@ Remaining issues:
 
 ---
 
-# Codex Task Behavior
+# Architecture Defaults
 
-When working on this repository:
+- Use feature-first Clean Architecture.
+- Use BLoC/Cubit only.
+- Do not use Riverpod, Provider directly, GetX, MobX, or other state management packages.
+- UI must call BLoC/Cubit.
+- BLoC/Cubit must call use cases.
+- Use cases must call repositories.
+- Repositories must call data sources.
+- Firebase calls must stay inside data sources only.
+- Domain entities should not depend on Firebase SDKs.
+- Data models should handle Firebase mapping.
+- Presentation widgets should remain UI-focused.
+- Keep business rules out of widgets whenever practical.
 
-- Read this AGENTS.md file first.
-- Respect the architecture.
-- Respect the design rules.
-- Respect the state management decision.
-- Do not introduce another state management package.
-- Do not add backend systems outside Firebase unless explicitly requested.
-- Do not overbuild version 1.
-- Do not hardcode visible UI text.
-- Add Arabic and English localization keys for new visible UI text.
-- Respect RTL for Arabic and LTR for English.
-- Ask for confirmation only when the decision would strongly affect architecture, security, or data design.
-- Otherwise, make the safest minimal implementation and document the assumption.
+Recommended feature structure:
+
+```text
+lib/features/<feature>/
+  data/
+    datasources/
+    models/
+    repositories/
+  domain/
+    entities/
+    repositories/
+    usecases/
+    errors/
+  presentation/
+    cubit/
+    pages/
+    widgets/
+```
+
+---
+
+# Firebase and Company Isolation Defaults
+
+Firestore data must remain company-scoped.
+
+Main company-scoped structure:
+
+```text
+companies/{companyId}/users/{userId}
+companies/{companyId}/leads/{leadId}
+companies/{companyId}/clients/{clientId}
+companies/{companyId}/properties/{propertyId}
+companies/{companyId}/deals/{dealId}
+companies/{companyId}/tasks/{taskId}
+companies/{companyId}/appointments/{appointmentId}
+companies/{companyId}/notifications/{notificationId}
+companies/{companyId}/audit_logs/{auditLogId}
+```
+
+Rules:
+
+- Do not expose one company’s data to another company.
+- Do not rely only on UI hiding.
+- Permission checks must exist in app logic and Firebase rules.
+- Keep Firebase access inside data sources.
+- Validate `companyId`.
+- Validate active users where appropriate.
+- Do not show raw Firestore document IDs in the UI unless explicitly needed.
+- Do not store private credentials in the Flutter app.
+- Never commit service account keys or private credentials.
+
+---
+
+# Roles and Permissions
+
+The app supports role-based access.
+
+Known roles:
+
+```text
+admin
+manager
+salesAgent
+marketing
+viewer
+```
+
+Rules:
+
+- Do not invent new role behavior casually.
+- Use existing permission helpers/services where available.
+- Do not bypass permissions in UI.
+- Do not rely only on UI hiding.
+- Firestore/Storage rules must enforce critical permissions.
+- Sales Agent can view only where existing permission logic says view-only.
+- Manager/team hierarchy is planned later and must not be mixed into unrelated module work.
+- Do not add team visibility logic until the manager/team hierarchy phase.
+
+---
+
+# Localization and RTL/LTR Rules
+
+The app supports:
+
+```text
+English
+Arabic
+```
+
+Rules:
+
+- All visible UI text must be localized.
+- Do not hardcode visible strings.
+- Add keys to:
+  - app_en.arb
+  - app_ar.arb
+- Update generated localization files if the repo stores them.
+- Arabic must use RTL correctly.
+- English must use LTR correctly.
+- Use direction-aware widgets when needed:
+  - EdgeInsetsDirectional
+  - AlignmentDirectional
+  - PositionedDirectional
+- Do not leave English fallback text in Arabic mode.
+- Check ARB commas carefully.
+- Generated localization files must match ARB keys.
+- Do not mix Arabic text into English mode unless it is actual user data.
+
+---
+
+# UI and Visual Identity
+
+## Current Visual Direction
+
+Masar CRM should feel like a warm premium real estate CRM.
+
+Use:
+
+- Cream / warm off-white workspace
+- Premium amber primary action
+- White/warm cards
+- Soft beige-gray borders
+- Charcoal/dark brown text
+- Calm semantic colors
+- Professional spacing
+- Practical business UI
+
+Avoid:
+
+- Generic purple/blue AI dashboard style
+- Glassmorphism
+- Huge shadows
+- Glowing cards
+- Random gradients
+- Decorative AI-looking effects
+- Fake SaaS template look
+- Flashy animation
+- Bouncing animation
+- Infinite animation loops
+- Auto-scrolling activity feeds
+
+The UI should feel like a real internal business application used by sales teams.
+
+## Design Quality Checklist
+
+Before finishing any screen, check:
+
+- Does this look like a real CRM screen?
+- Is the layout useful or only decorative?
+- Is the spacing consistent?
+- Are actions clear?
+- Is the page easy to scan?
+- Is the mobile version usable?
+- Is the web version professional?
+- Are colors consistent?
+- Are loading, empty, and error states handled?
+- Is there any generic AI-style decoration that should be removed?
+
+---
+
+# Loading, Saving, and Feedback Rules
+
+- Network/database actions must show loading feedback.
+- Use circular progress indicators for loading states.
+- Prefer overlay loading where existing content can remain visible.
+- Forms should disable fields while saving.
+- Buttons that trigger Firebase/Auth/database/network work must show pending state.
+- Async save buttons must stay disabled until the request completes.
+- Show final success/error feedback through existing snackbar/feedback components.
+- Avoid duplicated snackbars.
+- Actions that only open menus, routes, sheets, or filters do not need database loading.
+- Do not leave UI stuck in saving/loading state after failure.
+- For long image uploads, use longer upload-specific timeout logic instead of forcing all Firebase actions to wait too long.
+
+---
+
+# Implemented Modules and Current Status
+
+These notes are the current source of truth after the latest Properties image upload and responsive property cards phase.
+
+- Authentication, login, logout, user profile loading, and protected routing are implemented.
+- Leads are implemented and tested for the current phase.
+- Properties are implemented and tested for the current phase.
+- Clients are implemented and tested for the current phase.
+- Tasks and follow-ups are implemented and tested enough to move forward.
+- Deals are implemented and connected to Leads, Clients, Properties, Tasks where relevant, Dashboard, and Reports.
+- Dashboard is implemented with real data, useful KPI cards, analytics charts, quick actions, recent activity, deals/tasks summaries, follow-up sections, responsive layout, and professional motion polish.
+- Reports is implemented with period/search/filter controls, summary KPIs, lead/deal/task/property reports, agent activity/results, animated charts/bars, and responsive layout.
+- Recent Activity on Dashboard is visible only to Admin and Manager for now.
+- Sales Agent must not see Recent Activity.
+- Recent Activity is currently based on latest accessible record updates, not a full audit-log event stream.
+- Do not call Recent Activity “Audit Log” or “System History” yet.
+- Profile and Settings exist/planned as basic user-facing screens; do not expand them unless explicitly requested.
+- Manager/team hierarchy is planned later and must not be mixed into unrelated module work.
+- Property image upload and Cloud Storage rules are implemented for the current phase, but still need final QA before production deployment.
+- Advanced notifications, appointments, and real audit-log implementation are future phases.
+
+---
+
+# Current Dashboard and Reports UI/Motion Status
+
+- Dashboard KPI cards use a balanced responsive grid instead of uneven wrapping.
+- Dashboard and Reports use subtle but noticeable professional motion:
+  - section reveal
+  - scroll reveal where added
+  - card hover/tap lift
+  - count-up numbers
+  - animated donut sweeps
+  - animated legends
+  - animated progress bars
+- `visibility_detector` is currently approved and used for Dashboard/Reports scroll reveal behavior.
+- `VisibilityDetectorController.instance.updateInterval` is configured in `main.dart` to reduce scroll jank.
+- Animations must remain professional:
+  - no bouncing
+  - no glowing
+  - no infinite movement
+  - no auto-scrolling activity feed
+  - no distracting decorative animation
+- If scrolling becomes janky, prefer tuning reveal thresholds, durations, updateInterval, and reducing heavy shadows before adding more animation packages.
+- Do not remove `visibility_detector` unless replacing the scroll reveal approach intentionally.
+
+---
+
+# Current Mobile Dashboard Rule
+
+- Mobile Dashboard uses a floating quick-add FAB for allowed quick actions according to permissions.
+- The old mobile quick-action panel/cards should stay hidden/removed on mobile.
+- Desktop/tablet quick actions may remain.
+- Add Client quick action is admin/manager only.
+- Add Lead follows the existing create-lead permission logic.
+- Recent Activity remains hidden for Sales Agent on all screen sizes.
+
+---
+
+# Properties Module Current Status
+
+The Properties module currently includes:
+
+- Property list
+- Property create
+- Property edit
+- Property details
+- Search/filter
+- Deactivate/soft archive flow
+- Role-aware behavior
+- Property image upload
+- Firebase Storage integration
+- Responsive property card grid
+- Image carousel in property cards
+- Image gallery on property details
+- Mobile/web picker fixes
+
+## Property Image Data Fields
+
+Property supports these image fields:
+
+```text
+imageUrls
+coverImageUrl
+imageStoragePaths
+```
+
+Rules:
+
+- Existing old properties without images must keep working.
+- Mapping must be backward-compatible.
+- Do not show raw Storage paths or Firestore IDs in UI.
+- `coverImageUrl` should resolve safely from existing images.
+- Removed images should delete Storage objects where practical.
+
+## Property Storage Path
+
+Use this Storage path:
+
+```text
+companies/{companyId}/properties/{propertyId}/images/{fileName}
+```
+
+Rules:
+
+- Keep path company-scoped.
+- Validate active authenticated company user.
+- Validate role permissions.
+- Validate image content type.
+- Validate image size.
+- Do not weaken Storage rules to make upload work.
+- Deploy Storage rules separately when needed.
+
+## Property Image Picker
+
+Current decision:
+
+- Use `file_picker` for production web/mobile browser.
+- Do not use `image_picker` for property images on production web.
+- `file_picker` must use:
+  - `FilePicker.pickFiles`
+  - `type: FileType.image`
+  - `allowMultiple: false`
+  - `withData: true`
+- Single image selection is used per picker action.
+- Users can add multiple images by pressing Add Image more than once.
+- This is more stable on mobile web/Safari.
+
+## Property Image Compression Decision
+
+Current decision:
+
+- Do not use client-side compression on Flutter Web for now.
+- Dart image compression/resizing caused UI stalling/freezing.
+- Even `compute()` did not solve the web UX well enough.
+- Current production behavior:
+  - pick image
+  - preview quickly
+  - upload original bytes
+- Long-term better solution:
+  - server-side image resize/compression through Cloud Functions or Firebase image resizing extension/flow.
+
+## Property Upload Timeout Rule
+
+There was a previous 10-second Cubit timeout that killed image uploads.
+
+Current rule:
+
+- Simple Firebase actions may keep a short timeout.
+- Property create/update with images must use a longer upload-specific timeout.
+- Remote data source may use longer Storage upload timeout and Firestore write timeout.
+- Do not apply a very long timeout to every Firebase action globally.
+- Use longer timeout only where upload work needs it.
+
+## Property Card Grid
+
+Current behavior:
+
+- Property table view was replaced by responsive card grid.
+- Desktop should show up to 4 cards per row when content width allows.
+- Medium/tablet should show around 3 cards.
+- Mobile/small width should show 2 cards if layout remains usable.
+- Avoid yellow overflow.
+- Card height must account for wrapped chips/text.
+- The card itself opens property details.
+- Avoid cluttered bottom action rows.
+- Use compact card captions.
+
+## Property Card Images
+
+Current behavior:
+
+- Property cards use hotel-style image carousel.
+- Use arrow buttons for image navigation.
+- Disable PageView swipe physics to avoid browser trackpad back/forward gesture problems.
+- Limit grid carousel images to avoid excessive loading.
+- Details page can show more images than the card.
+
+Important web image rule:
+
+- `cached_network_image` may fail or not display Firebase Storage URLs correctly on Flutter Web.
+- For Flutter Web, prefer:
+
+```dart
+Image.network(
+  url,
+  fit: BoxFit.cover,
+  alignment: Alignment.center,
+  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+  errorBuilder: ...
+)
+```
+
+- `CachedNetworkImage` may be kept for non-web/native later if useful.
+- If images disappear on web, check `property_card.dart` first.
+
+---
+
+# Saved Tasks Backlog
+
+- Verify Tasks support related Deal records now that Deals exists; improve if any flow still lacks Deal linking/display.
+- Check/fix duplicated `initialDate` in the task form if present.
+- Improve complete/cancel row action state if practical.
+- Avoid relying only on global `TasksStatus.saving` for row-level actions if practical.
+- Make complete/cancel success handling less fragile than checking Cubit state immediately after await if practical.
+- Verify create/edit Task form fields are disabled while saving.
+- Verify save button shows spinner until the async request fully completes.
+- Verify task create/edit/complete/cancel/filter/search behavior at runtime.
+- Do not add manager-team logic to Tasks yet.
+
+---
+
+# Future Phases
+
+Recommended order:
+
+```text
+1. Finish Properties QA and deployment checks
+2. Real audit_logs system
+3. Security rules hardening
+4. Appointments module
+5. Notifications
+6. Manager/team hierarchy
+7. Final mobile/browser polish
+8. Deployment QA
+```
+
+## Real Audit Logs
+
+Current Dashboard Recent Activity is not a true audit log.
+
+Future audit logs should use:
+
+```text
+companies/{companyId}/audit_logs/{auditLogId}
+```
+
+Track important actions:
+
+- create
+- update
+- archive/deactivate
+- delete if allowed
+- assign
+- status change
+- deal stage change
+- task completion/cancel
+- login/activity events only if needed later
+
+Rules:
+
+- Do not call current Recent Activity an Audit Log.
+- Audit logs should be company-scoped.
+- Audit log writes should be reliable.
+- Sensitive values should not be logged unnecessarily.
+- Show clear activity history for Admin/Manager.
+- Manager/team filtering should wait until team hierarchy exists.
+
+## Security Rules Hardening
+
+Future review should cover:
+
+- Firestore company isolation
+- Storage company isolation
+- user active status
+- role permissions
+- create/update/delete separation
+- no public access
+- no client-side-only permission enforcement
+- no test rules left in production
+
+## Appointments
+
+Future Appointments module may include:
+
+- linked lead/client/property/deal
+- date/time
+- assigned user
+- status
+- notes
+- calendar/list views
+- reminder-ready structure
+
+## Notifications
+
+Future notifications may include:
+
+- follow-up reminders
+- task due/overdue alerts
+- assignment notifications
+- appointment reminders
+- later FCM integration
+
+## Manager/Team Hierarchy
+
+Future manager/team hierarchy should define:
+
+- teams
+- manager visibility
+- sales agent assigned-only visibility
+- team dashboards
+- team reports
+- rules-level enforcement
+
+Do not mix this into unrelated module work.
+
+---
+
+# Environment Management
+
+The project should use two main environments:
+
+```text
+development
+production
+```
+
+## Branch Rules
+
+Use this branch strategy:
+
+```text
+dev  -> development
+main -> production
+```
+
+## Development Environment
+
+The `dev` branch is used for active development.
+
+Rules:
+
+- All normal development work should happen on the `dev` branch.
+- Experimental changes should not be made directly on `main`.
+- Development Firebase configuration should be used while working on `dev`.
+- Development data can be used for testing, but it should still follow the real data structure.
+- Do not use production Firebase data for risky experiments.
+
+## Production Environment
+
+The `main` branch is used for production releases.
+
+Rules:
+
+- Only stable, reviewed, and tested code should be merged into `main`.
+- Production Firebase configuration should only be used for production.
+- Do not deploy untested changes to production.
+- Do not connect local experiments to production Firebase unless explicitly requested.
+- Do not make destructive production data changes without a clear migration and rollback plan.
+
+## Firebase Environment Rules
+
+- Use separate Firebase projects or clearly separated Firebase configuration for development and production.
+- Never commit private keys, service account files, secrets, or local environment files.
+- Firebase config files should be handled carefully.
+- Do not expose admin credentials in the Flutter app.
+- Any Firebase configuration change must be explained clearly before implementation.
+
+---
+
+# Release and Deployment Workflow
+
+All deployments should follow a safe release workflow.
+
+## Deployment Flow
+
+Use this workflow:
+
+```text
+Develop
+Analyze
+Test
+Build
+Verify
+Deploy
+Monitor
+```
+
+## Deployment Rules
+
+Before deployment:
+
+- Run `flutter analyze`
+- Run tests when available
+- Run `flutter build web --release`
+- Verify responsive layouts
+- Verify RTL and LTR layouts
+- Verify authentication and permissions
+- Verify Firebase rules impact
+- Verify Storage rules impact if Storage was changed
+- Verify production after deployment
+
+Deployment rules:
+
+- Do not deploy directly from unfinished code.
+- Deploy only stable changes.
+- Keep deployments focused when possible.
+- Monitor Firebase usage after deployment.
+- Check browser reload behavior after deployment.
+- Check mobile browser behavior after deployment.
+
+## Firebase Hosting Rules
+
+- Use Firebase Hosting for Flutter Web deployment.
+- Do not run `firebase init` repeatedly unless explicitly required.
+- Use deployment automation when practical.
+- Production deployment should come from stable code only.
+- Firebase Hosting config may live in `firebase.json`.
+- It is normal to commit `firebase.json`.
+- Do not commit secrets.
+
+---
+
+# Security Rules Testing
+
+Security rules must be treated as part of the application logic.
+
+Rules:
+
+- Firestore rules must be tested with allowed and denied scenarios.
+- Storage rules must be tested with allowed and denied scenarios.
+- Never weaken rules just to make UI features work.
+- Fix architecture or queries instead of opening public access.
+- Company isolation is mandatory.
+- User role checks must exist in Firestore/Storage rules where needed.
+- User active status must be validated when appropriate.
+- Rules should protect reads, writes, updates, and deletes separately.
+- Temporary testing permissions must not remain in production.
+
+Never allow this in production:
+
+```text
+allow read, write: if true;
+```
+
+---
+
+# Data Migration Rules
+
+Firestore structure changes must be handled carefully.
+
+Rules:
+
+- Do not rename important fields casually.
+- Do not delete production fields without understanding impact.
+- Any breaking schema change should include a migration plan.
+- Avoid destructive data operations.
+- Explain migration impact before implementation.
+- Prefer backward-compatible changes when possible.
+- Large data changes should support rollback when practical.
+- Existing documents may not have newly added fields; code must use safe defaults.
+
+---
+
+# Monitoring and Logging
+
+Production monitoring is required.
+
+Rules:
+
+- Important failures should be logged.
+- Sensitive CRM actions should create audit logs in the future.
+- Do not log passwords or private credentials.
+- Monitor Firebase usage and billing risk.
+- Watch Firestore read/write usage.
+- Watch Storage usage and bandwidth.
+- Log important backend failures when practical.
+- Track authentication failures when useful.
+
+---
+
+# Performance Rules
+
+Performance matters for both web and mobile.
+
+Rules:
+
+- Avoid unnecessary rebuilds.
+- Avoid loading entire collections.
+- Use pagination or lazy loading for large lists.
+- Split large widgets into smaller reusable widgets.
+- Prefer const widgets when practical.
+- Avoid deeply nested widget trees when unnecessary.
+- Optimize Firestore queries carefully.
+- Avoid expensive rebuilds inside lists.
+- Keep web performance in mind when adding animations or heavy layouts.
+- Avoid CPU-heavy synchronous image processing on Flutter Web.
+- Do not add client-side image compression unless it is proven smooth on production web/mobile.
+- Limit image loading in grids.
+- Avoid loading too many large images at once.
+- Prefer server-side image optimization in the future.
+
+---
+
+# Accessibility Rules
+
+The CRM should remain usable and readable.
+
+Rules:
+
+- Buttons should have clear labels.
+- Forms should remain readable on all screen sizes.
+- Avoid relying only on color for status communication.
+- Use readable contrast.
+- Error messages should be understandable.
+- Touch targets should remain usable on mobile.
+- Arabic and English layouts should both remain readable.
+- Avoid tiny action icons when text labels are clearer.
+- Avoid cramped controls on mobile.
+
+---
+
+# Mobile and Web Quality Rules
+
+Every important screen should be reviewed on:
+
+- Mobile
+- Tablet
+- Desktop
+- Mobile browser
+- Desktop browser
+
+Rules:
+
+- Do not fix web issues by breaking mobile layouts.
+- Do not fix mobile issues by stretching the same layout on desktop.
+- Verify responsive layouts before completing tasks.
+- Web screens should use proper desktop layouts.
+- Mobile screens should remain simple and easy to use.
+- Avoid horizontal overflow.
+- Avoid browser trackpad gestures causing accidental browser back/forward.
+- Keep app shell/header behavior consistent.
+- Search/filter/content can scroll where necessary, but shell/header should remain usable.
+
+---
+
+# Firestore Query Rules
+
+Firestore queries must be designed carefully.
+
+Rules:
+
+- Use pagination for large lists.
+- Use indexes where needed.
+- Avoid reading entire collections.
+- Avoid loading unnecessary documents.
+- Avoid deeply nested collections unless needed.
+- Store duplicated summary fields when it improves performance.
+- Keep search and filtering practical for Firestore limitations.
+- Mention required Firestore indexes when adding new filters or sorting combinations.
+- Avoid queries that will fail in production because of missing indexes.
+
+---
+
+# Package Defaults
+
+- Do not add packages unless required by the task.
+- If a package is needed, explain why in the report.
+- Packages must improve production quality, visual consistency, accessibility, maintainability, or developer efficiency.
+- Do not add decorative packages randomly.
+- `visibility_detector` is approved and currently used for Dashboard/Reports reveal behavior.
+- `file_picker` is used for property image picking on production web/mobile browser.
+- `firebase_storage` is used for property image upload.
+- `cached_network_image` may exist, but do not rely on it for Firebase Storage URLs on Flutter Web unless tested.
+- If the `image` package is no longer used after removing client-side compression, it can be removed after `flutter analyze` confirms no imports remain.
+
+---
+
+# Git and Repository Hygiene
+
+Rules:
+
+- Do not commit zip files.
+- Do not commit patch files.
+- Do not commit temporary generated files.
+- Do not commit local secrets.
+- It is okay to commit:
+  - firebase.json
+  - firestore.rules
+  - storage.rules
+  - pubspec.yaml
+  - pubspec.lock
+- Do not commit:
+  - .env
+  - .env.local
+  - serviceAccountKey.json
+  - firebase-adminsdk*.json
+  - google credentials JSON files
+  - private keys
+  - local-only debug files
+
+Before commit, check:
+
+```text
+git status
+git diff --cached --stat
+```
+
+The LF/CRLF warning on Windows is usually not the main issue.
+
+The main issue is avoiding accidental zip/patch/secret commits.
+
+---
+
+# Codex Architecture Safety Rules
+
+Before making major changes, Codex should explain the plan first.
+
+Approval is required before:
+
+- Architecture changes
+- Security model changes
+- Firestore structure changes
+- Deployment workflow changes
+- Firebase project changes
+- New package additions that strongly affect architecture
+- Authentication structure changes
+- Role/permission model changes
+- Manager/team hierarchy implementation
+- Real audit log data model implementation
+- Cloud Functions implementation
+
+For normal UI fixes, small refactors, or focused feature work:
+
+- Make the smallest safe implementation.
+- Follow the existing architecture.
+- Avoid unnecessary rewrites.
+
+---
+
+# Future Platform Admin / SaaS Owner Module
+
+This module is not part of normal company CRM user screens.
+
+Do not build this in version 1 unless explicitly requested.
+
+The platform admin module may later allow the SaaS owner to monitor subscribed companies, usage, login activity, subscription status, and platform-level audit logs.
+
+## Platform Admin Rules
+
+- Platform admin features must be separate from normal CRM company features.
+- Normal company users must never access platform admin screens or platform collections.
+- Do not rely only on UI hiding.
+- Firestore Security Rules must enforce platform access.
+- Do not expose one company’s private CRM data to another company.
+- Do not add payment or subscription billing unless explicitly requested.
+- Do not delete existing Firestore data for platform admin features.
+- Add fields and collections gradually and safely.
+
+## Possible Future Platform Collections
+
+```text
+platform_admins/{adminId}
+platform_companies/{companyId}
+platform_usage/{companyId}
+platform_audit_logs/{logId}
+```
+
+## Possible Company Metadata
+
+Company documents may later include:
+
+```text
+companyName
+status
+plan
+subscriptionStatus
+createdAt
+trialEndsAt
+subscriptionEndsAt
+lastActivityAt
+userLimit
+storageLimit
+```
+
+Existing company documents may not have these fields, so code must remain backward-compatible and use safe defaults.
+
+Recommended safe defaults:
+
+```text
+status: active
+plan: trial
+subscriptionStatus: active
+lastActivityAt: null
+```
+
+## Platform Admin Build Order
+
+If requested later, build in small phases:
+
+```text
+1. Company metadata foundation
+2. Platform admin route guard
+3. Companies monitoring table
+4. Login activity tracking
+5. Usage counters
+6. Subscription status management
+7. Platform audit logs
+```
+
+Keep each phase small and focused.
+
+Do not mix platform admin work with normal CRM module work unless explicitly requested.
 
 ---
 
@@ -2354,3 +1068,27 @@ It should not feel like:
 - A messy Flutter demo
 
 The goal is a practical, maintainable, and scalable CRM that can grow safely.
+
+---
+
+# Important Final Instruction
+
+This project must be built carefully.
+
+Do not rush by generating large amounts of random code.
+
+For every task:
+
+1. Understand the existing structure.
+2. Make the smallest clean change.
+3. Follow Clean Architecture.
+4. Use BLoC/Cubit.
+5. Keep Firebase isolated in data sources.
+6. Keep UI professional and realistic.
+7. Avoid generic AI-looking designs.
+8. Support Arabic and English localization.
+9. Make layouts work correctly in RTL and LTR.
+10. Do not hardcode visible UI text.
+11. Respect company isolation and permissions.
+12. Keep mobile and web both usable.
+13. Summarize the work clearly.

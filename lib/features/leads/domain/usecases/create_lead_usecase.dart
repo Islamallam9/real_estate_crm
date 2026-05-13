@@ -1,3 +1,4 @@
+import '../../../../core/errors/error_mapper.dart';
 import '../entities/lead.dart';
 import '../errors/lead_exception.dart';
 import '../repositories/leads_repository.dart';
@@ -9,10 +10,9 @@ class CreateLeadUseCase {
   final CheckDuplicateLeadUseCase _checkDuplicateLeadUseCase;
 
   Future<Lead> call({required String companyId, required Lead lead}) async {
-    final isDuplicate = await _checkDuplicateLeadUseCase(
+    final isDuplicate = await _hasDuplicateLead(
       companyId: companyId,
-      phone: lead.phone,
-      email: lead.email,
+      lead: lead,
     );
     if (isDuplicate) {
       throw const LeadException(
@@ -21,6 +21,24 @@ class CreateLeadUseCase {
     }
 
     return _repository.createLead(companyId: companyId, lead: lead);
+  }
+
+  Future<bool> _hasDuplicateLead({
+    required String companyId,
+    required Lead lead,
+  }) async {
+    try {
+      return await _checkDuplicateLeadUseCase(
+        companyId: companyId,
+        phone: lead.phone,
+        email: lead.email,
+      );
+    } on LeadException catch (error) {
+      if (error.message == AppErrorMessages.permissionDenied) {
+        return false;
+      }
+      rethrow;
+    }
   }
 }
 

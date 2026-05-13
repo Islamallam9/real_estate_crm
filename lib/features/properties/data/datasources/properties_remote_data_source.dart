@@ -264,11 +264,11 @@ class FirestorePropertiesRemoteDataSource
 
   void _validateImage(PropertyImageUpload image) {
     if (!image.contentType.toLowerCase().startsWith('image/')) {
-      throw const PropertyException('Only image files are allowed.');
+      throw const PropertyException(AppErrorMessages.propertyImageInvalidType);
     }
 
     if (image.bytes.lengthInBytes > _maxImageBytes) {
-      throw const PropertyException('Property image must be 5 MB or smaller.');
+      throw const PropertyException(AppErrorMessages.propertyImageTooLarge);
     }
   }
 

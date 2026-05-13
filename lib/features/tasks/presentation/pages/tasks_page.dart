@@ -65,7 +65,7 @@ class TasksPage extends StatelessWidget {
           final currentUser = authState.user;
           String? assignedTo;
 
-          if (role == UserRole.salesAgent) {
+          if (role == UserRole.salesAgent || role == UserRole.marketing) {
             if (currentUser == null || currentUser.uid.isEmpty) {
               return AppErrorView(message: l.permissionDenied);
             }

@@ -57,7 +57,6 @@ class _PropertyFormState extends State<PropertyForm> {
   final _ownerPhoneController = TextEditingController();
 
   static const int _maxImageBytes = 5 * 1024 * 1024;
-  static const int _maxOriginalImageBytes = 20 * 1024 * 1024;
 
   PropertyType _propertyType = PropertyType.apartment;
   PropertyListingType _listingType = PropertyListingType.sale;
@@ -299,14 +298,14 @@ class _PropertyFormState extends State<PropertyForm> {
       }
 
       final contentType = _contentTypeForFileName(pickedFile.name);
-      if (!contentType.startsWith('image/')) {
+      if (contentType == null) {
         if (mounted) {
           AppFeedback.warning(context, l.propertyImageInvalidType);
         }
         return;
       }
 
-      if (bytes.lengthInBytes > _maxOriginalImageBytes) {
+      if (bytes.lengthInBytes > _maxImageBytes) {
         if (mounted) {
           AppFeedback.warning(context, l.propertyImageTooLarge);
         }
@@ -644,8 +643,12 @@ class _PendingPropertyImage {
 }
 
 
-String _contentTypeForFileName(String fileName) {
+String? _contentTypeForFileName(String fileName) {
   final lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
 
   if (lowerName.endsWith('.png')) {
     return 'image/png';
@@ -663,7 +666,11 @@ String _contentTypeForFileName(String fileName) {
     return 'image/heic';
   }
 
-  return 'image/jpeg';
+  if (lowerName.endsWith('.bmp')) {
+    return 'image/bmp';
+  }
+
+  return null;
 }
 
 String? _resolveRetainedCoverImageUrl({

@@ -176,7 +176,10 @@ class _CreateLeadFormContent extends StatelessWidget {
                               assignmentUsers: users,
                               lead: null,
                               onSubmit: (lead) {
-                                final leadToCreate = roleName == 'salesAgent'
+                                final isAssignedOnlyRole =
+                                    roleName == 'salesAgent' ||
+                                    roleName == 'marketing';
+                                final leadToCreate = isAssignedOnlyRole
                                     ? lead.copyWith(assignedTo: uid)
                                     : lead;
                                 context.read<LeadsCubit>().createLead(

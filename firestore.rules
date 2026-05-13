@@ -1,0 +1,825 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserData(companyId) {
+      return get(
+        /databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActiveCompanyUser(companyId) {
+      return signedIn()
+        && currentUserData(companyId).companyId == companyId
+        && currentUserData(companyId).isActive == true;
+    }
+
+    function role(companyId) {
+      return currentUserData(companyId).role;
+    }
+
+    function isAdmin(companyId) {
+      return isActiveCompanyUser(companyId) && role(companyId) == 'admin';
+    }
+
+    function isAdminOrManager(companyId) {
+      return isActiveCompanyUser(companyId)
+        && role(companyId) in ['admin', 'manager'];
+    }
+
+    function isSalesAgent(companyId) {
+      return isActiveCompanyUser(companyId) && role(companyId) == 'salesAgent';
+    }
+
+    function isMarketing(companyId) {
+      return isActiveCompanyUser(companyId) && role(companyId) == 'marketing';
+    }
+
+    function isViewer(companyId) {
+      return isActiveCompanyUser(companyId) && role(companyId) == 'viewer';
+    }
+
+    function isStringOrNull(value) {
+      return value == null || value is string;
+    }
+
+    function isNumberOrNull(value) {
+      return value == null || value is number;
+    }
+
+    function isTimestampOrNull(value) {
+      return value == null || value is timestamp;
+    }
+
+    function validBaseCreate(companyId, recordId) {
+      return request.resource.data.id == recordId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validBaseUpdate(companyId) {
+      return request.resource.data.id == resource.data.id
+        && request.resource.data.companyId == companyId
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function activeAssignedRecord(data) {
+      return data.assignedTo == request.auth.uid;
+    }
+
+    function companyReadableRecord(companyId) {
+      return isAdminOrManager(companyId) || isViewer(companyId);
+    }
+
+    function commonCrmRead(companyId) {
+      return isActiveCompanyUser(companyId);
+    }
+
+    function leadFields() {
+      return [
+        'id',
+        'companyId',
+        'fullName',
+        'phone',
+        'email',
+        'source',
+        'sourceDetails',
+        'status',
+        'priority',
+        'budgetMin',
+        'budgetMax',
+        'preferredLocation',
+        'preferredPropertyType',
+        'assignedTo',
+        'assignedToName',
+        'notes',
+        'createdAt',
+        'updatedAt',
+        'createdBy',
+        'updatedBy',
+        'lastContactAt',
+        'nextFollowUpAt',
+        'isArchived',
+        'archivedAt',
+        'archivedBy'
+      ];
+    }
+
+    function validLeadData(companyId, leadId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'fullName',
+          'phone',
+          'email',
+          'source',
+          'status',
+          'priority',
+          'budgetMin',
+          'budgetMax',
+          'preferredLocation',
+          'preferredPropertyType',
+          'assignedTo',
+          'notes',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ])
+        && request.resource.data.keys().hasOnly(leadFields())
+        && request.resource.data.id == leadId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.fullName is string
+        && request.resource.data.phone is string
+        && request.resource.data.email is string
+        && request.resource.data.source in [
+          'facebook',
+          'website',
+          'phoneCall',
+          'whatsapp',
+          'referral',
+          'walkIn',
+          'other'
+        ]
+        && request.resource.data.status in [
+          'new',
+          'contacted',
+          'interested',
+          'visitScheduled',
+          'negotiation',
+          'won',
+          'lost'
+        ]
+        && request.resource.data.priority in ['low', 'medium', 'high']
+        && request.resource.data.budgetMin is number
+        && request.resource.data.budgetMax is number
+        && request.resource.data.preferredLocation is string
+        && request.resource.data.preferredPropertyType is string
+        && request.resource.data.assignedTo is string
+        && isStringOrNull(request.resource.data.sourceDetails)
+        && isStringOrNull(request.resource.data.assignedToName)
+        && request.resource.data.notes is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedBy is string
+        && isTimestampOrNull(request.resource.data.lastContactAt)
+        && isTimestampOrNull(request.resource.data.nextFollowUpAt)
+        && (request.resource.data.isArchived == null
+          || request.resource.data.isArchived is bool)
+        && isTimestampOrNull(request.resource.data.archivedAt)
+        && isStringOrNull(request.resource.data.archivedBy);
+    }
+
+    function canReadLead(companyId) {
+      return resource.data.companyId == companyId
+        && (companyReadableRecord(companyId)
+          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+          || (isMarketing(companyId) && activeAssignedRecord(resource.data)));
+    }
+
+    function canCreateLead(companyId) {
+      return isAdminOrManager(companyId)
+        || ((isSalesAgent(companyId) || isMarketing(companyId))
+          && request.resource.data.assignedTo == request.auth.uid);
+    }
+
+    function canUpdateLead(companyId) {
+      return isAdminOrManager(companyId)
+        || ((isSalesAgent(companyId) || isMarketing(companyId))
+          && resource.data.assignedTo == request.auth.uid
+          && request.resource.data.assignedTo == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName',
+            'phone',
+            'email',
+            'source',
+            'sourceDetails',
+            'status',
+            'priority',
+            'budgetMin',
+            'budgetMax',
+            'preferredLocation',
+            'preferredPropertyType',
+            'notes',
+            'lastContactAt',
+            'nextFollowUpAt',
+            'updatedAt',
+            'updatedBy'
+          ]));
+    }
+
+    function clientFields() {
+      return [
+        'id',
+        'companyId',
+        'fullName',
+        'phone',
+        'email',
+        'budgetMin',
+        'budgetMax',
+        'preferredLocation',
+        'preferredPropertyType',
+        'notes',
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'isActive',
+        'createdAt',
+        'updatedAt',
+        'createdBy',
+        'updatedBy'
+      ];
+    }
+
+    function validClientData(companyId, clientId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'fullName',
+          'phone',
+          'email',
+          'preferredLocation',
+          'preferredPropertyType',
+          'notes',
+          'assignedTo',
+          'assignedToName',
+          'assignedToEmail',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ])
+        && request.resource.data.keys().hasOnly(clientFields())
+        && request.resource.data.id == clientId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.fullName is string
+        && request.resource.data.phone is string
+        && request.resource.data.email is string
+        && isNumberOrNull(request.resource.data.budgetMin)
+        && isNumberOrNull(request.resource.data.budgetMax)
+        && request.resource.data.preferredLocation is string
+        && request.resource.data.preferredPropertyType is string
+        && request.resource.data.notes is string
+        && request.resource.data.assignedTo is string
+        && request.resource.data.assignedToName is string
+        && request.resource.data.assignedToEmail is string
+        && request.resource.data.isActive is bool
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedBy is string;
+    }
+
+    function canReadClient(companyId) {
+      return resource.data.companyId == companyId
+        && (companyReadableRecord(companyId)
+          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data)));
+    }
+
+    function propertyFields() {
+      return [
+        'id',
+        'companyId',
+        'title',
+        'description',
+        'propertyType',
+        'listingType',
+        'price',
+        'area',
+        'bedrooms',
+        'bathrooms',
+        'location',
+        'compound',
+        'status',
+        'ownerName',
+        'ownerPhone',
+        'assignedTo',
+        'imageUrls',
+        'coverImageUrl',
+        'imageStoragePaths',
+        'createdAt',
+        'updatedAt',
+        'createdBy',
+        'updatedBy'
+      ];
+    }
+
+    function validPropertyData(companyId, propertyId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'title',
+          'description',
+          'propertyType',
+          'listingType',
+          'price',
+          'area',
+          'bedrooms',
+          'bathrooms',
+          'location',
+          'compound',
+          'status',
+          'ownerName',
+          'ownerPhone',
+          'assignedTo',
+          'imageUrls',
+          'coverImageUrl',
+          'imageStoragePaths',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ])
+        && request.resource.data.keys().hasOnly(propertyFields())
+        && request.resource.data.id == propertyId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.propertyType in [
+          'apartment',
+          'villa',
+          'office',
+          'shop',
+          'land',
+          'studio',
+          'duplex',
+          'penthouse'
+        ]
+        && request.resource.data.listingType in ['sale', 'rent']
+        && request.resource.data.price is number
+        && request.resource.data.area is number
+        && request.resource.data.bedrooms is number
+        && request.resource.data.bathrooms is number
+        && request.resource.data.location is string
+        && request.resource.data.compound is string
+        && request.resource.data.status in [
+          'available',
+          'reserved',
+          'sold',
+          'rented',
+          'inactive'
+        ]
+        && request.resource.data.ownerName is string
+        && request.resource.data.ownerPhone is string
+        && request.resource.data.assignedTo is string
+        && request.resource.data.imageUrls is list
+        && isStringOrNull(request.resource.data.coverImageUrl)
+        && request.resource.data.imageStoragePaths is list
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedBy is string;
+    }
+
+    function taskFields() {
+      return [
+        'id',
+        'companyId',
+        'title',
+        'description',
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'relatedType',
+        'relatedId',
+        'relatedTitle',
+        'relatedSubtitle',
+        'dueDate',
+        'status',
+        'priority',
+        'createdAt',
+        'updatedAt',
+        'createdBy',
+        'updatedBy',
+        'isActive'
+      ];
+    }
+
+    function validTaskData(companyId, taskId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'title',
+          'description',
+          'assignedTo',
+          'assignedToName',
+          'assignedToEmail',
+          'relatedType',
+          'relatedId',
+          'relatedTitle',
+          'relatedSubtitle',
+          'dueDate',
+          'status',
+          'priority',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy',
+          'isActive'
+        ])
+        && request.resource.data.keys().hasOnly(taskFields())
+        && request.resource.data.id == taskId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.assignedTo is string
+        && request.resource.data.assignedToName is string
+        && request.resource.data.assignedToEmail is string
+        && request.resource.data.relatedType in [
+          'lead',
+          'client',
+          'property',
+          'deal',
+          'general'
+        ]
+        && request.resource.data.relatedId is string
+        && request.resource.data.relatedTitle is string
+        && request.resource.data.relatedSubtitle is string
+        && isTimestampOrNull(request.resource.data.dueDate)
+        && request.resource.data.status in [
+          'pending',
+          'inProgress',
+          'completed',
+          'cancelled'
+        ]
+        && request.resource.data.priority in ['low', 'medium', 'high']
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedBy is string
+        && request.resource.data.isActive is bool;
+    }
+
+    function canReadTask(companyId) {
+      return resource.data.companyId == companyId
+        && (companyReadableRecord(companyId)
+          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+          || (isMarketing(companyId) && activeAssignedRecord(resource.data)));
+    }
+
+    function canUpdateTask(companyId) {
+      return isAdminOrManager(companyId)
+        || (isSalesAgent(companyId)
+          && resource.data.assignedTo == request.auth.uid
+          && request.resource.data.assignedTo == request.auth.uid
+          && request.resource.data.assignedToName == resource.data.assignedToName
+          && request.resource.data.assignedToEmail == resource.data.assignedToEmail);
+    }
+
+    function dealFields() {
+      return [
+        'id',
+        'companyId',
+        'clientId',
+        'clientName',
+        'clientEmail',
+        'clientPhone',
+        'leadId',
+        'leadName',
+        'leadPhone',
+        'propertyId',
+        'propertyTitle',
+        'propertyLocation',
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'stage',
+        'expectedValue',
+        'commission',
+        'closingDate',
+        'lostReason',
+        'notes',
+        'isActive',
+        'createdAt',
+        'updatedAt',
+        'createdBy',
+        'updatedBy'
+      ];
+    }
+
+    function validDealData(companyId, dealId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'clientId',
+          'clientName',
+          'clientEmail',
+          'clientPhone',
+          'leadId',
+          'leadName',
+          'leadPhone',
+          'propertyId',
+          'propertyTitle',
+          'propertyLocation',
+          'assignedTo',
+          'assignedToName',
+          'assignedToEmail',
+          'stage',
+          'expectedValue',
+          'commission',
+          'closingDate',
+          'lostReason',
+          'notes',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ])
+        && request.resource.data.keys().hasOnly(dealFields())
+        && request.resource.data.id == dealId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.clientId is string
+        && request.resource.data.clientName is string
+        && request.resource.data.clientEmail is string
+        && request.resource.data.clientPhone is string
+        && request.resource.data.leadId is string
+        && request.resource.data.leadName is string
+        && request.resource.data.leadPhone is string
+        && request.resource.data.propertyId is string
+        && request.resource.data.propertyTitle is string
+        && request.resource.data.propertyLocation is string
+        && request.resource.data.assignedTo is string
+        && request.resource.data.assignedToName is string
+        && request.resource.data.assignedToEmail is string
+        && request.resource.data.stage in [
+          'new',
+          'qualified',
+          'proposal',
+          'negotiation',
+          'won',
+          'lost'
+        ]
+        && request.resource.data.expectedValue is number
+        && request.resource.data.commission is number
+        && isTimestampOrNull(request.resource.data.closingDate)
+        && request.resource.data.lostReason is string
+        && request.resource.data.notes is string
+        && request.resource.data.isActive is bool
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedBy is string;
+    }
+
+    function canReadDeal(companyId) {
+      return resource.data.companyId == companyId
+        && (companyReadableRecord(companyId)
+          || (isSalesAgent(companyId) && activeAssignedRecord(resource.data)));
+    }
+
+    function canUpdateDeal(companyId) {
+      return isAdminOrManager(companyId)
+        || (isSalesAgent(companyId)
+          && resource.data.assignedTo == request.auth.uid
+          && request.resource.data.assignedTo == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'stage',
+            'lostReason',
+            'updatedAt',
+            'updatedBy'
+          ]));
+    }
+
+    function userProfileFields() {
+      return [
+        'uid',
+        'companyId',
+        'fullName',
+        'email',
+        'phone',
+        'role',
+        'isActive',
+        'createdAt',
+        'updatedAt',
+        'createdBy'
+      ];
+    }
+
+    function validUserProfile(companyId, userId) {
+      return request.resource.data.keys().hasAll([
+          'uid',
+          'companyId',
+          'fullName',
+          'email',
+          'phone',
+          'role',
+          'isActive',
+          'createdAt',
+          'updatedAt',
+          'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly(userProfileFields())
+        && request.resource.data.uid == userId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.fullName is string
+        && request.resource.data.email is string
+        && request.resource.data.phone is string
+        && request.resource.data.role in [
+          'admin',
+          'manager',
+          'salesAgent',
+          'marketing',
+          'viewer'
+        ]
+        && request.resource.data.isActive is bool
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.createdBy is string;
+    }
+
+    function canReadUserProfile(companyId, userId) {
+      return resource.data.companyId == companyId
+        && ((signedIn()
+          && userId == request.auth.uid
+          && resource.data.companyId == companyId)
+          || isAdminOrManager(companyId)
+          || (isActiveCompanyUser(companyId)
+            && resource.data.isActive == true));
+    }
+
+    match /companies/{companyId} {
+      allow get: if isActiveCompanyUser(companyId);
+      allow list, create, update, delete: if false;
+
+      match /users/{userId} {
+        allow get, list: if canReadUserProfile(companyId, userId);
+        allow create: if isAdmin(companyId)
+          && validUserProfile(companyId, userId)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isAdmin(companyId)
+          && validUserProfile(companyId, userId)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if false;
+      }
+
+      match /leads/{leadId} {
+        allow get, list: if commonCrmRead(companyId) && canReadLead(companyId);
+        allow create: if isActiveCompanyUser(companyId)
+          && canCreateLead(companyId)
+          && validLeadData(companyId, leadId)
+          && validBaseCreate(companyId, leadId)
+          && (request.resource.data.isArchived == null
+            || request.resource.data.isArchived == false);
+        allow update: if isActiveCompanyUser(companyId)
+          && canUpdateLead(companyId)
+          && validLeadData(companyId, leadId)
+          && validBaseUpdate(companyId);
+        allow delete: if false;
+
+        match /notes/{noteId} {
+          allow get, list: if commonCrmRead(companyId)
+            && get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.companyId == companyId
+            && (companyReadableRecord(companyId)
+              || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
+          allow create: if isActiveCompanyUser(companyId)
+            && request.resource.data.keys().hasOnly([
+              'id',
+              'leadId',
+              'companyId',
+              'text',
+              'createdAt',
+              'createdBy'
+            ])
+            && request.resource.data.id == noteId
+            && request.resource.data.leadId == leadId
+            && request.resource.data.companyId == companyId
+            && request.resource.data.text is string
+            && request.resource.data.createdAt is timestamp
+            && request.resource.data.createdBy == request.auth.uid
+            && (isAdminOrManager(companyId)
+              || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
+          allow update, delete: if false;
+        }
+
+        match /timeline/{eventId} {
+          allow get, list: if commonCrmRead(companyId)
+            && get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.companyId == companyId
+            && (companyReadableRecord(companyId)
+              || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
+          allow create: if isActiveCompanyUser(companyId)
+            && request.resource.data.keys().hasOnly([
+              'id',
+              'leadId',
+              'companyId',
+              'type',
+              'title',
+              'description',
+              'oldValue',
+              'newValue',
+              'createdAt',
+              'createdBy',
+              'createdByName',
+              'metadata'
+            ])
+            && request.resource.data.id == eventId
+            && request.resource.data.leadId == leadId
+            && request.resource.data.companyId == companyId
+            && request.resource.data.type is string
+            && request.resource.data.title is string
+            && request.resource.data.description is string
+            && request.resource.data.oldValue is string
+            && request.resource.data.newValue is string
+            && request.resource.data.createdAt is timestamp
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.createdByName is string
+            && request.resource.data.metadata is map
+            && (isAdminOrManager(companyId)
+              || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
+          allow update, delete: if false;
+        }
+      }
+
+      match /clients/{clientId} {
+        allow get, list: if commonCrmRead(companyId) && canReadClient(companyId);
+        allow create: if isAdminOrManager(companyId)
+          && validClientData(companyId, clientId)
+          && validBaseCreate(companyId, clientId)
+          && request.resource.data.isActive == true;
+        allow update: if isAdminOrManager(companyId)
+          && validClientData(companyId, clientId)
+          && validBaseUpdate(companyId);
+        allow delete: if false;
+      }
+
+      match /properties/{propertyId} {
+        allow get, list: if commonCrmRead(companyId)
+          && resource.data.companyId == companyId
+          && role(companyId) in [
+            'admin',
+            'manager',
+            'salesAgent',
+            'marketing',
+            'viewer'
+          ];
+        allow create: if isAdminOrManager(companyId)
+          && validPropertyData(companyId, propertyId)
+          && validBaseCreate(companyId, propertyId);
+        allow update: if isAdminOrManager(companyId)
+          && validPropertyData(companyId, propertyId)
+          && validBaseUpdate(companyId);
+        allow delete: if false;
+      }
+
+      match /tasks/{taskId} {
+        allow get, list: if commonCrmRead(companyId) && canReadTask(companyId);
+        allow create: if isAdminOrManager(companyId)
+          && validTaskData(companyId, taskId)
+          && validBaseCreate(companyId, taskId)
+          && request.resource.data.isActive == true;
+        allow update: if isActiveCompanyUser(companyId)
+          && canUpdateTask(companyId)
+          && validTaskData(companyId, taskId)
+          && validBaseUpdate(companyId);
+        allow delete: if false;
+      }
+
+      match /deals/{dealId} {
+        allow get, list: if commonCrmRead(companyId) && canReadDeal(companyId);
+        allow create: if isAdminOrManager(companyId)
+          && validDealData(companyId, dealId)
+          && validBaseCreate(companyId, dealId)
+          && request.resource.data.isActive == true;
+        allow update: if isActiveCompanyUser(companyId)
+          && canUpdateDeal(companyId)
+          && validDealData(companyId, dealId)
+          && validBaseUpdate(companyId);
+        allow delete: if false;
+      }
+
+      match /audit_logs/{auditLogId} {
+        allow get, list: if isAdminOrManager(companyId)
+          && resource.data.companyId == companyId;
+        allow create, update, delete: if false;
+      }
+
+      match /appointments/{appointmentId} {
+        allow read, write: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow read, write: if false;
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+  }
+}
