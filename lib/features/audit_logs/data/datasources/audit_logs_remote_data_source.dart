@@ -8,6 +8,11 @@ abstract interface class AuditLogsRemoteDataSource {
     required String companyId,
     required AuditLogModel auditLog,
   });
+
+  Stream<List<AuditLogModel>> watchAuditLogs({
+    required String companyId,
+    int limit,
+  });
 }
 
 class FirestoreAuditLogsRemoteDataSource
@@ -51,6 +56,26 @@ class FirestoreAuditLogsRemoteDataSource
     );
 
     await document.set(logToSave.toFirestore());
+  }
+
+  @override
+  Stream<List<AuditLogModel>> watchAuditLogs({
+    required String companyId,
+    int limit = 20,
+  }) {
+    return _auditLogsCollection(companyId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((document) {
+        final auditLog = AuditLogModel.fromFirestore(document);
+        if (auditLog.companyId != companyId) {
+          throw StateError('Audit log company mismatch.');
+        }
+        return auditLog;
+      }).toList();
+    });
   }
 
   CollectionReference<Map<String, dynamic>> _auditLogsCollection(

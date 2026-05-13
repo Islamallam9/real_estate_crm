@@ -413,7 +413,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardRecentActivitySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Latest changes from the records you can access.'**
+  /// **'Latest logged CRM changes for this company.'**
   String get dashboardRecentActivitySubtitle;
 
   /// No description provided for @dashboardNoRecentActivity.
@@ -421,6 +421,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No recent activity yet.'**
   String get dashboardNoRecentActivity;
+
+  /// No description provided for @dashboardUnableToLoadRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load recent activity.'**
+  String get dashboardUnableToLoadRecentActivity;
+
+  /// No description provided for @dashboardAuditActionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{module} · {action}'**
+  String dashboardAuditActionLabel(Object module, Object action);
+
+  /// No description provided for @dashboardAuditCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get dashboardAuditCreated;
+
+  /// No description provided for @dashboardAuditUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get dashboardAuditUpdated;
+
+  /// No description provided for @dashboardAuditArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get dashboardAuditArchived;
+
+  /// No description provided for @dashboardAuditDeactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get dashboardAuditDeactivated;
+
+  /// No description provided for @dashboardAuditAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned'**
+  String get dashboardAuditAssigned;
+
+  /// No description provided for @dashboardAuditStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Status changed'**
+  String get dashboardAuditStatusChanged;
+
+  /// No description provided for @dashboardAuditStageChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Stage changed'**
+  String get dashboardAuditStageChanged;
+
+  /// No description provided for @dashboardAuditCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get dashboardAuditCompleted;
+
+  /// No description provided for @dashboardAuditCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get dashboardAuditCancelled;
+
+  /// No description provided for @dashboardAuditImageAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Image added'**
+  String get dashboardAuditImageAdded;
+
+  /// No description provided for @dashboardAuditImageRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Image removed'**
+  String get dashboardAuditImageRemoved;
+
+  /// No description provided for @dashboardAuditLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead'**
+  String get dashboardAuditLead;
+
+  /// No description provided for @dashboardAuditClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get dashboardAuditClient;
+
+  /// No description provided for @dashboardAuditProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Property'**
+  String get dashboardAuditProperty;
+
+  /// No description provided for @dashboardAuditTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Task'**
+  String get dashboardAuditTask;
+
+  /// No description provided for @dashboardAuditDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal'**
+  String get dashboardAuditDeal;
 
   /// No description provided for @dashboardActivityLeadUpdated.
   ///

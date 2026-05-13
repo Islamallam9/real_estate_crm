@@ -19,4 +19,15 @@ class AuditLogRepositoryImpl implements AuditLogRepository {
       auditLog: AuditLogModel.fromEntity(auditLog),
     );
   }
+
+  @override
+  Stream<List<AuditLog>> watchAuditLogs({
+    required String companyId,
+    int limit = 20,
+  }) {
+    return _remoteDataSource.watchAuditLogs(
+      companyId: companyId,
+      limit: limit,
+    ).map((logs) => List<AuditLog>.unmodifiable(logs));
+  }
 }

@@ -51,7 +51,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tasks => 'Tasks';
 
   @override
-  String get tasksSubtitle => 'Plan follow-ups and internal task work by due date, status, and priority.';
+  String get tasksSubtitle =>
+      'Plan follow-ups and internal task work by due date, status, and priority.';
 
   @override
   String get createTask => 'Create task';
@@ -63,7 +64,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateTask => 'Update task';
 
   @override
-  String get agentPerformanceSummary => 'Compare agent workload, deal activity, task completion, and overdue risk.';
+  String get agentPerformanceSummary =>
+      'Compare agent workload, deal activity, task completion, and overdue risk.';
 
   @override
   String get agent => 'Agent';
@@ -93,7 +95,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelTask => 'Cancel task';
 
   @override
-  String get cancelTaskConfirmation => 'This task will be marked as cancelled and remain visible in task lists.';
+  String get cancelTaskConfirmation =>
+      'This task will be marked as cancelled and remain visible in task lists.';
 
   @override
   String get taskNotFound => 'Task not found. Open it from the tasks list.';
@@ -129,7 +132,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentActivityResults => 'Agent activity and results';
 
   @override
-  String get agentActivityResultsSummary => 'Review workload, won deals, completed tasks, and overdue follow-ups by agent.';
+  String get agentActivityResultsSummary =>
+      'Review workload, won deals, completed tasks, and overdue follow-ups by agent.';
 
   @override
   String get workload => 'Workload';
@@ -165,10 +169,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardRecentActivity => 'Recent activity';
 
   @override
-  String get dashboardRecentActivitySubtitle => 'Latest changes from the records you can access.';
+  String get dashboardRecentActivitySubtitle =>
+      'Latest logged CRM changes for this company.';
 
   @override
   String get dashboardNoRecentActivity => 'No recent activity yet.';
+
+  @override
+  String get dashboardUnableToLoadRecentActivity =>
+      'Unable to load recent activity.';
+
+  @override
+  String dashboardAuditActionLabel(Object module, Object action) {
+    return '$module · $action';
+  }
+
+  @override
+  String get dashboardAuditCreated => 'Created';
+
+  @override
+  String get dashboardAuditUpdated => 'Updated';
+
+  @override
+  String get dashboardAuditArchived => 'Archived';
+
+  @override
+  String get dashboardAuditDeactivated => 'Deactivated';
+
+  @override
+  String get dashboardAuditAssigned => 'Assigned';
+
+  @override
+  String get dashboardAuditStatusChanged => 'Status changed';
+
+  @override
+  String get dashboardAuditStageChanged => 'Stage changed';
+
+  @override
+  String get dashboardAuditCompleted => 'Completed';
+
+  @override
+  String get dashboardAuditCancelled => 'Cancelled';
+
+  @override
+  String get dashboardAuditImageAdded => 'Image added';
+
+  @override
+  String get dashboardAuditImageRemoved => 'Image removed';
+
+  @override
+  String get dashboardAuditLead => 'Lead';
+
+  @override
+  String get dashboardAuditClient => 'Client';
+
+  @override
+  String get dashboardAuditProperty => 'Property';
+
+  @override
+  String get dashboardAuditTask => 'Task';
+
+  @override
+  String get dashboardAuditDeal => 'Deal';
 
   @override
   String get dashboardActivityLeadUpdated => 'Lead updated';
@@ -309,7 +371,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get crmOverview => 'Masar CRM overview';
 
   @override
-  String get dashboardPlaceholderDescription => 'Key sales, leads, follow-ups, and property activity will appear here.';
+  String get dashboardPlaceholderDescription =>
+      'Key sales, leads, follow-ups, and property activity will appear here.';
 
   @override
   String get totalLeads => 'Total leads';
@@ -363,7 +426,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authErrorInvalidCredentials => 'Invalid email or password.';
 
   @override
-  String get authErrorConnection => 'Connection error. Check your internet connection.';
+  String get authErrorConnection =>
+      'Connection error. Check your internet connection.';
 
   @override
   String get authErrorSignInFailed => 'Unable to sign in. Please try again.';
@@ -375,7 +439,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authErrorProfileMissing => 'Unable to load your user profile.';
 
   @override
-  String get authErrorInactiveAccount => 'Your account is inactive. Please contact an administrator.';
+  String get authErrorInactiveAccount =>
+      'Your account is inactive. Please contact an administrator.';
 
   @override
   String get logoutTooltip => 'Logout';
@@ -402,7 +467,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToSave => 'Unable to save. Please try again.';
 
   @override
-  String get unableToAssignClient => 'Unable to assign client. Please try again.';
+  String get unableToAssignClient =>
+      'Unable to assign client. Please try again.';
 
   @override
   String get unableToUpdateTask => 'Unable to update task. Please try again.';
@@ -447,13 +513,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get archiveClient => 'Archive client';
 
   @override
-  String get archiveClientConfirmation => 'This client will be archived and hidden from the active clients list.';
+  String get archiveClientConfirmation =>
+      'This client will be archived and hidden from the active clients list.';
 
   @override
   String get clientArchivedSuccessfully => 'Client archived successfully.';
 
   @override
-  String get clientNotFoundMessage => 'Client not found. Open it from the clients list.';
+  String get clientNotFoundMessage =>
+      'Client not found. Open it from the clients list.';
 
   @override
   String get backToClients => 'Back to clients';
@@ -462,7 +530,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clientPreferences => 'Client preferences';
 
   @override
-  String get budgetMaxMustBeGreaterThanBudgetMin => 'Maximum budget cannot be less than minimum budget.';
+  String get budgetMaxMustBeGreaterThanBudgetMin =>
+      'Maximum budget cannot be less than minimum budget.';
 
   @override
   String get createProperty => 'Create property';
@@ -528,13 +597,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToCreateLead => 'Unable to create lead. Please try again.';
 
   @override
-  String get propertiesSubtitle => 'Manage company listings and availability in one practical view.';
+  String get propertiesSubtitle =>
+      'Manage company listings and availability in one practical view.';
 
   @override
   String get noProperties => 'No properties yet.';
 
   @override
-  String get unableToLoadProperties => 'Unable to load properties. Please try again.';
+  String get unableToLoadProperties =>
+      'Unable to load properties. Please try again.';
 
   @override
   String get propertyTitle => 'Title';
@@ -648,7 +719,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propertyImages => 'Property images';
 
   @override
-  String get propertyImagesHint => 'Upload clear property photos. The first image is used as the cover.';
+  String get propertyImagesHint =>
+      'Upload clear property photos. The first image is used as the cover.';
 
   @override
   String get addPropertyImages => 'Add images';
@@ -666,10 +738,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get propertyImageInvalidType => 'Only image files are allowed.';
 
   @override
-  String get propertyImageTooLarge => 'Each property image must be 5 MB or smaller.';
+  String get propertyImageTooLarge =>
+      'Each property image must be 5 MB or smaller.';
 
   @override
-  String get unableToPickPropertyImages => 'Unable to select property images. Please try again.';
+  String get unableToPickPropertyImages =>
+      'Unable to select property images. Please try again.';
 
   @override
   String get propertyCreatedSuccessfully => 'Property created successfully.';
@@ -690,7 +764,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noMatchingProperties => 'No properties match your filters.';
 
   @override
-  String get adjustPropertyFiltersHint => 'Try changing search text or filter values.';
+  String get adjustPropertyFiltersHint =>
+      'Try changing search text or filter values.';
 
   @override
   String get allPropertyTypes => 'All property types';
@@ -704,7 +779,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get propertyNotFoundMessage => 'Property not found. Open it from the properties list.';
+  String get propertyNotFoundMessage =>
+      'Property not found. Open it from the properties list.';
 
   @override
   String get backToProperties => 'Back to properties';
@@ -719,7 +795,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditInfo => 'Audit info';
 
   @override
-  String get unableToLoadPropertyForEdit => 'Unable to load property for editing. Open it from the properties list.';
+  String get unableToLoadPropertyForEdit =>
+      'Unable to load property for editing. Open it from the properties list.';
 
   @override
   String get actions => 'Actions';
@@ -797,7 +874,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get other => 'Other';
 
   @override
-  String get leadsSubtitle => 'Track new inquiries and follow up with prospects.';
+  String get leadsSubtitle =>
+      'Track new inquiries and follow up with prospects.';
 
   @override
   String get cancel => 'Cancel';
@@ -818,16 +896,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deactivateProperty => 'Deactivate property';
 
   @override
-  String get deactivatePropertyConfirmation => 'This property will be marked as inactive.';
+  String get deactivatePropertyConfirmation =>
+      'This property will be marked as inactive.';
 
   @override
-  String get propertyDeactivatedSuccessfully => 'Property deactivated successfully.';
+  String get propertyDeactivatedSuccessfully =>
+      'Property deactivated successfully.';
 
   @override
-  String get unableToDeactivateProperty => 'Unable to deactivate property. Please try again.';
+  String get unableToDeactivateProperty =>
+      'Unable to deactivate property. Please try again.';
 
   @override
-  String get archiveLeadConfirmation => 'This lead will be archived and hidden from the active leads list.';
+  String get archiveLeadConfirmation =>
+      'This lead will be archived and hidden from the active leads list.';
 
   @override
   String get leadArchived => 'Lead archived successfully.';
@@ -836,7 +918,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToArchiveLead => 'Unable to archive lead. Please try again.';
 
   @override
-  String get permissionDenied => 'You do not have permission to perform this action.';
+  String get permissionDenied =>
+      'You do not have permission to perform this action.';
 
   @override
   String get contactInformation => 'Contact information';
@@ -857,7 +940,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leadAssignment => 'Assignment and notes';
 
   @override
-  String get missingCompanyProfile => 'Unable to load your company profile. Please sign in again.';
+  String get missingCompanyProfile =>
+      'Unable to load your company profile. Please sign in again.';
 
   @override
   String get editLead => 'Edit lead';
@@ -917,10 +1001,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unassigned => 'Unassigned';
 
   @override
-  String get onlyAdminsManagersCanAssign => 'Only admins and managers can assign leads.';
+  String get onlyAdminsManagersCanAssign =>
+      'Only admins and managers can assign leads.';
 
   @override
-  String get cannotAssignAcrossCompanies => 'Cannot assign a lead outside your company.';
+  String get cannotAssignAcrossCompanies =>
+      'Cannot assign a lead outside your company.';
 
   @override
   String get accessDenied => 'Access denied';
@@ -932,10 +1018,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignedUserUnavailable => 'Assigned user unavailable';
 
   @override
-  String get youDoNotHavePermissionToViewLead => 'You do not have permission to view this lead.';
+  String get youDoNotHavePermissionToViewLead =>
+      'You do not have permission to view this lead.';
 
   @override
-  String get youDoNotHavePermissionToEditLead => 'You do not have permission to edit this lead.';
+  String get youDoNotHavePermissionToEditLead =>
+      'You do not have permission to edit this lead.';
 
   @override
   String get timeline => 'Timeline';
@@ -1073,7 +1161,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectLeadPreview => 'Select a lead';
 
   @override
-  String get selectLeadPreviewMessage => 'Choose a lead from the list to preview contact, status, and next actions.';
+  String get selectLeadPreviewMessage =>
+      'Choose a lead from the list to preview contact, status, and next actions.';
 
   @override
   String get somethingWentWrong => 'Something went wrong';
@@ -1082,7 +1171,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryAgain => 'Try again';
 
   @override
-  String get unableToConnect => 'Unable to connect. Check your internet connection and try again.';
+  String get unableToConnect =>
+      'Unable to connect. Check your internet connection and try again.';
 
   @override
   String get leadUpdateFailed => 'Unable to update lead. Please try again.';
@@ -1100,7 +1190,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leadArchivedSuccessfully => 'Lead archived successfully.';
 
   @override
-  String get leadStatusUpdatedSuccessfully => 'Lead status updated successfully.';
+  String get leadStatusUpdatedSuccessfully =>
+      'Lead status updated successfully.';
 
   @override
   String get leadAssignedSuccessfully => 'Lead assigned successfully.';
@@ -1145,7 +1236,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scheduleFollowUp => 'Schedule follow-up';
 
   @override
-  String get duplicateLeadFound => 'A lead with this phone or email already exists.';
+  String get duplicateLeadFound =>
+      'A lead with this phone or email already exists.';
 
   @override
   String get dashboardGoodMorning => 'Good morning';
@@ -1175,7 +1267,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardTasksDueBreakdown => 'Tasks due breakdown';
 
   @override
-  String get dashboardPropertyStatusDistribution => 'Property status distribution';
+  String get dashboardPropertyStatusDistribution =>
+      'Property status distribution';
 
   @override
   String get dashboardTodaysFollowUps => 'Today’s follow-ups';
@@ -1205,7 +1298,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardGeneralTask => 'General task';
 
   @override
-  String get clientsSubtitle => 'Keep client profiles, preferences, and assignments ready for follow-up.';
+  String get clientsSubtitle =>
+      'Keep client profiles, preferences, and assignments ready for follow-up.';
 
   @override
   String get searchClients => 'Search clients';
@@ -1226,7 +1320,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dealDetails => 'Deal details';
 
   @override
-  String get dealsSubtitle => 'Track client opportunities, property value, commission, and closing progress.';
+  String get dealsSubtitle =>
+      'Track client opportunities, property value, commission, and closing progress.';
 
   @override
   String get dealInformation => 'Deal information';
@@ -1283,7 +1378,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get archiveDeal => 'Archive deal';
 
   @override
-  String get archiveDealConfirmation => 'This deal will be archived and hidden from active deal lists.';
+  String get archiveDealConfirmation =>
+      'This deal will be archived and hidden from active deal lists.';
 
   @override
   String get dealCreatedSuccessfully => 'Deal created successfully.';
@@ -1331,7 +1427,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backToDeals => 'Back to deals';
 
   @override
-  String get dealNotFoundMessage => 'Deal not found. Open it from the deals list.';
+  String get dealNotFoundMessage =>
+      'Deal not found. Open it from the deals list.';
 
   @override
   String get reportsComingSoon => 'Reports are coming soon.';
@@ -1385,13 +1482,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewer => 'Viewer';
 
   @override
-  String get connectionTimeout => 'Unable to load data. Check your connection and try again.';
+  String get connectionTimeout =>
+      'Unable to load data. Check your connection and try again.';
 
   @override
   String get unableToLoadReports => 'Unable to load reports. Please try again.';
 
   @override
-  String get reportsOverview => 'Review CRM performance using real leads, deals, tasks, and properties for the selected period.';
+  String get reportsOverview =>
+      'Review CRM performance using real leads, deals, tasks, and properties for the selected period.';
 
   @override
   String get reportPeriod => 'Report period';

@@ -51,7 +51,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tasks => 'المهام';
 
   @override
-  String get tasksSubtitle => 'نظم المتابعات ومهام الفريق حسب تاريخ الاستحقاق والحالة والأولوية.';
+  String get tasksSubtitle =>
+      'نظم المتابعات ومهام الفريق حسب تاريخ الاستحقاق والحالة والأولوية.';
 
   @override
   String get createTask => 'إنشاء مهمة';
@@ -63,7 +64,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get updateTask => 'تحديث المهمة';
 
   @override
-  String get agentPerformanceSummary => 'قارن بين حجم العمل ونشاط الصفقات وإنجاز المهام ومخاطر التأخير لكل مسؤول.';
+  String get agentPerformanceSummary =>
+      'قارن بين حجم العمل ونشاط الصفقات وإنجاز المهام ومخاطر التأخير لكل مسؤول.';
 
   @override
   String get agent => 'المسؤول';
@@ -93,10 +95,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get cancelTask => 'إلغاء المهمة';
 
   @override
-  String get cancelTaskConfirmation => 'سيتم وضع علامة ملغاة على هذه المهمة وستبقى ظاهرة في قوائم المهام.';
+  String get cancelTaskConfirmation =>
+      'سيتم وضع علامة ملغاة على هذه المهمة وستبقى ظاهرة في قوائم المهام.';
 
   @override
-  String get taskNotFound => 'لم يتم العثور على المهمة. افتحها من قائمة المهام.';
+  String get taskNotFound =>
+      'لم يتم العثور على المهمة. افتحها من قائمة المهام.';
 
   @override
   String get taskInformation => 'بيانات المهمة';
@@ -129,7 +133,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get agentActivityResults => 'نشاط ونتائج الموظفين';
 
   @override
-  String get agentActivityResultsSummary => 'راجع حجم العمل، الصفقات الرابحة، إنجاز المهام، والمتأخرات لكل موظف.';
+  String get agentActivityResultsSummary =>
+      'راجع حجم العمل، الصفقات الرابحة، إنجاز المهام، والمتأخرات لكل موظف.';
 
   @override
   String get workload => 'حجم العمل';
@@ -165,10 +170,67 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardRecentActivity => 'آخر النشاط';
 
   @override
-  String get dashboardRecentActivitySubtitle => 'آخر التغييرات من السجلات المتاحة لك.';
+  String get dashboardRecentActivitySubtitle =>
+      'آخر تغييرات CRM المسجلة لهذه الشركة.';
 
   @override
   String get dashboardNoRecentActivity => 'لا يوجد نشاط حديث بعد.';
+
+  @override
+  String get dashboardUnableToLoadRecentActivity => 'تعذر تحميل آخر النشاط.';
+
+  @override
+  String dashboardAuditActionLabel(Object module, Object action) {
+    return '$module · $action';
+  }
+
+  @override
+  String get dashboardAuditCreated => 'إنشاء';
+
+  @override
+  String get dashboardAuditUpdated => 'تحديث';
+
+  @override
+  String get dashboardAuditArchived => 'أرشفة';
+
+  @override
+  String get dashboardAuditDeactivated => 'إيقاف';
+
+  @override
+  String get dashboardAuditAssigned => 'إسناد';
+
+  @override
+  String get dashboardAuditStatusChanged => 'تغيير الحالة';
+
+  @override
+  String get dashboardAuditStageChanged => 'تغيير المرحلة';
+
+  @override
+  String get dashboardAuditCompleted => 'إكمال';
+
+  @override
+  String get dashboardAuditCancelled => 'إلغاء';
+
+  @override
+  String get dashboardAuditImageAdded => 'إضافة صورة';
+
+  @override
+  String get dashboardAuditImageRemoved => 'إزالة صورة';
+
+  @override
+  String get dashboardAuditLead => 'عميل محتمل';
+
+  @override
+  String get dashboardAuditClient => 'عميل';
+
+  @override
+  String get dashboardAuditProperty => 'عقار';
+
+  @override
+  String get dashboardAuditTask => 'مهمة';
+
+  @override
+  String get dashboardAuditDeal => 'صفقة';
 
   @override
   String get dashboardActivityLeadUpdated => 'تم تحديث عميل محتمل';
@@ -309,7 +371,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get crmOverview => 'نظرة عامة على مسار CRM';
 
   @override
-  String get dashboardPlaceholderDescription => 'ستظهر هنا بيانات المبيعات والعملاء المحتملين والمتابعات ونشاط العقارات.';
+  String get dashboardPlaceholderDescription =>
+      'ستظهر هنا بيانات المبيعات والعملاء المحتملين والمتابعات ونشاط العقارات.';
 
   @override
   String get totalLeads => 'إجمالي العملاء المحتملين';
@@ -360,10 +423,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get signingIn => 'جاري تسجيل الدخول...';
 
   @override
-  String get authErrorInvalidCredentials => 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+  String get authErrorInvalidCredentials =>
+      'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
 
   @override
-  String get authErrorConnection => 'حدث خطأ في الاتصال. تحقق من اتصالك بالإنترنت.';
+  String get authErrorConnection =>
+      'حدث خطأ في الاتصال. تحقق من اتصالك بالإنترنت.';
 
   @override
   String get authErrorSignInFailed => 'تعذر تسجيل الدخول. حاول مرة أخرى.';
@@ -375,7 +440,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get authErrorProfileMissing => 'تعذر تحميل ملف المستخدم الخاص بك.';
 
   @override
-  String get authErrorInactiveAccount => 'حسابك غير مفعل. يرجى التواصل مع مسؤول النظام.';
+  String get authErrorInactiveAccount =>
+      'حسابك غير مفعل. يرجى التواصل مع مسؤول النظام.';
 
   @override
   String get logoutTooltip => 'تسجيل الخروج';
@@ -447,13 +513,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get archiveClient => 'أرشفة العميل';
 
   @override
-  String get archiveClientConfirmation => 'سيتم أرشفة هذا العميل وإخفاؤه من قائمة العملاء النشطين.';
+  String get archiveClientConfirmation =>
+      'سيتم أرشفة هذا العميل وإخفاؤه من قائمة العملاء النشطين.';
 
   @override
   String get clientArchivedSuccessfully => 'تمت أرشفة العميل بنجاح.';
 
   @override
-  String get clientNotFoundMessage => 'العميل غير موجود. افتحه من قائمة العملاء.';
+  String get clientNotFoundMessage =>
+      'العميل غير موجود. افتحه من قائمة العملاء.';
 
   @override
   String get backToClients => 'العودة إلى العملاء';
@@ -462,7 +530,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get clientPreferences => 'تفضيلات العميل';
 
   @override
-  String get budgetMaxMustBeGreaterThanBudgetMin => 'لا يمكن أن يكون الحد الأقصى للميزانية أقل من الحد الأدنى.';
+  String get budgetMaxMustBeGreaterThanBudgetMin =>
+      'لا يمكن أن يكون الحد الأقصى للميزانية أقل من الحد الأدنى.';
 
   @override
   String get createProperty => 'إضافة عقار';
@@ -522,13 +591,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noLeads => 'لا توجد عملاء محتملون بعد.';
 
   @override
-  String get unableToLoadLeads => 'تعذر تحميل العملاء المحتملين. حاول مرة أخرى.';
+  String get unableToLoadLeads =>
+      'تعذر تحميل العملاء المحتملين. حاول مرة أخرى.';
 
   @override
   String get unableToCreateLead => 'تعذر إنشاء العميل المحتمل. حاول مرة أخرى.';
 
   @override
-  String get propertiesSubtitle => 'إدارة قوائم العقارات وحالتها في عرض عملي واحد.';
+  String get propertiesSubtitle =>
+      'إدارة قوائم العقارات وحالتها في عرض عملي واحد.';
 
   @override
   String get noProperties => 'لا توجد عقارات بعد.';
@@ -648,7 +719,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get propertyImages => 'صور العقار';
 
   @override
-  String get propertyImagesHint => 'ارفع صورًا واضحة للعقار. سيتم استخدام أول صورة كصورة الغلاف.';
+  String get propertyImagesHint =>
+      'ارفع صورًا واضحة للعقار. سيتم استخدام أول صورة كصورة الغلاف.';
 
   @override
   String get addPropertyImages => 'إضافة صور';
@@ -669,7 +741,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get propertyImageTooLarge => 'يجب ألا يتجاوز حجم كل صورة 5 ميجابايت.';
 
   @override
-  String get unableToPickPropertyImages => 'تعذر اختيار صور العقار. حاول مرة أخرى.';
+  String get unableToPickPropertyImages =>
+      'تعذر اختيار صور العقار. حاول مرة أخرى.';
 
   @override
   String get propertyCreatedSuccessfully => 'تم إنشاء العقار بنجاح.';
@@ -690,7 +763,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noMatchingProperties => 'لا توجد عقارات مطابقة للفلاتر الحالية.';
 
   @override
-  String get adjustPropertyFiltersHint => 'غيّر نص البحث أو قيم الفلاتر ثم حاول مرة أخرى.';
+  String get adjustPropertyFiltersHint =>
+      'غيّر نص البحث أو قيم الفلاتر ثم حاول مرة أخرى.';
 
   @override
   String get allPropertyTypes => 'كل أنواع العقارات';
@@ -704,7 +778,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get propertyNotFoundMessage => 'العقار غير موجود. افتح التفاصيل من قائمة العقارات.';
+  String get propertyNotFoundMessage =>
+      'العقار غير موجود. افتح التفاصيل من قائمة العقارات.';
 
   @override
   String get backToProperties => 'العودة إلى العقارات';
@@ -719,7 +794,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get auditInfo => 'معلومات التدقيق';
 
   @override
-  String get unableToLoadPropertyForEdit => 'تعذر تحميل بيانات العقار للتعديل. افتح التعديل من قائمة العقارات.';
+  String get unableToLoadPropertyForEdit =>
+      'تعذر تحميل بيانات العقار للتعديل. افتح التعديل من قائمة العقارات.';
 
   @override
   String get actions => 'الإجراءات';
@@ -797,7 +873,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get other => 'أخرى';
 
   @override
-  String get leadsSubtitle => 'تابع الاستفسارات الجديدة وتواصل مع العملاء المحتملين.';
+  String get leadsSubtitle =>
+      'تابع الاستفسارات الجديدة وتواصل مع العملاء المحتملين.';
 
   @override
   String get cancel => 'إلغاء';
@@ -818,7 +895,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deactivateProperty => 'إيقاف العقار';
 
   @override
-  String get deactivatePropertyConfirmation => 'سيتم تعيين هذا العقار كغير نشط.';
+  String get deactivatePropertyConfirmation =>
+      'سيتم تعيين هذا العقار كغير نشط.';
 
   @override
   String get propertyDeactivatedSuccessfully => 'تم إيقاف العقار بنجاح.';
@@ -827,13 +905,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unableToDeactivateProperty => 'تعذر إيقاف العقار. حاول مرة أخرى.';
 
   @override
-  String get archiveLeadConfirmation => 'سيتم أرشفة هذا العميل المحتمل وإخفاؤه من قائمة العملاء النشطين.';
+  String get archiveLeadConfirmation =>
+      'سيتم أرشفة هذا العميل المحتمل وإخفاؤه من قائمة العملاء النشطين.';
 
   @override
   String get leadArchived => 'تمت أرشفة العميل المحتمل بنجاح.';
 
   @override
-  String get unableToArchiveLead => 'تعذرت أرشفة العميل المحتمل. حاول مرة أخرى.';
+  String get unableToArchiveLead =>
+      'تعذرت أرشفة العميل المحتمل. حاول مرة أخرى.';
 
   @override
   String get permissionDenied => 'ليس لديك صلاحية لتنفيذ هذا الإجراء.';
@@ -857,7 +937,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get leadAssignment => 'الإسناد والملاحظات';
 
   @override
-  String get missingCompanyProfile => 'تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى.';
+  String get missingCompanyProfile =>
+      'تعذر تحميل ملف الشركة. يرجى تسجيل الدخول مرة أخرى.';
 
   @override
   String get editLead => 'تعديل العميل المحتمل';
@@ -917,10 +998,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unassigned => 'غير مسند';
 
   @override
-  String get onlyAdminsManagersCanAssign => 'يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.';
+  String get onlyAdminsManagersCanAssign =>
+      'يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.';
 
   @override
-  String get cannotAssignAcrossCompanies => 'لا يمكن إسناد عميل محتمل خارج شركتك.';
+  String get cannotAssignAcrossCompanies =>
+      'لا يمكن إسناد عميل محتمل خارج شركتك.';
 
   @override
   String get accessDenied => 'تم رفض الوصول';
@@ -932,10 +1015,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get assignedUserUnavailable => 'المستخدم المسند غير متوفر';
 
   @override
-  String get youDoNotHavePermissionToViewLead => 'ليس لديك صلاحية لعرض هذا العميل المحتمل.';
+  String get youDoNotHavePermissionToViewLead =>
+      'ليس لديك صلاحية لعرض هذا العميل المحتمل.';
 
   @override
-  String get youDoNotHavePermissionToEditLead => 'ليس لديك صلاحية لتعديل هذا العميل المحتمل.';
+  String get youDoNotHavePermissionToEditLead =>
+      'ليس لديك صلاحية لتعديل هذا العميل المحتمل.';
 
   @override
   String get timeline => 'الخط الزمني';
@@ -1073,7 +1158,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get selectLeadPreview => 'اختر عميلاً محتملاً';
 
   @override
-  String get selectLeadPreviewMessage => 'اختر عميلاً من القائمة لمعاينة بيانات التواصل والحالة والإجراءات.';
+  String get selectLeadPreviewMessage =>
+      'اختر عميلاً من القائمة لمعاينة بيانات التواصل والحالة والإجراءات.';
 
   @override
   String get somethingWentWrong => 'حدث خطأ ما';
@@ -1082,7 +1168,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tryAgain => 'حاول مرة أخرى';
 
   @override
-  String get unableToConnect => 'تعذر الاتصال. تحقق من اتصال الإنترنت وحاول مرة أخرى.';
+  String get unableToConnect =>
+      'تعذر الاتصال. تحقق من اتصال الإنترنت وحاول مرة أخرى.';
 
   @override
   String get leadUpdateFailed => 'تعذر تحديث العميل المحتمل. حاول مرة أخرى.';
@@ -1100,7 +1187,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get leadArchivedSuccessfully => 'تمت أرشفة العميل المحتمل بنجاح.';
 
   @override
-  String get leadStatusUpdatedSuccessfully => 'تم تحديث حالة العميل المحتمل بنجاح.';
+  String get leadStatusUpdatedSuccessfully =>
+      'تم تحديث حالة العميل المحتمل بنجاح.';
 
   @override
   String get leadAssignedSuccessfully => 'تم إسناد العميل المحتمل بنجاح.';
@@ -1139,13 +1227,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get markContactedToday => 'تسجيل التواصل اليوم';
 
   @override
-  String get leadMarkedContactedToday => 'تم تسجيل التواصل مع العميل المحتمل اليوم.';
+  String get leadMarkedContactedToday =>
+      'تم تسجيل التواصل مع العميل المحتمل اليوم.';
 
   @override
   String get scheduleFollowUp => 'جدولة متابعة';
 
   @override
-  String get duplicateLeadFound => 'يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.';
+  String get duplicateLeadFound =>
+      'يوجد عميل محتمل بنفس رقم الهاتف أو البريد الإلكتروني.';
 
   @override
   String get dashboardGoodMorning => 'صباح الخير';
@@ -1205,7 +1295,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardGeneralTask => 'مهمة عامة';
 
   @override
-  String get clientsSubtitle => 'احتفظ بملفات العملاء وتفضيلاتهم والتكليفات جاهزة للمتابعة.';
+  String get clientsSubtitle =>
+      'احتفظ بملفات العملاء وتفضيلاتهم والتكليفات جاهزة للمتابعة.';
 
   @override
   String get searchClients => 'ابحث في العملاء';
@@ -1226,7 +1317,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dealDetails => 'تفاصيل الصفقة';
 
   @override
-  String get dealsSubtitle => 'تابع فرص العملاء وقيمة العقار والعمولة وحالة الإغلاق.';
+  String get dealsSubtitle =>
+      'تابع فرص العملاء وقيمة العقار والعمولة وحالة الإغلاق.';
 
   @override
   String get dealInformation => 'بيانات الصفقة';
@@ -1283,7 +1375,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get archiveDeal => 'أرشفة الصفقة';
 
   @override
-  String get archiveDealConfirmation => 'سيتم أرشفة هذه الصفقة وإخفاؤها من قوائم الصفقات النشطة.';
+  String get archiveDealConfirmation =>
+      'سيتم أرشفة هذه الصفقة وإخفاؤها من قوائم الصفقات النشطة.';
 
   @override
   String get dealCreatedSuccessfully => 'تم إنشاء الصفقة بنجاح.';
@@ -1331,7 +1424,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get backToDeals => 'العودة إلى الصفقات';
 
   @override
-  String get dealNotFoundMessage => 'الصفقة غير موجودة. افتحها من قائمة الصفقات.';
+  String get dealNotFoundMessage =>
+      'الصفقة غير موجودة. افتحها من قائمة الصفقات.';
 
   @override
   String get reportsComingSoon => 'التقارير قادمة قريباً.';
@@ -1385,13 +1479,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get viewer => 'مشاهد';
 
   @override
-  String get connectionTimeout => 'تعذر تحميل البيانات. تحقق من الاتصال وحاول مرة أخرى.';
+  String get connectionTimeout =>
+      'تعذر تحميل البيانات. تحقق من الاتصال وحاول مرة أخرى.';
 
   @override
   String get unableToLoadReports => 'تعذر تحميل التقارير. حاول مرة أخرى.';
 
   @override
-  String get reportsOverview => 'راجع أداء إدارة العملاء باستخدام بيانات العملاء المحتملين والصفقات والمهام والعقارات للفترة المحددة.';
+  String get reportsOverview =>
+      'راجع أداء إدارة العملاء باستخدام بيانات العملاء المحتملين والصفقات والمهام والعقارات للفترة المحددة.';
 
   @override
   String get reportPeriod => 'فترة التقرير';
