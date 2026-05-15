@@ -47,6 +47,7 @@ import '../../../tasks/presentation/cubit/tasks_state.dart';
 import '../../../tasks/presentation/widgets/tasks_scope.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 
@@ -2226,10 +2227,10 @@ class _ReportsData {
       properties.isEmpty ? 0 : totalListedValue / properties.length;
 
   List<_AgentRow> agentRows(List<UserProfile> users, AppLocalizations l) {
-    final ids = <String>{};
-    ids.addAll(leads.map((lead) => lead.assignedTo).where((id) => id.isNotEmpty));
-    ids.addAll(tasks.map((task) => task.assignedTo).where((id) => id.isNotEmpty));
-    ids.addAll(deals.map((deal) => deal.assignedTo).where((id) => id.isNotEmpty));
+    final ids = AssignmentUserPolicy.assignableUsersFor(
+      AssignableWorkType.salesOwner,
+      users,
+    ).map((user) => user.uid).toSet();
 
     final rows = [
       for (final id in ids)
@@ -2315,10 +2316,13 @@ class _AssigneeOption {
 }
 
 List<_AssigneeOption> _assigneeOptions(List<UserProfile> users) {
-  final sorted = [...users]..sort((a, b) => a.fullName.compareTo(b.fullName));
+  final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
+    AssignableWorkType.salesOwner,
+    users,
+  );
   return [
     const _AssigneeOption.all(),
-    for (final user in sorted) _AssigneeOption.value(user.uid),
+    for (final user in assignableUsers) _AssigneeOption.value(user.uid),
   ];
 }
 

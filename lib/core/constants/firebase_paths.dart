@@ -1,4 +1,21 @@
 abstract final class FirebasePaths {
+  static String platformAdmins() => 'platform_admins';
+
+  static String platformAdmin(String uid) => '${platformAdmins()}/$uid';
+
+  static String globalUsers() => 'users';
+
+  static String globalUser(String uid) => '${globalUsers()}/$uid';
+
+  static String userMemberships(String uid) => '${globalUser(uid)}/memberships';
+
+  static String userMembership({
+    required String uid,
+    required String companyId,
+  }) {
+    return '${userMemberships(uid)}/$companyId';
+  }
+
   static String company(String companyId) => 'companies/$companyId';
 
   static String companyUsers(String companyId) {

@@ -9,11 +9,17 @@ abstract final class RouteNames {
   static const reports = '/reports';
   static const profile = '/profile';
   static const settings = '/settings';
+  static const platform = '/platform';
+  static const featureUnavailable = '/feature-unavailable';
   static const leadsCreate = '/leads/create';
   static const propertiesCreate = '/properties/create';
   static const clientsCreate = '/clients/create';
   static const tasksCreate = '/tasks/create';
   static const dealsCreate = '/deals/create';
+
+  static String platformCompanyDashboard(String companyId) {
+    return '/platform/companies/$companyId/dashboard';
+  }
 
   static String leadDetails(String leadId) => '/leads/$leadId';
   static String leadEdit(String leadId) => '/leads/$leadId/edit';

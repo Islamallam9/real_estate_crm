@@ -23,6 +23,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../../domain/entities/lead.dart';
@@ -566,15 +567,15 @@ List<_LeadFilterOption<String>> _assigneeFilterOptions(
   List<UserProfile> users,
   List<Lead> leads,
 ) {
-  final userIds = <String>{
-    for (final user in users) user.uid,
-    for (final lead in leads)
-      if (lead.assignedTo.isNotEmpty) lead.assignedTo,
-  };
+  final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
+    AssignableWorkType.lead,
+    users,
+  );
 
   return [
     _LeadFilterOption<String>.all(),
-    for (final uid in userIds) _LeadFilterOption<String>.value(uid),
+    for (final user in assignableUsers)
+      _LeadFilterOption<String>.value(user.uid),
   ];
 }
 

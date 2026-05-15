@@ -23,6 +23,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 import '../../domain/entities/deal.dart';
@@ -858,11 +859,14 @@ List<_DealFilterOption<T>> _filterOptions<T>(List<T> values) {
 }
 
 List<_DealAssigneeFilterOption> _assigneeOptions(List<UserProfile> users) {
-  final sortedUsers = [...users]
-    ..sort((a, b) => a.fullName.compareTo(b.fullName));
+  final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
+    AssignableWorkType.deal,
+    users,
+  );
   return [
     const _DealAssigneeFilterOption.all(),
-    for (final user in sortedUsers) _DealAssigneeFilterOption.value(user.uid),
+    for (final user in assignableUsers)
+      _DealAssigneeFilterOption.value(user.uid),
   ];
 }
 

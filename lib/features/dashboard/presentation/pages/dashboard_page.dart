@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' as intl;
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -49,11 +50,26 @@ import '../../../tasks/presentation/cubit/tasks_state.dart';
 import '../../../tasks/presentation/widgets/tasks_scope.dart';
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({
+    super.key,
+    this.platformPreviewCompanyId,
+    this.platformPreviewCompanyName,
+  });
+
+  final String? platformPreviewCompanyId;
+  final String? platformPreviewCompanyName;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final previewCompanyId = platformPreviewCompanyId?.trim() ?? '';
+
+    if (previewCompanyId.isNotEmpty) {
+      return _PlatformDashboardPreviewScaffold(
+        companyId: previewCompanyId,
+        companyName: platformPreviewCompanyName?.trim(),
+      );
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.dashboard,
@@ -73,20 +89,10 @@ class DashboardPage extends StatelessWidget {
             return AppErrorView(message: l.missingCompanyProfile);
           }
 
-          return LeadsScope(
-            child: PropertiesScope(
-              child: ClientsScope(
-                child: TasksScope(
-                  child: DealsScope(
-                    child: AuditLogsScope(
-                      child: _DashboardContent(
-                        companyId: companyId,
-                        authState: authState,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+          return _DashboardScopes(
+            child: _DashboardContent(
+              companyId: companyId,
+              authState: authState,
             ),
           );
         },
@@ -95,11 +101,102 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
+class _PlatformDashboardPreviewScaffold extends StatelessWidget {
+  const _PlatformDashboardPreviewScaffold({
+    required this.companyId,
+    required this.companyName,
+  });
+
+  final String companyId;
+  final String? companyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      backgroundColor: AppColors.appBackground(context),
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: l.back,
+          onPressed: () => context.go(RouteNames.platform),
+          icon: const BackButtonIcon(),
+        ),
+        title: Text(
+          (companyName == null || companyName!.isEmpty)
+              ? l.dashboard
+              : companyName!,
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: AppSpacing.md),
+            child: Center(
+              child: AppStatusBadge(
+                label: l.readOnlyPreview,
+                tone: AppStatusTone.info,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              if (!authState.isPlatformAdmin) {
+                return AppErrorView(message: l.platformAccessDenied);
+              }
+
+              return _DashboardScopes(
+                child: _DashboardContent(
+                  companyId: companyId,
+                  authState: authState,
+                  platformPreview: true,
+                  previewCompanyName: companyName,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardScopes extends StatelessWidget {
+  const _DashboardScopes({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LeadsScope(
+      child: PropertiesScope(
+        child: ClientsScope(
+          child: TasksScope(
+            child: DealsScope(
+              child: AuditLogsScope(child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DashboardContent extends StatefulWidget {
-  const _DashboardContent({required this.companyId, required this.authState});
+  const _DashboardContent({
+    required this.companyId,
+    required this.authState,
+    this.platformPreview = false,
+    this.previewCompanyName,
+  });
 
   final String companyId;
   final AuthState authState;
+  final bool platformPreview;
+  final String? previewCompanyName;
 
   @override
   State<_DashboardContent> createState() => _DashboardContentState();
@@ -109,30 +206,43 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
+    if (widget.platformPreview) {
+      _watchPlatformPreviewData();
+      return;
+    }
+
     final role =
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
 
-    if (role != null && PermissionService.can(role, AppPermission.viewLeads)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
+        PermissionService.can(role, AppPermission.viewLeads)) {
       context.read<LeadsCubit>().watchLeads(
         companyId: widget.companyId,
         assignedTo: assignedTo,
       );
     }
     if (role != null &&
+        widget.authState.companyMetadata
+            .isFeatureEnabled(CompanyFeature.properties) &&
         PermissionService.can(role, AppPermission.viewProperties)) {
       context.read<PropertiesCubit>().watchProperties(
         companyId: widget.companyId,
       );
     }
-    if (role != null && PermissionService.can(role, AppPermission.viewClients)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
+        PermissionService.can(role, AppPermission.viewClients)) {
       context.read<ClientsCubit>().watchClients(
         companyId: widget.companyId,
         assignedTo: assignedTo,
       );
     }
-    if (role != null && PermissionService.can(role, AppPermission.viewTasks)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
+        PermissionService.can(role, AppPermission.viewTasks)) {
       context.read<TasksCubit>().watchTasks(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -140,6 +250,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
     if (role != null &&
         uid.isNotEmpty &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
@@ -147,7 +258,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         currentUserId: uid,
       );
     }
-    if (_canViewRecentActivity(widget.authState)) {
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
+        _canViewRecentActivity(widget.authState)) {
       context.read<AuditLogsCubit>().watchAuditLogs(
         companyId: widget.companyId,
       );
@@ -155,30 +267,43 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   void _retry() {
+    if (widget.platformPreview) {
+      _watchPlatformPreviewData();
+      return;
+    }
+
     final role =
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
 
-    if (role != null && PermissionService.can(role, AppPermission.viewLeads)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
+        PermissionService.can(role, AppPermission.viewLeads)) {
       context.read<LeadsCubit>().watchLeads(
         companyId: widget.companyId,
         assignedTo: assignedTo,
       );
     }
     if (role != null &&
+        widget.authState.companyMetadata
+            .isFeatureEnabled(CompanyFeature.properties) &&
         PermissionService.can(role, AppPermission.viewProperties)) {
       context.read<PropertiesCubit>().watchProperties(
         companyId: widget.companyId,
       );
     }
-    if (role != null && PermissionService.can(role, AppPermission.viewClients)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
+        PermissionService.can(role, AppPermission.viewClients)) {
       context.read<ClientsCubit>().watchClients(
         companyId: widget.companyId,
         assignedTo: assignedTo,
       );
     }
-    if (role != null && PermissionService.can(role, AppPermission.viewTasks)) {
+    if (role != null &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
+        PermissionService.can(role, AppPermission.viewTasks)) {
       context.read<TasksCubit>().watchTasks(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -186,6 +311,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
     if (role != null &&
         uid.isNotEmpty &&
+        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
@@ -193,11 +319,25 @@ class _DashboardContentState extends State<_DashboardContent> {
         currentUserId: uid,
       );
     }
-    if (_canViewRecentActivity(widget.authState)) {
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
+        _canViewRecentActivity(widget.authState)) {
       context.read<AuditLogsCubit>().watchAuditLogs(
         companyId: widget.companyId,
       );
     }
+  }
+
+  void _watchPlatformPreviewData() {
+    context.read<LeadsCubit>().watchLeads(companyId: widget.companyId);
+    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
+    context.read<ClientsCubit>().watchClients(companyId: widget.companyId);
+    context.read<TasksCubit>().watchTasks(companyId: widget.companyId);
+    context.read<DealsCubit>().watchDeals(
+      companyId: widget.companyId,
+      role: UserRole.admin,
+      currentUserId: widget.authState.user?.uid ?? '',
+    );
+    context.read<AuditLogsCubit>().watchAuditLogs(companyId: widget.companyId);
   }
 
   @override
@@ -256,6 +396,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                         return _DashboardView(
                           data: data,
                           authState: widget.authState,
+                          platformPreview: widget.platformPreview,
+                          previewCompanyName: widget.previewCompanyName,
                           isLoading: isLoading,
                           hasInitialFailure: hasInitialFailure,
                           failureMessage: failureMessage,
@@ -275,15 +417,19 @@ class _DashboardContentState extends State<_DashboardContent> {
 }
 
 class _RecentActivityPanel extends StatelessWidget {
-  const _RecentActivityPanel({required this.authState});
+  const _RecentActivityPanel({
+    required this.authState,
+    this.platformPreview = false,
+  });
 
   final AuthState authState;
+  final bool platformPreview;
 
   @override
   Widget build(BuildContext context) {
     final role = authState.userProfile?.role ?? authState.user?.role;
     final canViewRecentActivity =
-        role == UserRole.admin || role == UserRole.manager;
+        platformPreview || role == UserRole.admin || role == UserRole.manager;
 
     if (!canViewRecentActivity) {
       return const SizedBox.shrink();
@@ -319,7 +465,13 @@ class _RecentActivityPanel extends StatelessWidget {
 
               final items = state.logs
                   .take(5)
-                  .map((log) => _auditLogActivityItem(context, log))
+                  .map(
+                    (log) => _auditLogActivityItem(
+                      context,
+                      log,
+                      readOnly: platformPreview,
+                    ),
+                  )
                   .toList();
 
               if (items.isEmpty) {
@@ -377,8 +529,9 @@ class _RecentActivityItem {
 
 _RecentActivityItem _auditLogActivityItem(
   BuildContext context,
-  AuditLog log,
-) {
+  AuditLog log, {
+  required bool readOnly,
+}) {
   final l = AppLocalizations.of(context)!;
   final action = _auditActionLabel(l, log.action);
   final module = _auditModuleLabel(l, log.module);
@@ -396,7 +549,7 @@ _RecentActivityItem _auditLogActivityItem(
     timeLabel: _relativeTimeLabel(context, log.createdAt),
     icon: _auditModuleIcon(log.module),
     tone: _auditActionTone(log.action),
-    onTap: _auditRecordTap(log),
+    onTap: readOnly ? null : _auditRecordTap(log),
   );
 }
 
@@ -567,6 +720,8 @@ class _DashboardView extends StatelessWidget {
   const _DashboardView({
     required this.data,
     required this.authState,
+    required this.platformPreview,
+    this.previewCompanyName,
     required this.isLoading,
     required this.hasInitialFailure,
     required this.failureMessage,
@@ -575,6 +730,8 @@ class _DashboardView extends StatelessWidget {
 
   final _DashboardData data;
   final AuthState authState;
+  final bool platformPreview;
+  final String? previewCompanyName;
   final bool isLoading;
   final bool hasInitialFailure;
   final String? failureMessage;
@@ -600,7 +757,20 @@ class _DashboardView extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 860;
         final mobile = constraints.maxWidth < 600;
-        final quickAddActions = _quickAddActions(context, authState);
+        final features = authState.companyMetadata;
+        final leadsEnabled = features.isFeatureEnabled(CompanyFeature.leads);
+        final clientsEnabled = features.isFeatureEnabled(CompanyFeature.clients);
+        final propertiesEnabled =
+            features.isFeatureEnabled(CompanyFeature.properties);
+        final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
+        final dealsEnabled = features.isFeatureEnabled(CompanyFeature.deals);
+        final auditLogsEnabled =
+            features.isFeatureEnabled(CompanyFeature.auditLogs);
+        final analyticsEnabled =
+            leadsEnabled || tasksEnabled || propertiesEnabled || dealsEnabled;
+        final quickAddActions = platformPreview
+            ? <_QuickAddAction>[]
+            : _quickAddActions(context, authState);
 
         return Stack(
           children: [
@@ -614,25 +784,30 @@ class _DashboardView extends StatelessWidget {
                   _DashboardReveal(
                     id: 'welcome',
                     delay: Duration.zero,
-                    child: _WelcomePanel(authState: authState),
+                    child: _WelcomePanel(
+                      authState: authState,
+                      platformPreview: platformPreview,
+                      previewCompanyName: previewCompanyName,
+                    ),
                   ),
                   const SizedBox(height: _kDashboardSectionGap),
 
                   _DashboardReveal(
                     id: 'summary-grid',
                     delay: const Duration(milliseconds: 60),
-                    child: _SummaryGrid(data: data),
+                    child: _SummaryGrid(data: data, authState: authState),
                   ),
                   const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
-                    _DashboardReveal(
-                      id: 'analytics-compact',
+                    if (analyticsEnabled)
+                      _DashboardReveal(
+                        id: 'analytics-compact',
                       delay: const Duration(milliseconds: 120),
-                      child: _AnalyticsPanel(data: data),
+                      child: _AnalyticsPanel(data: data, authState: authState),
                     ),
 
-                    if (!mobile) ...[
+                    if (!mobile && !platformPreview && (leadsEnabled || clientsEnabled || propertiesEnabled)) ...[
                       const SizedBox(height: _kDashboardSectionGap),
                       _DashboardReveal(
                         id: 'actions-compact',
@@ -641,17 +816,22 @@ class _DashboardView extends StatelessWidget {
                       ),
                     ],
 
-                    if (_canViewRecentActivity(authState)) ...[
+                    if (auditLogsEnabled &&
+                        _canViewRecentActivity(
+                          authState,
+                          platformPreview: platformPreview,
+                        )) ...[
                       const SizedBox(height: _kDashboardSectionGap),
                       _DashboardReveal(
                         id: 'recent-activity-compact',
                         delay: const Duration(milliseconds: 200),
                         child: _RecentActivityPanel(
                           authState: authState,
+                          platformPreview: platformPreview,
                         ),
                       ),
                     ],
-                  ] else
+                  ] else if (analyticsEnabled)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -660,7 +840,7 @@ class _DashboardView extends StatelessWidget {
                           child: _DashboardReveal(
                             id: 'analytics-desktop',
                             delay: const Duration(milliseconds: 120),
-                            child: _AnalyticsPanel(data: data),
+                            child: _AnalyticsPanel(data: data, authState: authState),
                           ),
                         ),
                         const SizedBox(width: _kDashboardSectionGap),
@@ -668,18 +848,26 @@ class _DashboardView extends StatelessWidget {
                           flex: 2,
                           child: Column(
                             children: [
-                              _DashboardReveal(
-                                id: 'actions-desktop',
-                                delay: const Duration(milliseconds: 160),
-                                child: _ActionPanel(authState: authState),
-                              ),
-                              if (_canViewRecentActivity(authState)) ...[
-                                const SizedBox(height: _kDashboardSectionGap),
+                              if (!platformPreview &&
+                                  (leadsEnabled || clientsEnabled || propertiesEnabled))
+                                _DashboardReveal(
+                                  id: 'actions-desktop',
+                                  delay: const Duration(milliseconds: 160),
+                                  child: _ActionPanel(authState: authState),
+                                ),
+                              if (auditLogsEnabled &&
+                                  _canViewRecentActivity(
+                                    authState,
+                                    platformPreview: platformPreview,
+                                  )) ...[
+                                if (!platformPreview)
+                                  const SizedBox(height: _kDashboardSectionGap),
                                 _DashboardReveal(
                                   id: 'recent-activity-desktop',
                                   delay: const Duration(milliseconds: 200),
                                   child: _RecentActivityPanel(
                                     authState: authState,
+                                    platformPreview: platformPreview,
                                   ),
                                 ),
                               ],
@@ -692,34 +880,52 @@ class _DashboardView extends StatelessWidget {
                   const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
-                    _DashboardReveal(
-                      id: 'deals-compact',
+                    if (dealsEnabled)
+                      _DashboardReveal(
+                        id: 'deals-compact',
                       delay: const Duration(milliseconds: 220),
-                      child: _DealsDashboardSection(data: data),
+                      child: _DealsDashboardSection(
+                        data: data,
+                        readOnly: platformPreview,
+                      ),
                     ),
-                    const SizedBox(height: _kDashboardSectionGap),
-                    _DashboardReveal(
-                      id: 'tasks-compact',
+                    if (dealsEnabled && tasksEnabled)
+                      const SizedBox(height: _kDashboardSectionGap),
+                    if (tasksEnabled)
+                      _DashboardReveal(
+                        id: 'tasks-compact',
                       delay: const Duration(milliseconds: 260),
-                      child: _TaskBreakdownSection(data: data),
+                      child: _TaskBreakdownSection(
+                        data: data,
+                        readOnly: platformPreview,
+                      ),
                     ),
-                  ] else
+                  ] else if (leadsEnabled)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _DashboardReveal(
-                            id: 'deals-desktop',
+                        if (dealsEnabled)
+                          Expanded(
+                            child: _DashboardReveal(
+                              id: 'deals-desktop',
                             delay: const Duration(milliseconds: 220),
-                            child: _DealsDashboardSection(data: data),
+                            child: _DealsDashboardSection(
+                              data: data,
+                              readOnly: platformPreview,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: _kDashboardSectionGap),
-                        Expanded(
-                          child: _DashboardReveal(
-                            id: 'tasks-desktop',
+                        if (dealsEnabled && tasksEnabled)
+                          const SizedBox(width: _kDashboardSectionGap),
+                        if (tasksEnabled)
+                          Expanded(
+                            child: _DashboardReveal(
+                              id: 'tasks-desktop',
                             delay: const Duration(milliseconds: 260),
-                            child: _TaskBreakdownSection(data: data),
+                            child: _TaskBreakdownSection(
+                              data: data,
+                              readOnly: platformPreview,
+                            ),
                           ),
                         ),
                       ],
@@ -727,7 +933,7 @@ class _DashboardView extends StatelessWidget {
 
                   const SizedBox(height: _kDashboardSectionGap),
 
-                  if (compact) ...[
+                  if (leadsEnabled && compact) ...[
                     _DashboardReveal(
                       id: 'today-followups-compact',
                       delay: const Duration(milliseconds: 300),
@@ -735,6 +941,7 @@ class _DashboardView extends StatelessWidget {
                         title: copy.todaysFollowUps,
                         leads: data.todaysFollowUps,
                         emptyMessage: l.noLeads,
+                        readOnly: platformPreview,
                       ),
                     ),
                     const SizedBox(height: _kDashboardSectionGap),
@@ -745,9 +952,10 @@ class _DashboardView extends StatelessWidget {
                         title: copy.unassignedLeads,
                         leads: data.unassignedLeads,
                         emptyMessage: l.noLeads,
+                        readOnly: platformPreview,
                       ),
                     ),
-                  ] else
+                  ] else if (leadsEnabled)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -759,6 +967,7 @@ class _DashboardView extends StatelessWidget {
                               title: copy.todaysFollowUps,
                               leads: data.todaysFollowUps,
                               emptyMessage: l.noLeads,
+                              readOnly: platformPreview,
                             ),
                           ),
                         ),
@@ -771,6 +980,7 @@ class _DashboardView extends StatelessWidget {
                               title: copy.unassignedLeads,
                               leads: data.unassignedLeads,
                               emptyMessage: l.noLeads,
+                              readOnly: platformPreview,
                             ),
                           ),
                         ),
@@ -779,13 +989,15 @@ class _DashboardView extends StatelessWidget {
 
                   const SizedBox(height: _kDashboardSectionGap),
 
-                  _DashboardReveal(
-                    id: 'recently-updated-leads',
+                  if (leadsEnabled)
+                    _DashboardReveal(
+                      id: 'recently-updated-leads',
                     delay: const Duration(milliseconds: 380),
                     child: _LeadSection(
                       title: copy.recentlyUpdatedLeads,
                       leads: data.recentLeads,
                       emptyMessage: l.noLeads,
+                      readOnly: platformPreview,
                     ),
                   ),
                 ],
@@ -808,9 +1020,13 @@ class _DashboardView extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final role = authState.userProfile?.role ?? authState.user?.role;
     final canCreateLead =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
         role != null && PermissionService.can(role, AppPermission.createLead);
-    final canCreateClient = role == UserRole.admin || role == UserRole.manager;
+    final canCreateClient =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
+        (role == UserRole.admin || role == UserRole.manager);
     final canCreateDeal =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         role != null && PermissionService.can(role, AppPermission.createDeal);
 
     return [
@@ -1155,9 +1371,15 @@ class _HoverLiftPanelState extends State<_HoverLiftPanel> {
 
 
 class _WelcomePanel extends StatelessWidget {
-  const _WelcomePanel({required this.authState});
+  const _WelcomePanel({
+    required this.authState,
+    this.platformPreview = false,
+    this.previewCompanyName,
+  });
 
   final AuthState authState;
+  final bool platformPreview;
+  final String? previewCompanyName;
 
   @override
   Widget build(BuildContext context) {
@@ -1166,7 +1388,10 @@ class _WelcomePanel extends StatelessWidget {
     final name =
         (authState.userProfile?.fullName ?? authState.user?.fullName ?? '')
             .trim();
-    final displayName = name.isEmpty ? l.crmUser : name;
+    final previewName = (previewCompanyName ?? '').trim();
+    final displayName = platformPreview
+        ? (previewName.isEmpty ? l.companyDashboardPreview : previewName)
+        : (name.isEmpty ? l.crmUser : name);
     final now = DateTime.now();
     final date = MaterialLocalizations.of(context).formatFullDate(now);
 
@@ -1199,7 +1424,7 @@ class _WelcomePanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    copy.greeting(now),
+                    platformPreview ? l.companyDashboardPreview : copy.greeting(now),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimaryColor(context),
@@ -1217,7 +1442,7 @@ class _WelcomePanel extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    date,
+                    platformPreview ? l.readOnlyPreview : date,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondaryColor(context),
                     ),
@@ -1322,60 +1547,76 @@ class _WelcomePropertyPainter extends CustomPainter {
 }
 
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({required this.data});
+  const _SummaryGrid({required this.data, required this.authState});
 
   final _DashboardData data;
+  final AuthState authState;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final copy = _DashboardCopy.of(context);
+    final features = authState.companyMetadata;
+    final leadsEnabled = features.isFeatureEnabled(CompanyFeature.leads);
+    final clientsEnabled = features.isFeatureEnabled(CompanyFeature.clients);
+    final propertiesEnabled =
+        features.isFeatureEnabled(CompanyFeature.properties);
+    final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
+    final dealsEnabled = features.isFeatureEnabled(CompanyFeature.deals);
     // Ordered for a clean 4-column by 2-row desktop grid.
     final cards = [
-      _MetricItem(
-        l.totalLeads,
+      if (leadsEnabled)
+        _MetricItem(
+          l.totalLeads,
         data.leads.length,
         AppStatusTone.info,
         Icons.people_alt_outlined,
       ),
-      _MetricItem(
-        l.newLeads,
+      if (leadsEnabled)
+        _MetricItem(
+          l.newLeads,
         data.newLeads.length,
         AppStatusTone.neutral,
         Icons.person_add_alt_outlined,
       ),
-      _MetricItem(
-        copy.upcomingFollowUps,
+      if (tasksEnabled || leadsEnabled)
+        _MetricItem(
+          copy.upcomingFollowUps,
         data.upcomingFollowUps.length,
         AppStatusTone.info,
         Icons.upcoming_outlined,
       ),
-      _MetricItem(
-        copy.overdueFollowUps,
+      if (tasksEnabled || leadsEnabled)
+        _MetricItem(
+          copy.overdueFollowUps,
         data.overdueFollowUps.length,
         AppStatusTone.error,
         Icons.schedule_outlined,
       ),
-      _MetricItem(
-        l.openDeals,
+      if (dealsEnabled)
+        _MetricItem(
+          l.openDeals,
         data.openDeals.length,
         AppStatusTone.warning,
         Icons.handshake_outlined,
       ),
-      _MetricItem(
-        l.wonDeals,
+      if (dealsEnabled)
+        _MetricItem(
+          l.wonDeals,
         data.wonDeals.length,
         AppStatusTone.success,
         Icons.emoji_events_outlined,
       ),
-      _MetricItem(
-        copy.availableProperties,
+      if (propertiesEnabled)
+        _MetricItem(
+          copy.availableProperties,
         data.availableProperties.length,
         AppStatusTone.success,
         Icons.apartment_outlined,
       ),
-      _MetricItem(
-        l.clients,
+      if (clientsEnabled)
+        _MetricItem(
+          l.clients,
         data.clients.length,
         AppStatusTone.neutral,
         Icons.group_outlined,
@@ -1468,14 +1709,21 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _AnalyticsPanel extends StatelessWidget {
-  const _AnalyticsPanel({required this.data});
+  const _AnalyticsPanel({required this.data, required this.authState});
 
   final _DashboardData data;
+  final AuthState authState;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final copy = _DashboardCopy.of(context);
+    final features = authState.companyMetadata;
+    final leadsEnabled = features.isFeatureEnabled(CompanyFeature.leads);
+    final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
+    final propertiesEnabled =
+        features.isFeatureEnabled(CompanyFeature.properties);
+    final dealsEnabled = features.isFeatureEnabled(CompanyFeature.deals);
 
     return _Panel(
       padding: const EdgeInsets.all(12),
@@ -1495,10 +1743,11 @@ class _AnalyticsPanel extends StatelessWidget {
                 spacing: gap,
                 runSpacing: gap,
                 children: [
-                  SizedBox(
-                    width: cardWidth,
-                    child: _DonutChartCard(
-                      title: copy.leadStatusDistribution,
+                  if (leadsEnabled)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DonutChartCard(
+                        title: copy.leadStatusDistribution,
                       segments: [
                         _ChartSegment(
                           l.newLead,
@@ -1523,10 +1772,11 @@ class _AnalyticsPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(
-                    width: cardWidth,
-                    child: _DonutChartCard(
-                      title: copy.tasksDueBreakdown,
+                  if (tasksEnabled)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DonutChartCard(
+                        title: copy.tasksDueBreakdown,
                       segments: [
                         _ChartSegment(
                           l.overdue,
@@ -1551,10 +1801,11 @@ class _AnalyticsPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(
-                    width: cardWidth,
-                    child: _DonutChartCard(
-                      title: copy.propertyStatusDistribution,
+                  if (propertiesEnabled)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DonutChartCard(
+                        title: copy.propertyStatusDistribution,
                       segments: [
                         _ChartSegment(
                           copy.availableProperties,
@@ -1574,10 +1825,11 @@ class _AnalyticsPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(
-                    width: cardWidth,
-                    child: _DonutChartCard(
-                      title: l.dealsByStage,
+                  if (dealsEnabled)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DonutChartCard(
+                        title: l.dealsByStage,
                       segments: [
                         for (final stage in DealStage.values)
                           _ChartSegment(
@@ -1920,11 +2172,13 @@ class _LeadSection extends StatelessWidget {
     required this.title,
     required this.leads,
     required this.emptyMessage,
+    this.readOnly = false,
   });
 
   final String title;
   final List<Lead> leads;
   final String emptyMessage;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1950,8 +2204,9 @@ class _LeadSection extends StatelessWidget {
                             : lead.email,
                         badge: _leadStatusLabel(context, lead.status),
                         tone: _leadStatusTone(lead.status),
-                        onTap: () =>
-                            context.go(RouteNames.leadDetails(lead.id)),
+                        onTap: readOnly
+                            ? null
+                            : () => context.go(RouteNames.leadDetails(lead.id)),
                       ),
                   ],
                 ),
@@ -1964,9 +2219,13 @@ class _LeadSection extends StatelessWidget {
 }
 
 class _DealsDashboardSection extends StatelessWidget {
-  const _DealsDashboardSection({required this.data});
+  const _DealsDashboardSection({
+    required this.data,
+    this.readOnly = false,
+  });
 
   final _DashboardData data;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -2013,7 +2272,9 @@ class _DealsDashboardSection extends StatelessWidget {
                 subtitle: _fallback(deal.propertyTitle, l.notAvailable),
                 badge: dealStageLabel(l, deal.stage),
                 tone: dealStageTone(deal.stage),
-                onTap: () => context.go(RouteNames.dealDetails(deal.id)),
+                onTap: readOnly
+                    ? null
+                    : () => context.go(RouteNames.dealDetails(deal.id)),
               ),
           ],
         ],
@@ -2023,9 +2284,13 @@ class _DealsDashboardSection extends StatelessWidget {
 }
 
 class _TaskBreakdownSection extends StatelessWidget {
-  const _TaskBreakdownSection({required this.data});
+  const _TaskBreakdownSection({
+    required this.data,
+    this.readOnly = false,
+  });
 
   final _DashboardData data;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -2079,7 +2344,7 @@ class _TaskBreakdownSection extends StatelessWidget {
                 subtitle: _taskSubtitle(context, task),
                 badge: _taskDueLabel(context, task),
                 tone: _taskDueTone(task),
-                onTap: () => context.go(RouteNames.tasks),
+                onTap: readOnly ? null : () => context.go(RouteNames.tasks),
               ),
         ],
       ),
@@ -2259,14 +2524,14 @@ class _DashboardListTile extends StatelessWidget {
     required this.subtitle,
     required this.badge,
     required this.tone,
-    required this.onTap,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final String badge;
   final AppStatusTone tone;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2320,11 +2585,14 @@ class _ActionPanel extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final role = authState.userProfile?.role ?? authState.user?.role;
     final canCreateLead =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
         role != null && PermissionService.can(role, AppPermission.createLead);
     final canCreateProperty =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.properties) &&
         role != null &&
         PermissionService.can(role, AppPermission.createProperty);
     final canCreateClient =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
         role != null && PermissionService.can(role, AppPermission.createClient);
 
     return _Panel(
@@ -2759,7 +3027,14 @@ Color _toneColor(BuildContext context, AppStatusTone tone) {
   };
 }
 
-bool _canViewRecentActivity(AuthState authState) {
+bool _canViewRecentActivity(
+  AuthState authState, {
+  bool platformPreview = false,
+}) {
+  if (platformPreview) {
+    return true;
+  }
+
   final role = authState.userProfile?.role ?? authState.user?.role;
   return role == UserRole.admin || role == UserRole.manager;
 }

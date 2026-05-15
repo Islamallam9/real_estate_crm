@@ -932,6 +932,18 @@ abstract class AppLocalizations {
   /// **'Your account is inactive. Please contact an administrator.'**
   String get authErrorInactiveAccount;
 
+  /// No description provided for @authErrorAccountNotLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'This account is not linked to an active company.'**
+  String get authErrorAccountNotLinked;
+
+  /// No description provided for @authErrorCompanyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This company is inactive. Please contact platform support.'**
+  String get authErrorCompanyInactive;
+
   /// No description provided for @logoutTooltip.
   ///
   /// In en, this message translates to:
@@ -2906,6 +2918,366 @@ abstract class AppLocalizations {
   /// **'Viewer'**
   String get viewer;
 
+  /// No description provided for @platformDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform dashboard'**
+  String get platformDashboard;
+
+  /// No description provided for @platformDashboardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage company access, health, settings, and users across the Masar platform.'**
+  String get platformDashboardSubtitle;
+
+  /// No description provided for @platformAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform admin'**
+  String get platformAdmin;
+
+  /// No description provided for @platformOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get platformOverview;
+
+  /// No description provided for @platformCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Companies'**
+  String get platformCompanies;
+
+  /// No description provided for @totalCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Total companies'**
+  String get totalCompanies;
+
+  /// No description provided for @activeCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Active companies'**
+  String get activeCompanies;
+
+  /// No description provided for @inactiveCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive companies'**
+  String get inactiveCompanies;
+
+  /// No description provided for @trialCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial companies'**
+  String get trialCompanies;
+
+  /// No description provided for @recentlyCreatedCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently created'**
+  String get recentlyCreatedCompanies;
+
+  /// No description provided for @searchCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Search companies'**
+  String get searchCompanies;
+
+  /// No description provided for @allCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'All companies'**
+  String get allCompanies;
+
+  /// No description provided for @noCompaniesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No companies found'**
+  String get noCompaniesFound;
+
+  /// No description provided for @noCompaniesFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust the search or status filter.'**
+  String get noCompaniesFoundMessage;
+
+  /// No description provided for @createCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Create company'**
+  String get createCompany;
+
+  /// No description provided for @createCompanySuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Company created successfully.'**
+  String get createCompanySuccess;
+
+  /// No description provided for @addUserSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'User added successfully.'**
+  String get addUserSuccess;
+
+  /// No description provided for @companyName.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name'**
+  String get companyName;
+
+  /// No description provided for @companyDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get companyDisplayName;
+
+  /// No description provided for @companyIdSlug.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID'**
+  String get companyIdSlug;
+
+  /// No description provided for @firstAdminFullName.
+  ///
+  /// In en, this message translates to:
+  /// **'First admin full name'**
+  String get firstAdminFullName;
+
+  /// No description provided for @firstAdminEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'First admin email'**
+  String get firstAdminEmail;
+
+  /// No description provided for @firstAdminPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'First admin phone'**
+  String get firstAdminPhone;
+
+  /// No description provided for @temporaryPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary password'**
+  String get temporaryPassword;
+
+  /// No description provided for @defaultLocale.
+  ///
+  /// In en, this message translates to:
+  /// **'Default locale'**
+  String get defaultLocale;
+
+  /// No description provided for @timezone.
+  ///
+  /// In en, this message translates to:
+  /// **'Timezone'**
+  String get timezone;
+
+  /// No description provided for @companyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Company details'**
+  String get companyDetails;
+
+  /// No description provided for @companySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Company settings'**
+  String get companySettings;
+
+  /// No description provided for @editCompanySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit company settings'**
+  String get editCompanySettings;
+
+  /// No description provided for @saveSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Save settings'**
+  String get saveSettings;
+
+  /// No description provided for @settingsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings saved successfully.'**
+  String get settingsSaved;
+
+  /// No description provided for @companyLimits.
+  ///
+  /// In en, this message translates to:
+  /// **'Company limits'**
+  String get companyLimits;
+
+  /// No description provided for @companyFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Company features'**
+  String get companyFeatures;
+
+  /// No description provided for @featureEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get featureEnabled;
+
+  /// No description provided for @featureDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get featureDisabled;
+
+  /// No description provided for @enableFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable feature'**
+  String get enableFeature;
+
+  /// No description provided for @disableFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable feature'**
+  String get disableFeature;
+
+  /// No description provided for @locale.
+  ///
+  /// In en, this message translates to:
+  /// **'Locale'**
+  String get locale;
+
+  /// No description provided for @userLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'User limit'**
+  String get userLimit;
+
+  /// No description provided for @usersUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Users used'**
+  String get usersUsed;
+
+  /// No description provided for @userLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'User limit reached. Increase the limit before adding more users.'**
+  String get userLimitReached;
+
+  /// No description provided for @storageLimitMb.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage limit (MB)'**
+  String get storageLimitMb;
+
+  /// No description provided for @trial.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial'**
+  String get trial;
+
+  /// No description provided for @auditLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity history'**
+  String get auditLogs;
+
+  /// No description provided for @previewDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview dashboard'**
+  String get previewDashboard;
+
+  /// No description provided for @readOnlyPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only preview'**
+  String get readOnlyPreview;
+
+  /// No description provided for @companyDashboardPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Company dashboard preview'**
+  String get companyDashboardPreview;
+
+  /// No description provided for @platformAccessDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform access denied.'**
+  String get platformAccessDenied;
+
+  /// No description provided for @companyUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Company users'**
+  String get companyUsers;
+
+  /// No description provided for @addUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Add user'**
+  String get addUser;
+
+  /// No description provided for @activateCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate company'**
+  String get activateCompany;
+
+  /// No description provided for @deactivateCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate company'**
+  String get deactivateCompany;
+
+  /// No description provided for @activateUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate user'**
+  String get activateUser;
+
+  /// No description provided for @deactivateUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate user'**
+  String get deactivateUser;
+
+  /// No description provided for @noCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'No companies yet'**
+  String get noCompanies;
+
+  /// No description provided for @noCompaniesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the first trial company when the platform seed is ready.'**
+  String get noCompaniesMessage;
+
+  /// No description provided for @noCompanySelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No company selected'**
+  String get noCompanySelected;
+
+  /// No description provided for @noCompanySelectedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a company to view users and metadata.'**
+  String get noCompanySelectedMessage;
+
+  /// No description provided for @noCompanyUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'No company users yet'**
+  String get noCompanyUsers;
+
+  /// No description provided for @noCompanyUsersMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the first users through the secure Cloud Function.'**
+  String get noCompanyUsersMessage;
+
   /// No description provided for @connectionTimeout.
   ///
   /// In en, this message translates to:
@@ -3163,6 +3535,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get version;
+
+  /// No description provided for @featureUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Feature unavailable'**
+  String get featureUnavailable;
+
+  /// No description provided for @featureUnavailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This feature is disabled for this company. Contact the platform owner to enable it.'**
+  String get featureUnavailableMessage;
+
+  /// No description provided for @moduleDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Module disabled'**
+  String get moduleDisabled;
+
+  /// No description provided for @authRetryCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again in {seconds} seconds.'**
+  String authRetryCountdown(int seconds);
+
+  /// No description provided for @passwordResetEmailSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset email sent. Check your inbox.'**
+  String get passwordResetEmailSent;
+
+  /// No description provided for @passwordResetEmailFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to send password reset email. Please try again.'**
+  String get passwordResetEmailFailed;
 }
 
 class _AppLocalizationsDelegate

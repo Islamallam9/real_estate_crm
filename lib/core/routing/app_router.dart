@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -24,11 +26,15 @@ import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/property_details_page.dart';
 import '../../features/properties/presentation/pages/properties_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/platform/presentation/pages/platform_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/tasks/presentation/pages/create_task_page.dart';
 import '../../features/tasks/presentation/pages/edit_task_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
+import '../permissions/company_feature_gate.dart';
+import '../widgets/app_error_view.dart';
+import '../widgets/crm_app_shell.dart';
 import 'route_names.dart';
 
 abstract final class AppRouter {
@@ -42,6 +48,11 @@ abstract final class AppRouter {
         final isCheckingAuth =
             status == AuthStatus.initial || status == AuthStatus.loading;
         final isLoginRoute = state.matchedLocation == RouteNames.login;
+        final isPlatformRoute = state.matchedLocation.startsWith(
+          RouteNames.platform,
+        );
+        final isFeatureUnavailableRoute =
+            state.matchedLocation == RouteNames.featureUnavailable;
 
         if (isCheckingAuth) {
           return null;
@@ -51,7 +62,35 @@ abstract final class AppRouter {
           return RouteNames.login;
         }
 
+        if (isAuthenticated &&
+            isPlatformRoute &&
+            !authBloc.state.isPlatformAdmin) {
+          return RouteNames.dashboard;
+        }
+
+        if (isAuthenticated &&
+            !isPlatformRoute &&
+            !isFeatureUnavailableRoute &&
+            authBloc.state.userProfile == null &&
+            authBloc.state.isPlatformAdmin) {
+          return RouteNames.platform;
+        }
+
+        if (isAuthenticated &&
+            !isPlatformRoute &&
+            !isFeatureUnavailableRoute) {
+          final feature = companyFeatureForLocation(state.matchedLocation);
+          if (feature != null &&
+              !authBloc.state.companyMetadata.isFeatureEnabled(feature)) {
+            return RouteNames.featureUnavailable;
+          }
+        }
+
         if (isAuthenticated && isLoginRoute) {
+          if (authBloc.state.isPlatformAdmin &&
+              authBloc.state.userProfile == null) {
+            return RouteNames.platform;
+          }
           return RouteNames.dashboard;
         }
 
@@ -97,6 +136,25 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.settings,
           builder: (context, state) => const SettingsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.platform,
+          builder: (context, state) => PlatformPage.withDependencies(),
+        ),
+        GoRoute(
+          path: RouteNames.featureUnavailable,
+          builder: (context, state) => const _FeatureUnavailablePage(),
+        ),
+        GoRoute(
+          path: '/platform/companies/:companyId/dashboard',
+          builder: (context, state) {
+            return DashboardPage(
+              platformPreviewCompanyId:
+                  state.pathParameters['companyId'] ?? '',
+              platformPreviewCompanyName:
+                  state.uri.queryParameters['name'],
+            );
+          },
         ),
         GoRoute(
           path: RouteNames.dealsCreate,
@@ -199,5 +257,24 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
+  }
+}
+
+
+class _FeatureUnavailablePage extends StatelessWidget {
+  const _FeatureUnavailablePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return CrmAppShell(
+      selectedItem: CrmNavigationItem.dashboard,
+      title: l.featureUnavailable,
+      child: AppErrorView(
+        title: l.featureUnavailable,
+        message: l.featureUnavailableMessage,
+        onRetry: () => context.go(RouteNames.dashboard),
+      ),
+    );
   }
 }

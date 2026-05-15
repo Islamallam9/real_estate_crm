@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/crm_task.dart';
 import '../../domain/entities/task_related_record_option.dart';
@@ -619,11 +620,13 @@ class _TaskAssigneeOption {
 }
 
 List<_TaskAssigneeOption> _taskAssigneeOptions(List<UserProfile> users) {
-  final sortedUsers = [...users]
-    ..sort((a, b) => a.fullName.compareTo(b.fullName));
+  final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
+    AssignableWorkType.task,
+    users,
+  );
   return [
     const _TaskAssigneeOption.unassigned(),
-    for (final user in sortedUsers) _TaskAssigneeOption.value(user.uid),
+    for (final user in assignableUsers) _TaskAssigneeOption.value(user.uid),
   ];
 }
 

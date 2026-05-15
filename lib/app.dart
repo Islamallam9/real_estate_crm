@@ -12,13 +12,17 @@ import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/auth_state_changes_usecase.dart';
 import 'features/auth/domain/usecases/get_current_user_usecase.dart';
+import 'features/auth/domain/usecases/send_password_reset_email_usecase.dart';
 import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/users/data/datasources/user_profile_remote_data_source.dart';
+import 'features/users/data/datasources/company_resolver_remote_data_source.dart';
 import 'features/users/data/repositories/user_profile_repository_impl.dart';
+import 'features/users/data/repositories/company_resolver_repository_impl.dart';
 import 'features/users/domain/usecases/get_current_user_profile_usecase.dart';
+import 'features/users/domain/usecases/resolve_auth_company_usecase.dart';
 import 'l10n/app_localizations.dart';
 
 class RealEstateCrmApp extends StatefulWidget {
@@ -48,14 +52,25 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
     final userProfileRepository = UserProfileRepositoryImpl(
       remoteDataSource: userProfileRemoteDataSource,
     );
+    final companyResolverRemoteDataSource =
+        FirestoreCompanyResolverRemoteDataSource();
+    final companyResolverRepository = CompanyResolverRepositoryImpl(
+      remoteDataSource: companyResolverRemoteDataSource,
+    );
 
     _authBloc = AuthBloc(
       signInUseCase: SignInUseCase(authRepository),
       signOutUseCase: SignOutUseCase(authRepository),
+      sendPasswordResetEmailUseCase: SendPasswordResetEmailUseCase(
+        authRepository,
+      ),
       getCurrentUserUseCase: GetCurrentUserUseCase(authRepository),
       authStateChangesUseCase: AuthStateChangesUseCase(authRepository),
       getCurrentUserProfileUseCase: GetCurrentUserProfileUseCase(
         userProfileRepository,
+      ),
+      resolveAuthCompanyUseCase: ResolveAuthCompanyUseCase(
+        companyResolverRepository,
       ),
     )..add(const AuthStarted());
 

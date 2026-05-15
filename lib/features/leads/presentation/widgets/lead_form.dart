@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/lead.dart';
 
@@ -226,7 +227,13 @@ class _LeadFormState extends State<LeadForm> {
                 label: l.assignedToLabel,
                 value: _assignedTo,
                 enabled: !widget.isSaving,
-                items: ['', ...widget.assignmentUsers.map((user) => user.uid)],
+                items: [
+                  '',
+                  ...AssignmentUserPolicy.assignableUsersFor(
+                    AssignableWorkType.lead,
+                    widget.assignmentUsers,
+                  ).map((user) => user.uid),
+                ],
                 itemLabelBuilder: (uid) => _assigneeLabel(l, uid),
                 onChanged: (uid) {
                   setState(() {
@@ -299,7 +306,13 @@ class _LeadFormState extends State<LeadForm> {
       return l.unassigned;
     }
     final name = _assigneeNameForUid(uid);
-    return name.isEmpty ? l.assignedUserUnavailable : name;
+    if (name.isNotEmpty) {
+      return name;
+    }
+    if (uid == widget.lead?.assignedTo && _assignedToName.isNotEmpty) {
+      return _assignedToName;
+    }
+    return l.assignedUserUnavailable;
   }
 
   String _readonlyAssigneeLabel(AppLocalizations l) {

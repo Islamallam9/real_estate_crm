@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../users/domain/entities/company_metadata.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/errors/auth_exception.dart';
@@ -13,6 +14,10 @@ class AuthState extends Equatable {
     this.userProfile,
     this.message,
     this.errorCode,
+    this.isPlatformAdmin = false,
+    this.companyMetadata,
+    this.lockoutSecondsRemaining = 0,
+    this.passwordResetSent = false,
   });
 
   const AuthState.initial()
@@ -20,13 +25,21 @@ class AuthState extends Equatable {
       user = null,
       userProfile = null,
       message = null,
-      errorCode = null;
+      errorCode = null,
+      isPlatformAdmin = false,
+      companyMetadata = null,
+      lockoutSecondsRemaining = 0,
+      passwordResetSent = false;
 
   final AuthStatus status;
   final AppUser? user;
   final UserProfile? userProfile;
   final String? message;
   final AuthErrorCode? errorCode;
+  final bool isPlatformAdmin;
+  final CompanyMetadata? companyMetadata;
+  final int lockoutSecondsRemaining;
+  final bool passwordResetSent;
 
   AuthState copyWith({
     AuthStatus? status,
@@ -34,8 +47,13 @@ class AuthState extends Equatable {
     UserProfile? userProfile,
     String? message,
     AuthErrorCode? errorCode,
+    bool? isPlatformAdmin,
+    CompanyMetadata? companyMetadata,
+    int? lockoutSecondsRemaining,
+    bool? passwordResetSent,
     bool clearUser = false,
     bool clearUserProfile = false,
+    bool clearCompanyMetadata = false,
     bool clearMessage = false,
     bool clearErrorCode = false,
   }) {
@@ -45,9 +63,26 @@ class AuthState extends Equatable {
       userProfile: clearUserProfile ? null : userProfile ?? this.userProfile,
       message: clearMessage ? null : message ?? this.message,
       errorCode: clearErrorCode ? null : errorCode ?? this.errorCode,
+      isPlatformAdmin: isPlatformAdmin ?? this.isPlatformAdmin,
+      companyMetadata: clearCompanyMetadata
+          ? null
+          : companyMetadata ?? this.companyMetadata,
+      lockoutSecondsRemaining:
+          lockoutSecondsRemaining ?? this.lockoutSecondsRemaining,
+      passwordResetSent: passwordResetSent ?? this.passwordResetSent,
     );
   }
 
   @override
-  List<Object?> get props => [status, user, userProfile, message, errorCode];
+  List<Object?> get props => [
+    status,
+    user,
+    userProfile,
+    message,
+    errorCode,
+    isPlatformAdmin,
+    companyMetadata,
+    lockoutSecondsRemaining,
+    passwordResetSent,
+  ];
 }

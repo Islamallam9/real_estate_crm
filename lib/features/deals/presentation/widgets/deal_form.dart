@@ -10,6 +10,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../clients/domain/entities/client.dart';
 import '../../../leads/domain/entities/lead.dart';
 import '../../../properties/domain/entities/property.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../domain/entities/deal.dart';
 import 'deal_card.dart';
@@ -492,13 +493,18 @@ class _UserPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
+      AssignableWorkType.deal,
+      users,
+    );
     final options = [
       const _Selection.placeholder(),
-      for (final user in users) _Selection.value(user.uid, user.fullName, user.email),
+      for (final user in assignableUsers)
+        _Selection.value(user.uid, user.fullName, user.email),
     ];
     return AppDropdown<_Selection>(
       label: l.assignedAgent,
-      value: _selectionFor(selectedId, options),
+      value: _userSelectionFor(selectedId, options, users),
       items: options,
       itemLabelBuilder: (option) => option.isPlaceholder
           ? l.selectAssignedAgent
@@ -591,6 +597,34 @@ Property? _propertyFor(String id, List<Property> properties) {
 }
 
 UserProfile? _userFor(String id, List<UserProfile> users) {
+  for (final user in users) {
+    if (user.uid == id &&
+        AssignmentUserPolicy.canOwn(AssignableWorkType.deal, user)) {
+      return user;
+    }
+  }
+  return null;
+}
+
+_Selection _userSelectionFor(
+  String selectedId,
+  List<_Selection> options,
+  List<UserProfile> users,
+) {
+  final selected = _selectionFor(selectedId, options);
+  if (!selected.isPlaceholder || selectedId.trim().isEmpty) {
+    return selected;
+  }
+
+  final user = _rawUserFor(selectedId, users);
+  if (user == null) {
+    return const _Selection.placeholder();
+  }
+
+  return _Selection.value(user.uid, user.fullName, user.email);
+}
+
+UserProfile? _rawUserFor(String id, List<UserProfile> users) {
   for (final user in users) {
     if (user.uid == id) {
       return user;

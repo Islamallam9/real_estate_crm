@@ -12,6 +12,9 @@ enum AuthErrorCode {
   signOutFailed,
   profileMissing,
   inactiveAccount,
+  accountNotLinked,
+  companyInactive,
+  tooManyAttempts,
   unknown,
 }
 
@@ -23,4 +26,15 @@ abstract final class AuthErrorMessages {
   static const profileMissing = 'Unable to load your user profile.';
   static const inactiveAccount =
       'Your account is inactive. Please contact an administrator.';
+  static const accountNotLinked =
+      'This account is not linked to an active company.';
+  static const companyInactive =
+      'This company is inactive. Please contact platform support.';
+  static const tooManyAttempts =
+      'Too many failed sign-in attempts. Please wait before trying again.';
+}
+
+abstract final class AuthSuccessMessages {
+  static const passwordResetSent =
+      'Password reset email sent. Check your inbox.';
 }

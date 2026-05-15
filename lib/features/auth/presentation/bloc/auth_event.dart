@@ -23,6 +23,19 @@ final class AuthSignInRequested extends AuthEvent {
   List<Object?> get props => [email, password];
 }
 
+final class AuthPasswordResetRequested extends AuthEvent {
+  const AuthPasswordResetRequested({required this.email});
+
+  final String email;
+
+  @override
+  List<Object?> get props => [email];
+}
+
+final class AuthLockoutTicked extends AuthEvent {
+  const AuthLockoutTicked();
+}
+
 final class AuthSignOutRequested extends AuthEvent {
   const AuthSignOutRequested();
 }

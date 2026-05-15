@@ -38,6 +38,7 @@ class _LoginFormState extends State<LoginForm> {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final isLoading = state.status == AuthStatus.loading;
+        final isLocked = state.lockoutSecondsRemaining > 0;
 
         return Form(
           key: _formKey,
@@ -67,13 +68,7 @@ class _LoginFormState extends State<LoginForm> {
                   return null;
                 },
               ),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton(
-                  onPressed: isLoading ? null : () {},
-                  child: Text(localizations.forgotPassword),
-                ),
-              ),
+              const SizedBox(height: AppSpacing.md),
               if (state.status == AuthStatus.failure && state.message != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -82,14 +77,19 @@ class _LoginFormState extends State<LoginForm> {
                       localizations,
                       state.errorCode,
                       state.message,
+                      state.lockoutSecondsRemaining,
                     ),
                   ),
                 ),
               AppButton(
                 label: isLoading
                     ? localizations.signingIn
-                    : localizations.signIn,
-                onPressed: isLoading ? null : () => _submit(context),
+                    : isLocked
+                        ? localizations.authRetryCountdown(
+                            state.lockoutSecondsRemaining,
+                          )
+                        : localizations.signIn,
+                onPressed: isLoading || isLocked ? null : () => _submit(context),
                 isLoading: isLoading,
               ),
             ],
@@ -125,15 +125,20 @@ class _LoginFormState extends State<LoginForm> {
       ),
     );
   }
+
 }
 
 String _localizedAuthError(
   AppLocalizations localizations,
   AuthErrorCode? code,
   String? fallback,
+  int lockoutSecondsRemaining,
 ) {
   switch (code) {
     case AuthErrorCode.invalidCredentials:
+      if (lockoutSecondsRemaining > 0) {
+        return '${localizations.authErrorInvalidCredentials} ${localizations.authRetryCountdown(lockoutSecondsRemaining)}';
+      }
       return localizations.authErrorInvalidCredentials;
     case AuthErrorCode.connection:
       return localizations.authErrorConnection;
@@ -145,12 +150,58 @@ String _localizedAuthError(
       return localizations.authErrorProfileMissing;
     case AuthErrorCode.inactiveAccount:
       return localizations.authErrorInactiveAccount;
+    case AuthErrorCode.accountNotLinked:
+      return localizations.authErrorAccountNotLinked;
+    case AuthErrorCode.companyInactive:
+      return localizations.authErrorCompanyInactive;
+    case AuthErrorCode.tooManyAttempts:
+      return localizations.authRetryCountdown(lockoutSecondsRemaining);
     case AuthErrorCode.unknown:
     case null:
       return localizeErrorMessage(
         localizations,
         fallback ?? localizations.authErrorSignInFailed,
       );
+  }
+}
+
+
+class _LoginInfoMessage extends StatelessWidget {
+  const _LoginInfoMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.successColor(context).withValues(alpha: 0.08),
+        border: Border.all(
+          color: AppColors.successColor(context).withValues(alpha: 0.32),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            color: AppColors.successColor(context),
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.successColor(context),
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

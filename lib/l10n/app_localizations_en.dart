@@ -443,6 +443,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your account is inactive. Please contact an administrator.';
 
   @override
+  String get authErrorAccountNotLinked =>
+      'This account is not linked to an active company.';
+
+  @override
+  String get authErrorCompanyInactive =>
+      'This company is inactive. Please contact platform support.';
+
+  @override
   String get logoutTooltip => 'Logout';
 
   @override
@@ -1482,6 +1490,191 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewer => 'Viewer';
 
   @override
+  String get platformDashboard => 'Platform dashboard';
+
+  @override
+  String get platformDashboardSubtitle =>
+      'Manage company access, health, settings, and users across the Masar platform.';
+
+  @override
+  String get platformAdmin => 'Platform admin';
+
+  @override
+  String get platformOverview => 'Overview';
+
+  @override
+  String get platformCompanies => 'Companies';
+
+  @override
+  String get totalCompanies => 'Total companies';
+
+  @override
+  String get activeCompanies => 'Active companies';
+
+  @override
+  String get inactiveCompanies => 'Inactive companies';
+
+  @override
+  String get trialCompanies => 'Trial companies';
+
+  @override
+  String get recentlyCreatedCompanies => 'Recently created';
+
+  @override
+  String get searchCompanies => 'Search companies';
+
+  @override
+  String get allCompanies => 'All companies';
+
+  @override
+  String get noCompaniesFound => 'No companies found';
+
+  @override
+  String get noCompaniesFoundMessage => 'Adjust the search or status filter.';
+
+  @override
+  String get createCompany => 'Create company';
+
+  @override
+  String get createCompanySuccess => 'Company created successfully.';
+
+  @override
+  String get addUserSuccess => 'User added successfully.';
+
+  @override
+  String get companyName => 'Company name';
+
+  @override
+  String get companyDisplayName => 'Display name';
+
+  @override
+  String get companyIdSlug => 'Company ID';
+
+  @override
+  String get firstAdminFullName => 'First admin full name';
+
+  @override
+  String get firstAdminEmail => 'First admin email';
+
+  @override
+  String get firstAdminPhone => 'First admin phone';
+
+  @override
+  String get temporaryPassword => 'Temporary password';
+
+  @override
+  String get defaultLocale => 'Default locale';
+
+  @override
+  String get timezone => 'Timezone';
+
+  @override
+  String get companyDetails => 'Company details';
+
+  @override
+  String get companySettings => 'Company settings';
+
+  @override
+  String get editCompanySettings => 'Edit company settings';
+
+  @override
+  String get saveSettings => 'Save settings';
+
+  @override
+  String get settingsSaved => 'Settings saved successfully.';
+
+  @override
+  String get companyLimits => 'Company limits';
+
+  @override
+  String get companyFeatures => 'Company features';
+
+  @override
+  String get featureEnabled => 'Enabled';
+
+  @override
+  String get featureDisabled => 'Disabled';
+
+  @override
+  String get enableFeature => 'Enable feature';
+
+  @override
+  String get disableFeature => 'Disable feature';
+
+  @override
+  String get locale => 'Locale';
+
+  @override
+  String get userLimit => 'User limit';
+
+  @override
+  String get usersUsed => 'Users used';
+
+  @override
+  String get userLimitReached =>
+      'User limit reached. Increase the limit before adding more users.';
+
+  @override
+  String get storageLimitMb => 'Storage limit (MB)';
+
+  @override
+  String get trial => 'Trial';
+
+  @override
+  String get auditLogs => 'Activity history';
+
+  @override
+  String get previewDashboard => 'Preview dashboard';
+
+  @override
+  String get readOnlyPreview => 'Read-only preview';
+
+  @override
+  String get companyDashboardPreview => 'Company dashboard preview';
+
+  @override
+  String get platformAccessDenied => 'Platform access denied.';
+
+  @override
+  String get companyUsers => 'Company users';
+
+  @override
+  String get addUser => 'Add user';
+
+  @override
+  String get activateCompany => 'Activate company';
+
+  @override
+  String get deactivateCompany => 'Deactivate company';
+
+  @override
+  String get activateUser => 'Activate user';
+
+  @override
+  String get deactivateUser => 'Deactivate user';
+
+  @override
+  String get noCompanies => 'No companies yet';
+
+  @override
+  String get noCompaniesMessage =>
+      'Create the first trial company when the platform seed is ready.';
+
+  @override
+  String get noCompanySelected => 'No company selected';
+
+  @override
+  String get noCompanySelectedMessage =>
+      'Select a company to view users and metadata.';
+
+  @override
+  String get noCompanyUsers => 'No company users yet';
+
+  @override
+  String get noCompanyUsersMessage =>
+      'Add the first users through the secure Cloud Function.';
+
+  @override
   String get connectionTimeout =>
       'Unable to load data. Check your connection and try again.';
 
@@ -1611,4 +1804,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get version => 'Version';
+
+  @override
+  String get featureUnavailable => 'Feature unavailable';
+
+  @override
+  String get featureUnavailableMessage =>
+      'This feature is disabled for this company. Contact the platform owner to enable it.';
+
+  @override
+  String get moduleDisabled => 'Module disabled';
+
+  @override
+  String authRetryCountdown(int seconds) {
+    return 'Try again in $seconds seconds.';
+  }
+
+  @override
+  String get passwordResetEmailSent =>
+      'Password reset email sent. Check your inbox.';
+
+  @override
+  String get passwordResetEmailFailed =>
+      'Unable to send password reset email. Please try again.';
 }

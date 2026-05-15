@@ -444,6 +444,13 @@ class AppLocalizationsAr extends AppLocalizations {
       'حسابك غير مفعل. يرجى التواصل مع مسؤول النظام.';
 
   @override
+  String get authErrorAccountNotLinked => 'هذا الحساب غير مرتبط بشركة نشطة.';
+
+  @override
+  String get authErrorCompanyInactive =>
+      'هذه الشركة غير نشطة. يرجى التواصل مع دعم المنصة.';
+
+  @override
   String get logoutTooltip => 'تسجيل الخروج';
 
   @override
@@ -1479,6 +1486,191 @@ class AppLocalizationsAr extends AppLocalizations {
   String get viewer => 'مشاهد';
 
   @override
+  String get platformDashboard => 'لوحة إدارة المنصة';
+
+  @override
+  String get platformDashboardSubtitle =>
+      'إدارة وصول الشركات وحالتها وإعداداتها ومستخدميها عبر منصة مسار.';
+
+  @override
+  String get platformAdmin => 'مسؤول المنصة';
+
+  @override
+  String get platformOverview => 'نظرة عامة';
+
+  @override
+  String get platformCompanies => 'الشركات';
+
+  @override
+  String get totalCompanies => 'إجمالي الشركات';
+
+  @override
+  String get activeCompanies => 'الشركات النشطة';
+
+  @override
+  String get inactiveCompanies => 'الشركات غير النشطة';
+
+  @override
+  String get trialCompanies => 'الشركات التجريبية';
+
+  @override
+  String get recentlyCreatedCompanies => 'أُنشئت حديثاً';
+
+  @override
+  String get searchCompanies => 'البحث في الشركات';
+
+  @override
+  String get allCompanies => 'كل الشركات';
+
+  @override
+  String get noCompaniesFound => 'لم يتم العثور على شركات';
+
+  @override
+  String get noCompaniesFoundMessage => 'عدّل البحث أو فلتر الحالة.';
+
+  @override
+  String get createCompany => 'إنشاء شركة';
+
+  @override
+  String get createCompanySuccess => 'تم إنشاء الشركة بنجاح.';
+
+  @override
+  String get addUserSuccess => 'تمت إضافة المستخدم بنجاح.';
+
+  @override
+  String get companyName => 'اسم الشركة';
+
+  @override
+  String get companyDisplayName => 'الاسم المعروض';
+
+  @override
+  String get companyIdSlug => 'معرف الشركة';
+
+  @override
+  String get firstAdminFullName => 'اسم أول مسؤول';
+
+  @override
+  String get firstAdminEmail => 'بريد أول مسؤول';
+
+  @override
+  String get firstAdminPhone => 'هاتف أول مسؤول';
+
+  @override
+  String get temporaryPassword => 'كلمة مرور مؤقتة';
+
+  @override
+  String get defaultLocale => 'اللغة الافتراضية';
+
+  @override
+  String get timezone => 'المنطقة الزمنية';
+
+  @override
+  String get companyDetails => 'تفاصيل الشركة';
+
+  @override
+  String get companySettings => 'إعدادات الشركة';
+
+  @override
+  String get editCompanySettings => 'تعديل إعدادات الشركة';
+
+  @override
+  String get saveSettings => 'حفظ الإعدادات';
+
+  @override
+  String get settingsSaved => 'تم حفظ الإعدادات بنجاح.';
+
+  @override
+  String get companyLimits => 'حدود الشركة';
+
+  @override
+  String get companyFeatures => 'ميزات الشركة';
+
+  @override
+  String get featureEnabled => 'مفعّلة';
+
+  @override
+  String get featureDisabled => 'معطّلة';
+
+  @override
+  String get enableFeature => 'تفعيل الميزة';
+
+  @override
+  String get disableFeature => 'تعطيل الميزة';
+
+  @override
+  String get locale => 'اللغة';
+
+  @override
+  String get userLimit => 'حد المستخدمين';
+
+  @override
+  String get usersUsed => 'المستخدمون الحاليون';
+
+  @override
+  String get userLimitReached =>
+      'تم الوصول إلى حد المستخدمين. ارفع الحد قبل إضافة مستخدمين آخرين.';
+
+  @override
+  String get storageLimitMb => 'حد التخزين (MB)';
+
+  @override
+  String get trial => 'تجريبية';
+
+  @override
+  String get auditLogs => 'سجل النشاط';
+
+  @override
+  String get previewDashboard => 'معاينة لوحة الشركة';
+
+  @override
+  String get readOnlyPreview => 'معاينة فقط';
+
+  @override
+  String get companyDashboardPreview => 'معاينة لوحة الشركة';
+
+  @override
+  String get platformAccessDenied => 'تم رفض الوصول إلى المنصة.';
+
+  @override
+  String get companyUsers => 'مستخدمو الشركة';
+
+  @override
+  String get addUser => 'إضافة مستخدم';
+
+  @override
+  String get activateCompany => 'تفعيل الشركة';
+
+  @override
+  String get deactivateCompany => 'تعطيل الشركة';
+
+  @override
+  String get activateUser => 'تفعيل المستخدم';
+
+  @override
+  String get deactivateUser => 'تعطيل المستخدم';
+
+  @override
+  String get noCompanies => 'لا توجد شركات بعد';
+
+  @override
+  String get noCompaniesMessage =>
+      'أنشئ أول شركة تجريبية بعد تجهيز بيانات التهيئة.';
+
+  @override
+  String get noCompanySelected => 'لم يتم تحديد شركة';
+
+  @override
+  String get noCompanySelectedMessage =>
+      'اختر شركة لعرض المستخدمين والبيانات الأساسية.';
+
+  @override
+  String get noCompanyUsers => 'لا يوجد مستخدمون للشركة بعد';
+
+  @override
+  String get noCompanyUsersMessage =>
+      'أضف أول المستخدمين من خلال دالة Cloud Function الآمنة.';
+
+  @override
   String get connectionTimeout =>
       'تعذر تحميل البيانات. تحقق من الاتصال وحاول مرة أخرى.';
 
@@ -1608,4 +1800,27 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get version => 'الإصدار';
+
+  @override
+  String get featureUnavailable => 'الميزة غير متاحة';
+
+  @override
+  String get featureUnavailableMessage =>
+      'تم تعطيل هذه الميزة لهذه الشركة. تواصل مع مالك المنصة لتفعيلها.';
+
+  @override
+  String get moduleDisabled => 'القسم معطل';
+
+  @override
+  String authRetryCountdown(int seconds) {
+    return 'حاول مرة أخرى بعد $seconds ثانية.';
+  }
+
+  @override
+  String get passwordResetEmailSent =>
+      'تم إرسال رابط إعادة تعيين كلمة المرور. تحقق من بريدك الإلكتروني.';
+
+  @override
+  String get passwordResetEmailFailed =>
+      'تعذر إرسال رابط إعادة تعيين كلمة المرور. حاول مرة أخرى.';
 }

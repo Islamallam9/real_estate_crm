@@ -34,7 +34,13 @@ class _LoginView extends StatelessWidget {
         return previous.status != current.status &&
             current.status == AuthStatus.authenticated;
       },
-      listener: (context, state) => context.go(RouteNames.dashboard),
+      listener: (context, state) {
+        if (state.isPlatformAdmin && state.userProfile == null) {
+          context.go(RouteNames.platform);
+          return;
+        }
+        context.go(RouteNames.dashboard);
+      },
       child: Scaffold(
         backgroundColor: AppColors.appBackground(context),
         body: SafeArea(

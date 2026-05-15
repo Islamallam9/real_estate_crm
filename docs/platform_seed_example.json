@@ -1,0 +1,73 @@
+{
+  "platformAdmin": {
+    "path": "platform_admins/{superAdminUid}",
+    "data": {
+      "uid": "{superAdminUid}",
+      "email": "super.admin@example.com",
+      "fullName": "Platform Super Admin",
+      "isActive": true,
+      "createdAt": "{serverTimestamp}",
+      "updatedAt": "{serverTimestamp}"
+    }
+  },
+  "companies": {
+    "path": "companies/demo_company",
+    "data": {
+      "id": "demo_company",
+      "name": "Demo Company",
+      "displayName": "Demo Company",
+      "status": "active",
+      "isActive": true,
+      "createdAt": "{existingOrServerTimestamp}",
+      "createdBy": "{superAdminUid}",
+      "updatedAt": "{serverTimestamp}",
+      "updatedBy": "{superAdminUid}",
+      "settings": {
+        "locale": "en",
+        "timezone": "Africa/Cairo"
+      },
+      "limits": {
+        "users": 25,
+        "storageMb": 1024
+      },
+      "features": {
+        "leads": true,
+        "clients": true,
+        "properties": true,
+        "tasks": true,
+        "deals": true,
+        "reports": true,
+        "auditLogs": true,
+        "notifications": false
+      }
+    }
+  },
+  "users": {
+    "path": "users/{existingUid}",
+    "data": {
+      "uid": "{existingUid}",
+      "email": "existing.user@example.com",
+      "fullName": "Existing CRM User",
+      "phone": "",
+      "isActive": true,
+      "createdAt": "{existingOrServerTimestamp}",
+      "updatedAt": "{serverTimestamp}"
+    }
+  },
+  "memberships": {
+    "path": "users/{existingUid}/memberships/demo_company",
+    "data": {
+      "companyId": "demo_company",
+      "companyName": "Demo Company",
+      "role": "admin",
+      "isActive": true,
+      "status": "active",
+      "createdAt": "{serverTimestamp}",
+      "updatedAt": "{serverTimestamp}"
+    }
+  },
+  "companyUsers": {
+    "path": "companies/demo_company/users/{existingUid}",
+    "note": "Keep the existing document. Ensure uid, companyId, role, fullName, email, phone, isActive, createdAt, createdBy, updatedAt, and updatedBy remain present."
+  }
+}

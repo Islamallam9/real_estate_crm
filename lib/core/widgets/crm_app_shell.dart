@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/users/domain/entities/company_metadata.dart';
 import '../localization/locale_cubit.dart';
+import '../permissions/company_feature_gate.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_shadows.dart';
@@ -109,6 +111,11 @@ class CrmAppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final companyMetadata = context.select(
+      (AuthBloc bloc) => bloc.state.companyMetadata,
+    );
+    final desktopItems = _items;
+    final mobileItems = _mobileItems;
     final effectiveOnItemSelected =
         onItemSelected ?? (item) => _goToItem(context, item);
 
@@ -117,21 +124,22 @@ class CrmAppShell extends StatelessWidget {
         mobile: _MobileShell(
           selectedItem: selectedItem,
           title: title,
-          items: _mobileItems,
+          items: mobileItems,
+          companyMetadata: companyMetadata,
           onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
         tablet: _DesktopShell(
           selectedItem: selectedItem,
           title: title,
-          items: _items,
+          items: desktopItems,
           onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
         desktop: _DesktopShell(
           selectedItem: selectedItem,
           title: title,
-          items: _items,
+          items: desktopItems,
           onItemSelected: effectiveOnItemSelected,
           child: child,
         ),
@@ -140,7 +148,41 @@ class CrmAppShell extends StatelessWidget {
   }
 }
 
+
+bool _isNavigationItemEnabled(
+  CompanyMetadata? companyMetadata,
+  CrmNavigationItem item,
+) {
+  final feature = _featureForNavigationItem(item);
+  if (feature == null) {
+    return true;
+  }
+  return companyMetadata.isFeatureEnabled(feature);
+}
+
+CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
+  return switch (item) {
+    CrmNavigationItem.dashboard => null,
+    CrmNavigationItem.leads => CompanyFeature.leads,
+    CrmNavigationItem.properties => CompanyFeature.properties,
+    CrmNavigationItem.clients => CompanyFeature.clients,
+    CrmNavigationItem.tasks => CompanyFeature.tasks,
+    CrmNavigationItem.deals => CompanyFeature.deals,
+    CrmNavigationItem.reports => CompanyFeature.reports,
+    CrmNavigationItem.more => null,
+  };
+}
+
 void _goToItem(BuildContext context, CrmNavigationItem item) {
+  final authState = context.read<AuthBloc>().state;
+  if (!_isNavigationItemEnabled(authState.companyMetadata, item)) {
+    AppFeedback.error(
+      context,
+      AppLocalizations.of(context)!.featureUnavailableMessage,
+    );
+    return;
+  }
+
   switch (item) {
     case CrmNavigationItem.dashboard:
       context.go(RouteNames.dashboard);
@@ -348,6 +390,7 @@ class _MobileShell extends StatelessWidget {
   const _MobileShell({
     required this.selectedItem,
     required this.items,
+    required this.companyMetadata,
     required this.child,
     this.title,
     this.onItemSelected,
@@ -355,6 +398,7 @@ class _MobileShell extends StatelessWidget {
 
   final CrmNavigationItem selectedItem;
   final List<_CrmShellItem> items;
+  final CompanyMetadata? companyMetadata;
   final Widget child;
   final String? title;
   final ValueChanged<CrmNavigationItem>? onItemSelected;
@@ -404,6 +448,7 @@ class _MobileShell extends StatelessWidget {
       bottomNavigationBar: _MobileBottomNavigation(
         selectedItem: selectedItem,
         items: items,
+        companyMetadata: companyMetadata,
         onItemSelected: (item) {
           if (item == CrmNavigationItem.more) {
             _showMobileMoreSheet(context);
@@ -500,11 +545,13 @@ class _MobileBottomNavigation extends StatelessWidget {
   const _MobileBottomNavigation({
     required this.selectedItem,
     required this.items,
+    required this.companyMetadata,
     required this.onItemSelected,
   });
 
   final CrmNavigationItem selectedItem;
   final List<_CrmShellItem> items;
+  final CompanyMetadata? companyMetadata;
   final ValueChanged<CrmNavigationItem> onItemSelected;
 
   @override
@@ -540,6 +587,10 @@ class _MobileBottomNavigation extends StatelessWidget {
                     child: _MobileNavItemButton(
                       item: item,
                       selected: _isMobileItemSelected(item.item),
+                      enabled: _isNavigationItemEnabled(
+                        companyMetadata,
+                        item.item,
+                      ),
                       onTap: () => onItemSelected(item.item),
                     ),
                   ),
@@ -566,24 +617,31 @@ class _MobileNavItemButton extends StatelessWidget {
   const _MobileNavItemButton({
     required this.item,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
   final _CrmShellItem item;
   final bool selected;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colors = _CrmShellColors.of(context);
-    final color = selected ? colors.primary : colors.textSecondary;
+    final color = !enabled
+        ? colors.textSecondary.withValues(alpha: 0.45)
+        : selected
+            ? colors.primary
+            : colors.textSecondary;
 
     return Semantics(
       button: true,
       selected: selected,
+      enabled: enabled,
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -604,7 +662,9 @@ class _MobileNavItemButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  selected ? item.selectedIcon : item.icon,
+                  enabled
+                      ? (selected ? item.selectedIcon : item.icon)
+                      : Icons.lock_outline,
                   size: 21,
                   color: color,
                 ),
@@ -632,6 +692,7 @@ void _showMobileMoreSheet(BuildContext context) {
   final authBloc = context.read<AuthBloc>();
   final localeCubit = context.read<LocaleCubit>();
   final themeCubit = context.read<ThemeCubit>();
+  final companyMetadata = context.read<AuthBloc>().state.companyMetadata;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -676,6 +737,8 @@ void _showMobileMoreSheet(BuildContext context) {
                 _MoreSheetTile(
                   icon: Icons.checklist_outlined,
                   label: localizations.tasks,
+                  enabled: companyMetadata.isFeatureEnabled(CompanyFeature.tasks),
+                  disabledSubtitle: localizations.moduleDisabled,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     context.go(RouteNames.tasks);
@@ -684,6 +747,8 @@ void _showMobileMoreSheet(BuildContext context) {
                 _MoreSheetTile(
                   icon: Icons.handshake_outlined,
                   label: localizations.deals,
+                  enabled: companyMetadata.isFeatureEnabled(CompanyFeature.deals),
+                  disabledSubtitle: localizations.moduleDisabled,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     context.go(RouteNames.deals);
@@ -692,6 +757,8 @@ void _showMobileMoreSheet(BuildContext context) {
                 _MoreSheetTile(
                   icon: Icons.bar_chart_outlined,
                   label: localizations.reports,
+                  enabled: companyMetadata.isFeatureEnabled(CompanyFeature.reports),
+                  disabledSubtitle: localizations.moduleDisabled,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     context.go(RouteNames.reports);
@@ -727,6 +794,8 @@ class _MoreSheetTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.subtitle,
+    this.disabledSubtitle,
+    this.enabled = true,
     this.isDestructive = false,
   });
 
@@ -734,30 +803,38 @@ class _MoreSheetTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final String? subtitle;
+  final String? disabledSubtitle;
+  final bool enabled;
   final bool isDestructive;
 
   @override
   Widget build(BuildContext context) {
     final colors = _CrmShellColors.of(context);
-    final effectiveColor = isDestructive ? colors.error : colors.textPrimary;
+    final effectiveColor = !enabled
+        ? colors.textSecondary.withValues(alpha: 0.55)
+        : isDestructive
+            ? colors.error
+            : colors.textPrimary;
+    final effectiveSubtitle = enabled ? subtitle : disabledSubtitle ?? subtitle;
 
     return ListTile(
-      leading: Icon(icon, color: effectiveColor),
+      enabled: enabled,
+      leading: Icon(enabled ? icon : Icons.lock_outline, color: effectiveColor),
       title: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w600),
       ),
-      subtitle: subtitle == null
+      subtitle: effectiveSubtitle == null
           ? null
           : Text(
-              subtitle!,
+              effectiveSubtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: colors.textSecondary),
             ),
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       contentPadding: EdgeInsets.zero,
     );
   }
@@ -906,6 +983,12 @@ class _Sidebar extends StatelessWidget {
                             _SidebarItem(
                               item: item,
                               selected: item.item == selectedItem,
+                              enabled: _isNavigationItemEnabled(
+                                context.select(
+                                  (AuthBloc bloc) => bloc.state.companyMetadata,
+                                ),
+                                item.item,
+                              ),
                               isCollapsed: isCollapsed,
                               onTap: () => onItemSelected?.call(item.item),
                             ),
@@ -1033,12 +1116,14 @@ class _SidebarItem extends StatelessWidget {
   const _SidebarItem({
     required this.item,
     required this.selected,
+    required this.enabled,
     required this.isCollapsed,
     required this.onTap,
   });
 
   final _CrmShellItem item;
   final bool selected;
+  final bool enabled;
   final bool isCollapsed;
   final VoidCallback onTap;
 
@@ -1049,7 +1134,11 @@ class _SidebarItem extends StatelessWidget {
     final selectedTextColor = isDark ? AppColors.shellText : AppColors.shellText;
     final inactiveTextColor =
     isDark ? AppColors.darkTextSecondary : AppColors.shellTextMuted;
-    final color = selected ? selectedTextColor : inactiveTextColor;
+    final color = !enabled
+        ? inactiveTextColor.withValues(alpha: 0.48)
+        : selected
+            ? selectedTextColor
+            : inactiveTextColor;
     final label = item.label(context);
 
     final child = AnimatedContainer(
@@ -1080,7 +1169,7 @@ class _SidebarItem extends StatelessWidget {
             isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
         children: [
           Icon(
-            selected ? item.selectedIcon : item.icon,
+            enabled ? (selected ? item.selectedIcon : item.icon) : Icons.lock_outline,
             color: color,
             size: 20,
           ),
@@ -1097,6 +1186,12 @@ class _SidebarItem extends StatelessWidget {
                 ),
               ),
             ),
+            if (!enabled)
+              Icon(
+                Icons.lock_outline,
+                size: 14,
+                color: color,
+              ),
           ],
         ],
       ),

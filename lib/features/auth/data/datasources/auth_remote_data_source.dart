@@ -12,6 +12,8 @@ abstract interface class AuthRemoteDataSource {
 
   Future<void> signOut();
 
+  Future<void> sendPasswordResetEmail({required String email});
+
   AppUserModel? getCurrentUser();
 
   Stream<AppUserModel?> authStateChanges();
@@ -51,6 +53,15 @@ class FirebaseAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
   Future<void> signOut() {
     return _firebaseAuth.signOut();
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseAuthError(error);
+    }
   }
 
   @override

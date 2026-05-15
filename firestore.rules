@@ -6,6 +6,26 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function platformAdminData() {
+      return get(
+        /databases/$(database)/documents/platform_admins/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActivePlatformAdmin() {
+      return signedIn() && platformAdminData().isActive == true;
+    }
+
+    function currentMembershipData(companyId) {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(companyId)
+      ).data;
+    }
+
+    function hasMembership(companyId) {
+      return signedIn() && currentMembershipData(companyId).companyId == companyId;
+    }
+
     function currentUserData(companyId) {
       return get(
         /databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)
@@ -662,6 +682,12 @@ service cloud.firestore {
       ];
     }
 
+    function validAuditLogActorSnapshot(companyId) {
+      return currentUserData(companyId).fullName == request.resource.data.actorName
+        && currentUserData(companyId).email == request.resource.data.actorEmail
+        && currentUserData(companyId).role == request.resource.data.actorRole;
+    }
+
     function validAuditLogCreate(companyId, auditLogId) {
       return isActiveCompanyUser(companyId)
         && request.resource.data.keys().hasAll(auditLogFields())
@@ -672,6 +698,7 @@ service cloud.firestore {
         && request.resource.data.actorName is string
         && request.resource.data.actorEmail is string
         && request.resource.data.actorRole == role(companyId)
+        && validAuditLogActorSnapshot(companyId)
         && request.resource.data.actorRole in [
           'admin',
           'manager',
@@ -706,12 +733,37 @@ service cloud.firestore {
         && request.resource.data.metadata is map;
     }
 
+    match /platform_admins/{adminId} {
+      allow get: if signedIn()
+        && (request.auth.uid == adminId || isActivePlatformAdmin());
+      allow list: if isActivePlatformAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if signedIn()
+        && (request.auth.uid == userId || isActivePlatformAdmin());
+      allow list: if isActivePlatformAdmin();
+      allow create, update, delete: if false;
+
+      match /memberships/{companyId} {
+        allow get, list: if signedIn()
+          && (request.auth.uid == userId || isActivePlatformAdmin());
+        allow create, update, delete: if false;
+      }
+    }
+
     match /companies/{companyId} {
-      allow get: if isActiveCompanyUser(companyId);
-      allow list, create, update, delete: if false;
+      allow get: if isActivePlatformAdmin()
+        || isActiveCompanyUser(companyId)
+        || hasMembership(companyId);
+      allow list: if isActivePlatformAdmin();
+      allow create, update: if false;
+      allow delete: if false;
 
       match /users/{userId} {
-        allow get, list: if canReadUserProfile(companyId, userId);
+        allow get, list: if isActivePlatformAdmin()
+          || canReadUserProfile(companyId, userId);
         allow create: if isAdmin(companyId)
           && validUserProfile(companyId, userId)
           && request.resource.data.createdBy == request.auth.uid;
@@ -725,7 +777,8 @@ service cloud.firestore {
       }
 
       match /leads/{leadId} {
-        allow get, list: if commonCrmRead(companyId) && canReadLead(companyId);
+        allow get, list: if isActivePlatformAdmin()
+          || (commonCrmRead(companyId) && canReadLead(companyId));
         allow create: if isActiveCompanyUser(companyId)
           && canCreateLead(companyId)
           && validLeadData(companyId, leadId)
@@ -785,6 +838,17 @@ service cloud.firestore {
             && request.resource.data.leadId == leadId
             && request.resource.data.companyId == companyId
             && request.resource.data.type is string
+            && request.resource.data.type in [
+              'created',
+              'statusChanged',
+              'assigned',
+              'noteAdded',
+              'followUpSet',
+              'contacted',
+              'stageChanged',
+              'archived',
+              'reassigned'
+            ]
             && request.resource.data.title is string
             && request.resource.data.description is string
             && request.resource.data.oldValue is string
@@ -800,7 +864,8 @@ service cloud.firestore {
       }
 
       match /clients/{clientId} {
-        allow get, list: if commonCrmRead(companyId) && canReadClient(companyId);
+        allow get, list: if isActivePlatformAdmin()
+          || (commonCrmRead(companyId) && canReadClient(companyId));
         allow create: if isAdminOrManager(companyId)
           && validClientData(companyId, clientId)
           && validBaseCreate(companyId, clientId)
@@ -812,14 +877,15 @@ service cloud.firestore {
       }
 
       match /properties/{propertyId} {
-        allow get, list: if commonCrmRead(companyId)
-          && role(companyId) in [
-            'admin',
-            'manager',
-            'salesAgent',
-            'marketing',
-            'viewer'
-          ];
+        allow get, list: if isActivePlatformAdmin()
+          || (commonCrmRead(companyId)
+            && role(companyId) in [
+              'admin',
+              'manager',
+              'salesAgent',
+              'marketing',
+              'viewer'
+            ]);
         allow create: if isAdminOrManager(companyId)
           && validPropertyData(companyId, propertyId)
           && validBaseCreate(companyId, propertyId);
@@ -830,7 +896,8 @@ service cloud.firestore {
       }
 
       match /tasks/{taskId} {
-        allow get, list: if commonCrmRead(companyId) && canReadTask(companyId);
+        allow get, list: if isActivePlatformAdmin()
+          || (commonCrmRead(companyId) && canReadTask(companyId));
         allow create: if isAdminOrManager(companyId)
           && validTaskData(companyId, taskId)
           && validBaseCreate(companyId, taskId)
@@ -843,7 +910,8 @@ service cloud.firestore {
       }
 
       match /deals/{dealId} {
-        allow get, list: if commonCrmRead(companyId) && canReadDeal(companyId);
+        allow get, list: if isActivePlatformAdmin()
+          || (commonCrmRead(companyId) && canReadDeal(companyId));
         allow create: if isAdminOrManager(companyId)
           && validDealData(companyId, dealId)
           && validBaseCreate(companyId, dealId)
@@ -856,7 +924,8 @@ service cloud.firestore {
       }
 
       match /audit_logs/{auditLogId} {
-        allow get, list: if isAdminOrManager(companyId);
+        allow get, list: if isActivePlatformAdmin()
+          || isAdminOrManager(companyId);
         allow create: if validAuditLogCreate(companyId, auditLogId);
         allow update, delete: if false;
       }

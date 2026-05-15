@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/role_constants.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
 
 class ClientAssignmentDropdown extends StatelessWidget {
@@ -114,9 +114,7 @@ List<_ClientAssigneeOption> _clientAssigneeOptions(
 }
 
 bool _isAssignableUser(UserProfile user) {
-  return user.role == UserRole.admin ||
-      user.role == UserRole.manager ||
-      user.role == UserRole.salesAgent;
+  return AssignmentUserPolicy.canOwn(AssignableWorkType.client, user);
 }
 
 String _assigneeLabel(

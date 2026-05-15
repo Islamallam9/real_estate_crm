@@ -1,0 +1,205 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
+import '../../../../core/constants/firebase_paths.dart';
+import '../../../../core/constants/role_constants.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../users/data/models/company_metadata_model.dart';
+import '../../../users/domain/entities/company_metadata.dart';
+import '../../domain/entities/platform_company_user.dart';
+import '../models/platform_company_user_model.dart';
+
+abstract interface class PlatformRemoteDataSource {
+  Stream<List<CompanyMetadata>> watchCompanies();
+
+  Stream<List<PlatformCompanyUser>> watchCompanyUsers({
+    required String companyId,
+  });
+
+  Future<void> createCompanyWithAdmin({
+    required String companyId,
+    required String companyName,
+    required String adminFullName,
+    required String adminEmail,
+    required String adminPhone,
+    required String locale,
+    required String timezone,
+  });
+
+  Future<void> addUserToCompany({
+    required String companyId,
+    required String fullName,
+    required String email,
+    required String phone,
+    required UserRole role,
+  });
+
+  Future<void> setCompanyActiveStatus({
+    required String companyId,
+    required bool isActive,
+  });
+
+  Future<void> setCompanyUserActiveStatus({
+    required String companyId,
+    required String uid,
+    required bool isActive,
+  });
+
+  Future<void> updateCompanyPlatformSettings({
+    required String companyId,
+    String? name,
+    String? displayName,
+    String? status,
+    bool? isActive,
+    Map<String, Object?>? settings,
+    Map<String, Object?>? limits,
+    Map<String, Object?>? features,
+  });
+}
+
+class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
+  FirebasePlatformRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance;
+
+  final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
+
+  @override
+  Stream<List<CompanyMetadata>> watchCompanies() {
+    return _firestore
+        .collection('companies')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map(CompanyMetadataModel.fromFirestore).toList();
+        });
+  }
+
+  @override
+  Stream<List<PlatformCompanyUser>> watchCompanyUsers({
+    required String companyId,
+  }) {
+    return _firestore
+        .collection(FirebasePaths.companyUsers(companyId))
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(PlatformCompanyUserModel.fromFirestore)
+              .where((user) => user.companyId == companyId)
+              .toList();
+        });
+  }
+
+  @override
+  Future<void> createCompanyWithAdmin({
+    required String companyId,
+    required String companyName,
+    required String adminFullName,
+    required String adminEmail,
+    required String adminPhone,
+    required String locale,
+    required String timezone,
+  }) async {
+    await _call('createCompanyWithAdmin', {
+      'companyId': companyId,
+      'companyName': companyName,
+      'adminFullName': adminFullName,
+      'adminEmail': adminEmail,
+      'adminPhone': adminPhone,
+      'locale': locale,
+      'timezone': timezone,
+    });
+  }
+
+  @override
+  Future<void> addUserToCompany({
+    required String companyId,
+    required String fullName,
+    required String email,
+    required String phone,
+    required UserRole role,
+  }) async {
+    await _call('addUserToCompany', {
+      'companyId': companyId,
+      'fullName': fullName,
+      'email': email,
+      'phone': phone,
+      'role': RoleConstants.toValue(role),
+    });
+  }
+
+  @override
+  Future<void> setCompanyActiveStatus({
+    required String companyId,
+    required bool isActive,
+  }) async {
+    await _call('setCompanyActiveStatus', {
+      'companyId': companyId,
+      'isActive': isActive,
+    });
+  }
+
+  @override
+  Future<void> setCompanyUserActiveStatus({
+    required String companyId,
+    required String uid,
+    required bool isActive,
+  }) async {
+    await _call('setCompanyUserActiveStatus', {
+      'companyId': companyId,
+      'uid': uid,
+      'isActive': isActive,
+    });
+  }
+
+  @override
+  Future<void> updateCompanyPlatformSettings({
+    required String companyId,
+    String? name,
+    String? displayName,
+    String? status,
+    bool? isActive,
+    Map<String, Object?>? settings,
+    Map<String, Object?>? limits,
+    Map<String, Object?>? features,
+  }) async {
+    await _call('updateCompanyPlatformSettings', {
+      'companyId': companyId,
+      if (name != null) 'name': name,
+      if (displayName != null) 'displayName': displayName,
+      if (status != null) 'status': status,
+      if (isActive != null) 'isActive': isActive,
+      if (settings != null) 'settings': settings,
+      if (limits != null) 'limits': limits,
+      if (features != null) 'features': features,
+    });
+  }
+
+  Future<void> _call(String name, Map<String, Object?> data) async {
+    try {
+      await _functions.httpsCallable(name).call<Map<String, Object?>>(data);
+    } on FirebaseFunctionsException catch (error) {
+      throw Exception(error.message ?? AppErrorMessages.permissionDenied);
+    } on FirebaseException catch (error) {
+      throw Exception(_mapFirebaseError(error));
+    }
+  }
+}
+
+String _mapFirebaseError(FirebaseException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'network-request-failed':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+    case 'unauthenticated':
+      return AppErrorMessages.permissionDenied;
+    default:
+      return AppErrorMessages.unknown;
+  }
+}

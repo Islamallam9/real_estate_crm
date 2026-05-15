@@ -1,48 +1,64 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:bloc/bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/errors/user_profile_exception.dart';
+import '../../../users/domain/usecases/resolve_auth_company_usecase.dart';
 import '../../../users/domain/usecases/get_current_user_profile_usecase.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/errors/auth_exception.dart';
 import '../../domain/usecases/auth_state_changes_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
+import '../../domain/usecases/send_password_reset_email_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
-const _demoCompanyId = 'demo_company';
 const _profileLoadTimeout = Duration(seconds: 10);
+const _initialInvalidCredentialsBackoffSeconds = 2;
+const _maxInvalidCredentialsBackoffSeconds = 60;
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({
     required SignInUseCase signInUseCase,
     required SignOutUseCase signOutUseCase,
+    required SendPasswordResetEmailUseCase sendPasswordResetEmailUseCase,
     required GetCurrentUserUseCase getCurrentUserUseCase,
     required AuthStateChangesUseCase authStateChangesUseCase,
     required GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
+    required ResolveAuthCompanyUseCase resolveAuthCompanyUseCase,
   }) : _signInUseCase = signInUseCase,
        _signOutUseCase = signOutUseCase,
+       _sendPasswordResetEmailUseCase = sendPasswordResetEmailUseCase,
        _getCurrentUserUseCase = getCurrentUserUseCase,
        _authStateChangesUseCase = authStateChangesUseCase,
        _getCurrentUserProfileUseCase = getCurrentUserProfileUseCase,
+       _resolveAuthCompanyUseCase = resolveAuthCompanyUseCase,
        super(const AuthState.initial()) {
     on<AuthStarted>(_onStarted);
     on<AuthSignInRequested>(_onSignInRequested);
+    on<AuthPasswordResetRequested>(_onPasswordResetRequested);
+    on<AuthLockoutTicked>(_onLockoutTicked);
     on<AuthSignOutRequested>(_onSignOutRequested);
     on<AuthUserChanged>(_onUserChanged);
   }
 
   final SignInUseCase _signInUseCase;
   final SignOutUseCase _signOutUseCase;
+  final SendPasswordResetEmailUseCase _sendPasswordResetEmailUseCase;
   final GetCurrentUserUseCase _getCurrentUserUseCase;
   final AuthStateChangesUseCase _authStateChangesUseCase;
   final GetCurrentUserProfileUseCase _getCurrentUserProfileUseCase;
+  final ResolveAuthCompanyUseCase _resolveAuthCompanyUseCase;
 
   StreamSubscription<AppUser?>? _authSubscription;
+  Timer? _lockoutTimer;
+  int _invalidCredentialAttempts = 0;
+  DateTime? _lockedUntil;
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
     emit(
@@ -50,6 +66,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         status: AuthStatus.loading,
         clearMessage: true,
         clearErrorCode: true,
+        passwordResetSent: false,
       ),
     );
 
@@ -75,12 +92,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
+    final remaining = _lockoutSecondsRemaining();
+    if (remaining > 0) {
+      emit(
+        AuthState(
+          status: AuthStatus.failure,
+          message: AuthErrorMessages.tooManyAttempts,
+          errorCode: AuthErrorCode.tooManyAttempts,
+          lockoutSecondsRemaining: remaining,
+        ),
+      );
+      _startLockoutTimer();
+      return;
+    }
+
     emit(
       state.copyWith(
         status: AuthStatus.loading,
         clearMessage: true,
         clearErrorCode: true,
         clearUserProfile: true,
+        clearCompanyMetadata: true,
+        lockoutSecondsRemaining: 0,
+        passwordResetSent: false,
       ),
     );
 
@@ -90,10 +124,65 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         password: event.password,
       );
 
+      _resetInvalidCredentialBackoff();
       await _loadProfileAndEmitAuthenticated(
         emit: emit,
         user: user,
         signOutOnFailure: true,
+      );
+    } on AuthException catch (error) {
+      if (error.code == AuthErrorCode.invalidCredentials) {
+        final delaySeconds = _registerInvalidCredentialFailure();
+        emit(
+          AuthState(
+            status: AuthStatus.failure,
+            message: error.message,
+            errorCode: error.code,
+            lockoutSecondsRemaining: delaySeconds,
+          ),
+        );
+        return;
+      }
+
+      emit(
+        AuthState(
+          status: AuthStatus.failure,
+          message: error.message,
+          errorCode: error.code,
+        ),
+      );
+    } catch (_) {
+      emit(
+        const AuthState(
+          status: AuthStatus.failure,
+          message: AuthErrorMessages.signInFailed,
+          errorCode: AuthErrorCode.signInFailed,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPasswordResetRequested(
+    AuthPasswordResetRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        status: AuthStatus.loading,
+        clearMessage: true,
+        clearErrorCode: true,
+        passwordResetSent: false,
+      ),
+    );
+
+    try {
+      await _sendPasswordResetEmailUseCase(email: event.email);
+      emit(
+        const AuthState(
+          status: AuthStatus.unauthenticated,
+          message: AuthSuccessMessages.passwordResetSent,
+          passwordResetSent: true,
+        ),
       );
     } on AuthException catch (error) {
       emit(
@@ -114,6 +203,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  void _onLockoutTicked(AuthLockoutTicked event, Emitter<AuthState> emit) {
+    final remaining = _lockoutSecondsRemaining();
+    if (remaining <= 0) {
+      _lockoutTimer?.cancel();
+      _lockoutTimer = null;
+      emit(state.copyWith(lockoutSecondsRemaining: 0));
+      return;
+    }
+
+    emit(state.copyWith(lockoutSecondsRemaining: remaining));
+  }
+
   Future<void> _onSignOutRequested(
     AuthSignOutRequested event,
     Emitter<AuthState> emit,
@@ -123,6 +224,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         status: AuthStatus.loading,
         clearMessage: true,
         clearErrorCode: true,
+        passwordResetSent: false,
       ),
     );
 
@@ -166,8 +268,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required bool signOutOnFailure,
   }) async {
     try {
-      final profile = await _getCurrentUserProfileUseCase(
-        companyId: _demoCompanyId,
+      final resolution = await _resolveAuthCompanyUseCase(
         uid: user.uid,
       ).timeout(
         _profileLoadTimeout,
@@ -176,7 +277,58 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         },
       );
 
+      if (!resolution.hasCompany) {
+        if (resolution.isPlatformAdmin) {
+          _emitPlatformOnlySession(emit: emit, user: user);
+          return;
+        }
+
+        if (signOutOnFailure) {
+          await _signOutUseCase();
+        }
+
+        throw const AuthException(
+          AuthErrorMessages.accountNotLinked,
+          code: AuthErrorCode.accountNotLinked,
+        );
+      }
+
+      if (!resolution.isCompanyActive) {
+        if (resolution.isPlatformAdmin) {
+          _emitPlatformOnlySession(emit: emit, user: user);
+          return;
+        }
+
+        if (signOutOnFailure) {
+          await _signOutUseCase();
+        }
+
+        throw const AuthException(
+          AuthErrorMessages.companyInactive,
+          code: AuthErrorCode.companyInactive,
+        );
+      }
+
+      final UserProfile profile;
+      try {
+        profile = await _loadCompanyProfile(
+          companyId: resolution.membership!.companyId,
+          uid: user.uid,
+        );
+      } on UserProfileException {
+        if (resolution.isPlatformAdmin) {
+          _emitPlatformOnlySession(emit: emit, user: user);
+          return;
+        }
+        rethrow;
+      }
+
       if (!profile.isActive) {
+        if (resolution.isPlatformAdmin) {
+          _emitPlatformOnlySession(emit: emit, user: user);
+          return;
+        }
+
         if (signOutOnFailure) {
           await _signOutUseCase();
         }
@@ -197,6 +349,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             email: profile.email,
           ),
           userProfile: profile,
+          companyMetadata: resolution.company,
+          isPlatformAdmin: resolution.isPlatformAdmin,
         ),
       );
     } on UserProfileException catch (error) {
@@ -238,9 +392,72 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<UserProfile> _loadCompanyProfile({
+    required String companyId,
+    required String uid,
+  }) {
+    return _getCurrentUserProfileUseCase(companyId: companyId, uid: uid)
+        .timeout(
+          _profileLoadTimeout,
+          onTimeout: () {
+            throw const UserProfileException(AppErrorMessages.unableToConnect);
+          },
+        );
+  }
+
+  void _emitPlatformOnlySession({
+    required Emitter<AuthState> emit,
+    required AppUser user,
+  }) {
+    emit(
+      AuthState(
+        status: AuthStatus.authenticated,
+        user: user,
+        isPlatformAdmin: true,
+      ),
+    );
+  }
+
+  int _registerInvalidCredentialFailure() {
+    _invalidCredentialAttempts += 1;
+    final delaySeconds = math.min(
+      _maxInvalidCredentialsBackoffSeconds,
+      _initialInvalidCredentialsBackoffSeconds *
+          math.pow(2, _invalidCredentialAttempts - 1).toInt(),
+    );
+    _lockedUntil = DateTime.now().add(Duration(seconds: delaySeconds));
+    _startLockoutTimer();
+    return delaySeconds;
+  }
+
+  int _lockoutSecondsRemaining() {
+    final lockedUntil = _lockedUntil;
+    if (lockedUntil == null) {
+      return 0;
+    }
+
+    final remaining = lockedUntil.difference(DateTime.now()).inSeconds;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  void _startLockoutTimer() {
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      add(const AuthLockoutTicked());
+    });
+  }
+
+  void _resetInvalidCredentialBackoff() {
+    _invalidCredentialAttempts = 0;
+    _lockedUntil = null;
+    _lockoutTimer?.cancel();
+    _lockoutTimer = null;
+  }
+
   @override
   Future<void> close() {
     _authSubscription?.cancel();
+    _lockoutTimer?.cancel();
     return super.close();
   }
 }
