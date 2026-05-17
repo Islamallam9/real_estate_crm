@@ -561,6 +561,80 @@ exports.setCompanyUserEmail = onCall(async (request) => {
   return { uid, companyId, email: newEmail };
 });
 
+
+exports.updateOwnProfileSettings = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const uid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = optionalString(data.companyId);
+  const update = requiredObject(data.update || {}, 'update');
+  const previousPhotoStoragePath = optionalString(data.previousPhotoStoragePath);
+
+  const hasFullName = Object.prototype.hasOwnProperty.call(update, 'fullName');
+  const hasPhotoUrl = Object.prototype.hasOwnProperty.call(update, 'photoUrl');
+  const hasPhotoStoragePath = Object.prototype.hasOwnProperty.call(update, 'photoStoragePath');
+
+  if (!hasFullName && !hasPhotoUrl && !hasPhotoStoragePath) {
+    throw new HttpsError('invalid-argument', 'No profile fields were provided.');
+  }
+
+  const profileUpdate = {
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: uid,
+  };
+  const authUpdate = {};
+
+  if (hasFullName) {
+    const fullName = sanitizeProfileName(update.fullName);
+    profileUpdate.fullName = fullName;
+    authUpdate.displayName = fullName;
+  }
+
+  if (hasPhotoUrl || hasPhotoStoragePath) {
+    const photoUrl = sanitizeProfileUrl(update.photoUrl || '');
+    const photoStoragePath = optionalString(update.photoStoragePath || '');
+    validateOwnedProfileStoragePath({ companyId, uid, path: photoStoragePath });
+    profileUpdate.photoUrl = photoUrl;
+    profileUpdate.photoStoragePath = photoStoragePath;
+    authUpdate.photoURL = photoUrl || null;
+  }
+
+  if (Object.keys(authUpdate).length > 0) {
+    await auth.updateUser(uid, authUpdate);
+  }
+
+  const batch = db.batch();
+  batch.set(db.doc(`users/${uid}`), profileUpdate, { merge: true });
+
+  if (companyId) {
+    validateCompanyId(companyId);
+    await requireActiveCompanyUser(request, companyId);
+    batch.set(db.doc(`companies/${companyId}/users/${uid}`), profileUpdate, { merge: true });
+  } else {
+    await requireActivePlatformAdmin(request);
+    batch.set(db.doc(`platform_admins/${uid}`), profileUpdate, { merge: true });
+  }
+
+  await batch.commit();
+
+  if (previousPhotoStoragePath) {
+    await deleteOwnedProfileStoragePath({ companyId, uid, path: previousPhotoStoragePath });
+  }
+
+  return {
+    uid,
+    companyId,
+    fullName: hasFullName ? profileUpdate.fullName : null,
+    photoUrl: hasPhotoUrl || hasPhotoStoragePath ? profileUpdate.photoUrl : null,
+    photoStoragePath: hasPhotoUrl || hasPhotoStoragePath
+      ? profileUpdate.photoStoragePath
+      : null,
+  };
+});
+
 exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
   await requireActivePlatformAdmin(request);
   const data = request.data || {};
@@ -689,6 +763,36 @@ async function requireActivePlatformAdmin(request) {
   }
 
   return request.auth.uid;
+}
+
+
+async function requireActiveCompanyUser(request, companyId) {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const [companySnapshot, companyUserSnapshot] = await Promise.all([
+    db.doc(`companies/${companyId}`).get(),
+    db.doc(`companies/${companyId}/users/${request.auth.uid}`).get(),
+  ]);
+
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  if (company.isActive !== true || company.status === 'inactive') {
+    throw new HttpsError('failed-precondition', 'Company is inactive.');
+  }
+
+  if (!companyUserSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Company user was not found.');
+  }
+  const companyUser = companyUserSnapshot.data() || {};
+  if (companyUser.companyId !== companyId || companyUser.isActive !== true) {
+    throw new HttpsError('permission-denied', 'Company user is inactive.');
+  }
+
+  return companyUser;
 }
 
 async function requireActiveCompanyAdmin(request, companyId) {
@@ -858,6 +962,60 @@ function normalizeEmail(email) {
 function validateEmail(email) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     throw new HttpsError('invalid-argument', 'Email is invalid.');
+  }
+}
+
+
+function sanitizeProfileName(value) {
+  if (typeof value !== 'string') {
+    throw new HttpsError('invalid-argument', 'Full name is required.');
+  }
+  const fullName = value.trim();
+  if (fullName.length < 2 || fullName.length > 120 || /[<>]/.test(fullName)) {
+    throw new HttpsError('invalid-argument', 'Full name is invalid.');
+  }
+  return fullName;
+}
+
+function sanitizeProfileUrl(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const url = value.trim();
+  if (url.length > 2048 || /[<>]/.test(url)) {
+    throw new HttpsError('invalid-argument', 'Profile image URL is invalid.');
+  }
+  return url;
+}
+
+function validateOwnedProfileStoragePath({ companyId, uid, path }) {
+  const cleanPath = optionalString(path);
+  if (!cleanPath) {
+    return;
+  }
+  const expectedPrefix = companyId
+    ? `companies/${companyId}/users/${uid}/profile/`
+    : `platform_admins/${uid}/profile/`;
+  if (!cleanPath.startsWith(expectedPrefix) || cleanPath.includes('..')) {
+    throw new HttpsError('permission-denied', 'Profile image path is not allowed.');
+  }
+}
+
+async function deleteOwnedProfileStoragePath({ companyId, uid, path }) {
+  const cleanPath = optionalString(path);
+  if (!cleanPath) {
+    return;
+  }
+  validateOwnedProfileStoragePath({ companyId, uid, path: cleanPath });
+  try {
+    await admin.storage().bucket().file(cleanPath).delete({ ignoreNotFound: true });
+  } catch (error) {
+    console.warn('Unable to delete old profile image.', {
+      companyId,
+      uid,
+      path: cleanPath,
+      error: error && error.message ? error.message : String(error),
+    });
   }
 }
 

@@ -336,6 +336,24 @@ class _ReportsView extends StatelessWidget {
         assignedTo.trim().isNotEmpty ||
         searchQuery.trim().isNotEmpty;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 700;
+    if (isMobile) {
+      return _MobileReportsView(
+        data: data,
+        users: users,
+        canFilterAssignee: canFilterAssignee,
+        period: period,
+        assignedTo: assignedTo,
+        hasFilters: hasFilters,
+        searchController: searchController,
+        searchQuery: searchQuery,
+        onSearchChanged: onSearchChanged,
+        onPeriodChanged: onPeriodChanged,
+        onAssignedToChanged: onAssignedToChanged,
+        onClearFilters: onClearFilters,
+      );
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -541,6 +559,325 @@ class _ReportsView extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+
+class _MobileReportsView extends StatelessWidget {
+  const _MobileReportsView({
+    required this.data,
+    required this.users,
+    required this.canFilterAssignee,
+    required this.period,
+    required this.assignedTo,
+    required this.hasFilters,
+    required this.searchController,
+    required this.searchQuery,
+    required this.onSearchChanged,
+    required this.onPeriodChanged,
+    required this.onAssignedToChanged,
+    required this.onClearFilters,
+  });
+
+  final _ReportsData data;
+  final List<UserProfile> users;
+  final bool canFilterAssignee;
+  final _ReportPeriod period;
+  final String assignedTo;
+  final bool hasFilters;
+  final TextEditingController searchController;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<_ReportPeriod> onPeriodChanged;
+  final ValueChanged<String> onAssignedToChanged;
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final tabs = <_MobileReportTab>[
+      _MobileReportTab(
+        label: l.crmOverview,
+        icon: Icons.dashboard_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            _ExecutiveSummary(data: data),
+          ],
+        ),
+      ),
+      _MobileReportTab(
+        label: l.leads,
+        icon: Icons.groups_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            _ReportSection(
+              title: l.leadsReport,
+              children: [
+                _DonutReportCard(
+                  title: l.leadsByStatus,
+                  segments: [
+                    for (final status in LeadStatus.values)
+                      _ChartSegment(
+                        _leadStatusLabel(l, status),
+                        data.leadsByStatus(status).length,
+                        _leadStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.leadsBySource,
+                  rows: [
+                    for (final source in LeadSource.values)
+                      _BarRow(
+                        label: _leadSourceLabel(l, source),
+                        value: data.leadsBySource(source).length,
+                        color: AppColors.primaryColor(context),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.leadsByPriority,
+                  rows: [
+                    for (final priority in LeadPriority.values)
+                      _BarRow(
+                        label: _leadPriorityLabel(l, priority),
+                        value: data.leadsByPriority(priority).length,
+                        color: _leadPriorityColor(context, priority),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      _MobileReportTab(
+        label: l.deals,
+        icon: Icons.business_center_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            _ReportSection(
+              title: l.dealsReport,
+              children: [
+                _DonutReportCard(
+                  title: l.dealPipeline,
+                  segments: [
+                    _ChartSegment(l.openDeals, data.openDeals.length, AppColors.warningColor(context)),
+                    _ChartSegment(l.wonDeals, data.wonDeals.length, AppColors.successColor(context)),
+                    _ChartSegment(l.lostDeals, data.lostDeals.length, AppColors.errorColor(context)),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.dealsByStage,
+                  rows: [
+                    for (final stage in DealStage.values)
+                      _BarRow(
+                        label: dealStageLabel(l, stage),
+                        value: data.dealsByStage(stage).length,
+                        amount: data.dealValueByStage(stage),
+                        color: _dealStageColor(context, stage),
+                      ),
+                  ],
+                ),
+                _ValueReportCard(
+                  title: l.pipelineValue,
+                  values: [
+                    _ValueLine(l.expectedValueTotal, data.expectedValueTotal),
+                    _ValueLine(l.commissionTotal, data.commissionTotal),
+                    _ValueLine(l.wonValue, data.wonValue),
+                    _ValueLine(l.lostValue, data.lostValue),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      _MobileReportTab(
+        label: l.tasks,
+        icon: Icons.task_alt_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            _ReportSection(
+              title: l.tasksReport,
+              children: [
+                _DonutReportCard(
+                  title: l.taskStatusDistribution,
+                  segments: [
+                    for (final status in TaskStatus.values)
+                      _ChartSegment(
+                        _taskStatusLabel(l, status),
+                        data.tasksByStatus(status).length,
+                        _taskStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _ProgressReportCard(
+                  title: l.completionRate,
+                  value: data.completionRate,
+                  color: AppColors.successColor(context),
+                ),
+                _AttentionReportCard(tasks: data.attentionTasks),
+              ],
+            ),
+          ],
+        ),
+      ),
+      _MobileReportTab(
+        label: l.properties,
+        icon: Icons.apartment_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            _ReportSection(
+              title: l.propertiesReport,
+              children: [
+                _DonutReportCard(
+                  title: l.propertiesByStatus,
+                  segments: [
+                    for (final status in PropertyStatus.values)
+                      _ChartSegment(
+                        propertyStatusLabel(l, status),
+                        data.propertiesByStatus(status).length,
+                        _propertyStatusColor(context, status),
+                      ),
+                  ],
+                ),
+                _BarReportCard(
+                  title: l.propertiesByType,
+                  rows: [
+                    for (final type in PropertyType.values)
+                      _BarRow(
+                        label: propertyTypeLabel(l, type),
+                        value: data.propertiesByType(type).length,
+                        color: AppColors.primaryColor(context),
+                      ),
+                  ],
+                ),
+                _ValueReportCard(
+                  title: l.inventoryValue,
+                  values: [
+                    _ValueLine(l.totalListedValue, data.totalListedValue),
+                    _ValueLine(l.averagePrice, data.averagePrice),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      if (canFilterAssignee)
+        _MobileReportTab(
+          label: l.agentPerformance,
+          icon: Icons.badge_outlined,
+          child: _MobileReportTabBody(
+            children: [_AgentReportSection(data: data, users: users)],
+          ),
+        ),
+    ];
+
+    return DefaultTabController(
+      length: tabs.length,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _ReportHeader(),
+          const SizedBox(height: AppSpacing.sm),
+          _ReportsSearchFilterRow(
+            users: users,
+            canFilterAssignee: canFilterAssignee,
+            period: period,
+            assignedTo: assignedTo,
+            hasFilters: hasFilters,
+            searchController: searchController,
+            searchQuery: searchQuery,
+            onSearchChanged: onSearchChanged,
+            onPeriodChanged: onPeriodChanged,
+            onAssignedToChanged: onAssignedToChanged,
+            onClearFilters: onClearFilters,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _MobileReportsTabBar(tabs: tabs),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: TabBarView(
+              physics: const BouncingScrollPhysics(),
+              children: [for (final tab in tabs) tab.child],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileReportTab {
+  const _MobileReportTab({
+    required this.label,
+    required this.icon,
+    required this.child,
+  });
+
+  final String label;
+  final IconData icon;
+  final Widget child;
+}
+
+class _MobileReportsTabBar extends StatelessWidget {
+  const _MobileReportsTabBar({required this.tabs});
+
+  final List<_MobileReportTab> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: TabBar(
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: AppColors.selectedSurface(context),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        labelColor: AppColors.primaryColor(context),
+        unselectedLabelColor: AppColors.textSecondaryColor(context),
+        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+        padding: const EdgeInsets.all(4),
+        tabs: [
+          for (final tab in tabs)
+            Tab(
+              iconMargin: const EdgeInsets.only(bottom: 2),
+              icon: Icon(tab.icon, size: 18),
+              text: tab.label,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileReportTabBody extends StatelessWidget {
+  const _MobileReportTabBody({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       ),
     );
   }

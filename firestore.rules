@@ -1051,27 +1051,18 @@ service cloud.firestore {
           || (signedIn()
             && request.auth.uid == userId
             && isActiveCompanyUser(companyId)
-            && validUserProfile(companyId, userId)
-            && request.resource.data.uid == resource.data.uid
-            && request.resource.data.companyId == resource.data.companyId
-            && request.resource.data.email == resource.data.email
-            && request.resource.data.phone == resource.data.phone
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.isActive == resource.data.isActive
-            && request.resource.data.createdBy == resource.data.createdBy
-            && request.resource.data.createdAt == resource.data.createdAt
-            && request.resource.data.teamId == resource.data.teamId
-            && request.resource.data.teamName == resource.data.teamName
-            && request.resource.data.managerId == resource.data.managerId
-            && request.resource.data.managerName == resource.data.managerName
-            && request.resource.data.updatedBy == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'fullName',
               'photoUrl',
               'photoStoragePath',
               'updatedAt',
               'updatedBy'
-            ]));
+            ])
+            && optionalStringField(request.resource.data, 'fullName')
+            && optionalStringField(request.resource.data, 'photoUrl')
+            && optionalStringField(request.resource.data, 'photoStoragePath')
+            && request.resource.data.updatedBy == request.auth.uid
+            && request.resource.data.updatedAt is timestamp);
         allow delete: if false;
       }
 

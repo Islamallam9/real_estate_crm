@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 import '../../../../core/constants/role_constants.dart';
@@ -45,13 +46,16 @@ class FirestoreUserProfileRemoteDataSource
     FirebaseFirestore? firestore,
     FirebaseAuth? firebaseAuth,
     firebase_storage.FirebaseStorage? storage,
+    FirebaseFunctions? functions,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _storage = storage ?? firebase_storage.FirebaseStorage.instance;
+        _storage = storage ?? firebase_storage.FirebaseStorage.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
   final firebase_storage.FirebaseStorage _storage;
+  final FirebaseFunctions _functions;
 
   static const int _maxProfileImageBytes = 5 * 1024 * 1024;
   static const Duration _storageTimeout = Duration(seconds: 60);
@@ -148,17 +152,13 @@ class FirestoreUserProfileRemoteDataSource
     }
 
     try {
-      await _firebaseAuth.currentUser?.updateDisplayName(cleanName);
+      await _updateOwnProfileSettings(
+        companyId: companyId,
+        update: {'fullName': cleanName},
+      );
       if (companyId.trim().isEmpty) {
-        await _updatePlatformProfile(uid: uid, values: {'fullName': cleanName});
         return null;
       }
-
-      await _companyUserDocument(companyId, uid).update({
-        'fullName': cleanName,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      }).timeout(_firestoreTimeout);
       return getUserProfile(companyId: companyId, uid: uid);
     } on FirebaseException catch (error) {
       throw UserProfileException(_mapFirestoreError(error));
@@ -194,24 +194,17 @@ class FirestoreUserProfileRemoteDataSource
           )
           .timeout(_storageTimeout);
       final url = await ref.getDownloadURL().timeout(_firestoreTimeout);
-      await _firebaseAuth.currentUser?.updatePhotoURL(url);
-
+      await _updateOwnProfileSettings(
+        companyId: companyId,
+        update: {
+          'photoUrl': url,
+          'photoStoragePath': uploadedPath,
+        },
+        previousPhotoStoragePath: oldPath,
+      );
       if (companyId.trim().isEmpty) {
-        await _updatePlatformProfile(
-          uid: uid,
-          values: {'photoUrl': url, 'photoStoragePath': uploadedPath},
-        );
-        await _deleteStoragePath(oldPath);
         return null;
       }
-
-      await _companyUserDocument(companyId, uid).update({
-        'photoUrl': url,
-        'photoStoragePath': uploadedPath,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      }).timeout(_firestoreTimeout);
-      await _deleteStoragePath(oldPath);
       return getUserProfile(companyId: companyId, uid: uid);
     } on FirebaseException catch (error) {
       await _deleteStoragePath(uploadedPath);
@@ -236,24 +229,17 @@ class FirestoreUserProfileRemoteDataSource
         uid: uid,
         companyId: companyId,
       );
-      await _firebaseAuth.currentUser?.updatePhotoURL(null);
-
+      await _updateOwnProfileSettings(
+        companyId: companyId,
+        update: {
+          'photoUrl': '',
+          'photoStoragePath': '',
+        },
+        previousPhotoStoragePath: oldPath,
+      );
       if (companyId.trim().isEmpty) {
-        await _updatePlatformProfile(
-          uid: uid,
-          values: {'photoUrl': '', 'photoStoragePath': ''},
-        );
-        await _deleteStoragePath(oldPath);
         return null;
       }
-
-      await _companyUserDocument(companyId, uid).update({
-        'photoUrl': '',
-        'photoStoragePath': '',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      }).timeout(_firestoreTimeout);
-      await _deleteStoragePath(oldPath);
       return getUserProfile(companyId: companyId, uid: uid);
     } on FirebaseException catch (error) {
       throw UserProfileException(_mapFirestoreError(error));
@@ -273,20 +259,18 @@ class FirestoreUserProfileRemoteDataSource
         .doc(uid);
   }
 
-  Future<void> _updatePlatformProfile({
-    required String uid,
-    required Map<String, dynamic> values,
+  Future<void> _updateOwnProfileSettings({
+    required String companyId,
+    required Map<String, dynamic> update,
+    String previousPhotoStoragePath = '',
   }) async {
-    final update = <String, dynamic>{
-      ...values,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': uid,
-    };
-    await _firestore
-        .collection('platform_admins')
-        .doc(uid)
-        .update(update)
-        .timeout(_firestoreTimeout);
+    final callable = _functions.httpsCallable('updateOwnProfileSettings');
+    await callable.call(<String, dynamic>{
+      'companyId': companyId.trim(),
+      'update': update,
+      if (previousPhotoStoragePath.trim().isNotEmpty)
+        'previousPhotoStoragePath': previousPhotoStoragePath.trim(),
+    }).timeout(_firestoreTimeout);
   }
 
   Future<String> _currentPhotoStoragePath({
