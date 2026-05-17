@@ -47,7 +47,11 @@ class ClientsCubit extends Cubit<ClientsState> {
   final InitialLoadTimeout _clientsInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _clientInitialLoadTimeout = InitialLoadTimeout();
 
-  void watchClients({required String companyId, String? assignedTo}) {
+  void watchClients({
+    required String companyId,
+    String? assignedTo,
+    String? managerId,
+  }) {
     emit(
       state.copyWith(
         status: ClientsStatus.loading,
@@ -72,6 +76,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     _clientsSubscription = _watchClientsUseCase(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
     ).listen(
       (clients) {
         if (isClosed) {
@@ -323,6 +328,10 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String assignedTo,
     required String assignedToName,
     required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
     required String updatedBy,
   }) async {
     emit(
@@ -339,6 +348,10 @@ class ClientsCubit extends Cubit<ClientsState> {
         assignedTo: assignedTo,
         assignedToName: assignedToName,
         assignedToEmail: assignedToEmail,
+        teamId: teamId,
+        teamName: teamName,
+        managerId: managerId,
+        managerName: managerName,
         updatedBy: updatedBy,
       );
       final client = _clientById(clientId);

@@ -23,6 +23,7 @@ abstract interface class LeadsRepository {
   Stream<List<Lead>> watchLeads({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }

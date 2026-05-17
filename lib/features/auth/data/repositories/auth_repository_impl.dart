@@ -24,6 +24,40 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _remoteDataSource.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
+  @override
+  Future<void> recordLoginActivity({
+    String? companyId,
+    required String locale,
+    required String timezone,
+    required String platform,
+    required String browser,
+    required String deviceType,
+    required String userAgent,
+    required String appVersion,
+  }) {
+    return _remoteDataSource.recordLoginActivity(
+      companyId: companyId,
+      locale: locale,
+      timezone: timezone,
+      platform: platform,
+      browser: browser,
+      deviceType: deviceType,
+      userAgent: userAgent,
+      appVersion: appVersion,
+    );
+  }
+
+  @override
   AppUser? getCurrentUser() {
     return _remoteDataSource.getCurrentUser();
   }

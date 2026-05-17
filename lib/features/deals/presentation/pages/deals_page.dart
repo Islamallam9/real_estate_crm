@@ -51,24 +51,28 @@ class _DealsView extends StatefulWidget {
 
 class _DealsViewState extends State<_DealsView> {
   final _searchController = TextEditingController();
+  String? _watchKey;
 
   @override
   void initState() {
     super.initState();
-    final authState = context.read<AuthBloc>().state;
-    final companyId = authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    if (companyId.isNotEmpty &&
-        role != null &&
-        uid.isNotEmpty &&
-        PermissionService.can(role, AppPermission.viewDeals)) {
-      context.read<DealsCubit>().watchDeals(
-        companyId: companyId,
-        role: role,
-        currentUserId: uid,
-      );
+  }
+
+  void _watchScopedDeals({
+    required String companyId,
+    required UserRole role,
+    required String uid,
+  }) {
+    final key = '$companyId:${role.name}:$uid';
+    if (_watchKey == key) {
+      return;
     }
+    _watchKey = key;
+    context.read<DealsCubit>().watchDeals(
+      companyId: companyId,
+      role: role,
+      currentUserId: uid,
+    );
   }
 
   @override
@@ -104,11 +108,18 @@ class _DealsViewState extends State<_DealsView> {
     }
 
     final canView = PermissionService.can(role, AppPermission.viewDeals);
+    if (canView) {
+      _watchScopedDeals(
+        companyId: companyId,
+        role: role,
+        uid: user.uid,
+      );
+    }
     final canCreate = PermissionService.can(role, AppPermission.createDeal);
     final canEdit = PermissionService.can(role, AppPermission.editDeal);
     final canArchive = PermissionService.can(role, AppPermission.archiveDeal);
     final canUpdateStage = role != UserRole.viewer && canView;
-    final canFilterAssignee = role == UserRole.admin || role == UserRole.manager;
+    final canFilterAssignee = role == UserRole.admin;
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.deals,

@@ -1,5 +1,6 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/repositories/platform_repository.dart';
 import '../datasources/platform_remote_data_source.dart';
@@ -81,6 +82,43 @@ class PlatformRepositoryImpl implements PlatformRepository {
       companyId: companyId,
       uid: uid,
       isActive: isActive,
+    );
+  }
+
+  @override
+  Future<void> setCompanyUserPassword({
+    required String companyId,
+    required String uid,
+    required String newPassword,
+  }) {
+    return _remoteDataSource.setCompanyUserPassword(
+      companyId: companyId,
+      uid: uid,
+      newPassword: newPassword,
+    );
+  }
+
+  @override
+  Future<void> setCompanyUserEmail({
+    required String companyId,
+    required String uid,
+    required String newEmail,
+  }) {
+    return _remoteDataSource.setCompanyUserEmail(
+      companyId: companyId,
+      uid: uid,
+      newEmail: newEmail,
+    );
+  }
+
+  @override
+  Future<PasswordResetLinkResult> generateCompanyUserPasswordResetLink({
+    required String companyId,
+    required String uid,
+  }) {
+    return _remoteDataSource.generateCompanyUserPasswordResetLink(
+      companyId: companyId,
+      uid: uid,
     );
   }
 

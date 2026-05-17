@@ -165,9 +165,31 @@ class _EditLeadViewState extends State<_EditLeadView> {
                                       canAssign: canAssign,
                                       assignmentUsers: users,
                                       onSubmit: (updatedLead) {
+                                        final currentProfile =
+                                            authState.userProfile;
+                                        final isAssignedOnlyRole =
+                                            role?.name == 'salesAgent' ||
+                                            role?.name == 'marketing' ||
+                                            role?.name == 'viewer';
+                                        final leadToUpdate =
+                                            isAssignedOnlyRole &&
+                                                currentProfile != null
+                                            ? updatedLead.copyWith(
+                                                assignedTo: uid,
+                                                assignedToName:
+                                                    currentProfile.fullName,
+                                                teamId: currentProfile.teamId,
+                                                teamName:
+                                                    currentProfile.teamName,
+                                                managerId:
+                                                    currentProfile.managerId,
+                                                managerName:
+                                                    currentProfile.managerName,
+                                              )
+                                            : updatedLead;
                                         context.read<LeadsCubit>().updateLead(
                                           companyId: companyId,
-                                          lead: updatedLead,
+                                          lead: leadToUpdate,
                                           actorName: actorName,
                                         );
                                       },

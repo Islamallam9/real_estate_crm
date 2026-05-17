@@ -22,6 +22,10 @@ abstract final class FirebasePaths {
     return '${company(companyId)}/users';
   }
 
+  static String companyTeams(String companyId) {
+    return '${company(companyId)}/teams';
+  }
+
   static String companyUser({required String companyId, required String uid}) {
     return '${companyUsers(companyId)}/$uid';
   }

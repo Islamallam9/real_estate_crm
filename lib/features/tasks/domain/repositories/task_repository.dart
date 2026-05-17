@@ -20,6 +20,7 @@ abstract interface class TaskRepository {
   Stream<List<CrmTask>> watchTasks({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 
@@ -27,6 +28,7 @@ abstract interface class TaskRepository {
     required String companyId,
     required TaskRelatedType type,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }

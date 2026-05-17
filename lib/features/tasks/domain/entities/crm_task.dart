@@ -15,6 +15,10 @@ class CrmTask extends Equatable {
     required this.assignedTo,
     required this.assignedToName,
     required this.assignedToEmail,
+    this.teamId = '',
+    this.teamName = '',
+    this.managerId = '',
+    this.managerName = '',
     required this.relatedType,
     required this.relatedId,
     required this.relatedTitle,
@@ -36,6 +40,10 @@ class CrmTask extends Equatable {
   final String assignedTo;
   final String assignedToName;
   final String assignedToEmail;
+  final String teamId;
+  final String teamName;
+  final String managerId;
+  final String managerName;
   final TaskRelatedType relatedType;
   final String relatedId;
   final String relatedTitle;
@@ -57,6 +65,10 @@ class CrmTask extends Equatable {
     String? assignedTo,
     String? assignedToName,
     String? assignedToEmail,
+    String? teamId,
+    String? teamName,
+    String? managerId,
+    String? managerName,
     TaskRelatedType? relatedType,
     String? relatedId,
     String? relatedTitle,
@@ -78,6 +90,10 @@ class CrmTask extends Equatable {
       assignedTo: assignedTo ?? this.assignedTo,
       assignedToName: assignedToName ?? this.assignedToName,
       assignedToEmail: assignedToEmail ?? this.assignedToEmail,
+      teamId: teamId ?? this.teamId,
+      teamName: teamName ?? this.teamName,
+      managerId: managerId ?? this.managerId,
+      managerName: managerName ?? this.managerName,
       relatedType: relatedType ?? this.relatedType,
       relatedId: relatedId ?? this.relatedId,
       relatedTitle: relatedTitle ?? this.relatedTitle,
@@ -102,6 +118,10 @@ class CrmTask extends Equatable {
     assignedTo,
     assignedToName,
     assignedToEmail,
+    teamId,
+    teamName,
+    managerId,
+    managerName,
     relatedType,
     relatedId,
     relatedTitle,

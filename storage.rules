@@ -6,6 +6,16 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function platformAdminDoc() {
+      return firestore.get(
+        /databases/(default)/documents/platform_admins/$(request.auth.uid)
+      );
+    }
+
+    function isActivePlatformAdmin() {
+      return signedIn() && platformAdminDoc().data.isActive == true;
+    }
+
     function companyUserDoc(companyId) {
       return firestore.get(
         /databases/(default)/documents/companies/$(companyId)/users/$(request.auth.uid)
@@ -34,6 +44,12 @@ service firebase.storage {
         ];
     }
 
+    function isValidProfileImage() {
+      return request.resource != null
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     match /companies/{companyId}/properties/{propertyId}/images/{fileName} {
       allow read: if canReadPropertyImages(companyId);
 
@@ -43,6 +59,28 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
 
       allow delete: if isAdminOrManager(companyId);
+    }
+
+    match /companies/{companyId}/users/{userId}/profile/{fileName} {
+      allow read: if isActiveCompanyUser(companyId) || isActivePlatformAdmin();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && isActiveCompanyUser(companyId)
+        && isValidProfileImage();
+      allow delete: if signedIn()
+        && request.auth.uid == userId
+        && isActiveCompanyUser(companyId);
+    }
+
+    match /platform_admins/{userId}/profile/{fileName} {
+      allow read: if isActivePlatformAdmin();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && isActivePlatformAdmin()
+        && isValidProfileImage();
+      allow delete: if signedIn()
+        && request.auth.uid == userId
+        && isActivePlatformAdmin();
     }
   }
 }

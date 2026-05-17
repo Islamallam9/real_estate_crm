@@ -6,6 +6,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
+import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
 import '../permissions/company_feature_gate.dart';
 import '../theme/app_colors.dart';
@@ -26,6 +27,7 @@ enum CrmNavigationItem {
   tasks,
   deals,
   reports,
+  teams,
   more,
 }
 
@@ -79,6 +81,11 @@ class CrmAppShell extends StatelessWidget {
       icon: Icons.bar_chart_outlined,
       selectedIcon: Icons.bar_chart,
     ),
+    _CrmShellItem(
+      item: CrmNavigationItem.teams,
+      icon: Icons.groups_outlined,
+      selectedIcon: Icons.groups,
+    ),
   ];
 
   static const _mobileItems = <_CrmShellItem>[
@@ -114,7 +121,8 @@ class CrmAppShell extends StatelessWidget {
     final companyMetadata = context.select(
       (AuthBloc bloc) => bloc.state.companyMetadata,
     );
-    final desktopItems = _items;
+    final authState = context.watch<AuthBloc>().state;
+    final desktopItems = _visibleItemsForRole(_items, authState.userProfile?.role);
     final mobileItems = _mobileItems;
     final effectiveOnItemSelected =
         onItemSelected ?? (item) => _goToItem(context, item);
@@ -169,6 +177,7 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.tasks => CompanyFeature.tasks,
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
+    CrmNavigationItem.teams => null,
     CrmNavigationItem.more => null,
   };
 }
@@ -198,9 +207,23 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.deals);
     case CrmNavigationItem.reports:
       context.go(RouteNames.reports);
+    case CrmNavigationItem.teams:
+      context.go(RouteNames.teams);
     case CrmNavigationItem.more:
       break;
   }
+}
+
+List<_CrmShellItem> _visibleItemsForRole(
+  List<_CrmShellItem> items,
+  UserRole? role,
+) {
+  return items.where((item) {
+    if (item.item != CrmNavigationItem.teams) {
+      return true;
+    }
+    return role == UserRole.admin || role == UserRole.manager;
+  }).toList();
 }
 
 class _DesktopShell extends StatefulWidget {
@@ -474,10 +497,13 @@ class _MobileHeaderCard extends StatelessWidget {
     return BlocBuilder<AuthBloc, AuthState>(
       buildWhen: (previous, current) =>
           previous.userProfile?.fullName != current.userProfile?.fullName ||
-          previous.user?.fullName != current.user?.fullName,
+          previous.user?.fullName != current.user?.fullName ||
+          previous.userProfile?.photoUrl != current.userProfile?.photoUrl ||
+          previous.user?.photoUrl != current.user?.photoUrl,
       builder: (context, state) {
         final localizations = AppLocalizations.of(context)!;
         final fullName = _resolvedUserName(state, localizations.crmUser);
+        final photoUrl = _resolvedUserPhotoUrl(state);
 
         return Material(
           color: colors.chromeSurface,
@@ -500,7 +526,17 @@ class _MobileHeaderCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _UserAvatar(name: fullName),
+                Tooltip(
+                  message: localizations.profile,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => context.go(RouteNames.profile),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: _UserAvatar(name: fullName, photoUrl: photoUrl),
+                    ),
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
@@ -530,6 +566,8 @@ class _MobileHeaderCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: AppSpacing.xs),
+                const _MobileSearchIconButton(),
                 const SizedBox(width: AppSpacing.xs),
                 const _NotificationIconButton(compact: true),
               ],
@@ -609,7 +647,8 @@ class _MobileBottomNavigation extends StatelessWidget {
     return item == CrmNavigationItem.more &&
         (selectedItem == CrmNavigationItem.tasks ||
             selectedItem == CrmNavigationItem.deals ||
-            selectedItem == CrmNavigationItem.reports);
+            selectedItem == CrmNavigationItem.reports ||
+            selectedItem == CrmNavigationItem.teams);
   }
 }
 
@@ -690,9 +729,9 @@ class _MobileNavItemButton extends StatelessWidget {
 
 void _showMobileMoreSheet(BuildContext context) {
   final authBloc = context.read<AuthBloc>();
-  final localeCubit = context.read<LocaleCubit>();
-  final themeCubit = context.read<ThemeCubit>();
-  final companyMetadata = context.read<AuthBloc>().state.companyMetadata;
+  final authState = context.read<AuthBloc>().state;
+  final companyMetadata = authState.companyMetadata;
+  final role = authState.userProfile?.role;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -700,6 +739,7 @@ void _showMobileMoreSheet(BuildContext context) {
     enableDrag: true,
     useSafeArea: true,
     showDragHandle: false,
+    barrierColor: Colors.black.withValues(alpha: 0.18),
     backgroundColor: Colors.transparent,
     builder: (sheetContext) {
       final localizations = AppLocalizations.of(sheetContext)!;
@@ -735,6 +775,23 @@ void _showMobileMoreSheet(BuildContext context) {
                   ),
                 ),
                 _MoreSheetTile(
+                  icon: Icons.person_outline,
+                  label: localizations.myProfile,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.profile);
+                  },
+                ),
+                _MoreSheetTile(
+                  icon: Icons.settings_outlined,
+                  label: localizations.settings,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.settings);
+                  },
+                ),
+                const Divider(height: AppSpacing.lg),
+                _MoreSheetTile(
                   icon: Icons.checklist_outlined,
                   label: localizations.tasks,
                   enabled: companyMetadata.isFeatureEnabled(CompanyFeature.tasks),
@@ -764,11 +821,16 @@ void _showMobileMoreSheet(BuildContext context) {
                     context.go(RouteNames.reports);
                   },
                 ),
+                if (role == UserRole.admin || role == UserRole.manager)
+                  _MoreSheetTile(
+                    icon: Icons.groups_outlined,
+                    label: localizations.teamManagement,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.go(RouteNames.teams);
+                    },
+                  ),
 
-                const Divider(height: AppSpacing.lg),
-              _LanguageSheetActions(localeCubit: localeCubit),
-                const SizedBox(height: AppSpacing.sm),
-                _ThemeSheetAction(themeCubit: themeCubit),
                 const Divider(height: AppSpacing.lg),
                 _MoreSheetTile(
                   icon: Icons.logout,
@@ -1366,6 +1428,8 @@ class _TopBar extends StatelessWidget {
               if (!compact)
                 Flexible(
                   child: TextField(
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (value) => _handleGlobalSearch(context, value),
                     decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.searchCrm,
                       prefixIcon: const Icon(Icons.search),
@@ -1521,6 +1585,297 @@ class _AuthLogoutListener extends StatelessWidget {
   }
 }
 
+
+class _MobileSearchIconButton extends StatelessWidget {
+  const _MobileSearchIconButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.inputSurface,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        tooltip: AppLocalizations.of(context)!.searchCrm,
+        onPressed: () => _showGlobalSearchDialog(context),
+        icon: const Icon(Icons.search),
+      ),
+    );
+  }
+}
+
+void _handleGlobalSearch(BuildContext context, String query) {
+  final cleanQuery = query.trim().toLowerCase();
+  if (cleanQuery.isEmpty) {
+    _showGlobalSearchDialog(context);
+    return;
+  }
+
+  final targets = _globalSearchTargets(context);
+  final matches = targets.where((target) => target.matches(cleanQuery)).toList();
+  if (matches.length == 1) {
+    _openSearchTarget(context, matches.first);
+    return;
+  }
+
+  _showGlobalSearchDialog(context, initialQuery: query);
+}
+
+Future<void> _showGlobalSearchDialog(
+  BuildContext context, {
+  String initialQuery = '',
+}) {
+  final targets = _globalSearchTargets(context);
+
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      final l = AppLocalizations.of(dialogContext)!;
+      return AlertDialog(
+        title: Text(l.searchCrm),
+        content: _GlobalSearchDialogContent(
+          initialQuery: initialQuery,
+          targets: targets,
+          onSelected: (target) {
+            Navigator.of(dialogContext).pop();
+            _openSearchTarget(context, target);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l.close),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _GlobalSearchDialogContent extends StatefulWidget {
+  const _GlobalSearchDialogContent({
+    required this.initialQuery,
+    required this.targets,
+    required this.onSelected,
+  });
+
+  final String initialQuery;
+  final List<_GlobalSearchTarget> targets;
+  final ValueChanged<_GlobalSearchTarget> onSelected;
+
+  @override
+  State<_GlobalSearchDialogContent> createState() =>
+      _GlobalSearchDialogContentState();
+}
+
+class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return SizedBox(
+      width: 520,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: l.searchCrm,
+              prefixIcon: const Icon(Icons.search),
+            ),
+            onSubmitted: _openSingleMatch,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _controller,
+            builder: (context, value, _) {
+              final query = value.text.trim().toLowerCase();
+              final filtered = query.isEmpty
+                  ? widget.targets
+                  : widget.targets
+                      .where((target) => target.matches(query))
+                      .toList();
+
+              if (filtered.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Text(
+                    l.noCompaniesFoundMessage,
+                    style: TextStyle(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
+                  ),
+                );
+              }
+
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final target = filtered[index];
+                    return ListTile(
+                      leading: Icon(target.icon),
+                      title: Text(target.label),
+                      onTap: () => widget.onSelected(target),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSingleMatch(String value) {
+    final submitted = value.trim().toLowerCase();
+    if (submitted.isEmpty) {
+      return;
+    }
+
+    final matches = widget.targets
+        .where((target) => target.matches(submitted))
+        .toList(growable: false);
+    if (matches.length == 1) {
+      widget.onSelected(matches.first);
+    }
+  }
+}
+
+List<_GlobalSearchTarget> _globalSearchTargets(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  final authState = context.read<AuthBloc>().state;
+  final role = authState.userProfile?.role;
+  final metadata = authState.companyMetadata;
+
+  final targets = <_GlobalSearchTarget>[
+    _GlobalSearchTarget(
+      label: l.dashboard,
+      route: RouteNames.dashboard,
+      icon: Icons.dashboard_outlined,
+      aliases: ['dashboard', 'home', 'لوحة', 'الرئيسية'],
+    ),
+    _GlobalSearchTarget(
+      label: l.leads,
+      route: RouteNames.leads,
+      icon: Icons.people_alt_outlined,
+      feature: CompanyFeature.leads,
+      aliases: ['leads', 'lead', 'customers', 'عملاء', 'العملاء', 'محتمل'],
+    ),
+    _GlobalSearchTarget(
+      label: l.properties,
+      route: RouteNames.properties,
+      icon: Icons.business_outlined,
+      feature: CompanyFeature.properties,
+      aliases: ['properties', 'property', 'عقارات', 'العقارات'],
+    ),
+    _GlobalSearchTarget(
+      label: l.clients,
+      route: RouteNames.clients,
+      icon: Icons.person_outline,
+      feature: CompanyFeature.clients,
+      aliases: ['clients', 'client', 'customers', 'عملاء', 'العملاء'],
+    ),
+    _GlobalSearchTarget(
+      label: l.tasks,
+      route: RouteNames.tasks,
+      icon: Icons.checklist_outlined,
+      feature: CompanyFeature.tasks,
+      aliases: ['tasks', 'task', 'followups', 'مهام', 'المهام', 'متابعة'],
+    ),
+    _GlobalSearchTarget(
+      label: l.deals,
+      route: RouteNames.deals,
+      icon: Icons.handshake_outlined,
+      feature: CompanyFeature.deals,
+      aliases: ['deals', 'deal', 'صفقات', 'الصفقات'],
+    ),
+    _GlobalSearchTarget(
+      label: l.reports,
+      route: RouteNames.reports,
+      icon: Icons.bar_chart_outlined,
+      feature: CompanyFeature.reports,
+      aliases: ['reports', 'report', 'analytics', 'تقارير', 'التقارير'],
+    ),
+    if (role == UserRole.admin || role == UserRole.manager)
+      _GlobalSearchTarget(
+        label: l.teamManagement,
+        route: RouteNames.teams,
+        icon: Icons.groups_outlined,
+        aliases: ['teams', 'team', 'management', 'فرق', 'الفريق', 'إدارة الفرق'],
+      ),
+    _GlobalSearchTarget(
+      label: l.myProfile,
+      route: RouteNames.profile,
+      icon: Icons.person_outline,
+      aliases: ['profile', 'account', 'ملف', 'حساب'],
+    ),
+    _GlobalSearchTarget(
+      label: l.settings,
+      route: RouteNames.settings,
+      icon: Icons.settings_outlined,
+      aliases: ['settings', 'preferences', 'إعدادات', 'الاعدادات'],
+    ),
+  ];
+
+  return targets.where((target) {
+    final feature = target.feature;
+    return feature == null || metadata.isFeatureEnabled(feature);
+  }).toList();
+}
+
+void _openSearchTarget(BuildContext context, _GlobalSearchTarget target) {
+  context.go(target.route);
+}
+
+class _GlobalSearchTarget {
+  const _GlobalSearchTarget({
+    required this.label,
+    required this.route,
+    required this.icon,
+    this.feature,
+    this.aliases = const [],
+  });
+
+  final String label;
+  final String route;
+  final IconData icon;
+  final CompanyFeature? feature;
+  final List<String> aliases;
+
+  bool matches(String query) {
+    final clean = query.trim().toLowerCase();
+    if (clean.isEmpty) {
+      return true;
+    }
+    return label.toLowerCase().contains(clean) ||
+        aliases.any((alias) => alias.toLowerCase().contains(clean));
+  }
+}
+
 class _NotificationIconButton extends StatelessWidget {
   const _NotificationIconButton({this.compact = false});
 
@@ -1567,6 +1922,7 @@ class _ProfileMenuButton extends StatelessWidget {
                 authState.user?.email ??
                 '')
             .trim();
+        final photoUrl = _resolvedUserPhotoUrl(authState);
 
         return PopupMenuButton<_ProfileMenuAction>(
           tooltip: l.profile,
@@ -1602,6 +1958,7 @@ class _ProfileMenuButton extends StatelessWidget {
                 child: _ProfileMenuHeader(
                   name: userName,
                   subtitle: email,
+                  photoUrl: photoUrl,
                 ),
               ),
               const PopupMenuDivider(height: 1),
@@ -1637,7 +1994,7 @@ class _ProfileMenuButton extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(2),
-              child: _UserAvatar(name: userName),
+              child: _UserAvatar(name: userName, photoUrl: photoUrl),
             ),
           ),
         );
@@ -1647,16 +2004,21 @@ class _ProfileMenuButton extends StatelessWidget {
 }
 
 class _ProfileMenuHeader extends StatelessWidget {
-  const _ProfileMenuHeader({required this.name, required this.subtitle});
+  const _ProfileMenuHeader({
+    required this.name,
+    required this.subtitle,
+    required this.photoUrl,
+  });
 
   final String name;
   final String subtitle;
+  final String photoUrl;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _UserAvatar(name: name),
+        _UserAvatar(name: name, photoUrl: photoUrl),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
@@ -1736,14 +2098,44 @@ class _ProfileMenuTile extends StatelessWidget {
 }
 
 class _UserAvatar extends StatelessWidget {
-  const _UserAvatar({this.name});
+  const _UserAvatar({this.name, this.photoUrl});
 
   final String? name;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
+    final cleanPhotoUrl = (photoUrl ?? '').trim();
     final initial = _initialFor(name ?? AppLocalizations.of(context)!.crmUser);
+    final fallback = _UserInitialAvatar(initial: initial);
 
+    if (cleanPhotoUrl.isEmpty) {
+      return fallback;
+    }
+
+    return ClipOval(
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Image.network(
+          cleanPhotoUrl,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      ),
+    );
+  }
+}
+
+class _UserInitialAvatar extends StatelessWidget {
+  const _UserInitialAvatar({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
     return CircleAvatar(
       radius: 18,
       backgroundColor: AppColors.primary,
@@ -1764,6 +2156,14 @@ String _initialFor(String value) {
     return 'U';
   }
   return trimmed.substring(0, 1).toUpperCase();
+}
+
+String _resolvedUserPhotoUrl(AuthState state) {
+  final profilePhoto = (state.userProfile?.photoUrl ?? '').trim();
+  if (profilePhoto.isNotEmpty) {
+    return profilePhoto;
+  }
+  return (state.user?.photoUrl ?? '').trim();
 }
 
 String _resolvedUserName(AuthState state, String fallback) {
@@ -1871,6 +2271,8 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.deals;
     case CrmNavigationItem.reports:
       return localizations.reports;
+    case CrmNavigationItem.teams:
+      return localizations.teamManagement;
     case CrmNavigationItem.more:
       return localizations.more;
   }

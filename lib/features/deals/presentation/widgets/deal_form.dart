@@ -30,6 +30,10 @@ class DealForm extends StatefulWidget {
     this.assignedTo = '',
     this.assignedToName = '',
     this.assignedToEmail = '',
+    this.assignedTeamId = '',
+    this.assignedTeamName = '',
+    this.assignedManagerId = '',
+    this.assignedManagerName = '',
     this.isSaving = false,
     this.submitLabel,
   });
@@ -46,6 +50,10 @@ class DealForm extends StatefulWidget {
   final String assignedTo;
   final String assignedToName;
   final String assignedToEmail;
+  final String assignedTeamId;
+  final String assignedTeamName;
+  final String assignedManagerId;
+  final String assignedManagerName;
   final bool isSaving;
   final String? submitLabel;
 
@@ -322,6 +330,18 @@ class _DealFormState extends State<DealForm> {
         assignedTo: assignedUser.uid,
         assignedToName: assignedUser.fullName,
         assignedToEmail: assignedUser.email,
+        teamId: assignedUser.teamId.isEmpty
+            ? widget.assignedTeamId
+            : assignedUser.teamId,
+        teamName: assignedUser.teamName.isEmpty
+            ? widget.assignedTeamName
+            : assignedUser.teamName,
+        managerId: assignedUser.managerId.isEmpty
+            ? widget.assignedManagerId
+            : assignedUser.managerId,
+        managerName: assignedUser.managerName.isEmpty
+            ? widget.assignedManagerName
+            : assignedUser.managerName,
         stage: _stage,
         expectedValue: num.tryParse(_expectedValueController.text.trim()) ?? 0,
         commission: num.tryParse(_commissionController.text.trim()) ?? 0,

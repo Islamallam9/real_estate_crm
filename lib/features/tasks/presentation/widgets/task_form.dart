@@ -27,6 +27,7 @@ class TaskForm extends StatefulWidget {
     this.canEditStatus = false,
     this.assignedTo = '',
     this.relatedRecordsAssignedTo,
+    this.relatedRecordsManagerId,
     this.isSaving = false,
     this.submitLabel,
   });
@@ -40,6 +41,7 @@ class TaskForm extends StatefulWidget {
   final bool canEditStatus;
   final String assignedTo;
   final String? relatedRecordsAssignedTo;
+  final String? relatedRecordsManagerId;
   final bool isSaving;
   final String? submitLabel;
 
@@ -58,6 +60,10 @@ class _TaskFormState extends State<TaskForm> {
   String _assignedTo = '';
   String _assignedToName = '';
   String _assignedToEmail = '';
+  String _teamId = '';
+  String _teamName = '';
+  String _managerId = '';
+  String _managerName = '';
   String _relatedId = '';
   String _relatedTitle = '';
   String _relatedSubtitle = '';
@@ -75,6 +81,10 @@ class _TaskFormState extends State<TaskForm> {
 
     _assignedToName = task.assignedToName;
     _assignedToEmail = task.assignedToEmail;
+    _teamId = task.teamId;
+    _teamName = task.teamName;
+    _managerId = task.managerId;
+    _managerName = task.managerName;
     _titleController.text = task.title;
     _descriptionController.text = task.description;
     _relatedId = task.relatedId;
@@ -289,6 +299,10 @@ class _TaskFormState extends State<TaskForm> {
     final selectedAssignee = _selectedAssignee();
     final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
     final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
+    final teamId = selectedAssignee?.teamId ?? _teamId;
+    final teamName = selectedAssignee?.teamName ?? _teamName;
+    final managerId = selectedAssignee?.managerId ?? _managerId;
+    final managerName = selectedAssignee?.managerName ?? _managerName;
     final assignedTo = widget.canEditAssignment
         ? _assignedTo
         : previous?.assignedTo ?? widget.assignedTo;
@@ -301,6 +315,10 @@ class _TaskFormState extends State<TaskForm> {
         assignedTo: assignedTo,
         assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),
         assignedToEmail: assignedTo.trim().isEmpty ? '' : assignedToEmail.trim(),
+        teamId: assignedTo.trim().isEmpty ? '' : teamId.trim(),
+        teamName: assignedTo.trim().isEmpty ? '' : teamName.trim(),
+        managerId: assignedTo.trim().isEmpty ? '' : managerId.trim(),
+        managerName: assignedTo.trim().isEmpty ? '' : managerName.trim(),
         relatedType: _relatedType,
         relatedId: _relatedType == TaskRelatedType.general
             ? ''
@@ -360,11 +378,19 @@ class _TaskFormState extends State<TaskForm> {
       if (_assignedTo.trim().isEmpty) {
         _assignedToName = '';
         _assignedToEmail = '';
+        _teamId = '';
+        _teamName = '';
+        _managerId = '';
+        _managerName = '';
       }
       return;
     }
     _assignedToName = user.fullName;
     _assignedToEmail = user.email;
+    _teamId = user.teamId;
+    _teamName = user.teamName;
+    _managerId = user.managerId;
+    _managerName = user.managerName;
   }
 
   void _onRelatedTypeChanged(TaskRelatedType value) {
@@ -387,6 +413,7 @@ class _TaskFormState extends State<TaskForm> {
       companyId: widget.companyId,
       type: type,
       assignedTo: widget.relatedRecordsAssignedTo,
+      managerId: widget.relatedRecordsManagerId,
     );
   }
 }

@@ -2024,6 +2024,18 @@ abstract class AppLocalizations {
   /// **'Only admins and managers can assign leads.'**
   String get onlyAdminsManagersCanAssign;
 
+  /// No description provided for @recordMustBeAssignedBeforeSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'This record must be assigned before saving.'**
+  String get recordMustBeAssignedBeforeSaving;
+
+  /// No description provided for @canOnlyAssignRecordsToYourTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'You can only assign records to users in your team.'**
+  String get canOnlyAssignRecordsToYourTeam;
+
   /// No description provided for @cannotAssignAcrossCompanies.
   ///
   /// In en, this message translates to:
@@ -2834,6 +2846,42 @@ abstract class AppLocalizations {
   /// **'Profile information'**
   String get profileInformation;
 
+  /// No description provided for @editProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get editProfile;
+
+  /// No description provided for @uploadProfileImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload profile image'**
+  String get uploadProfileImage;
+
+  /// No description provided for @removeProfileImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove profile image'**
+  String get removeProfileImage;
+
+  /// No description provided for @profileUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated successfully.'**
+  String get profileUpdatedSuccessfully;
+
+  /// No description provided for @unableToPickProfileImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to select profile image. Please try again.'**
+  String get unableToPickProfileImage;
+
+  /// No description provided for @fullNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name is required.'**
+  String get fullNameRequired;
+
   /// No description provided for @role.
   ///
   /// In en, this message translates to:
@@ -3571,6 +3619,552 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to send password reset email. Please try again.'**
   String get passwordResetEmailFailed;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @changeEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Change email'**
+  String get changeEmail;
+
+  /// No description provided for @changePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change password'**
+  String get changePassword;
+
+  /// No description provided for @currentPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get currentPassword;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPassword;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get confirmPassword;
+
+  /// No description provided for @passwordChangedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed successfully.'**
+  String get passwordChangedSuccessfully;
+
+  /// No description provided for @passwordChangeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Password change failed. Please try again.'**
+  String get passwordChangeFailed;
+
+  /// No description provided for @passwordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get passwordsDoNotMatch;
+
+  /// No description provided for @currentPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is required.'**
+  String get currentPasswordRequired;
+
+  /// No description provided for @currentPasswordIncorrect.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is incorrect.'**
+  String get currentPasswordIncorrect;
+
+  /// No description provided for @recentLoginRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again before changing your password.'**
+  String get recentLoginRequired;
+
+  /// No description provided for @newPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'New password is required.'**
+  String get newPasswordRequired;
+
+  /// No description provided for @newPasswordTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'New password must be at least 8 characters.'**
+  String get newPasswordTooShort;
+
+  /// No description provided for @generateResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate reset link'**
+  String get generateResetLink;
+
+  /// No description provided for @resetLinkGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset link generated.'**
+  String get resetLinkGenerated;
+
+  /// No description provided for @copyResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy reset link'**
+  String get copyResetLink;
+
+  /// No description provided for @resetLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset link copied.'**
+  String get resetLinkCopied;
+
+  /// No description provided for @sendThisLinkManuallyToTheUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this link manually to the user.'**
+  String get sendThisLinkManuallyToTheUser;
+
+  /// No description provided for @platformEmailChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'User email updated.'**
+  String get platformEmailChanged;
+
+  /// No description provided for @platformPasswordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform password changed.'**
+  String get platformPasswordChanged;
+
+  /// No description provided for @notAllowedToChangePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not allowed to change this password.'**
+  String get notAllowedToChangePassword;
+
+  /// No description provided for @lastLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Last login'**
+  String get lastLogin;
+
+  /// No description provided for @lastLoginDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Last login details'**
+  String get lastLoginDetails;
+
+  /// No description provided for @ipAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'IP address'**
+  String get ipAddress;
+
+  /// No description provided for @device.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get device;
+
+  /// No description provided for @browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Browser'**
+  String get browser;
+
+  /// No description provided for @platform.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get platform;
+
+  /// No description provided for @loginActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Login activity'**
+  String get loginActivity;
+
+  /// No description provided for @recentLoginActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent login activity'**
+  String get recentLoginActivity;
+
+  /// No description provided for @noLoginActivityYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No login activity yet.'**
+  String get noLoginActivityYet;
+
+  /// No description provided for @security.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// No description provided for @userSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'User security'**
+  String get userSecurity;
+
+  /// No description provided for @teamManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Management'**
+  String get teamManagement;
+
+  /// No description provided for @teamManagementSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create manager-owned teams and keep sales and marketing users organized by company.'**
+  String get teamManagementSubtitle;
+
+  /// No description provided for @teams.
+  ///
+  /// In en, this message translates to:
+  /// **'Teams'**
+  String get teams;
+
+  /// No description provided for @myTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'My Team'**
+  String get myTeam;
+
+  /// No description provided for @myTeamSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View your assigned team and active team members.'**
+  String get myTeamSubtitle;
+
+  /// No description provided for @createTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Team'**
+  String get createTeam;
+
+  /// No description provided for @editTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Team'**
+  String get editTeam;
+
+  /// No description provided for @teamDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Details'**
+  String get teamDetails;
+
+  /// No description provided for @teamName.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Name'**
+  String get teamName;
+
+  /// No description provided for @teamDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Description'**
+  String get teamDescription;
+
+  /// No description provided for @teamManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Manager'**
+  String get teamManager;
+
+  /// No description provided for @teamMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Members'**
+  String get teamMembers;
+
+  /// No description provided for @teamMembersShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Team members'**
+  String get teamMembersShort;
+
+  /// No description provided for @addMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Members'**
+  String get addMembers;
+
+  /// No description provided for @manageMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage members'**
+  String get manageMembers;
+
+  /// No description provided for @removeMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Member'**
+  String get removeMember;
+
+  /// No description provided for @moveToTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Team'**
+  String get moveToTeam;
+
+  /// No description provided for @unassignedUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned Users'**
+  String get unassignedUsers;
+
+  /// No description provided for @usersWithoutTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Users Without Team'**
+  String get usersWithoutTeam;
+
+  /// No description provided for @activeTeams.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Teams'**
+  String get activeTeams;
+
+  /// No description provided for @inactiveTeams.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive Teams'**
+  String get inactiveTeams;
+
+  /// No description provided for @members.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get members;
+
+  /// No description provided for @teamMembersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No members} =1{1 member} other{{count} members}}'**
+  String teamMembersCount(int count);
+
+  /// No description provided for @managersWithTeams.
+  ///
+  /// In en, this message translates to:
+  /// **'Managers with teams'**
+  String get managersWithTeams;
+
+  /// No description provided for @noTeamsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No teams yet'**
+  String get noTeamsYet;
+
+  /// No description provided for @noTeamsYetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the first team and assign an active manager.'**
+  String get noTeamsYetMessage;
+
+  /// No description provided for @noTeamMembersYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No team members yet'**
+  String get noTeamMembersYet;
+
+  /// No description provided for @noTeamMembersYetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add sales or marketing users to this team.'**
+  String get noTeamMembersYetMessage;
+
+  /// No description provided for @noTeamAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No team assigned'**
+  String get noTeamAssigned;
+
+  /// No description provided for @noTeamAssignedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask an admin to assign you as a team manager.'**
+  String get noTeamAssignedMessage;
+
+  /// No description provided for @assignManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Manager'**
+  String get assignManager;
+
+  /// No description provided for @changeManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Manager'**
+  String get changeManager;
+
+  /// No description provided for @deactivateTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate Team'**
+  String get deactivateTeam;
+
+  /// No description provided for @activateTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate Team'**
+  String get activateTeam;
+
+  /// No description provided for @teamSavedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Team saved successfully.'**
+  String get teamSavedSuccessfully;
+
+  /// No description provided for @teamUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Team update failed.'**
+  String get teamUpdateFailed;
+
+  /// No description provided for @teamPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage team members.'**
+  String get teamPermissionDenied;
+
+  /// No description provided for @teamSessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again and retry.'**
+  String get teamSessionExpired;
+
+  /// No description provided for @teamUserInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This user is inactive. Activate the user before assigning them.'**
+  String get teamUserInactive;
+
+  /// No description provided for @teamInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'This team is inactive. Activate the team first.'**
+  String get teamInactive;
+
+  /// No description provided for @teamMemberIneligible.
+  ///
+  /// In en, this message translates to:
+  /// **'Only Sales Agent and Marketing users can be team members.'**
+  String get teamMemberIneligible;
+
+  /// No description provided for @teamManagerUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Team manager must be an active Manager user.'**
+  String get teamManagerUnavailable;
+
+  /// No description provided for @teamManagerAlreadyHasTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'This manager already owns an active team.'**
+  String get teamManagerAlreadyHasTeam;
+
+  /// No description provided for @teamUserNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected user no longer exists. Refresh and try again.'**
+  String get teamUserNotFound;
+
+  /// No description provided for @teamNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected team no longer exists. Refresh and try again.'**
+  String get teamNotFound;
+
+  /// No description provided for @teamCompanyInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected company is inactive.'**
+  String get teamCompanyInactive;
+
+  /// No description provided for @teamCompanyMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'User and team must belong to the same company.'**
+  String get teamCompanyMismatch;
+
+  /// No description provided for @teamConnectionInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection was interrupted. Check your internet and try again.'**
+  String get teamConnectionInterrupted;
+
+  /// No description provided for @teamRecordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Team data changed. Refresh and try again.'**
+  String get teamRecordChanged;
+
+  /// No description provided for @teamInvalidInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the selected team and user, then try again.'**
+  String get teamInvalidInput;
+
+  /// No description provided for @userAddedToTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'User added to team.'**
+  String get userAddedToTeam;
+
+  /// No description provided for @userRemovedFromTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'User removed from team.'**
+  String get userRemovedFromTeam;
+
+  /// No description provided for @searchTeams.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teams'**
+  String get searchTeams;
+
+  /// No description provided for @noManagersAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No managers available'**
+  String get noManagersAvailable;
+
+  /// No description provided for @noManagersAvailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an active Manager user before creating a team.'**
+  String get noManagersAvailableMessage;
+
+  /// No description provided for @noUnassignedUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'No eligible users'**
+  String get noUnassignedUsers;
+
+  /// No description provided for @noUnassignedUsersMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales and marketing users are already assigned or unavailable.'**
+  String get noUnassignedUsersMessage;
 }
 
 class _AppLocalizationsDelegate

@@ -6,6 +6,7 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../users/data/models/company_metadata_model.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../models/platform_company_user_model.dart';
 
@@ -43,6 +44,23 @@ abstract interface class PlatformRemoteDataSource {
     required String companyId,
     required String uid,
     required bool isActive,
+  });
+
+  Future<void> setCompanyUserPassword({
+    required String companyId,
+    required String uid,
+    required String newPassword,
+  });
+
+  Future<void> setCompanyUserEmail({
+    required String companyId,
+    required String uid,
+    required String newEmail,
+  });
+
+  Future<PasswordResetLinkResult> generateCompanyUserPasswordResetLink({
+    required String companyId,
+    required String uid,
   });
 
   Future<void> updateCompanyPlatformSettings({
@@ -157,6 +175,49 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
   }
 
   @override
+  Future<void> setCompanyUserPassword({
+    required String companyId,
+    required String uid,
+    required String newPassword,
+  }) async {
+    await _call('setCompanyUserPassword', {
+      'companyId': companyId,
+      'uid': uid,
+      'newPassword': newPassword,
+    });
+  }
+
+  @override
+  Future<void> setCompanyUserEmail({
+    required String companyId,
+    required String uid,
+    required String newEmail,
+  }) async {
+    await _call('setCompanyUserEmail', {
+      'companyId': companyId,
+      'uid': uid,
+      'newEmail': newEmail,
+    });
+  }
+
+  @override
+  Future<PasswordResetLinkResult> generateCompanyUserPasswordResetLink({
+    required String companyId,
+    required String uid,
+  }) async {
+    final data = await _callMap('generateCompanyUserPasswordResetLink', {
+      'companyId': companyId,
+      'uid': uid,
+    });
+    return PasswordResetLinkResult(
+      uid: data['uid'] as String? ?? '',
+      companyId: data['companyId'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      passwordResetLink: data['passwordResetLink'] as String? ?? '',
+    );
+  }
+
+  @override
   Future<void> updateCompanyPlatformSettings({
     required String companyId,
     String? name,
@@ -180,8 +241,20 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
   }
 
   Future<void> _call(String name, Map<String, Object?> data) async {
+    await _callMap(name, data);
+  }
+
+  Future<Map<String, dynamic>> _callMap(
+    String name,
+    Map<String, Object?> data,
+  ) async {
     try {
-      await _functions.httpsCallable(name).call<Map<String, Object?>>(data);
+      final result = await _functions.httpsCallable(name).call(data);
+      final value = result.data;
+      if (value is Map) {
+        return Map<String, dynamic>.from(value);
+      }
+      return const {};
     } on FirebaseFunctionsException catch (error) {
       throw Exception(error.message ?? AppErrorMessages.permissionDenied);
     } on FirebaseException catch (error) {

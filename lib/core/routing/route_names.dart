@@ -7,6 +7,7 @@ abstract final class RouteNames {
   static const tasks = '/tasks';
   static const deals = '/deals';
   static const reports = '/reports';
+  static const teams = '/teams';
   static const profile = '/profile';
   static const settings = '/settings';
   static const platform = '/platform';

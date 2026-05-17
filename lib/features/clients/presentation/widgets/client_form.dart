@@ -19,6 +19,10 @@ class ClientForm extends StatefulWidget {
     this.assignedTo = '',
     this.assignedToName = '',
     this.assignedToEmail = '',
+    this.assignedTeamId = '',
+    this.assignedTeamName = '',
+    this.assignedManagerId = '',
+    this.assignedManagerName = '',
     this.users = const [],
     this.canEditAssignment = false,
     this.isSaving = false,
@@ -30,6 +34,10 @@ class ClientForm extends StatefulWidget {
   final String assignedTo;
   final String assignedToName;
   final String assignedToEmail;
+  final String assignedTeamId;
+  final String assignedTeamName;
+  final String assignedManagerId;
+  final String assignedManagerName;
   final List<UserProfile> users;
   final bool canEditAssignment;
   final ValueChanged<Client> onSubmit;
@@ -54,6 +62,10 @@ class _ClientFormState extends State<ClientForm> {
   late String _assignedTo;
   String _assignedToName = '';
   String _assignedToEmail = '';
+  String _teamId = '';
+  String _teamName = '';
+  String _managerId = '';
+  String _managerName = '';
 
   @override
   void initState() {
@@ -63,6 +75,10 @@ class _ClientFormState extends State<ClientForm> {
         widget.client?.assignedToName ?? widget.assignedToName;
     _assignedToEmail =
         widget.client?.assignedToEmail ?? widget.assignedToEmail;
+    _teamId = widget.client?.teamId ?? widget.assignedTeamId;
+    _teamName = widget.client?.teamName ?? widget.assignedTeamName;
+    _managerId = widget.client?.managerId ?? widget.assignedManagerId;
+    _managerName = widget.client?.managerName ?? widget.assignedManagerName;
     final client = widget.client;
     _syncAssignedSnapshot();
     if (client == null) {
@@ -282,6 +298,10 @@ class _ClientFormState extends State<ClientForm> {
         : previous?.assignedTo ?? widget.assignedTo;
     final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
     final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
+    final teamId = selectedAssignee?.teamId ?? _teamId;
+    final teamName = selectedAssignee?.teamName ?? _teamName;
+    final managerId = selectedAssignee?.managerId ?? _managerId;
+    final managerName = selectedAssignee?.managerName ?? _managerName;
     widget.onSubmit(
       Client(
         id: previous?.id ?? '',
@@ -297,6 +317,10 @@ class _ClientFormState extends State<ClientForm> {
         assignedTo: assignedTo,
         assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),
         assignedToEmail: assignedTo.trim().isEmpty ? '' : assignedToEmail.trim(),
+        teamId: assignedTo.trim().isEmpty ? '' : teamId.trim(),
+        teamName: assignedTo.trim().isEmpty ? '' : teamName.trim(),
+        managerId: assignedTo.trim().isEmpty ? '' : managerId.trim(),
+        managerName: assignedTo.trim().isEmpty ? '' : managerName.trim(),
         isActive: previous?.isActive ?? true,
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,
@@ -325,10 +349,18 @@ class _ClientFormState extends State<ClientForm> {
       if (_assignedTo.trim().isEmpty) {
         _assignedToName = '';
         _assignedToEmail = '';
+        _teamId = '';
+        _teamName = '';
+        _managerId = '';
+        _managerName = '';
       }
       return;
     }
     _assignedToName = user.fullName;
     _assignedToEmail = user.email;
+    _teamId = user.teamId;
+    _teamName = user.teamName;
+    _managerId = user.managerId;
+    _managerName = user.managerName;
   }
 }

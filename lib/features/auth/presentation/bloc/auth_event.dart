@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/app_user.dart';
+import '../../../users/domain/entities/user_profile.dart';
 
 sealed class AuthEvent extends Equatable {
   const AuthEvent();
@@ -47,4 +48,20 @@ final class AuthUserChanged extends AuthEvent {
 
   @override
   List<Object?> get props => [user];
+}
+
+
+final class AuthProfileUpdated extends AuthEvent {
+  const AuthProfileUpdated({
+    this.profile,
+    this.fullName,
+    this.photoUrl,
+  });
+
+  final UserProfile? profile;
+  final String? fullName;
+  final String? photoUrl;
+
+  @override
+  List<Object?> get props => [profile, fullName, photoUrl];
 }

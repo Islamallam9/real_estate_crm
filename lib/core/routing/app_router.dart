@@ -29,6 +29,7 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/platform/presentation/pages/platform_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/teams/presentation/pages/teams_page.dart';
 import '../../features/tasks/presentation/pages/create_task_page.dart';
 import '../../features/tasks/presentation/pages/edit_task_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
@@ -53,6 +54,8 @@ abstract final class AppRouter {
         );
         final isFeatureUnavailableRoute =
             state.matchedLocation == RouteNames.featureUnavailable;
+        final isAccountUtilityRoute = state.matchedLocation == RouteNames.profile ||
+            state.matchedLocation == RouteNames.settings;
 
         if (isCheckingAuth) {
           return null;
@@ -71,6 +74,7 @@ abstract final class AppRouter {
         if (isAuthenticated &&
             !isPlatformRoute &&
             !isFeatureUnavailableRoute &&
+            !isAccountUtilityRoute &&
             authBloc.state.userProfile == null &&
             authBloc.state.isPlatformAdmin) {
           return RouteNames.platform;
@@ -128,6 +132,10 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.reports,
           builder: (context, state) => const ReportsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.teams,
+          builder: (context, state) => TeamsPage.withDependencies(),
         ),
         GoRoute(
           path: RouteNames.profile,

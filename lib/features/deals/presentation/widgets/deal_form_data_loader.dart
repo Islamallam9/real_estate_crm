@@ -43,10 +43,12 @@ class DealFormDataLoader extends StatefulWidget {
     required this.companyId,
     required this.builder,
     this.assignedTo,
+    this.managerId,
   });
 
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final Widget Function(BuildContext context, DealFormData data) builder;
 
   @override
@@ -91,7 +93,11 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
     final l = AppLocalizations.of(context)!;
     return StreamBuilder<List<Client>>(
       key: ValueKey(_retryKey),
-      stream: _watchClients(widget.companyId, assignedTo: widget.assignedTo),
+      stream: _watchClients(
+        widget.companyId,
+        assignedTo: widget.assignedTo,
+        managerId: widget.managerId,
+      ),
       builder: (context, clientsSnapshot) {
         if (clientsSnapshot.hasError) {
           return AppErrorView(
@@ -99,7 +105,11 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
           );
         }
         return StreamBuilder<List<Lead>>(
-          stream: _watchLeads(widget.companyId, assignedTo: widget.assignedTo),
+          stream: _watchLeads(
+            widget.companyId,
+            assignedTo: widget.assignedTo,
+            managerId: widget.managerId,
+          ),
           builder: (context, leadsSnapshot) {
             if (leadsSnapshot.hasError) {
               return AppErrorView(
@@ -168,24 +178,34 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
   }
 }
 
-Stream<List<Client>> _watchClients(String companyId, {String? assignedTo}) {
+Stream<List<Client>> _watchClients(
+  String companyId, {
+  String? assignedTo,
+  String? managerId,
+}) {
   final repository = ClientRepositoryImpl(
     remoteDataSource: FirestoreClientsRemoteDataSource(),
   );
   return WatchClientsUseCase(repository)(
     companyId: companyId,
     assignedTo: assignedTo,
+    managerId: managerId,
     limit: 80,
   );
 }
 
-Stream<List<Lead>> _watchLeads(String companyId, {String? assignedTo}) {
+Stream<List<Lead>> _watchLeads(
+  String companyId, {
+  String? assignedTo,
+  String? managerId,
+}) {
   final repository = LeadsRepositoryImpl(
     remoteDataSource: FirestoreLeadsRemoteDataSource(),
   );
   return WatchLeadsUseCase(repository)(
     companyId: companyId,
     assignedTo: assignedTo,
+    managerId: managerId,
     limit: 80,
   );
 }

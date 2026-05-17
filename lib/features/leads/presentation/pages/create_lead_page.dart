@@ -89,6 +89,7 @@ class _CreateLeadView extends StatelessWidget {
                   canAssign: canAssign,
                   roleName: role.name,
                   actorName: actorName,
+                  userProfile: userProfile,
                 );
               },
             ),
@@ -103,6 +104,7 @@ class _CreateLeadFormContent extends StatelessWidget {
     required this.canAssign,
     required this.roleName,
     required this.actorName,
+    required this.userProfile,
   });
 
   final String companyId;
@@ -110,6 +112,7 @@ class _CreateLeadFormContent extends StatelessWidget {
   final bool canAssign;
   final String roleName;
   final String actorName;
+  final UserProfile userProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -179,11 +182,26 @@ class _CreateLeadFormContent extends StatelessWidget {
                               assignmentUsers: users,
                               lead: null,
                               onSubmit: (lead) {
+                                if (roleName == 'manager' &&
+                                    lead.assignedTo.trim().isEmpty) {
+                                  AppFeedback.warning(
+                                    context,
+                                    l.recordMustBeAssignedBeforeSaving,
+                                  );
+                                  return;
+                                }
                                 final isAssignedOnlyRole =
                                     roleName == 'salesAgent' ||
                                     roleName == 'marketing';
                                 final leadToCreate = isAssignedOnlyRole
-                                    ? lead.copyWith(assignedTo: uid)
+                                    ? lead.copyWith(
+                                        assignedTo: uid,
+                                        assignedToName: userProfile.fullName,
+                                        teamId: userProfile.teamId,
+                                        teamName: userProfile.teamName,
+                                        managerId: userProfile.managerId,
+                                        managerName: userProfile.managerName,
+                                      )
                                     : lead;
                                 context.read<LeadsCubit>().createLead(
                                   companyId: companyId,

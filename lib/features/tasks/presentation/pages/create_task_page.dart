@@ -129,9 +129,19 @@ class _CreateTaskView extends StatelessWidget {
                                       role == UserRole.manager,
                                   relatedRecordsAssignedTo:
                                       role == UserRole.salesAgent ? user.uid : null,
+                                  relatedRecordsManagerId:
+                                      role == UserRole.manager ? user.uid : null,
                                   isSaving: isSaving,
                                   submitLabel: l.createTask,
                                   onSubmit: (task) {
+                                    if (role == UserRole.manager &&
+                                        task.assignedTo.trim().isEmpty) {
+                                      AppFeedback.warning(
+                                        context,
+                                        l.recordMustBeAssignedBeforeSaving,
+                                      );
+                                      return;
+                                    }
                                     context.read<TasksCubit>().createTask(
                                       companyId: userProfile.companyId,
                                       task: task,

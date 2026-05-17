@@ -328,8 +328,6 @@ class _PropertyFormState extends State<PropertyForm> {
         );
       });
     } catch (error, stackTrace) {
-      debugPrint('Property image pick failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
 
       if (mounted) {
         AppFeedback.error(context, l.unableToPickPropertyImages);

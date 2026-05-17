@@ -16,6 +16,14 @@ class PlatformCompanyUserModel extends PlatformCompanyUser {
     required super.createdBy,
     required super.updatedAt,
     required super.updatedBy,
+    super.lastLoginAt,
+    super.lastLoginIp,
+    super.lastLoginUserAgent,
+    super.lastLoginPlatform,
+    super.lastLoginBrowser,
+    super.lastLoginDeviceType,
+    super.lastLoginLocale,
+    super.lastLoginTimezone,
   });
 
   factory PlatformCompanyUserModel.fromFirestore(
@@ -38,8 +46,23 @@ class PlatformCompanyUserModel extends PlatformCompanyUser {
       createdBy: data['createdBy'] as String? ?? '',
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       updatedBy: data['updatedBy'] as String? ?? '',
+      lastLoginAt: _nullableDateTimeFromValue(data['lastLoginAt']),
+      lastLoginIp: data['lastLoginIp'] as String? ?? '',
+      lastLoginUserAgent: data['lastLoginUserAgent'] as String? ?? '',
+      lastLoginPlatform: data['lastLoginPlatform'] as String? ?? '',
+      lastLoginBrowser: data['lastLoginBrowser'] as String? ?? '',
+      lastLoginDeviceType: data['lastLoginDeviceType'] as String? ?? '',
+      lastLoginLocale: data['lastLoginLocale'] as String? ?? '',
+      lastLoginTimezone: data['lastLoginTimezone'] as String? ?? '',
     );
   }
+}
+
+DateTime? _nullableDateTimeFromValue(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  return _dateTimeFromValue(value);
 }
 
 DateTime _dateTimeFromValue(Object? value) {

@@ -125,6 +125,9 @@ class _EditDealViewState extends State<_EditDealView> {
                               children: [
                                 DealFormDataLoader(
                                   companyId: userProfile.companyId,
+                                  managerId: userProfile.role == UserRole.manager
+                                      ? user.uid
+                                      : null,
                                   builder: (context, data) {
                                     return DealForm(
                                       companyId: userProfile.companyId,
@@ -138,6 +141,10 @@ class _EditDealViewState extends State<_EditDealView> {
                                       assignedTo: deal.assignedTo,
                                       assignedToName: deal.assignedToName,
                                       assignedToEmail: deal.assignedToEmail,
+                                      assignedTeamId: deal.teamId,
+                                      assignedTeamName: deal.teamName,
+                                      assignedManagerId: deal.managerId,
+                                      assignedManagerName: deal.managerName,
                                       isSaving: isSaving,
                                       submitLabel: l.updateDeal,
                                       onSubmit: (updatedDeal) {

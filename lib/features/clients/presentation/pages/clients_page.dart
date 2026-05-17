@@ -80,11 +80,18 @@ class ClientsPage extends StatelessWidget {
             AppPermission.archiveClient,
           );
 
-          if (role == UserRole.salesAgent && (authState.user?.uid.isEmpty ?? true)) {
+          if ((role == UserRole.manager ||
+                  role == UserRole.salesAgent ||
+                  role == UserRole.viewer) &&
+              (authState.user?.uid.isEmpty ?? true)) {
             return AppErrorView(message: localizations.permissionDenied);
           }
 
-          final assignedTo = role == UserRole.salesAgent
+          final assignedTo = role == UserRole.salesAgent ||
+                  role == UserRole.viewer
+              ? authState.user!.uid
+              : null;
+          final managerId = role == UserRole.manager
               ? authState.user!.uid
               : null;
 
@@ -92,11 +99,12 @@ class ClientsPage extends StatelessWidget {
             child: _ClientsListContent(
               companyId: companyId,
               assignedTo: assignedTo,
+              managerId: managerId,
               canCreate: canCreate,
               canEdit: canEdit,
               canArchive: canArchive,
               canAssign: role == UserRole.admin || role == UserRole.manager,
-              showAssigneeFilter: role != UserRole.salesAgent,
+              showAssigneeFilter: role == UserRole.admin,
               uid: authState.user?.uid ?? '',
               isSalesAgentView: role == UserRole.salesAgent,
             ),
@@ -118,10 +126,12 @@ class _ClientsListContent extends StatefulWidget {
     required this.uid,
     required this.isSalesAgentView,
     this.assignedTo,
+    this.managerId,
   });
 
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final bool canCreate;
   final bool canEdit;
   final bool canArchive;
@@ -138,9 +148,24 @@ class _ClientsListContentState extends State<_ClientsListContent> {
   @override
   void initState() {
     super.initState();
+    _watchScopedClients();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ClientsListContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.assignedTo != widget.assignedTo ||
+        oldWidget.managerId != widget.managerId) {
+      _watchScopedClients();
+    }
+  }
+
+  void _watchScopedClients() {
     context.read<ClientsCubit>().watchClients(
       companyId: widget.companyId,
       assignedTo: widget.assignedTo,
+      managerId: widget.managerId,
     );
   }
 
@@ -238,6 +263,7 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                   final body = _ClientsBody(
                     companyId: widget.companyId,
                     assignedTo: widget.assignedTo,
+                    managerId: widget.managerId,
                     state: state,
                     canEdit: widget.canEdit,
                     canArchive: widget.canArchive,
@@ -533,10 +559,12 @@ class _ClientsBody extends StatelessWidget {
     required this.users,
     required this.isSalesAgentView,
     this.assignedTo,
+    this.managerId,
   });
 
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final ClientsState state;
   final bool canEdit;
   final bool canArchive;
@@ -562,6 +590,7 @@ class _ClientsBody extends StatelessWidget {
           context.read<ClientsCubit>().watchClients(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
           );
         },
       );
@@ -1092,6 +1121,10 @@ Future<void> _showAssignClientSheet(
                         assignedTo: selectedUserId,
                         assignedToName: selectedUser?.fullName ?? '',
                         assignedToEmail: selectedUser?.email ?? '',
+                        teamId: selectedUser?.teamId ?? '',
+                        teamName: selectedUser?.teamName ?? '',
+                        managerId: selectedUser?.managerId ?? '',
+                        managerName: selectedUser?.managerName ?? '',
                         updatedBy: updatedBy,
                       );
                       final completed =

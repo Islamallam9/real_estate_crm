@@ -15,6 +15,14 @@ class PlatformCompanyUser extends Equatable {
     required this.createdBy,
     required this.updatedAt,
     required this.updatedBy,
+    this.lastLoginAt,
+    this.lastLoginIp = '',
+    this.lastLoginUserAgent = '',
+    this.lastLoginPlatform = '',
+    this.lastLoginBrowser = '',
+    this.lastLoginDeviceType = '',
+    this.lastLoginLocale = '',
+    this.lastLoginTimezone = '',
   });
 
   final String uid;
@@ -28,6 +36,14 @@ class PlatformCompanyUser extends Equatable {
   final String createdBy;
   final DateTime updatedAt;
   final String updatedBy;
+  final DateTime? lastLoginAt;
+  final String lastLoginIp;
+  final String lastLoginUserAgent;
+  final String lastLoginPlatform;
+  final String lastLoginBrowser;
+  final String lastLoginDeviceType;
+  final String lastLoginLocale;
+  final String lastLoginTimezone;
 
   @override
   List<Object?> get props => [
@@ -42,5 +58,13 @@ class PlatformCompanyUser extends Equatable {
     createdBy,
     updatedAt,
     updatedBy,
+    lastLoginAt,
+    lastLoginIp,
+    lastLoginUserAgent,
+    lastLoginPlatform,
+    lastLoginBrowser,
+    lastLoginDeviceType,
+    lastLoginLocale,
+    lastLoginTimezone,
   ];
 }

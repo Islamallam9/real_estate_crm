@@ -64,12 +64,19 @@ class TasksPage extends StatelessWidget {
 
           final currentUser = authState.user;
           String? assignedTo;
+          String? managerId;
 
-          if (role == UserRole.salesAgent || role == UserRole.marketing) {
+          if (role == UserRole.manager) {
             if (currentUser == null || currentUser.uid.isEmpty) {
               return AppErrorView(message: l.permissionDenied);
             }
-
+            managerId = currentUser.uid;
+          } else if (role == UserRole.salesAgent ||
+              role == UserRole.marketing ||
+              role == UserRole.viewer) {
+            if (currentUser == null || currentUser.uid.isEmpty) {
+              return AppErrorView(message: l.permissionDenied);
+            }
             assignedTo = currentUser.uid;
           }
           final canCreate =
@@ -84,6 +91,7 @@ class TasksPage extends StatelessWidget {
             child: _TasksListContent(
               companyId: companyId,
               assignedTo: assignedTo,
+              managerId: managerId,
               canCreate: canCreate,
               canManageTasks: canManageTasks,
               uid: authState.user?.uid ?? '',
@@ -102,10 +110,12 @@ class _TasksListContent extends StatefulWidget {
     required this.canManageTasks,
     required this.uid,
     this.assignedTo,
+    this.managerId,
   });
 
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final bool canCreate;
   final bool canManageTasks;
   final String uid;
@@ -118,9 +128,24 @@ class _TasksListContentState extends State<_TasksListContent> {
   @override
   void initState() {
     super.initState();
+    _watchScopedTasks();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TasksListContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.assignedTo != widget.assignedTo ||
+        oldWidget.managerId != widget.managerId) {
+      _watchScopedTasks();
+    }
+  }
+
+  void _watchScopedTasks() {
     context.read<TasksCubit>().watchTasks(
       companyId: widget.companyId,
       assignedTo: widget.assignedTo,
+      managerId: widget.managerId,
     );
   }
 
@@ -200,6 +225,7 @@ class _TasksListContentState extends State<_TasksListContent> {
             final body = _TasksBody(
               companyId: widget.companyId,
               assignedTo: widget.assignedTo,
+              managerId: widget.managerId,
               state: state,
               canManageTasks: widget.canManageTasks,
               uid: widget.uid,
@@ -542,10 +568,12 @@ class _TasksBody extends StatelessWidget {
     required this.uid,
     required this.users,
     this.assignedTo,
+    this.managerId,
   });
 
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final TasksState state;
   final bool canManageTasks;
   final String uid;
@@ -568,6 +596,7 @@ class _TasksBody extends StatelessWidget {
           context.read<TasksCubit>().watchTasks(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
           );
         },
       );

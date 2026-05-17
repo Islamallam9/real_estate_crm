@@ -32,6 +32,12 @@ abstract final class AuthErrorMessages {
       'This company is inactive. Please contact platform support.';
   static const tooManyAttempts =
       'Too many failed sign-in attempts. Please wait before trying again.';
+  static const currentPasswordIncorrect = 'Current password is incorrect.';
+  static const recentLoginRequired =
+      'Please sign in again before changing your password.';
+  static const weakPassword = 'New password is too short.';
+  static const passwordChangeFailed =
+      'Unable to change password. Please try again.';
 }
 
 abstract final class AuthSuccessMessages {

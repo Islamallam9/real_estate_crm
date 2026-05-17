@@ -53,6 +53,10 @@ class _LeadFormState extends State<LeadForm> {
   LeadPriority _priority = LeadPriority.medium;
   String _assignedTo = '';
   String _assignedToName = '';
+  String _teamId = '';
+  String _teamName = '';
+  String _managerId = '';
+  String _managerName = '';
   DateTime? _lastContactAt;
   DateTime? _nextFollowUpAt;
 
@@ -81,6 +85,10 @@ class _LeadFormState extends State<LeadForm> {
     _priority = lead.priority;
     _assignedTo = lead.assignedTo;
     _assignedToName = lead.assignedToName;
+    _teamId = lead.teamId;
+    _teamName = lead.teamName;
+    _managerId = lead.managerId;
+    _managerName = lead.managerName;
     _lastContactAt = lead.lastContactAt;
     _nextFollowUpAt = lead.nextFollowUpAt;
   }
@@ -238,7 +246,7 @@ class _LeadFormState extends State<LeadForm> {
                 onChanged: (uid) {
                   setState(() {
                     _assignedTo = uid;
-                    _assignedToName = _assigneeNameForUid(uid);
+                    _syncAssigneeSnapshot();
                   });
                 },
               )
@@ -365,6 +373,14 @@ class _LeadFormState extends State<LeadForm> {
         assignedToName: widget.canAssign
             ? _assignedToName
             : widget.lead?.assignedToName ?? '',
+        teamId: widget.canAssign ? _teamId : widget.lead?.teamId ?? '',
+        teamName: widget.canAssign ? _teamName : widget.lead?.teamName ?? '',
+        managerId: widget.canAssign
+            ? _managerId
+            : widget.lead?.managerId ?? '',
+        managerName: widget.canAssign
+            ? _managerName
+            : widget.lead?.managerName ?? '',
         notes: _notesController.text.trim(),
         createdAt: widget.lead?.createdAt ?? now,
         updatedAt: now,
@@ -377,6 +393,32 @@ class _LeadFormState extends State<LeadForm> {
         archivedBy: widget.lead?.archivedBy,
       ),
     );
+  }
+
+  void _syncAssigneeSnapshot() {
+    final user = _assigneeForUid(_assignedTo);
+    if (user == null) {
+      _assignedToName = '';
+      _teamId = '';
+      _teamName = '';
+      _managerId = '';
+      _managerName = '';
+      return;
+    }
+    _assignedToName = user.fullName;
+    _teamId = user.teamId;
+    _teamName = user.teamName;
+    _managerId = user.managerId;
+    _managerName = user.managerName;
+  }
+
+  UserProfile? _assigneeForUid(String uid) {
+    for (final user in widget.assignmentUsers) {
+      if (user.uid == uid) {
+        return user;
+      }
+    }
+    return null;
   }
 }
 

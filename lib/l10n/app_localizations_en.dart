@@ -1013,6 +1013,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only admins and managers can assign leads.';
 
   @override
+  String get recordMustBeAssignedBeforeSaving =>
+      'This record must be assigned before saving.';
+
+  @override
+  String get canOnlyAssignRecordsToYourTeam =>
+      'You can only assign records to users in your team.';
+
+  @override
   String get cannotAssignAcrossCompanies =>
       'Cannot assign a lead outside your company.';
 
@@ -1448,6 +1456,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileInformation => 'Profile information';
 
   @override
+  String get editProfile => 'Edit profile';
+
+  @override
+  String get uploadProfileImage => 'Upload profile image';
+
+  @override
+  String get removeProfileImage => 'Remove profile image';
+
+  @override
+  String get profileUpdatedSuccessfully => 'Profile updated successfully.';
+
+  @override
+  String get unableToPickProfileImage =>
+      'Unable to select profile image. Please try again.';
+
+  @override
+  String get fullNameRequired => 'Full name is required.';
+
+  @override
   String get role => 'Role';
 
   @override
@@ -1827,4 +1854,309 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get passwordResetEmailFailed =>
       'Unable to send password reset email. Please try again.';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get changeEmail => 'Change email';
+
+  @override
+  String get changePassword => 'Change password';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get confirmPassword => 'Confirm password';
+
+  @override
+  String get passwordChangedSuccessfully => 'Password changed successfully.';
+
+  @override
+  String get passwordChangeFailed =>
+      'Password change failed. Please try again.';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match.';
+
+  @override
+  String get currentPasswordRequired => 'Current password is required.';
+
+  @override
+  String get currentPasswordIncorrect => 'Current password is incorrect.';
+
+  @override
+  String get recentLoginRequired =>
+      'Please sign in again before changing your password.';
+
+  @override
+  String get newPasswordRequired => 'New password is required.';
+
+  @override
+  String get newPasswordTooShort =>
+      'New password must be at least 8 characters.';
+
+  @override
+  String get generateResetLink => 'Generate reset link';
+
+  @override
+  String get resetLinkGenerated => 'Reset link generated.';
+
+  @override
+  String get copyResetLink => 'Copy reset link';
+
+  @override
+  String get resetLinkCopied => 'Reset link copied.';
+
+  @override
+  String get sendThisLinkManuallyToTheUser =>
+      'Send this link manually to the user.';
+
+  @override
+  String get platformEmailChanged => 'User email updated.';
+
+  @override
+  String get platformPasswordChanged => 'Platform password changed.';
+
+  @override
+  String get notAllowedToChangePassword =>
+      'You are not allowed to change this password.';
+
+  @override
+  String get lastLogin => 'Last login';
+
+  @override
+  String get lastLoginDetails => 'Last login details';
+
+  @override
+  String get ipAddress => 'IP address';
+
+  @override
+  String get device => 'Device';
+
+  @override
+  String get browser => 'Browser';
+
+  @override
+  String get platform => 'Platform';
+
+  @override
+  String get loginActivity => 'Login activity';
+
+  @override
+  String get recentLoginActivity => 'Recent login activity';
+
+  @override
+  String get noLoginActivityYet => 'No login activity yet.';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get userSecurity => 'User security';
+
+  @override
+  String get teamManagement => 'Team Management';
+
+  @override
+  String get teamManagementSubtitle =>
+      'Create manager-owned teams and keep sales and marketing users organized by company.';
+
+  @override
+  String get teams => 'Teams';
+
+  @override
+  String get myTeam => 'My Team';
+
+  @override
+  String get myTeamSubtitle =>
+      'View your assigned team and active team members.';
+
+  @override
+  String get createTeam => 'Create Team';
+
+  @override
+  String get editTeam => 'Edit Team';
+
+  @override
+  String get teamDetails => 'Team Details';
+
+  @override
+  String get teamName => 'Team Name';
+
+  @override
+  String get teamDescription => 'Team Description';
+
+  @override
+  String get teamManager => 'Team Manager';
+
+  @override
+  String get teamMembers => 'Team Members';
+
+  @override
+  String get teamMembersShort => 'Team members';
+
+  @override
+  String get addMembers => 'Add Members';
+
+  @override
+  String get manageMembers => 'Manage members';
+
+  @override
+  String get removeMember => 'Remove Member';
+
+  @override
+  String get moveToTeam => 'Move to Team';
+
+  @override
+  String get unassignedUsers => 'Unassigned Users';
+
+  @override
+  String get usersWithoutTeam => 'Users Without Team';
+
+  @override
+  String get activeTeams => 'Active Teams';
+
+  @override
+  String get inactiveTeams => 'Inactive Teams';
+
+  @override
+  String get members => 'Members';
+
+  @override
+  String teamMembersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+      zero: 'No members',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get managersWithTeams => 'Managers with teams';
+
+  @override
+  String get noTeamsYet => 'No teams yet';
+
+  @override
+  String get noTeamsYetMessage =>
+      'Create the first team and assign an active manager.';
+
+  @override
+  String get noTeamMembersYet => 'No team members yet';
+
+  @override
+  String get noTeamMembersYetMessage =>
+      'Add sales or marketing users to this team.';
+
+  @override
+  String get noTeamAssigned => 'No team assigned';
+
+  @override
+  String get noTeamAssignedMessage =>
+      'Ask an admin to assign you as a team manager.';
+
+  @override
+  String get assignManager => 'Assign Manager';
+
+  @override
+  String get changeManager => 'Change Manager';
+
+  @override
+  String get deactivateTeam => 'Deactivate Team';
+
+  @override
+  String get activateTeam => 'Activate Team';
+
+  @override
+  String get teamSavedSuccessfully => 'Team saved successfully.';
+
+  @override
+  String get teamUpdateFailed => 'Team update failed.';
+
+  @override
+  String get teamPermissionDenied =>
+      'You do not have permission to manage team members.';
+
+  @override
+  String get teamSessionExpired =>
+      'Your session expired. Sign in again and retry.';
+
+  @override
+  String get teamUserInactive =>
+      'This user is inactive. Activate the user before assigning them.';
+
+  @override
+  String get teamInactive => 'This team is inactive. Activate the team first.';
+
+  @override
+  String get teamMemberIneligible =>
+      'Only Sales Agent and Marketing users can be team members.';
+
+  @override
+  String get teamManagerUnavailable =>
+      'Team manager must be an active Manager user.';
+
+  @override
+  String get teamManagerAlreadyHasTeam =>
+      'This manager already owns an active team.';
+
+  @override
+  String get teamUserNotFound =>
+      'The selected user no longer exists. Refresh and try again.';
+
+  @override
+  String get teamNotFound =>
+      'The selected team no longer exists. Refresh and try again.';
+
+  @override
+  String get teamCompanyInactive => 'The selected company is inactive.';
+
+  @override
+  String get teamCompanyMismatch =>
+      'User and team must belong to the same company.';
+
+  @override
+  String get teamConnectionInterrupted =>
+      'The connection was interrupted. Check your internet and try again.';
+
+  @override
+  String get teamRecordChanged => 'Team data changed. Refresh and try again.';
+
+  @override
+  String get teamInvalidInput =>
+      'Check the selected team and user, then try again.';
+
+  @override
+  String get userAddedToTeam => 'User added to team.';
+
+  @override
+  String get userRemovedFromTeam => 'User removed from team.';
+
+  @override
+  String get searchTeams => 'Search teams';
+
+  @override
+  String get noManagersAvailable => 'No managers available';
+
+  @override
+  String get noManagersAvailableMessage =>
+      'Add an active Manager user before creating a team.';
+
+  @override
+  String get noUnassignedUsers => 'No eligible users';
+
+  @override
+  String get noUnassignedUsersMessage =>
+      'Sales and marketing users are already assigned or unavailable.';
 }

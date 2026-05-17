@@ -37,6 +37,7 @@ abstract interface class LeadsRemoteDataSource {
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }
@@ -196,11 +197,14 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     Query<Map<String, dynamic>> query = _leadsCollection(companyId);
-    if (assignedTo != null && assignedTo.isNotEmpty) {
-      query = query.where('assignedTo', isEqualTo: assignedTo);
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
     return query.limit(limit).snapshots().map((snapshot) {

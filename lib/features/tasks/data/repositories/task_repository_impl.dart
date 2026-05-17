@@ -44,11 +44,13 @@ class TaskRepositoryImpl implements TaskRepository {
   Stream<List<CrmTask>> watchTasks({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 40,
   }) {
     return _remoteDataSource.watchTasks(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }
@@ -58,12 +60,14 @@ class TaskRepositoryImpl implements TaskRepository {
     required String companyId,
     required TaskRelatedType type,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     return _remoteDataSource.getRelatedRecordOptions(
       companyId: companyId,
       type: type,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }

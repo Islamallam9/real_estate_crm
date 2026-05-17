@@ -63,7 +63,11 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
       isEqualTo: true,
     );
 
-    if (role == UserRole.salesAgent) {
+    if (role == UserRole.manager) {
+      query = query.where('managerId', isEqualTo: currentUserId);
+    } else if (role == UserRole.salesAgent ||
+        role == UserRole.marketing ||
+        role == UserRole.viewer) {
       query = query.where('assignedTo', isEqualTo: currentUserId);
     }
 
@@ -115,6 +119,10 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         assignedTo: deal.assignedTo,
         assignedToName: deal.assignedToName,
         assignedToEmail: deal.assignedToEmail,
+        teamId: deal.teamId,
+        teamName: deal.teamName,
+        managerId: deal.managerId,
+        managerName: deal.managerName,
         stage: deal.stage,
         expectedValue: deal.expectedValue,
         commission: deal.commission,
@@ -167,6 +175,10 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         'assignedTo': deal.assignedTo,
         'assignedToName': deal.assignedToName,
         'assignedToEmail': deal.assignedToEmail,
+        'teamId': deal.teamId,
+        'teamName': deal.teamName,
+        'managerId': deal.managerId,
+        'managerName': deal.managerName,
         'stage': dealStageToValue(deal.stage),
         'expectedValue': deal.expectedValue,
         'commission': deal.commission,

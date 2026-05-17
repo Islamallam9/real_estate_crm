@@ -9,11 +9,13 @@ class WatchTasksUseCase {
   Stream<List<CrmTask>> call({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 40,
   }) {
     return _repository.watchTasks(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }

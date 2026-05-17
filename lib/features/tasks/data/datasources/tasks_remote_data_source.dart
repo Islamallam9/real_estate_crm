@@ -26,6 +26,7 @@ abstract interface class TasksRemoteDataSource {
   Stream<List<CrmTaskModel>> watchTasks({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 
@@ -33,6 +34,7 @@ abstract interface class TasksRemoteDataSource {
     required String companyId,
     required TaskRelatedType type,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }
@@ -61,6 +63,10 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
         assignedTo: task.assignedTo,
         assignedToName: task.assignedToName,
         assignedToEmail: task.assignedToEmail,
+        teamId: task.teamId,
+        teamName: task.teamName,
+        managerId: task.managerId,
+        managerName: task.managerName,
         relatedType: task.relatedType,
         relatedId: task.relatedId,
         relatedTitle: task.relatedTitle,
@@ -106,6 +112,10 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
         'assignedTo': task.assignedTo,
         'assignedToName': task.assignedToName,
         'assignedToEmail': task.assignedToEmail,
+        'teamId': task.teamId,
+        'teamName': task.teamName,
+        'managerId': task.managerId,
+        'managerName': task.managerName,
         'relatedType': task.relatedType.name,
         'relatedId': task.relatedId,
         'relatedTitle': task.relatedTitle,
@@ -151,6 +161,7 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   Stream<List<CrmTaskModel>> watchTasks({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 40,
   }) {
     Query<Map<String, dynamic>> query = _tasksCollection(companyId).where(
@@ -158,7 +169,9 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       isEqualTo: true,
     );
 
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
@@ -187,6 +200,7 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
     required String companyId,
     required TaskRelatedType type,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) async {
     try {
@@ -195,24 +209,28 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
           return _getLeadOptions(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
             limit: limit,
           );
         case TaskRelatedType.client:
           return _getClientOptions(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
             limit: limit,
           );
         case TaskRelatedType.property:
           return _getPropertyOptions(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
             limit: limit,
           );
         case TaskRelatedType.deal:
           return _getDealOptions(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
             limit: limit,
           );
         case TaskRelatedType.general:
@@ -228,12 +246,15 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   Future<List<TaskRelatedRecordOption>> _getLeadOptions({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyLeads(companyId),
     );
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
@@ -264,12 +285,15 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   Future<List<TaskRelatedRecordOption>> _getClientOptions({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collection(FirebasePaths.companyClients(companyId))
         .where('isActive', isEqualTo: true);
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
@@ -299,12 +323,15 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   Future<List<TaskRelatedRecordOption>> _getPropertyOptions({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyProperties(companyId),
     );
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
     final snapshot = await query.limit(limit).get();
@@ -335,12 +362,15 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   Future<List<TaskRelatedRecordOption>> _getDealOptions({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collection(FirebasePaths.companyDeals(companyId))
         .where('isActive', isEqualTo: true);
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
     final snapshot = await query.limit(limit).get();

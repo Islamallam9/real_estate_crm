@@ -43,7 +43,11 @@ class TasksCubit extends Cubit<TasksState> {
   final InitialLoadTimeout _tasksInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _taskInitialLoadTimeout = InitialLoadTimeout();
 
-  void watchTasks({required String companyId, String? assignedTo}) {
+  void watchTasks({
+    required String companyId,
+    String? assignedTo,
+    String? managerId,
+  }) {
     emit(
       state.copyWith(
         status: TasksStatus.loading,
@@ -68,6 +72,7 @@ class TasksCubit extends Cubit<TasksState> {
     _tasksSubscription = _watchTasksUseCase(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
     ).listen(
       (tasks) {
         if (isClosed) {
@@ -412,6 +417,7 @@ class TasksCubit extends Cubit<TasksState> {
     required String companyId,
     required TaskRelatedType type,
     String? assignedTo,
+    String? managerId,
   }) async {
     if (type == TaskRelatedType.general) {
       emit(
@@ -436,6 +442,7 @@ class TasksCubit extends Cubit<TasksState> {
         companyId: companyId,
         type: type,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
       if (isClosed) {
         return;

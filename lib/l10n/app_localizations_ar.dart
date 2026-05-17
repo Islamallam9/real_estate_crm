@@ -1009,6 +1009,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'يمكن للمسؤولين والمديرين فقط إسناد العملاء المحتملين.';
 
   @override
+  String get recordMustBeAssignedBeforeSaving =>
+      'يجب إسناد هذا السجل قبل الحفظ.';
+
+  @override
+  String get canOnlyAssignRecordsToYourTeam =>
+      'يمكنك إسناد السجلات لمستخدمي فريقك فقط.';
+
+  @override
   String get cannotAssignAcrossCompanies =>
       'لا يمكن إسناد عميل محتمل خارج شركتك.';
 
@@ -1444,6 +1452,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get profileInformation => 'بيانات الملف الشخصي';
 
   @override
+  String get editProfile => 'تعديل الملف الشخصي';
+
+  @override
+  String get uploadProfileImage => 'رفع صورة الملف الشخصي';
+
+  @override
+  String get removeProfileImage => 'إزالة صورة الملف الشخصي';
+
+  @override
+  String get profileUpdatedSuccessfully => 'تم تحديث الملف الشخصي بنجاح.';
+
+  @override
+  String get unableToPickProfileImage =>
+      'تعذر اختيار صورة الملف الشخصي. حاول مرة أخرى.';
+
+  @override
+  String get fullNameRequired => 'الاسم الكامل مطلوب.';
+
+  @override
   String get role => 'الدور';
 
   @override
@@ -1823,4 +1850,307 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get passwordResetEmailFailed =>
       'تعذر إرسال رابط إعادة تعيين كلمة المرور. حاول مرة أخرى.';
+
+  @override
+  String get save => 'حفظ';
+
+  @override
+  String get close => 'إغلاق';
+
+  @override
+  String get changeEmail => 'تغيير البريد الإلكتروني';
+
+  @override
+  String get changePassword => 'تغيير كلمة المرور';
+
+  @override
+  String get currentPassword => 'كلمة المرور الحالية';
+
+  @override
+  String get newPassword => 'كلمة المرور الجديدة';
+
+  @override
+  String get confirmPassword => 'تأكيد كلمة المرور';
+
+  @override
+  String get passwordChangedSuccessfully => 'تم تغيير كلمة المرور بنجاح.';
+
+  @override
+  String get passwordChangeFailed => 'تعذر تغيير كلمة المرور. حاول مرة أخرى.';
+
+  @override
+  String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين.';
+
+  @override
+  String get currentPasswordRequired => 'كلمة المرور الحالية مطلوبة.';
+
+  @override
+  String get currentPasswordIncorrect => 'كلمة المرور الحالية غير صحيحة.';
+
+  @override
+  String get recentLoginRequired =>
+      'يرجى تسجيل الدخول مرة أخرى قبل تغيير كلمة المرور.';
+
+  @override
+  String get newPasswordRequired => 'كلمة المرور الجديدة مطلوبة.';
+
+  @override
+  String get newPasswordTooShort =>
+      'يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف.';
+
+  @override
+  String get generateResetLink => 'إنشاء رابط إعادة تعيين';
+
+  @override
+  String get resetLinkGenerated => 'تم إنشاء رابط إعادة التعيين.';
+
+  @override
+  String get copyResetLink => 'نسخ رابط إعادة التعيين';
+
+  @override
+  String get resetLinkCopied => 'تم نسخ رابط إعادة التعيين.';
+
+  @override
+  String get sendThisLinkManuallyToTheUser =>
+      'أرسل هذا الرابط للمستخدم يدويًا.';
+
+  @override
+  String get platformEmailChanged => 'تم تحديث بريد المستخدم الإلكتروني.';
+
+  @override
+  String get platformPasswordChanged =>
+      'تم تغيير كلمة مرور المستخدم من المنصة.';
+
+  @override
+  String get notAllowedToChangePassword =>
+      'غير مسموح لك بتغيير كلمة المرور هذه.';
+
+  @override
+  String get lastLogin => 'آخر تسجيل دخول';
+
+  @override
+  String get lastLoginDetails => 'تفاصيل آخر تسجيل دخول';
+
+  @override
+  String get ipAddress => 'عنوان IP';
+
+  @override
+  String get device => 'الجهاز';
+
+  @override
+  String get browser => 'المتصفح';
+
+  @override
+  String get platform => 'المنصة';
+
+  @override
+  String get loginActivity => 'نشاط تسجيل الدخول';
+
+  @override
+  String get recentLoginActivity => 'أحدث نشاط تسجيل دخول';
+
+  @override
+  String get noLoginActivityYet => 'لا يوجد نشاط تسجيل دخول بعد.';
+
+  @override
+  String get security => 'الأمان';
+
+  @override
+  String get userSecurity => 'أمان المستخدم';
+
+  @override
+  String get teamManagement => 'إدارة الفرق';
+
+  @override
+  String get teamManagementSubtitle =>
+      'أنشئ فرقًا يقودها المديرون ونظّم مستخدمي المبيعات والتسويق داخل الشركة.';
+
+  @override
+  String get teams => 'الفرق';
+
+  @override
+  String get myTeam => 'فريقي';
+
+  @override
+  String get myTeamSubtitle => 'اعرض فريقك المعيّن وأعضاءه النشطين.';
+
+  @override
+  String get createTeam => 'إنشاء فريق';
+
+  @override
+  String get editTeam => 'تعديل الفريق';
+
+  @override
+  String get teamDetails => 'تفاصيل الفريق';
+
+  @override
+  String get teamName => 'اسم الفريق';
+
+  @override
+  String get teamDescription => 'وصف الفريق';
+
+  @override
+  String get teamManager => 'مدير الفريق';
+
+  @override
+  String get teamMembers => 'أعضاء الفريق';
+
+  @override
+  String get teamMembersShort => 'أعضاء الفريق';
+
+  @override
+  String get addMembers => 'إضافة أعضاء';
+
+  @override
+  String get manageMembers => 'إدارة الأعضاء';
+
+  @override
+  String get removeMember => 'إزالة عضو';
+
+  @override
+  String get moveToTeam => 'نقل إلى فريق';
+
+  @override
+  String get unassignedUsers => 'مستخدمون بدون فريق';
+
+  @override
+  String get usersWithoutTeam => 'مستخدمون بدون فريق';
+
+  @override
+  String get activeTeams => 'الفرق النشطة';
+
+  @override
+  String get inactiveTeams => 'الفرق غير النشطة';
+
+  @override
+  String get members => 'الأعضاء';
+
+  @override
+  String teamMembersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count أعضاء',
+      two: 'عضوان',
+      one: 'عضو واحد',
+      zero: 'لا يوجد أعضاء',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get managersWithTeams => 'مديرون لديهم فرق';
+
+  @override
+  String get noTeamsYet => 'لا توجد فرق بعد';
+
+  @override
+  String get noTeamsYetMessage => 'أنشئ أول فريق وعيّن مديرًا نشطًا له.';
+
+  @override
+  String get noTeamMembersYet => 'لا يوجد أعضاء في الفريق بعد';
+
+  @override
+  String get noTeamMembersYetMessage =>
+      'أضف مستخدمي المبيعات أو التسويق إلى هذا الفريق.';
+
+  @override
+  String get noTeamAssigned => 'لم يتم تعيين فريق';
+
+  @override
+  String get noTeamAssignedMessage => 'اطلب من المسؤول تعيينك مديرًا لفريق.';
+
+  @override
+  String get assignManager => 'تعيين مدير';
+
+  @override
+  String get changeManager => 'تغيير المدير';
+
+  @override
+  String get deactivateTeam => 'تعطيل الفريق';
+
+  @override
+  String get activateTeam => 'تفعيل الفريق';
+
+  @override
+  String get teamSavedSuccessfully => 'تم حفظ الفريق بنجاح.';
+
+  @override
+  String get teamUpdateFailed => 'فشل تحديث الفريق.';
+
+  @override
+  String get teamPermissionDenied => 'ليس لديك صلاحية لإدارة أعضاء الفريق.';
+
+  @override
+  String get teamSessionExpired =>
+      'انتهت جلستك. سجّل الدخول مرة أخرى ثم أعد المحاولة.';
+
+  @override
+  String get teamUserInactive =>
+      'هذا المستخدم غير نشط. فعّل المستخدم قبل تعيينه في فريق.';
+
+  @override
+  String get teamInactive => 'هذا الفريق غير نشط. فعّل الفريق أولًا.';
+
+  @override
+  String get teamMemberIneligible =>
+      'يمكن إضافة موظفي المبيعات والتسويق فقط كأعضاء في الفريق.';
+
+  @override
+  String get teamManagerUnavailable =>
+      'يجب أن يكون مدير الفريق مستخدمًا نشطًا بدور مدير.';
+
+  @override
+  String get teamManagerAlreadyHasTeam =>
+      'هذا المدير مسؤول بالفعل عن فريق نشط.';
+
+  @override
+  String get teamUserNotFound =>
+      'المستخدم المحدد لم يعد موجودًا. حدّث الصفحة وحاول مرة أخرى.';
+
+  @override
+  String get teamNotFound =>
+      'الفريق المحدد لم يعد موجودًا. حدّث الصفحة وحاول مرة أخرى.';
+
+  @override
+  String get teamCompanyInactive => 'الشركة المحددة غير نشطة.';
+
+  @override
+  String get teamCompanyMismatch =>
+      'يجب أن يكون المستخدم والفريق داخل نفس الشركة.';
+
+  @override
+  String get teamConnectionInterrupted =>
+      'انقطع الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.';
+
+  @override
+  String get teamRecordChanged =>
+      'تغيرت بيانات الفريق. حدّث الصفحة وحاول مرة أخرى.';
+
+  @override
+  String get teamInvalidInput =>
+      'راجع الفريق والمستخدم المحددين ثم حاول مرة أخرى.';
+
+  @override
+  String get userAddedToTeam => 'تمت إضافة المستخدم إلى الفريق.';
+
+  @override
+  String get userRemovedFromTeam => 'تمت إزالة المستخدم من الفريق.';
+
+  @override
+  String get searchTeams => 'البحث في الفرق';
+
+  @override
+  String get noManagersAvailable => 'لا يوجد مديرون متاحون';
+
+  @override
+  String get noManagersAvailableMessage =>
+      'أضف مستخدمًا نشطًا بدور مدير قبل إنشاء فريق.';
+
+  @override
+  String get noUnassignedUsers => 'لا يوجد مستخدمون مؤهلون';
+
+  @override
+  String get noUnassignedUsersMessage =>
+      'مستخدمو المبيعات والتسويق معيّنون بالفعل أو غير متاحين.';
 }

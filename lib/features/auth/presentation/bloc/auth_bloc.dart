@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/errors/user_profile_exception.dart';
@@ -12,6 +15,7 @@ import '../../domain/entities/app_user.dart';
 import '../../domain/errors/auth_exception.dart';
 import '../../domain/usecases/auth_state_changes_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
+import '../../domain/usecases/record_login_activity_usecase.dart';
 import '../../domain/usecases/send_password_reset_email_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
@@ -31,6 +35,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required AuthStateChangesUseCase authStateChangesUseCase,
     required GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
     required ResolveAuthCompanyUseCase resolveAuthCompanyUseCase,
+    required RecordLoginActivityUseCase recordLoginActivityUseCase,
   }) : _signInUseCase = signInUseCase,
        _signOutUseCase = signOutUseCase,
        _sendPasswordResetEmailUseCase = sendPasswordResetEmailUseCase,
@@ -38,6 +43,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
        _authStateChangesUseCase = authStateChangesUseCase,
        _getCurrentUserProfileUseCase = getCurrentUserProfileUseCase,
        _resolveAuthCompanyUseCase = resolveAuthCompanyUseCase,
+       _recordLoginActivityUseCase = recordLoginActivityUseCase,
        super(const AuthState.initial()) {
     on<AuthStarted>(_onStarted);
     on<AuthSignInRequested>(_onSignInRequested);
@@ -45,6 +51,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLockoutTicked>(_onLockoutTicked);
     on<AuthSignOutRequested>(_onSignOutRequested);
     on<AuthUserChanged>(_onUserChanged);
+    on<AuthProfileUpdated>(_onProfileUpdated);
   }
 
   final SignInUseCase _signInUseCase;
@@ -54,6 +61,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthStateChangesUseCase _authStateChangesUseCase;
   final GetCurrentUserProfileUseCase _getCurrentUserProfileUseCase;
   final ResolveAuthCompanyUseCase _resolveAuthCompanyUseCase;
+  final RecordLoginActivityUseCase _recordLoginActivityUseCase;
 
   StreamSubscription<AppUser?>? _authSubscription;
   Timer? _lockoutTimer;
@@ -81,11 +89,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
-    await _loadProfileAndEmitAuthenticated(
-      emit: emit,
-      user: user,
-      signOutOnFailure: false,
-    );
+      await _loadProfileAndEmitAuthenticated(
+        emit: emit,
+        user: user,
+        signOutOnFailure: false,
+        recordLoginActivity: false,
+      );
   }
 
   Future<void> _onSignInRequested(
@@ -129,6 +138,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit: emit,
         user: user,
         signOutOnFailure: true,
+        recordLoginActivity: true,
       );
     } on AuthException catch (error) {
       if (error.code == AuthErrorCode.invalidCredentials) {
@@ -242,6 +252,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+
+  void _onProfileUpdated(
+    AuthProfileUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    final updatedProfile = event.profile ?? state.userProfile;
+    final updatedName = event.fullName ?? updatedProfile?.fullName ?? state.user?.fullName;
+    final updatedPhotoUrl = event.photoUrl ?? updatedProfile?.photoUrl ?? state.user?.photoUrl;
+
+    emit(
+      state.copyWith(
+        userProfile: updatedProfile,
+        user: state.user?.copyWith(
+          fullName: updatedName,
+          displayName: updatedName,
+          photoUrl: updatedPhotoUrl,
+        ),
+      ),
+    );
+  }
+
   Future<void> _onUserChanged(
     AuthUserChanged event,
     Emitter<AuthState> emit,
@@ -259,6 +290,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit: emit,
       user: event.user!,
       signOutOnFailure: false,
+      recordLoginActivity: false,
     );
   }
 
@@ -266,6 +298,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required Emitter<AuthState> emit,
     required AppUser user,
     required bool signOutOnFailure,
+    required bool recordLoginActivity,
   }) async {
     try {
       final resolution = await _resolveAuthCompanyUseCase(
@@ -280,6 +313,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (!resolution.hasCompany) {
         if (resolution.isPlatformAdmin) {
           _emitPlatformOnlySession(emit: emit, user: user);
+          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -296,6 +330,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (!resolution.isCompanyActive) {
         if (resolution.isPlatformAdmin) {
           _emitPlatformOnlySession(emit: emit, user: user);
+          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -309,7 +344,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       }
 
-      final UserProfile profile;
+      UserProfile profile;
       try {
         profile = await _loadCompanyProfile(
           companyId: resolution.membership!.companyId,
@@ -318,6 +353,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       } on UserProfileException {
         if (resolution.isPlatformAdmin) {
           _emitPlatformOnlySession(emit: emit, user: user);
+          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
         rethrow;
@@ -326,6 +362,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (!profile.isActive) {
         if (resolution.isPlatformAdmin) {
           _emitPlatformOnlySession(emit: emit, user: user);
+          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -339,6 +376,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       }
 
+      if (recordLoginActivity) {
+        await _recordLoginActivity(companyId: profile.companyId);
+        try {
+          profile = await _loadCompanyProfile(
+            companyId: profile.companyId,
+            uid: user.uid,
+          );
+        } catch (_) {
+          // Login telemetry should not block a valid session.
+        }
+      }
+
       emit(
         AuthState(
           status: AuthStatus.authenticated,
@@ -347,6 +396,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             role: profile.role,
             fullName: profile.fullName,
             email: profile.email,
+            photoUrl: profile.photoUrl,
           ),
           userProfile: profile,
           companyMetadata: resolution.company,
@@ -389,6 +439,36 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           errorCode: AuthErrorCode.profileMissing,
         ),
       );
+    }
+  }
+
+  void _recordLoginActivityIfNeeded({
+    required bool recordLoginActivity,
+    String? companyId,
+  }) {
+    if (!recordLoginActivity) {
+      return;
+    }
+
+    unawaited(
+      _recordLoginActivity(companyId: companyId),
+    );
+  }
+
+  Future<void> _recordLoginActivity({String? companyId}) async {
+    try {
+      await _recordLoginActivityUseCase(
+        companyId: companyId,
+        locale: Intl.getCurrentLocale(),
+        timezone: DateTime.now().timeZoneName,
+        platform: defaultTargetPlatform.name,
+        browser: kIsWeb ? 'web' : '',
+        deviceType: kIsWeb ? 'web' : defaultTargetPlatform.name,
+        userAgent: '',
+        appVersion: AppConstants.appVersion,
+      );
+    } catch (_) {
+      // Login telemetry should not block a valid session.
     }
   }
 

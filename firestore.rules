@@ -67,6 +67,12 @@ service cloud.firestore {
       return value == null || value is string;
     }
 
+    function optionalStringField(data, field) {
+      return !(field in data.keys())
+        || data[field] == null
+        || data[field] is string;
+    }
+
     function isNumberOrNull(value) {
       return value == null || value is number;
     }
@@ -99,7 +105,19 @@ service cloud.firestore {
     }
 
     function companyReadableRecord(companyId) {
-      return isAdminOrManager(companyId) || isViewer(companyId);
+      return isAdmin(companyId);
+    }
+
+    function managerScopedRecord(companyId, data) {
+      return isActiveCompanyUser(companyId)
+        && role(companyId) == 'manager'
+        && (
+          data.assignedTo == request.auth.uid
+          || data.managerId == request.auth.uid
+          || (data.teamId is string
+            && data.teamId != ''
+            && data.teamId == currentUserData(companyId).teamId)
+        );
     }
 
     function commonCrmRead(companyId) {
@@ -123,6 +141,10 @@ service cloud.firestore {
         'preferredPropertyType',
         'assignedTo',
         'assignedToName',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'notes',
         'createdAt',
         'updatedAt',
@@ -189,6 +211,10 @@ service cloud.firestore {
         && request.resource.data.assignedTo is string
         && isStringOrNull(request.resource.data.sourceDetails)
         && isStringOrNull(request.resource.data.assignedToName)
+        && isStringOrNull(request.resource.data.teamId)
+        && isStringOrNull(request.resource.data.teamName)
+        && isStringOrNull(request.resource.data.managerId)
+        && isStringOrNull(request.resource.data.managerName)
         && request.resource.data.notes is string
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
@@ -204,18 +230,93 @@ service cloud.firestore {
 
     function canReadLead(companyId) {
       return companyReadableRecord(companyId)
+        || managerScopedRecord(companyId, resource.data)
         || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isMarketing(companyId) && activeAssignedRecord(resource.data));
+        || (isMarketing(companyId) && activeAssignedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canCreateLead(companyId) {
-      return isAdminOrManager(companyId)
+      return isAdmin(companyId)
+        || managerCanCreateAssignedRecord(companyId, request.resource.data)
         || ((isSalesAgent(companyId) || isMarketing(companyId))
           && request.resource.data.assignedTo == request.auth.uid);
     }
 
+    function managerCanCreateAssignedRecord(companyId, data) {
+      return isActiveCompanyUser(companyId)
+        && role(companyId) == 'manager'
+        && data.assignedTo is string
+        && data.assignedTo != ''
+        && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.isActive == true
+        && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.managerId == request.auth.uid;
+    }
+
+
+    function optionalSnapshotFieldEmpty(data, field) {
+      return !(field in data.keys()) || data[field] == null || data[field] == '';
+    }
+
+    function optionalSnapshotFieldMatches(data, field, expected) {
+      return !(field in data.keys()) || data[field] == expected;
+    }
+
+    function assignmentSnapshotEmpty(data) {
+      return data.assignedTo == ''
+        && optionalSnapshotFieldEmpty(data, 'assignedToName')
+        && optionalSnapshotFieldEmpty(data, 'assignedToEmail')
+        && optionalSnapshotFieldEmpty(data, 'teamId')
+        && optionalSnapshotFieldEmpty(data, 'teamName')
+        && optionalSnapshotFieldEmpty(data, 'managerId')
+        && optionalSnapshotFieldEmpty(data, 'managerName');
+    }
+
+    function assignedUserData(companyId, assignedTo) {
+      return get(
+        /databases/$(database)/documents/companies/$(companyId)/users/$(assignedTo)
+      ).data;
+    }
+
+    function assignmentSnapshotMatches(companyId, data, allowedRoles) {
+      return data.assignedTo is string
+        && data.assignedTo != ''
+        && assignedUserData(companyId, data.assignedTo).companyId == companyId
+        && assignedUserData(companyId, data.assignedTo).isActive == true
+        && assignedUserData(companyId, data.assignedTo).role in allowedRoles
+        && data.assignedToName == assignedUserData(companyId, data.assignedTo).fullName
+        && optionalSnapshotFieldMatches(
+          data,
+          'assignedToEmail',
+          assignedUserData(companyId, data.assignedTo).email
+        )
+        && data.teamId == assignedUserData(companyId, data.assignedTo).teamId
+        && data.teamName == assignedUserData(companyId, data.assignedTo).teamName
+        && data.managerId == assignedUserData(companyId, data.assignedTo).managerId
+        && data.managerName == assignedUserData(companyId, data.assignedTo).managerName;
+    }
+
+    function validAssignmentSnapshot(companyId, data, allowedRoles) {
+      return data.assignedTo == ''
+        ? assignmentSnapshotEmpty(data)
+        : assignmentSnapshotMatches(companyId, data, allowedRoles);
+    }
+
+    function assignmentFieldsUnchangedOrValid(companyId, data, allowedRoles) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'assignedTo',
+          'assignedToName',
+          'assignedToEmail',
+          'teamId',
+          'teamName',
+          'managerId',
+          'managerName'
+        ])
+        || validAssignmentSnapshot(companyId, data, allowedRoles);
+    }
+
     function canUpdateLead(companyId) {
-      return isAdminOrManager(companyId)
+      return isAdmin(companyId)
+        || managerScopedRecord(companyId, resource.data)
         || ((isSalesAgent(companyId) || isMarketing(companyId))
           && resource.data.assignedTo == request.auth.uid
           && request.resource.data.assignedTo == request.auth.uid
@@ -231,6 +332,12 @@ service cloud.firestore {
             'budgetMax',
             'preferredLocation',
             'preferredPropertyType',
+            'assignedTo',
+            'assignedToName',
+            'teamId',
+            'teamName',
+            'managerId',
+            'managerName',
             'notes',
             'lastContactAt',
             'nextFollowUpAt',
@@ -254,6 +361,10 @@ service cloud.firestore {
         'assignedTo',
         'assignedToName',
         'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'isActive',
         'createdAt',
         'updatedAt',
@@ -295,6 +406,10 @@ service cloud.firestore {
         && request.resource.data.assignedTo is string
         && request.resource.data.assignedToName is string
         && request.resource.data.assignedToEmail is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerId')
+        && optionalStringField(request.resource.data, 'managerName')
         && request.resource.data.isActive is bool
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
@@ -304,7 +419,9 @@ service cloud.firestore {
 
     function canReadClient(companyId) {
       return companyReadableRecord(companyId)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data));
+        || managerScopedRecord(companyId, resource.data)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedRecord(resource.data));
     }
 
     function propertyFields() {
@@ -325,6 +442,10 @@ service cloud.firestore {
         'ownerName',
         'ownerPhone',
         'assignedTo',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'imageUrls',
         'coverImageUrl',
         'imageStoragePaths',
@@ -393,6 +514,10 @@ service cloud.firestore {
         && request.resource.data.ownerName is string
         && request.resource.data.ownerPhone is string
         && request.resource.data.assignedTo is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerId')
+        && optionalStringField(request.resource.data, 'managerName')
         && request.resource.data.imageUrls is list
         && isStringOrNull(request.resource.data.coverImageUrl)
         && request.resource.data.imageStoragePaths is list
@@ -411,6 +536,10 @@ service cloud.firestore {
         'assignedTo',
         'assignedToName',
         'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'relatedType',
         'relatedId',
         'relatedTitle',
@@ -456,6 +585,10 @@ service cloud.firestore {
         && request.resource.data.assignedTo is string
         && request.resource.data.assignedToName is string
         && request.resource.data.assignedToEmail is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerId')
+        && optionalStringField(request.resource.data, 'managerName')
         && request.resource.data.relatedType in [
           'lead',
           'client',
@@ -483,12 +616,15 @@ service cloud.firestore {
 
     function canReadTask(companyId) {
       return companyReadableRecord(companyId)
+        || managerScopedRecord(companyId, resource.data)
         || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isMarketing(companyId) && activeAssignedRecord(resource.data));
+        || (isMarketing(companyId) && activeAssignedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canUpdateTask(companyId) {
-      return isAdminOrManager(companyId)
+      return isAdmin(companyId)
+        || managerScopedRecord(companyId, resource.data)
         || (isSalesAgent(companyId)
           && resource.data.assignedTo == request.auth.uid
           && request.resource.data.assignedTo == request.auth.uid
@@ -513,6 +649,10 @@ service cloud.firestore {
         'assignedTo',
         'assignedToName',
         'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'stage',
         'expectedValue',
         'commission',
@@ -572,6 +712,10 @@ service cloud.firestore {
         && request.resource.data.assignedTo is string
         && request.resource.data.assignedToName is string
         && request.resource.data.assignedToEmail is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerId')
+        && optionalStringField(request.resource.data, 'managerName')
         && request.resource.data.stage in [
           'new',
           'qualified',
@@ -594,11 +738,14 @@ service cloud.firestore {
 
     function canReadDeal(companyId) {
       return companyReadableRecord(companyId)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data));
+        || managerScopedRecord(companyId, resource.data)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedRecord(resource.data));
     }
 
     function canUpdateDeal(companyId) {
-      return isAdminOrManager(companyId)
+      return isAdmin(companyId)
+        || managerScopedRecord(companyId, resource.data)
         || (isSalesAgent(companyId)
           && resource.data.assignedTo == request.auth.uid
           && request.resource.data.assignedTo == request.auth.uid
@@ -621,7 +768,35 @@ service cloud.firestore {
         'isActive',
         'createdAt',
         'updatedAt',
-        'createdBy'
+        'createdBy',
+        'updatedBy',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
+        'photoUrl',
+        'photoStoragePath',
+        'lastLoginAt',
+        'lastLoginIp',
+        'lastLoginUserAgent',
+        'lastLoginPlatform',
+        'lastLoginBrowser',
+        'lastLoginDeviceType',
+        'lastLoginLocale',
+        'lastLoginTimezone'
+      ];
+    }
+
+    function loginSummaryFields() {
+      return [
+        'lastLoginAt',
+        'lastLoginIp',
+        'lastLoginUserAgent',
+        'lastLoginPlatform',
+        'lastLoginBrowser',
+        'lastLoginDeviceType',
+        'lastLoginLocale',
+        'lastLoginTimezone'
       ];
     }
 
@@ -654,14 +829,86 @@ service cloud.firestore {
         && request.resource.data.isActive is bool
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
-        && request.resource.data.createdBy is string;
+        && request.resource.data.createdBy is string
+        && isStringOrNull(request.resource.data.updatedBy)
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerId')
+        && optionalStringField(request.resource.data, 'managerName')
+        && optionalStringField(request.resource.data, 'photoUrl')
+        && optionalStringField(request.resource.data, 'photoStoragePath')
+        && (request.resource.data.teamId == null
+          || request.resource.data.teamId == ''
+          || request.resource.data.role in ['salesAgent', 'marketing'])
+        && isTimestampOrNull(request.resource.data.lastLoginAt)
+        && isStringOrNull(request.resource.data.lastLoginIp)
+        && isStringOrNull(request.resource.data.lastLoginUserAgent)
+        && isStringOrNull(request.resource.data.lastLoginPlatform)
+        && isStringOrNull(request.resource.data.lastLoginBrowser)
+        && isStringOrNull(request.resource.data.lastLoginDeviceType)
+        && isStringOrNull(request.resource.data.lastLoginLocale)
+        && isStringOrNull(request.resource.data.lastLoginTimezone);
     }
 
     function canReadUserProfile(companyId, userId) {
       return (signedIn() && userId == request.auth.uid)
-        || isAdminOrManager(companyId)
-        || (isActiveCompanyUser(companyId)
+        || isActivePlatformAdmin()
+        || isAdmin(companyId)
+        || (isAdminOrManager(companyId)
+          && resource.data.managerId == request.auth.uid
           && resource.data.isActive == true);
+    }
+
+    function teamFields() {
+      return [
+        'id',
+        'companyId',
+        'name',
+        'description',
+        'managerId',
+        'managerName',
+        'managerEmail',
+        'isActive',
+        'memberCount',
+        'createdAt',
+        'createdBy',
+        'updatedAt',
+        'updatedBy'
+      ];
+    }
+
+    function validTeamData(companyId, teamId) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'companyId',
+          'name',
+          'description',
+          'managerId',
+          'managerName',
+          'managerEmail',
+          'isActive',
+          'memberCount',
+          'createdAt',
+          'createdBy',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && request.resource.data.keys().hasOnly(teamFields())
+        && request.resource.data.id == teamId
+        && request.resource.data.companyId == companyId
+        && request.resource.data.name is string
+        && request.resource.data.description is string
+        && request.resource.data.managerId is string
+        && request.resource.data.managerName is string
+        && request.resource.data.managerEmail is string
+        && request.resource.data.isActive is bool
+        && request.resource.data.memberCount is number
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy is string
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.resource.data.managerId)).data.role == 'manager'
+        && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.resource.data.managerId)).data.isActive == true;
     }
 
     function auditLogFields() {
@@ -737,6 +984,26 @@ service cloud.firestore {
       allow get: if signedIn()
         && (request.auth.uid == adminId || isActivePlatformAdmin());
       allow list: if isActivePlatformAdmin();
+      allow update: if signedIn()
+        && request.auth.uid == adminId
+        && resource.data.isActive == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'fullName',
+          'photoUrl',
+          'photoStoragePath',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && optionalStringField(request.resource.data, 'fullName')
+        && optionalStringField(request.resource.data, 'photoUrl')
+        && optionalStringField(request.resource.data, 'photoStoragePath')
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp;
+      allow create, delete: if false;
+    }
+
+    match /platform_login_activity/{eventId} {
+      allow get, list: if isActivePlatformAdmin();
       allow create, update, delete: if false;
     }
 
@@ -766,10 +1033,59 @@ service cloud.firestore {
           || canReadUserProfile(companyId, userId);
         allow create: if isAdmin(companyId)
           && validUserProfile(companyId, userId)
+          && request.resource.data.createdBy == request.auth.uid
+          && !request.resource.data.keys().hasAny(loginSummaryFields());
+        allow update: if (isAdmin(companyId)
+            && validUserProfile(companyId, userId)
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.companyId == resource.data.companyId
+            && request.resource.data.createdBy == resource.data.createdBy
+            && request.resource.data.createdAt == resource.data.createdAt
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(loginSummaryFields())
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'teamId',
+              'teamName',
+              'managerId',
+              'managerName'
+            ]))
+          || (signedIn()
+            && request.auth.uid == userId
+            && isActiveCompanyUser(companyId)
+            && validUserProfile(companyId, userId)
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.companyId == resource.data.companyId
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.phone == resource.data.phone
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.isActive == resource.data.isActive
+            && request.resource.data.createdBy == resource.data.createdBy
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.teamId == resource.data.teamId
+            && request.resource.data.teamName == resource.data.teamName
+            && request.resource.data.managerId == resource.data.managerId
+            && request.resource.data.managerName == resource.data.managerName
+            && request.resource.data.updatedBy == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'fullName',
+              'photoUrl',
+              'photoStoragePath',
+              'updatedAt',
+              'updatedBy'
+            ]));
+        allow delete: if false;
+      }
+
+      match /teams/{teamId} {
+        allow get, list: if isActivePlatformAdmin()
+          || isAdmin(companyId)
+          || (isAdminOrManager(companyId)
+            && resource.data.managerId == request.auth.uid);
+        allow create: if isAdmin(companyId)
+          && validTeamData(companyId, teamId)
           && request.resource.data.createdBy == request.auth.uid;
         allow update: if isAdmin(companyId)
-          && validUserProfile(companyId, userId)
-          && request.resource.data.uid == resource.data.uid
+          && validTeamData(companyId, teamId)
+          && request.resource.data.id == resource.data.id
           && request.resource.data.companyId == resource.data.companyId
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.createdAt == resource.data.createdAt;
@@ -783,17 +1099,27 @@ service cloud.firestore {
           && canCreateLead(companyId)
           && validLeadData(companyId, leadId)
           && validBaseCreate(companyId, leadId)
+          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent', 'marketing'])
           && (request.resource.data.isArchived == null
             || request.resource.data.isArchived == false);
         allow update: if isActiveCompanyUser(companyId)
           && canUpdateLead(companyId)
           && validLeadData(companyId, leadId)
-          && validBaseUpdate(companyId);
+          && validBaseUpdate(companyId)
+          && assignmentFieldsUnchangedOrValid(
+            companyId,
+            request.resource.data,
+            ['salesAgent', 'marketing']
+          );
         allow delete: if false;
 
         match /notes/{noteId} {
           allow get, list: if commonCrmRead(companyId)
             && (companyReadableRecord(companyId)
+              || managerScopedRecord(
+                companyId,
+                get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data
+              )
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow create: if isActiveCompanyUser(companyId)
             && request.resource.data.keys().hasOnly([
@@ -810,7 +1136,11 @@ service cloud.firestore {
             && request.resource.data.text is string
             && request.resource.data.createdAt is timestamp
             && request.resource.data.createdBy == request.auth.uid
-            && (isAdminOrManager(companyId)
+            && (isAdmin(companyId)
+              || managerScopedRecord(
+                companyId,
+                get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data
+              )
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow update, delete: if false;
         }
@@ -818,6 +1148,10 @@ service cloud.firestore {
         match /timeline/{eventId} {
           allow get, list: if commonCrmRead(companyId)
             && (companyReadableRecord(companyId)
+              || managerScopedRecord(
+                companyId,
+                get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data
+              )
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow create: if isActiveCompanyUser(companyId)
             && request.resource.data.keys().hasOnly([
@@ -857,7 +1191,11 @@ service cloud.firestore {
             && request.resource.data.createdBy == request.auth.uid
             && request.resource.data.createdByName is string
             && request.resource.data.metadata is map
-            && (isAdminOrManager(companyId)
+            && (isAdmin(companyId)
+              || managerScopedRecord(
+                companyId,
+                get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data
+              )
               || get(/databases/$(database)/documents/companies/$(companyId)/leads/$(leadId)).data.assignedTo == request.auth.uid);
           allow update, delete: if false;
         }
@@ -866,13 +1204,21 @@ service cloud.firestore {
       match /clients/{clientId} {
         allow get, list: if isActivePlatformAdmin()
           || (commonCrmRead(companyId) && canReadClient(companyId));
-        allow create: if isAdminOrManager(companyId)
+        allow create: if (isAdmin(companyId)
+            || managerCanCreateAssignedRecord(companyId, request.resource.data))
           && validClientData(companyId, clientId)
           && validBaseCreate(companyId, clientId)
+          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent'])
           && request.resource.data.isActive == true;
-        allow update: if isAdminOrManager(companyId)
+        allow update: if (isAdmin(companyId)
+            || managerScopedRecord(companyId, resource.data))
           && validClientData(companyId, clientId)
-          && validBaseUpdate(companyId);
+          && validBaseUpdate(companyId)
+          && assignmentFieldsUnchangedOrValid(
+            companyId,
+            request.resource.data,
+            ['salesAgent']
+          );
         allow delete: if false;
       }
 
@@ -898,36 +1244,57 @@ service cloud.firestore {
       match /tasks/{taskId} {
         allow get, list: if isActivePlatformAdmin()
           || (commonCrmRead(companyId) && canReadTask(companyId));
-        allow create: if isAdminOrManager(companyId)
+        allow create: if (isAdmin(companyId)
+            || managerCanCreateAssignedRecord(companyId, request.resource.data))
           && validTaskData(companyId, taskId)
           && validBaseCreate(companyId, taskId)
+          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent', 'marketing'])
           && request.resource.data.isActive == true;
         allow update: if isActiveCompanyUser(companyId)
           && canUpdateTask(companyId)
           && validTaskData(companyId, taskId)
-          && validBaseUpdate(companyId);
+          && validBaseUpdate(companyId)
+          && assignmentFieldsUnchangedOrValid(
+            companyId,
+            request.resource.data,
+            ['salesAgent', 'marketing']
+          );
         allow delete: if false;
       }
 
       match /deals/{dealId} {
         allow get, list: if isActivePlatformAdmin()
           || (commonCrmRead(companyId) && canReadDeal(companyId));
-        allow create: if isAdminOrManager(companyId)
+        allow create: if (isAdmin(companyId)
+            || managerCanCreateAssignedRecord(companyId, request.resource.data))
           && validDealData(companyId, dealId)
           && validBaseCreate(companyId, dealId)
+          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent'])
           && request.resource.data.isActive == true;
         allow update: if isActiveCompanyUser(companyId)
           && canUpdateDeal(companyId)
           && validDealData(companyId, dealId)
-          && validBaseUpdate(companyId);
+          && validBaseUpdate(companyId)
+          && assignmentFieldsUnchangedOrValid(
+            companyId,
+            request.resource.data,
+            ['salesAgent']
+          );
         allow delete: if false;
       }
 
       match /audit_logs/{auditLogId} {
         allow get, list: if isActivePlatformAdmin()
-          || isAdminOrManager(companyId);
+          || isAdmin(companyId);
         allow create: if validAuditLogCreate(companyId, auditLogId);
         allow update, delete: if false;
+      }
+
+      match /login_activity/{eventId} {
+        allow get, list: if isActivePlatformAdmin()
+          || isAdmin(companyId)
+          || (isActiveCompanyUser(companyId) && resource.data.uid == request.auth.uid);
+        allow create, update, delete: if false;
       }
 
       match /appointments/{appointmentId} {

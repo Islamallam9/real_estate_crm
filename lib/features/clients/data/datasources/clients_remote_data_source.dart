@@ -22,6 +22,10 @@ abstract interface class ClientsRemoteDataSource {
     required String assignedTo,
     required String assignedToName,
     required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
     required String updatedBy,
   });
 
@@ -39,6 +43,7 @@ abstract interface class ClientsRemoteDataSource {
   Stream<List<ClientModel>> watchClients({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }
@@ -75,6 +80,10 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         assignedTo: client.assignedTo,
         assignedToName: client.assignedToName,
         assignedToEmail: client.assignedToEmail,
+        teamId: client.teamId,
+        teamName: client.teamName,
+        managerId: client.managerId,
+        managerName: client.managerName,
         isActive: true,
         createdAt: client.createdAt ?? now,
         updatedAt: now,
@@ -119,6 +128,10 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'assignedTo': client.assignedTo,
         'assignedToName': client.assignedToName,
         'assignedToEmail': client.assignedToEmail,
+        'teamId': client.teamId,
+        'teamName': client.teamName,
+        'managerId': client.managerId,
+        'managerName': client.managerName,
         'updatedAt': Timestamp.now(),
         'updatedBy': client.updatedBy,
       });
@@ -140,6 +153,10 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String assignedTo,
     required String assignedToName,
     required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
     required String updatedBy,
   }) async {
     try {
@@ -159,6 +176,10 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'assignedToEmail': assignedTo.trim().isEmpty
             ? ''
             : assignedToEmail.trim(),
+        'teamId': assignedTo.trim().isEmpty ? '' : teamId.trim(),
+        'teamName': assignedTo.trim().isEmpty ? '' : teamName.trim(),
+        'managerId': assignedTo.trim().isEmpty ? '' : managerId.trim(),
+        'managerName': assignedTo.trim().isEmpty ? '' : managerName.trim(),
         'updatedAt': Timestamp.now(),
         'updatedBy': updatedBy,
       });
@@ -217,6 +238,7 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
   Stream<List<ClientModel>> watchClients({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     Query<Map<String, dynamic>> query = _clientsCollection(companyId).where(
@@ -224,7 +246,9 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
       isEqualTo: true,
     );
 
-    if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    if (managerId != null && managerId.trim().isNotEmpty) {
+      query = query.where('managerId', isEqualTo: managerId.trim());
+    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 

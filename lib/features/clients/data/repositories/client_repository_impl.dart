@@ -38,6 +38,10 @@ class ClientRepositoryImpl implements ClientRepository {
     required String assignedTo,
     required String assignedToName,
     required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
     required String updatedBy,
   }) {
     return _remoteDataSource.assignClient(
@@ -46,6 +50,10 @@ class ClientRepositoryImpl implements ClientRepository {
       assignedTo: assignedTo,
       assignedToName: assignedToName,
       assignedToEmail: assignedToEmail,
+      teamId: teamId,
+      teamName: teamName,
+      managerId: managerId,
+      managerName: managerName,
       updatedBy: updatedBy,
     );
   }
@@ -78,11 +86,13 @@ class ClientRepositoryImpl implements ClientRepository {
   Stream<List<Client>> watchClients({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     return _remoteDataSource.watchClients(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }

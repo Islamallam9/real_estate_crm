@@ -12,6 +12,7 @@ import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/auth_state_changes_usecase.dart';
 import 'features/auth/domain/usecases/get_current_user_usecase.dart';
+import 'features/auth/domain/usecases/record_login_activity_usecase.dart';
 import 'features/auth/domain/usecases/send_password_reset_email_usecase.dart';
 import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
@@ -72,6 +73,7 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
       resolveAuthCompanyUseCase: ResolveAuthCompanyUseCase(
         companyResolverRepository,
       ),
+      recordLoginActivityUseCase: RecordLoginActivityUseCase(authRepository),
     )..add(const AuthStarted());
 
     _router = AppRouter.createRouter(_authBloc);

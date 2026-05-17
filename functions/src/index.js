@@ -22,6 +22,7 @@ const FEATURE_KEYS = new Set([
   'auditLogs',
   'notifications',
 ]);
+const OPERATIONAL_TEAM_ROLES = new Set(['salesAgent', 'marketing']);
 
 exports.createCompanyWithAdmin = onCall(async (request) => {
   const callerUid = requireActivePlatformAdmin(request);
@@ -137,6 +138,12 @@ exports.addUserToCompany = onCall(async (request) => {
     displayName: fullName,
   });
 
+  const companyUserRef = db.doc(`companies/${companyId}/users/${userRecord.uid}`);
+  const companyUserSnapshot = await companyUserRef.get();
+  if (companyUserSnapshot.exists) {
+    throw new HttpsError('already-exists', 'Company user already exists.');
+  }
+
   const now = FieldValue.serverTimestamp();
   const batch = db.batch();
   writeGlobalUser(batch, userRecord.uid, {
@@ -164,6 +171,112 @@ exports.addUserToCompany = onCall(async (request) => {
   await batch.commit();
 
   return { uid: userRecord.uid, companyId, passwordResetLink };
+});
+
+exports.assignUserToTeam = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const teamId = requiredString(data.teamId, 'teamId');
+  const uid = requiredString(data.uid, 'uid');
+  validateCompanyId(companyId);
+
+  const actorUid = await requireActiveCompanyAdmin(request, companyId);
+  const teamRef = db.doc(`companies/${companyId}/teams/${teamId}`);
+  const targetUserRef = db.doc(`companies/${companyId}/users/${uid}`);
+  const [teamSnapshot, targetUserSnapshot] = await Promise.all([
+    teamRef.get(),
+    targetUserRef.get(),
+  ]);
+
+  if (!teamSnapshot.exists) {
+    throw new HttpsError('not-found', 'Team was not found.');
+  }
+  if (!targetUserSnapshot.exists) {
+    throw new HttpsError('not-found', 'User was not found.');
+  }
+
+  const team = teamSnapshot.data() || {};
+  if (team.companyId && team.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Team does not belong to this company.');
+  }
+  if (team.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Team is inactive.');
+  }
+
+  const targetUser = targetUserSnapshot.data() || {};
+  if (targetUser.companyId && targetUser.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'User does not belong to this company.');
+  }
+  if (targetUser.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Target user is inactive.');
+  }
+  if (!OPERATIONAL_TEAM_ROLES.has(targetUser.role)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Only sales and marketing users can be team members.',
+    );
+  }
+
+  const previousTeamId = optionalString(targetUser.teamId);
+  await targetUserRef.update({
+    teamId,
+    teamName: optionalString(team.name),
+    managerId: optionalString(team.managerId),
+    managerName: optionalString(team.managerName),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actorUid,
+  });
+
+  await Promise.all([
+    refreshTeamMemberCount({ companyId, teamId, actorUid }),
+    previousTeamId && previousTeamId !== teamId
+      ? refreshTeamMemberCount({ companyId, teamId: previousTeamId, actorUid })
+      : Promise.resolve(),
+  ]);
+
+  return { companyId, teamId, uid };
+});
+
+exports.removeUserFromTeam = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const uid = requiredString(data.uid, 'uid');
+  validateCompanyId(companyId);
+
+  const actorUid = await requireActiveCompanyAdmin(request, companyId);
+  const targetUserRef = db.doc(`companies/${companyId}/users/${uid}`);
+  const targetUserSnapshot = await targetUserRef.get();
+
+  if (!targetUserSnapshot.exists) {
+    throw new HttpsError('not-found', 'User was not found.');
+  }
+
+  const targetUser = targetUserSnapshot.data() || {};
+  if (targetUser.companyId && targetUser.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'User does not belong to this company.');
+  }
+  if (!OPERATIONAL_TEAM_ROLES.has(targetUser.role)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Only sales and marketing users can be team members.',
+    );
+  }
+
+  const previousTeamId = optionalString(targetUser.teamId);
+  await targetUserRef.update({
+    teamId: '',
+    teamName: '',
+    managerId: '',
+    managerName: '',
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actorUid,
+  });
+
+  if (previousTeamId) {
+    await refreshTeamMemberCount({ companyId, teamId: previousTeamId, actorUid });
+  }
+
+  return { companyId, uid };
 });
 
 exports.setCompanyActiveStatus = onCall(async (request) => {
@@ -345,6 +458,226 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   return { uid, companyId, isActive };
 });
 
+exports.setCompanyUserPassword = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const uid = requiredString(data.uid, 'uid');
+  const newPassword = requiredString(data.newPassword, 'newPassword');
+  validateCompanyId(companyId);
+  validatePassword(newPassword);
+
+  const { companyUserSnapshot, userRecord } = await loadCompanyUserAndAuthUser({
+    companyId,
+    uid,
+  });
+  const companyUser = companyUserSnapshot.data() || {};
+
+  await auth.updateUser(uid, { password: newPassword });
+  await db.collection('platform_security_alerts').add({
+    type: 'platformPasswordChanged',
+    companyId,
+    targetUid: uid,
+    targetEmail: userRecord.email || companyUser.email || '',
+    actorUid: request.auth.uid,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { uid, companyId };
+});
+
+exports.setCompanyUserEmail = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const uid = requiredString(data.uid, 'uid');
+  const newEmail = normalizeEmail(requiredString(data.newEmail, 'newEmail'));
+  validateCompanyId(companyId);
+  validateEmail(newEmail);
+
+  const { companyUserSnapshot, userRecord } = await loadCompanyUserAndAuthUser({
+    companyId,
+    uid,
+  });
+  const companyUser = companyUserSnapshot.data() || {};
+  const oldEmail = normalizeEmail(userRecord.email || companyUser.email || '');
+
+  if (oldEmail === newEmail) {
+    return { uid, companyId, email: newEmail };
+  }
+
+  try {
+    const existing = await auth.getUserByEmail(newEmail);
+    if (existing.uid !== uid) {
+      throw new HttpsError('already-exists', 'Email is already used by another user.');
+    }
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    if (error.code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
+
+  await auth.updateUser(uid, {
+    email: newEmail,
+    emailVerified: false,
+  });
+
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.set(db.doc(`users/${uid}`), {
+    email: newEmail,
+    updatedAt: now,
+  }, { merge: true });
+  batch.set(db.doc(`companies/${companyId}/users/${uid}`), {
+    email: newEmail,
+    updatedAt: now,
+    updatedBy: request.auth.uid,
+  }, { merge: true });
+  batch.set(db.collection('platform_security_alerts').doc(), {
+    type: 'platformEmailChanged',
+    companyId,
+    targetUid: uid,
+    oldEmail,
+    newEmail,
+    actorUid: request.auth.uid,
+    createdAt: now,
+  });
+
+  const platformAdminRef = db.doc(`platform_admins/${uid}`);
+  const platformAdminSnapshot = await platformAdminRef.get();
+  if (platformAdminSnapshot.exists) {
+    batch.set(platformAdminRef, {
+      email: newEmail,
+      updatedAt: now,
+      updatedBy: request.auth.uid,
+    }, { merge: true });
+  }
+
+  await batch.commit();
+
+  return { uid, companyId, email: newEmail };
+});
+
+exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const uid = requiredString(data.uid, 'uid');
+  validateCompanyId(companyId);
+
+  const { companyUserSnapshot, userRecord } = await loadCompanyUserAndAuthUser({
+    companyId,
+    uid,
+  });
+  const companyUser = companyUserSnapshot.data() || {};
+  const email = normalizeEmail(userRecord.email || companyUser.email || '');
+  if (!email) {
+    throw new HttpsError('failed-precondition', 'Target user email was not found.');
+  }
+
+  const passwordResetLink = await auth.generatePasswordResetLink(email);
+  await db.collection('platform_security_alerts').add({
+    type: 'platformPasswordResetLinkGenerated',
+    companyId,
+    targetUid: uid,
+    targetEmail: email,
+    actorUid: request.auth.uid,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { uid, companyId, email, passwordResetLink };
+});
+
+exports.recordLoginActivity = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const uid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = optionalString(data.companyId);
+  const clientInfo = {
+    userAgent: sanitizeShortString(data.userAgent, 600),
+    platform: sanitizeShortString(data.platform, 80),
+    browser: sanitizeShortString(data.browser, 80),
+    deviceType: sanitizeShortString(data.deviceType, 80),
+    locale: sanitizeShortString(data.locale, 30),
+    timezone: sanitizeShortString(data.timezone, 80),
+    appVersion: sanitizeShortString(data.appVersion, 40),
+  };
+  const ipAddress = requestIpAddress(request);
+  const authProvider = authProviderFromToken(request.auth.token);
+  const userRecord = await auth.getUser(uid);
+
+  if (companyId) {
+    validateCompanyId(companyId);
+    const companySnapshot = await db.doc(`companies/${companyId}`).get();
+    if (!companySnapshot.exists) {
+      throw new HttpsError('not-found', 'Company was not found.');
+    }
+    const company = companySnapshot.data() || {};
+    if (company.isActive !== true || company.status === 'inactive') {
+      throw new HttpsError('failed-precondition', 'Company is inactive.');
+    }
+    const companyUserRef = db.doc(`companies/${companyId}/users/${uid}`);
+    const companyUserSnapshot = await companyUserRef.get();
+    if (!companyUserSnapshot.exists) {
+      throw new HttpsError('permission-denied', 'Company user was not found.');
+    }
+    const companyUser = companyUserSnapshot.data() || {};
+    if (companyUser.isActive !== true) {
+      throw new HttpsError('permission-denied', 'Company user is inactive.');
+    }
+    const event = loginActivityPayload({
+      uid,
+      companyId,
+      email: userRecord.email || companyUser.email || '',
+      role: companyUser.role || '',
+      fullName: companyUser.fullName || userRecord.displayName || '',
+      ipAddress,
+      authProvider,
+      clientInfo,
+    });
+
+    const eventRef = db.collection(`companies/${companyId}/login_activity`).doc();
+    const batch = db.batch();
+    batch.set(eventRef, event);
+    batch.set(companyUserRef, lastLoginSummary(event), { merge: true });
+    batch.set(db.doc(`users/${uid}`), lastLoginSummary(event), { merge: true });
+    await batch.commit();
+    return { uid, companyId };
+  }
+
+  const platformAdminRef = db.doc(`platform_admins/${uid}`);
+  const platformAdminSnapshot = await platformAdminRef.get();
+  if (!platformAdminSnapshot.exists || platformAdminSnapshot.get('isActive') !== true) {
+    throw new HttpsError('permission-denied', 'Platform admin access required.');
+  }
+
+  const adminData = platformAdminSnapshot.data() || {};
+  const event = loginActivityPayload({
+    uid,
+    companyId: '',
+    email: userRecord.email || adminData.email || '',
+    role: 'platformAdmin',
+    fullName: adminData.fullName || userRecord.displayName || '',
+    ipAddress,
+    authProvider,
+    clientInfo,
+  });
+  const eventRef = db.collection('platform_login_activity').doc();
+  const batch = db.batch();
+  batch.set(eventRef, event);
+  batch.set(platformAdminRef, lastLoginSummary(event), { merge: true });
+  batch.set(db.doc(`users/${uid}`), lastLoginSummary(event), { merge: true });
+  await batch.commit();
+
+  return { uid };
+});
+
 async function requireActivePlatformAdmin(request) {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'Sign in is required.');
@@ -353,6 +686,38 @@ async function requireActivePlatformAdmin(request) {
   const snapshot = await db.doc(`platform_admins/${request.auth.uid}`).get();
   if (!snapshot.exists || snapshot.get('isActive') !== true) {
     throw new HttpsError('permission-denied', 'Platform admin access required.');
+  }
+
+  return request.auth.uid;
+}
+
+async function requireActiveCompanyAdmin(request, companyId) {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const [companySnapshot, companyUserSnapshot] = await Promise.all([
+    db.doc(`companies/${companyId}`).get(),
+    db.doc(`companies/${companyId}/users/${request.auth.uid}`).get(),
+  ]);
+
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  if (company.isActive !== true || company.status === 'inactive') {
+    throw new HttpsError('failed-precondition', 'Company is inactive.');
+  }
+
+  if (!companyUserSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Only company admins can manage team members.');
+  }
+  const companyUser = companyUserSnapshot.data() || {};
+  if (companyUser.companyId !== companyId || companyUser.isActive !== true) {
+    throw new HttpsError('permission-denied', 'Only active company admins can manage team members.');
+  }
+  if (companyUser.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only company admins can manage team members.');
   }
 
   return request.auth.uid;
@@ -423,6 +788,10 @@ function writeCompanyUser(batch, companyId, uid, data) {
       createdBy: data.actorUid,
       updatedAt: data.now,
       updatedBy: data.actorUid,
+      teamId: '',
+      teamName: '',
+      managerId: '',
+      managerName: '',
     },
     { merge: true },
   );
@@ -473,8 +842,23 @@ function requiredObject(value, field) {
   return value;
 }
 
+function validatePassword(password) {
+  if (password.length < 8) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Password must be at least 8 characters.',
+    );
+  }
+}
+
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
+}
+
+function validateEmail(email) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new HttpsError('invalid-argument', 'Email is invalid.');
+  }
 }
 
 function validateCompanyId(companyId) {
@@ -581,6 +965,108 @@ async function enforceUserLimit(companyId, company) {
   }
 }
 
+async function loadCompanyUserAndAuthUser({ companyId, uid }) {
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+
+  const companyUserSnapshot = await db
+    .doc(`companies/${companyId}/users/${uid}`)
+    .get();
+  if (!companyUserSnapshot.exists) {
+    throw new HttpsError('not-found', 'Company user was not found.');
+  }
+
+  let userRecord;
+  try {
+    userRecord = await auth.getUser(uid);
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'Firebase Auth user was not found.');
+    }
+    throw error;
+  }
+
+  return { companyUserSnapshot, userRecord };
+}
+
+function requestIpAddress(request) {
+  const headers = (request.rawRequest && request.rawRequest.headers) || {};
+  const forwardedFor = headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  const realIp = headers['x-real-ip'];
+  if (typeof realIp === 'string') {
+    return realIp.trim();
+  }
+  const firebaseForwarded = headers['fastly-client-ip'];
+  if (typeof firebaseForwarded === 'string') {
+    return firebaseForwarded.trim();
+  }
+  return '';
+}
+
+function sanitizeShortString(value, maxLength) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim().slice(0, maxLength);
+}
+
+function authProviderFromToken(token) {
+  const provider = token && token.firebase && token.firebase.sign_in_provider;
+  return typeof provider === 'string' ? provider : '';
+}
+
+function loginActivityPayload({
+  uid,
+  companyId,
+  email,
+  role,
+  fullName,
+  ipAddress,
+  authProvider,
+  clientInfo,
+}) {
+  const payload = {
+    uid,
+    email,
+    role,
+    fullName,
+    loginAt: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    ipAddress,
+    userAgent: clientInfo.userAgent,
+    platform: clientInfo.platform,
+    browser: clientInfo.browser,
+    deviceType: clientInfo.deviceType,
+    locale: clientInfo.locale,
+    timezone: clientInfo.timezone,
+    authProvider,
+    appVersion: clientInfo.appVersion,
+  };
+  if (companyId) {
+    payload.companyId = companyId;
+  }
+  return payload;
+}
+
+function lastLoginSummary(event) {
+  return {
+    lastLoginAt: FieldValue.serverTimestamp(),
+    lastLoginIp: event.ipAddress || '',
+    lastLoginUserAgent: event.userAgent || '',
+    lastLoginPlatform: event.platform || '',
+    lastLoginBrowser: event.browser || '',
+    lastLoginDeviceType: event.deviceType || '',
+    lastLoginLocale: event.locale || '',
+    lastLoginTimezone: event.timezone || '',
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+}
+
 async function updateMembershipCompanyNames(companyId, companyName) {
   const usersSnapshot = await db.collection(`companies/${companyId}/users`).get();
   let batch = db.batch();
@@ -607,6 +1093,30 @@ async function updateMembershipCompanyNames(companyId, companyName) {
   if (operationCount > 0) {
     await batch.commit();
   }
+}
+
+async function refreshTeamMemberCount({ companyId, teamId, actorUid }) {
+  const cleanTeamId = optionalString(teamId);
+  if (!cleanTeamId) {
+    return;
+  }
+
+  const teamRef = db.doc(`companies/${companyId}/teams/${cleanTeamId}`);
+  const teamSnapshot = await teamRef.get();
+  if (!teamSnapshot.exists) {
+    return;
+  }
+
+  const countSnapshot = await db
+    .collection(`companies/${companyId}/users`)
+    .where('teamId', '==', cleanTeamId)
+    .count()
+    .get();
+  await teamRef.update({
+    memberCount: countSnapshot.data().count || 0,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actorUid,
+  });
 }
 
 function isPropertyImagePath(filePath) {

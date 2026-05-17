@@ -39,6 +39,10 @@ class Lead extends Equatable {
     required this.assignedTo,
     this.sourceDetails = '',
     this.assignedToName = '',
+    this.teamId = '',
+    this.teamName = '',
+    this.managerId = '',
+    this.managerName = '',
     required this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -66,6 +70,10 @@ class Lead extends Equatable {
   final String assignedTo;
   final String sourceDetails;
   final String assignedToName;
+  final String teamId;
+  final String teamName;
+  final String managerId;
+  final String managerName;
   final String notes;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -93,6 +101,10 @@ class Lead extends Equatable {
     String? assignedTo,
     String? sourceDetails,
     String? assignedToName,
+    String? teamId,
+    String? teamName,
+    String? managerId,
+    String? managerName,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -121,6 +133,10 @@ class Lead extends Equatable {
       assignedTo: assignedTo ?? this.assignedTo,
       sourceDetails: sourceDetails ?? this.sourceDetails,
       assignedToName: assignedToName ?? this.assignedToName,
+      teamId: teamId ?? this.teamId,
+      teamName: teamName ?? this.teamName,
+      managerId: managerId ?? this.managerId,
+      managerName: managerName ?? this.managerName,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -151,6 +167,10 @@ class Lead extends Equatable {
     assignedTo,
     sourceDetails,
     assignedToName,
+    teamId,
+    teamName,
+    managerId,
+    managerName,
     notes,
     createdAt,
     updatedAt,

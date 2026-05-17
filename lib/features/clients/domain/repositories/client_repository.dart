@@ -17,6 +17,10 @@ abstract interface class ClientRepository {
     required String assignedTo,
     required String assignedToName,
     required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
     required String updatedBy,
   });
 
@@ -34,6 +38,7 @@ abstract interface class ClientRepository {
   Stream<List<Client>> watchClients({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit,
   });
 }

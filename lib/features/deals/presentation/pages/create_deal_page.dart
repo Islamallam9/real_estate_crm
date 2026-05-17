@@ -53,6 +53,10 @@ class _CreateDealView extends StatelessWidget {
     final assignedTo = canEditAssignment ? '' : user.uid;
     final assignedToName = canEditAssignment ? '' : userProfile.fullName;
     final assignedToEmail = canEditAssignment ? '' : userProfile.email;
+    final assignedTeamId = canEditAssignment ? '' : userProfile.teamId;
+    final assignedTeamName = canEditAssignment ? '' : userProfile.teamName;
+    final assignedManagerId = canEditAssignment ? '' : userProfile.managerId;
+    final assignedManagerName = canEditAssignment ? '' : userProfile.managerName;
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.deals,
@@ -105,6 +109,7 @@ class _CreateDealView extends StatelessWidget {
                             DealFormDataLoader(
                               companyId: userProfile.companyId,
                               assignedTo: canEditAssignment ? null : user.uid,
+                              managerId: role == UserRole.manager ? user.uid : null,
                               builder: (context, data) {
                                 return DealForm(
                                   companyId: userProfile.companyId,
@@ -117,6 +122,10 @@ class _CreateDealView extends StatelessWidget {
                                   assignedTo: assignedTo,
                                   assignedToName: assignedToName,
                                   assignedToEmail: assignedToEmail,
+                                  assignedTeamId: assignedTeamId,
+                                  assignedTeamName: assignedTeamName,
+                                  assignedManagerId: assignedManagerId,
+                                  assignedManagerName: assignedManagerName,
                                   isSaving: isSaving,
                                   submitLabel: l.createDeal,
                                   onSubmit: (deal) {

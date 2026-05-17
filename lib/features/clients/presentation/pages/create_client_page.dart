@@ -120,6 +120,10 @@ class _CreateClientView extends StatelessWidget {
                         assignedTo: defaultAssignedTo,
                         assignedToName: userProfile.fullName,
                         assignedToEmail: userProfile.email,
+                        assignedTeamId: userProfile.teamId,
+                        assignedTeamName: userProfile.teamName,
+                        assignedManagerId: userProfile.managerId,
+                        assignedManagerName: userProfile.managerName,
                         isSaving: isSaving,
                         submitLabel: l.createClient,
                         onSubmit: (client) {

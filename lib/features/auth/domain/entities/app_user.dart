@@ -7,6 +7,7 @@ class AppUser extends Equatable {
     required this.uid,
     required this.email,
     this.displayName,
+    this.photoUrl,
     this.companyId,
     this.role,
     this.fullName,
@@ -15,6 +16,7 @@ class AppUser extends Equatable {
   final String uid;
   final String? email;
   final String? displayName;
+  final String? photoUrl;
   final String? companyId;
   final UserRole? role;
   final String? fullName;
@@ -23,6 +25,7 @@ class AppUser extends Equatable {
     String? uid,
     String? email,
     String? displayName,
+    String? photoUrl,
     String? companyId,
     UserRole? role,
     String? fullName,
@@ -31,6 +34,7 @@ class AppUser extends Equatable {
       uid: uid ?? this.uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
       companyId: companyId ?? this.companyId,
       role: role ?? this.role,
       fullName: fullName ?? this.fullName,
@@ -39,11 +43,12 @@ class AppUser extends Equatable {
 
   @override
   List<Object?> get props => [
-    uid,
-    email,
-    displayName,
-    companyId,
-    role,
-    fullName,
-  ];
+        uid,
+        email,
+        displayName,
+        photoUrl,
+        companyId,
+        role,
+        fullName,
+      ];
 }

@@ -103,20 +103,41 @@ class _LeadsListContent extends StatefulWidget {
 
 class _LeadsListContentState extends State<_LeadsListContent> {
   String? get _assignedToFilter {
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    return role?.name == 'salesAgent' || role?.name == 'marketing'
-        ? uid
+    return widget.roleName == 'salesAgent' ||
+            widget.roleName == 'marketing' ||
+            widget.roleName == 'viewer'
+        ? widget.uid
         : null;
+  }
+
+  String? get _managerIdFilter {
+    return widget.roleName == 'manager' ? widget.uid : null;
   }
 
   @override
   void initState() {
     super.initState();
+    _watchScopedLeads();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LeadsListContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.uid != widget.uid ||
+        oldWidget.roleName != widget.roleName) {
+      _watchScopedLeads();
+    }
+  }
+
+  void _watchScopedLeads() {
+    if (widget.companyId.isEmpty || widget.uid.isEmpty || widget.roleName.isEmpty) {
+      return;
+    }
     context.read<LeadsCubit>().watchLeads(
       companyId: widget.companyId,
       assignedTo: _assignedToFilter,
+      managerId: _managerIdFilter,
     );
   }
 
@@ -125,6 +146,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
     final localizations = AppLocalizations.of(context);
     if (localizations == null) {
       return const SizedBox.shrink();
+    }
+
+    if (widget.roleName.isEmpty) {
+      return const AppLoading();
     }
 
     return BlocConsumer<LeadsCubit, LeadsState>(
@@ -197,14 +222,14 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                       context.read<LeadsCubit>().watchLeads(
                         companyId: widget.companyId,
                         assignedTo: _assignedToFilter,
+                        managerId: _managerIdFilter,
                       );
                     },
                   );
                 }
 
                 final users = usersSnapshot.data ?? const <UserProfile>[];
-                final showAssignee =
-                    widget.roleName == 'admin' || widget.roleName == 'manager';
+                final showAssignee = widget.roleName == 'admin';
 
                 final filters = _LeadFilters(
                   showAssignee: showAssignee,
@@ -215,6 +240,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   state: state,
                   companyId: widget.companyId,
                   assignedTo: _assignedToFilter,
+                  managerId: _managerIdFilter,
                   users: users,
                   roleName: widget.roleName,
                   canEdit: widget.canEdit,
@@ -780,6 +806,7 @@ class _LeadsBody extends StatelessWidget {
     required this.state,
     required this.companyId,
     required this.assignedTo,
+    required this.managerId,
     required this.users,
     required this.roleName,
     required this.canEdit,
@@ -790,6 +817,7 @@ class _LeadsBody extends StatelessWidget {
   final LeadsState state;
   final String companyId;
   final String? assignedTo;
+  final String? managerId;
   final List<UserProfile> users;
   final String roleName;
   final bool canEdit;
@@ -816,6 +844,7 @@ class _LeadsBody extends StatelessWidget {
           context.read<LeadsCubit>().watchLeads(
             companyId: companyId,
             assignedTo: assignedTo,
+            managerId: managerId,
           );
         },
       );

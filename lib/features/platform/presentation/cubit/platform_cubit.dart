@@ -5,8 +5,11 @@ import 'package:bloc/bloc.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
+import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
+import '../../domain/usecases/set_company_user_email_usecase.dart';
+import '../../domain/usecases/set_company_user_password_usecase.dart';
 import '../../domain/usecases/update_company_platform_settings_usecase.dart';
 import '../../domain/usecases/watch_platform_companies_usecase.dart';
 import '../../domain/usecases/watch_platform_company_users_usecase.dart';
@@ -20,6 +23,10 @@ class PlatformCubit extends Cubit<PlatformState> {
     required AddUserToCompanyUseCase addUserToCompanyUseCase,
     required SetCompanyActiveStatusUseCase setCompanyActiveStatusUseCase,
     required SetCompanyUserActiveStatusUseCase setCompanyUserActiveStatusUseCase,
+    required SetCompanyUserEmailUseCase setCompanyUserEmailUseCase,
+    required SetCompanyUserPasswordUseCase setCompanyUserPasswordUseCase,
+    required GenerateCompanyUserPasswordResetLinkUseCase
+        generateCompanyUserPasswordResetLinkUseCase,
     required UpdateCompanyPlatformSettingsUseCase
         updateCompanyPlatformSettingsUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
@@ -28,6 +35,10 @@ class PlatformCubit extends Cubit<PlatformState> {
        _addUserToCompanyUseCase = addUserToCompanyUseCase,
        _setCompanyActiveStatusUseCase = setCompanyActiveStatusUseCase,
        _setCompanyUserActiveStatusUseCase = setCompanyUserActiveStatusUseCase,
+       _setCompanyUserEmailUseCase = setCompanyUserEmailUseCase,
+       _setCompanyUserPasswordUseCase = setCompanyUserPasswordUseCase,
+       _generateCompanyUserPasswordResetLinkUseCase =
+           generateCompanyUserPasswordResetLinkUseCase,
        _updateCompanyPlatformSettingsUseCase =
            updateCompanyPlatformSettingsUseCase,
        super(const PlatformState.initial());
@@ -38,6 +49,10 @@ class PlatformCubit extends Cubit<PlatformState> {
   final AddUserToCompanyUseCase _addUserToCompanyUseCase;
   final SetCompanyActiveStatusUseCase _setCompanyActiveStatusUseCase;
   final SetCompanyUserActiveStatusUseCase _setCompanyUserActiveStatusUseCase;
+  final SetCompanyUserEmailUseCase _setCompanyUserEmailUseCase;
+  final SetCompanyUserPasswordUseCase _setCompanyUserPasswordUseCase;
+  final GenerateCompanyUserPasswordResetLinkUseCase
+      _generateCompanyUserPasswordResetLinkUseCase;
   final UpdateCompanyPlatformSettingsUseCase
       _updateCompanyPlatformSettingsUseCase;
 
@@ -237,6 +252,57 @@ class PlatformCubit extends Cubit<PlatformState> {
         ),
       );
       return false;
+    }
+  }
+
+  Future<bool> setCompanyUserPassword({
+    required String companyId,
+    required String uid,
+    required String newPassword,
+  }) async {
+    return _save(() {
+      return _setCompanyUserPasswordUseCase(
+        companyId: companyId,
+        uid: uid,
+        newPassword: newPassword,
+      );
+    });
+  }
+
+  Future<bool> setCompanyUserEmail({
+    required String companyId,
+    required String uid,
+    required String newEmail,
+  }) async {
+    return _save(() {
+      return _setCompanyUserEmailUseCase(
+        companyId: companyId,
+        uid: uid,
+        newEmail: newEmail,
+      );
+    });
+  }
+
+  Future<String?> generateCompanyUserPasswordResetLink({
+    required String companyId,
+    required String uid,
+  }) async {
+    emit(state.copyWith(status: PlatformStatus.saving, clearMessage: true));
+    try {
+      final result = await _generateCompanyUserPasswordResetLinkUseCase(
+        companyId: companyId,
+        uid: uid,
+      );
+      emit(state.copyWith(status: PlatformStatus.ready, clearMessage: true));
+      return result.passwordResetLink;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: error.toString(),
+        ),
+      );
+      return null;
     }
   }
 

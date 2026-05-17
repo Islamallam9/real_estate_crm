@@ -1,5 +1,6 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../entities/password_reset_link_result.dart';
 import '../entities/platform_company_user.dart';
 
 abstract interface class PlatformRepository {
@@ -36,6 +37,23 @@ abstract interface class PlatformRepository {
     required String companyId,
     required String uid,
     required bool isActive,
+  });
+
+  Future<void> setCompanyUserPassword({
+    required String companyId,
+    required String uid,
+    required String newPassword,
+  });
+
+  Future<void> setCompanyUserEmail({
+    required String companyId,
+    required String uid,
+    required String newEmail,
+  });
+
+  Future<PasswordResetLinkResult> generateCompanyUserPasswordResetLink({
+    required String companyId,
+    required String uid,
   });
 
   Future<void> updateCompanyPlatformSettings({

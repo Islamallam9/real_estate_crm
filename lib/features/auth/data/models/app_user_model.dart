@@ -7,6 +7,7 @@ class AppUserModel extends AppUser {
     required super.uid,
     required super.email,
     super.displayName,
+    super.photoUrl,
   });
 
   factory AppUserModel.fromFirebaseUser(User user) {
@@ -14,6 +15,7 @@ class AppUserModel extends AppUser {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName,
+      photoUrl: user.photoURL,
     );
   }
 }

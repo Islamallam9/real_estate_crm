@@ -39,25 +39,51 @@ The app is not a demo. Treat it as a real business product that must stay clean,
 
 ---
 
-# Current Phase
+# Current Active Phase
 
-## Platform Foundation Finishing Pass
+## Team Assignment Server-side Fix + Manager Visibility Rules
 
-The current active work is **Platform Foundation / Multi-company Structure / Simple Super Admin**.
+The current active work is to stabilize the recently added Team Hierarchy / Manager Teams phase before starting Assignee Policy Cleanup.
 
-The goal is to make Masar CRM scalable for trial companies without adding subscriptions, billing, AI, public signup, appointments, notifications, or manager/team hierarchy yet.
+The immediate bug:
 
-This phase is about:
+- A user created by platform owner can fail to be added to a team until that user logs in once.
+- After the new user logs in, adding that same user to a team succeeds.
+- Debug proved the client fails at the direct Firestore update to:
 
-- platform admin independent from company membership
-- professional `/platform` dashboard
-- safe company/user creation through Cloud Functions
-- scalable company/user/membership structure
-- read-only company dashboard preview for the platform owner
-- layout overflow fixes in platform pages
-- keeping demo company and trial companies isolated and working
+```text
+companies/{companyId}/users/{uid}
+```
 
-Do not mix this phase with unrelated modules.
+- The failing write updates only team assignment fields:
+
+```text
+teamId
+teamName
+managerId
+managerName
+updatedAt
+updatedBy
+```
+
+Correct direction:
+
+- Do not keep team member assignment/removal as direct Flutter Firestore writes.
+- Move team member assignment/removal to Cloud Functions with Admin SDK.
+- Keep Firestore rules strict.
+- Do not weaken broad company user update rules just to make team assignment pass.
+
+This phase also defines manager visibility before Assignee Policy Cleanup:
+
+```text
+Admin sees all company records.
+Manager sees only their team and team-assigned records.
+Sales Agent sees only their own assigned work.
+Marketing sees only their own assigned work unless a later explicit policy changes it.
+Viewer has no operational ownership and must not see management-only sections.
+```
+
+Do not start Assignee Policy Cleanup until this phase is validated.
 
 ---
 
@@ -150,6 +176,7 @@ Completed:
   - Tasks create/update/complete/cancel
   - Deals create/update/stageChange/archive
 - Firestore rules allow strict client-side audit log create, Admin/Manager read/list, deny update/delete
+- Audit actor fields should cross-check against company user profile in rules where applicable.
 
 ## Dashboard Recent Activity
 
@@ -171,48 +198,128 @@ Completed:
 - Safe analyzer warnings cleaned
 - Permission-denied stream errors improved in touched surfaces
 
+## Platform Foundation / Multi-company / Super Admin
+
+Completed and validated:
+
+- Platform-only owner login works without company membership.
+- `/platform` route works for active platform admins.
+- Normal company users are blocked from `/platform`.
+- Company creation works through Cloud Functions.
+- Add user works through Cloud Functions.
+- Activate/deactivate company and user works.
+- Read-only company dashboard preview works.
+- Platform preview reads work through Firestore rules.
+- Arabic/English localization and RTL/LTR work.
+- CRM regression passed after platform foundation validation.
+
+## Platform Dashboard Polish + Platform Settings Management
+
+Implemented and validated enough to continue:
+
+- Professional `/platform` dashboard structure.
+- Platform sidebar/mobile section navigation.
+- Company details, users, settings, features, limits, and preview sections.
+- Company settings update through Cloud Functions.
+- Feature toggles and limits are stored in company metadata.
+- User limit is enforced by platform add-user flow.
+- Feature flags affect the CRM app behavior.
+- Disabled features should appear disabled/locked in navigation, not silently hidden, except audit logs may be hidden.
+
+## Password Management + Login Activity + Dashboard Visibility Fix
+
+Implemented and needs normal validation/deployment hygiene:
+
+- User self-service change password using current password, reauthentication, and `updatePassword`.
+- Platform owner manual password change through Cloud Function.
+- Platform owner reset-link generation through Cloud Function.
+- Login activity recording through Cloud Function with server-side IP capture.
+- Last-login summary fields on company/global/platform user docs.
+- Profile/platform user list can show last-login summary.
+- Sales/Marketing/Viewer should not see unassigned leads dashboard sections.
+- Admin/Manager and platform preview keep management visibility where appropriate.
+- Forgot Password remains hidden from login because many CRM emails are internal/fake.
+
+## Team Hierarchy / Manager Teams
+
+Implemented but still being stabilized:
+
+- New `lib/features/teams` feature.
+- New route:
+
+```text
+/teams
+```
+
+- Team Management navigation for Admin/Manager only.
+- Company-scoped teams collection:
+
+```text
+companies/{companyId}/teams/{teamId}
+```
+
+- User profile team snapshot fields:
+
+```text
+teamId
+teamName
+managerId
+managerName
+```
+
+- Admin can create/edit teams, assign active Manager users, add/move/remove Sales Agent and Marketing members, activate/deactivate teams, and view team KPIs.
+- Manager has read-only My Team view.
+- Manager should only see teams/users where `managerId` matches the manager UID.
+- Sales/Marketing/Viewer have no Team Management navigation and direct `/teams` access is blocked.
+- Firestore rules include teams read/write validation and tightened company user profile reads for manager team visibility.
+
+Current known Team bug:
+
+- New platform-created users may fail team assignment until first login.
+- The fix is to move team assignment/removal to Cloud Functions using Admin SDK.
+
 ---
 
-# Current Platform Foundation Status
+# Current Database Structure
 
-## New Database Structure
-
-The platform foundation introduces:
+## Platform / Global
 
 ```text
 platform_admins/{uid}
 users/{uid}
 users/{uid}/memberships/{companyId}
 companies/{companyId}
-companies/{companyId}/users/{uid}
 ```
 
-Existing CRM data remains under:
+## Company CRM
 
 ```text
+companies/{companyId}/users/{userId}
+companies/{companyId}/teams/{teamId}
 companies/{companyId}/leads/{leadId}
 companies/{companyId}/clients/{clientId}
 companies/{companyId}/properties/{propertyId}
-companies/{companyId}/tasks/{taskId}
 companies/{companyId}/deals/{dealId}
+companies/{companyId}/tasks/{taskId}
+companies/{companyId}/appointments/{appointmentId}
+companies/{companyId}/notifications/{notificationId}
 companies/{companyId}/audit_logs/{auditLogId}
+companies/{companyId}/login_activity/{eventId}
 ```
 
-Do not move existing CRM module collections in this phase.
+Rules:
+
+- Never create global CRM collections such as `/leads`, `/clients`, `/properties`, `/tasks`, `/deals`.
+- All CRM operations must require company context.
+- Never allow cross-company access for normal users.
+- Never hard delete CRM business records unless explicitly requested.
+- Prefer archive/soft delete.
 
 ## Global Users
 
 `users/{uid}` is the global identity document.
 
-It answers:
-
-```text
-Who is this Firebase Auth user?
-```
-
-It does not mean the user belongs to every company.
-
-Expected fields:
+Expected fields include:
 
 ```text
 uid
@@ -222,19 +329,19 @@ phone
 isActive
 createdAt
 updatedAt
+lastLoginAt optional
+lastLoginIp optional
+lastLoginUserAgent optional
+lastLoginPlatform optional
+lastLoginBrowser optional
+lastLoginDeviceType optional
+lastLoginLocale optional
+lastLoginTimezone optional
 ```
 
 ## Memberships
 
 `users/{uid}/memberships/{companyId}` links a user to a company.
-
-It answers:
-
-```text
-Which company does this user belong to?
-What role does this user have in that company?
-Is this membership active?
-```
 
 Expected fields:
 
@@ -252,13 +359,6 @@ updatedAt
 
 `companies/{companyId}/users/{uid}` is the actual CRM profile for that company.
 
-It answers:
-
-```text
-Can this user access this company CRM?
-What role does this user have inside this company?
-```
-
 Expected fields:
 
 ```text
@@ -273,7 +373,30 @@ createdAt
 createdBy
 updatedAt
 updatedBy
+teamId
+teamName
+managerId
+managerName
+lastLoginAt optional
+lastLoginIp optional
+lastLoginUserAgent optional
+lastLoginPlatform optional
+lastLoginBrowser optional
+lastLoginDeviceType optional
+lastLoginLocale optional
+lastLoginTimezone optional
 ```
+
+Newly created users should receive default team fields immediately:
+
+```text
+teamId: ''
+teamName: ''
+managerId: ''
+managerName: ''
+```
+
+Do not rely on the user logging in once to normalize these fields.
 
 ## Correct Relationship
 
@@ -285,117 +408,263 @@ Firebase Auth user
   -> companies/{companyId}/CRM data
 ```
 
-## Cloud Functions Added
+---
 
-Callable functions were added in `functions/src/index.js`:
+# Team Hierarchy Rules
 
-```text
-createCompanyWithAdmin
-addUserToCompany
-setCompanyActiveStatus
-setCompanyUserActiveStatus
-```
+## Team Collection
 
-These functions must use Admin SDK server-side logic. Do not recreate these privileged operations as direct client Firestore/Auth writes.
-
-Cloud Run invoker permission was manually granted for these callable functions because Firebase Functions Gen 2 callable services were rejecting requests before function code ran.
-
-Keep function-level auth checks strict:
+Use:
 
 ```text
-request.auth required
-caller must be active platform admin
+companies/{companyId}/teams/{teamId}
 ```
 
-Public Cloud Run invocation is acceptable only because the callable function code validates Firebase Auth and platform admin status.
-
-## Current Verified Platform State
-
-- `/platform` opens for platform admin.
-- Create Company button exists.
-- Create Company form opens.
-- Company creation works after Cloud Run invoker permission fix.
-- Global users appear under `users/{uid}`.
-- Each company must still have its own users under `companies/{companyId}/users/{uid}`.
-- `users/{uid}/memberships/{companyId}` connects a global user to a company.
-
-## Firestore Backup
-
-A Firestore backup was created before starting platform foundation.
-
-Backup location:
+Team document fields:
 
 ```text
-gs://real-escrm-ia-firestore-backups-202605142227/backups/backup-before-platform-foundation
+id
+companyId
+name
+description optional
+managerId
+managerName
+managerEmail
+isActive
+memberCount
+createdAt
+createdBy
+updatedAt
+updatedBy
 ```
 
-The backup operation was successful and exported about 257 Firestore documents.
+## Roles
 
-This backup does not include Firebase Auth users/passwords.
+Admin:
 
-Do not commit `auth-users.json` because it contains password hashes/salts.
+- sees all teams
+- sees all company users
+- can create/edit/deactivate teams
+- can assign/change manager
+- can add/move/remove Sales Agent and Marketing members
+- can see users without teams
+
+Manager:
+
+- sees only their own team
+- sees only users where `managerId == managerUid`
+- read-only Team Management view unless explicitly expanded later
+- cannot create/edit/deactivate teams
+- cannot manage other managers' teams
+
+Sales Agent / Marketing:
+
+- cannot access Team Management
+- may see their own team/manager label if useful
+- sees only their own work unless future business policy changes this
+
+Viewer:
+
+- cannot access Team Management
+- should not be assigned as operational team member
+- should not see management-only sections
+
+## Team Member Eligibility
+
+Operational team members are:
+
+```text
+salesAgent
+marketing
+```
+
+Not eligible as normal operational team members:
+
+```text
+admin
+manager
+viewer
+```
+
+Admin/Manager may still appear as actors in audit logs because audit logs track who performed an action, not who owns the record.
+
+## Team Assignment Must Be Server-side
+
+Team member assignment/removal must use Cloud Functions because it is trusted business logic.
+
+Required callable functions:
+
+```text
+assignUserToTeam
+removeUserFromTeam
+```
+
+Server validation for `assignUserToTeam`:
+
+- `request.auth` required
+- caller must be active company Admin in `companies/{companyId}/users/{request.auth.uid}`
+- `companyId` valid
+- team exists under `companies/{companyId}/teams/{teamId}`
+- team is active
+- target user exists under `companies/{companyId}/users/{uid}`
+- target user is active
+- target role is `salesAgent` or `marketing`
+- team snapshots are taken from the team doc server-side, not trusted from Flutter
+- previous team member count refreshed if moving between teams
+- new team member count refreshed
+
+Server validation for `removeUserFromTeam`:
+
+- `request.auth` required
+- caller must be active company Admin
+- target user exists under the same company
+- target user is an operational member
+- previous team count refreshed
+
+Firestore writes from these functions:
+
+```text
+teamId
+teamName
+managerId
+managerName
+updatedAt
+updatedBy
+```
+
+Rules:
+
+- Do not use direct Flutter Firestore writes for member assignment/removal.
+- Do not broaden Firestore user update rules just to allow this action.
+- Keep company user update rules strict.
+- Functions use Admin SDK.
 
 ---
 
-# Current Known Platform Issues To Fix
+# Business Visibility Policy
 
-## 1. Platform Admin Login Without Company Membership
-
-Current bug:
-
-- Platform owner exists in `platform_admins/{uid}`.
-- Platform owner exists in `users/{uid}`.
-- If platform owner is removed from `companies/demo_company/users/{uid}`, login fails with “unable to load profile”.
-
-Correct behavior:
+## Main Rule
 
 ```text
-Platform admin only:
-  login -> /platform
-  no company membership required
-  no companies/{companyId}/users/{uid} required
-
-Company user only:
-  login -> CRM dashboard
-  requires users/{uid}/memberships/{companyId}
-  requires companies/{companyId}/users/{uid}
-
-Both:
-  can access platform and CRM if both conditions exist
-
-Neither:
-  blocked with clean localized account-not-linked message
+Admin sees all.
+Manager sees only their team.
+Sales Agent sees only their own assigned work.
+Marketing sees only their own assigned work unless explicitly changed later.
+Viewer has restricted/read-only visibility and must not see management-only data.
 ```
 
-Do not fake a companyId for platform-only users. Do not hardcode `demo_company`.
+## Leads Visibility
 
-## 2. Platform Dashboard Layout Overflow
+Admin:
 
-Observed issue:
+- all company leads
+- unassigned leads
+- all teams' leads
+- all managers' leads
+
+Manager:
+
+- leads assigned to the manager directly
+- leads assigned to users in the manager's team
+- leads with `managerId == managerUid`
+- leads with `teamId` matching one of the manager's teams
+- no other managers' leads
+- no global company-wide leads
+- no unassigned leads by default
+
+Sales Agent:
+
+- leads where `assignedTo == currentUserId`
+- no unassigned leads
+- no other sales agents' leads
+- no other teams' leads
+
+Marketing:
+
+- leads assigned to the marketing user
+- no company-wide unassigned leads unless a later explicit marketing intake policy is added
+
+Viewer:
+
+- no operational assignment ownership
+- no unassigned leads management information
+
+## Unassigned Leads
+
+Unassigned leads are management-level data.
+
+Default visibility:
 
 ```text
-RenderFlex overflowed by 64 pixels on the bottom
+Admin only
 ```
 
-Known area:
+Do not show unassigned lead count, section title, empty placeholder, stream/query, or quick action to Sales Agent, Marketing, or Viewer.
+
+Manager should not see unassigned leads by default. Add a future explicit policy if Admin wants certain managers to handle unassigned queues.
+
+## Clients / Properties / Tasks / Deals Visibility
+
+Until a dedicated assignee policy pass finalizes everything, keep the same principle:
 
 ```text
-lib/features/platform/presentation/pages/platform_page.dart
+Admin: all company records
+Manager: records assigned to manager or manager's team
+Sales Agent: own assigned records
+Marketing: own assigned records where module allows marketing
+Viewer: restricted/read-only according to current permission rules
 ```
 
-The platform page/company users list must scroll safely and work on desktop, smaller desktop, tablet-like width, and mobile browser width.
+## Record Snapshot Fields
 
-## 3. Professional Platform Dashboard Needed
+When assigning records after Team Hierarchy exists, prefer storing snapshot fields:
 
-The `/platform` dashboard should be upgraded to a professional platform management dashboard with real platform data, not fake metrics.
+```text
+teamId
+teamName
+managerId
+managerName
+assignedTo
+assignedToName
+```
 
-It must follow the Masar CRM visual identity and normal Dashboard quality level.
+This avoids heavy joins and makes dashboard, filters, reports, and rules easier.
 
-## 4. Company Dashboard Preview Mode Needed
+Old records without team fields must remain backward-compatible.
 
-The platform owner should be able to preview any company’s normal CRM Dashboard in read-only mode.
+---
 
-Do not create a new dashboard design for this preview. Reuse the existing company Dashboard style/layout/widgets as much as safely possible.
+# Assignee Policy
+
+Assignee Policy Cleanup is the next major feature phase after Team Assignment Server-side Fix + Manager Visibility Rules is validated.
+
+Goal:
+
+- Admin/Manager can manage and assign records.
+- Admin/Manager should not appear as normal assignee options in everyday sales work.
+- Viewer must never appear as assignable.
+- Existing records already assigned to Admin/Manager must still display safely.
+- Do not automatically migrate/rewrite existing `assignedTo` data unless explicitly requested.
+- Audit logs must still show Admin/Manager as actors.
+
+Recommended assignable roles:
+
+```text
+Leads: salesAgent + marketing
+Clients: salesAgent only
+Properties: salesAgent only
+Tasks: salesAgent + marketing
+Deals: salesAgent only
+Reports agent filters: salesAgent-focused
+```
+
+After Team Hierarchy, assignee dropdowns should also consider team scope:
+
+```text
+Admin: can assign to any eligible user in company
+Manager: can assign only to eligible users in their own team
+Sales/Marketing/Viewer: no assignment management unless explicitly allowed
+```
 
 ---
 
@@ -424,267 +693,231 @@ companies/{companyId}/users/{uid}
 
 If a platform admin also has memberships, CRM access may work too, but platform access must not depend on company profile loading.
 
-## Platform Dashboard Scope
+## Platform Actions
 
-The platform dashboard may include:
+Platform privileged actions must use Cloud Functions/Admin SDK.
 
-- platform header
-- platform admin name/email if available
-- companies list
-- selected company details
-- company settings display
-- company limits display
-- company features display
-- company users list
-- create company action
-- add company user action
-- company/user activate-deactivate actions
-- read-only dashboard preview action
-
-Do not add in this phase:
-
-- subscriptions
-- billing
-- payments
-- public signup
-- usage analytics charts
-- platform audit logs
-- AI
-- notifications
-- appointments
-- manager/team hierarchy
-
-## Platform Dashboard KPIs
-
-Use real data only.
-
-Allowed if data is available cheaply:
-
-- total companies
-- active companies
-- inactive companies
-- trial companies if status exists
-- recently created companies
-- loaded selected company user count
-
-Do not add fake metrics. Avoid expensive collectionGroup reads unless clearly justified.
-
-## Create Company Form
-
-Required fields:
+Current/expected platform functions include:
 
 ```text
-company name
-company ID / slug
-first admin full name
-first admin email
-first admin phone optional
-temporary password
-locale: en or ar only
-timezone: Africa/Cairo default
+createCompanyWithAdmin
+addUserToCompany
+setCompanyActiveStatus
+setCompanyUserActiveStatus
+updateCompanyPlatformSettings
+setCompanyUserPassword
+generateCompanyUserPasswordResetLink
+recordLoginActivity
+validateUploadedImageMagicBytes
 ```
 
 Rules:
 
-- Use `createCompanyWithAdmin` callable function.
-- Do not write company/Auth/user/membership docs directly from Flutter.
-- Do not store plaintext password in Firestore.
-- Show loading state.
-- Disable form while submitting.
-- Show localized success/error feedback.
-- Refresh companies list after success.
+- Admin SDK code must stay inside Functions.
+- Do not expose Admin SDK keys to Flutter.
+- Do not store plaintext passwords in Firestore.
+- Do not store reset links in Firestore.
+- Do not log passwords, tokens, or reset links.
+- Do not add service account JSON files to the repo.
+- Callable functions must check `request.auth`.
+- Callable platform functions must verify active `platform_admins/{uid}`.
+- Do not rely only on UI hiding for platform actions.
 
-## Add User Form
+---
 
-Required fields:
+# Auth and Session Rules
+
+## Normal Company User Flow
 
 ```text
-full name
-email
-phone optional
-role: admin, manager, salesAgent, marketing, viewer
-temporary password
+Firebase Auth sign-in
+  -> read users/{uid}/memberships
+  -> resolve active companyId
+  -> read companies/{companyId}
+  -> read companies/{companyId}/users/{uid}
+  -> start CRM session
 ```
+
+Company users must have:
+
+- active global user if used by resolver
+- active membership
+- active company
+- active company user profile
+
+## Platform Admin Flow
+
+```text
+Firebase Auth sign-in
+  -> read platform_admins/{uid}
+  -> if active, allow /platform
+```
+
+Platform-only users do not need company membership.
+
+Do not block `/platform` because company profile loading fails.
+
+## Password Management
+
+Login page Forgot Password should remain hidden while many CRM users use internal/fake emails.
+
+Supported password tools:
+
+- logged-in user changes their own password from Profile/Settings using current password and `updatePassword`
+- platform owner manually sets company user password via Cloud Function
+- platform owner generates password reset link via Cloud Function and copies/sends it manually
 
 Rules:
 
-- Use `addUserToCompany` callable function.
-- Show loading state.
-- Disable form while submitting.
-- Show localized success/error feedback.
-- Refresh company users after success.
+- Do not store passwords in Firestore.
+- Do not log passwords.
+- Do not store or log reset links.
+- Real password reset emails need real inboxes; generated reset links shown to platform owner can be sent manually.
 
-## Activate / Deactivate
+## Login Activity
 
-- Company activate/deactivate must call `setCompanyActiveStatus`.
-- Company user activate/deactivate must call `setCompanyUserActiveStatus`.
-- Do not hard delete companies or users.
-- Use clear loading state for the specific row/action.
+Login activity is security-sensitive.
 
----
+Expected behavior:
 
-# Platform Company Dashboard Preview
+- `recordLoginActivity` callable records successful login.
+- IP address captured server-side from request metadata/headers.
+- Flutter may send coarse client info such as user agent/platform/locale/timezone/app version.
+- No passwords/tokens/reset links are stored.
 
-## Goal
+Access:
 
-From `/platform`, the platform owner can open any company’s CRM Dashboard in the same style/design as the normal company Dashboard, but in read-only preview mode.
-
-Suggested route:
-
-```text
-/platform/companies/{companyId}/dashboard
-```
-
-Visible action:
-
-```text
-English: Preview dashboard
-Arabic: معاينة لوحة الشركة
-```
-
-Visible badge:
-
-```text
-English: Read-only preview
-Arabic: معاينة فقط
-```
-
-## Rules
-
-- Do not create a separate fake platform analytics dashboard.
-- Reuse the existing CRM Dashboard style/layout/widgets as much as safely possible.
-- Use real selected-company data only.
-- Platform owner must not be able to create/edit/delete/archive/assign/upload/complete/cancel/change stage/change status from preview mode.
-- Hide or disable all normal CRM action buttons in preview mode.
-- Do not add the platform owner to `companies/{companyId}/users` just to preview.
-- Do not fake a company user profile.
-- Do not change normal CRM company session.
-- Company users must not access preview routes.
-- If rules change, add platform-admin read-only access only where necessary.
-- Never add platform-admin write access to CRM records unless they are also a real company user with proper company permissions.
-
-Architecture guidance:
-
-- Prefer reusing existing Dashboard widgets with an explicit mode:
-
-```text
-normal company mode
-platform read-only preview mode
-```
-
-- If direct reuse is risky, create a thin platform wrapper that passes:
-
-```text
-companyId
-readOnly: true
-platformPreview: true
-```
-
-- Do not duplicate the whole Dashboard UI if avoidable.
-- Firebase reads must remain inside data sources.
-- Keep BLoC/Cubit.
+- Platform admins can read platform/company login activity where rules allow.
+- Company Admin/Manager may read company login activity only if allowed.
+- Normal users can see only their own last-login summary.
+- Sales/Marketing/Viewer must not read other users' login history.
 
 ---
 
-# Assignee Policy
+# Security Rules
 
-Admin and Manager should manage and assign, but should not appear as normal assignee options in everyday sales work.
+Security rules are part of the application logic.
 
-Recommended assignable roles:
+Rules must protect:
+
+- company isolation
+- platform admin isolation
+- user active status
+- role permissions
+- read permissions
+- write permissions
+- delete permissions
+- privilege escalation
+- manager/team visibility
+- protected login activity and last-login fields
+
+Never allow in production:
 
 ```text
-Leads: salesAgent + marketing
-Clients: salesAgent only
-Properties: salesAgent only
-Tasks: salesAgent + marketing
-Deals: salesAgent only
-Reports agent filters: salesAgent-focused
+allow read, write: if true;
 ```
 
-Rules:
+Route guards are UX protection only. Firestore/Storage rules are the real security boundary.
 
-- Viewer must never appear as assignable.
-- Admin/Manager should not appear as normal assignee choices.
-- Existing records already assigned to Admin/Manager must still display safely and not break.
-- Do not automatically migrate/rewrite existing assignedTo data unless explicitly asked.
-- Audit logs must still show Admin/Manager as actors because audit logs track who performed actions.
+## Rules Guidance
+
+- Normal users cannot create/update/delete `platform_admins`.
+- Normal users cannot create companies directly.
+- Normal users cannot create memberships directly.
+- Platform actions must use Cloud Functions/Admin SDK.
+- Platform admin read-only preview must not imply platform write access to CRM records.
+- Manager list queries must include filters matching rules, because Firestore rules are not filters.
+- If Manager can read only team members, the query must filter by `managerId == request.auth.uid` or equivalent allowed scope.
+- Do not reintroduce strict read/list predicates that break company-scoped collection queries.
+- Do not weaken user update rules for team assignment; use Cloud Functions instead.
+
+## API Key / Project Security
+
+Firebase client API keys are not passwords, but before real production:
+
+- use `String.fromEnvironment(...)` in `firebase_options.dart`
+- use `--dart-define-from-file=config/firebase.local.json` locally
+- do not commit `config/firebase.local.json` or production secrets
+- restrict Web API key to Firebase Hosting/custom domains
+- restrict Android key to package name and SHA certificates before mobile release
+- restrict iOS key to final bundle ID before App Store release
+- enable MFA on Google/Firebase/GitHub accounts
+- remove unnecessary IAM owners
+- never commit service account JSON/private keys/secrets
+
+## App Check Later
+
+Firebase App Check should be added later for stronger abuse protection.
+
+App Check is not a replacement for Security Rules.
 
 ---
 
-# Codex Operational Defaults
+# Error Handling and User Feedback
 
-## Working Branch
-
-- Work on branch `dev`.
-- Do not work directly on `main`.
-- Do not assume changes are committed.
-- Keep each task focused.
-
-## Command Usage
-
-Do not run CLI commands unless explicitly requested.
-
-Do not run:
-
-- `flutter analyze`
-- `flutter pub get`
-- `flutter gen-l10n`
-- `dart format`
-- `flutter run`
-- `flutter build`
-- Firebase deploy commands
-- Git commands
-- destructive commands
-- production data modification commands
-
-The user will run checks locally unless they explicitly allow commands.
-
-Read-only inspection of directly relevant files is allowed.
-
-## File Editing Rules
-
-- Do not touch unrelated files.
-- Do not format broad folders.
-- Do not run broad formatting like `dart format lib`.
-- If formatting is needed, format only changed files.
-- If a reusable widget API is unknown, inspect the existing widget file before using it.
-- Do not create duplicate UI components if an existing reusable component can be used.
-- Do not leave temporary zip, patch, exported Auth JSON, generated seed files, or test files inside the repo unless explicitly requested.
-
-## Reporting Format
-
-After every task, report:
+Do not show only generic messages such as:
 
 ```text
-Files changed:
-- ...
-
-What was implemented:
-- ...
-
-How to test:
-- ...
-
-Assumptions:
-- ...
-
-Remaining issues:
-- ...
+Failed to update
+Something went wrong
 ```
 
-If relevant, also include:
+Generic errors are acceptable only as a final fallback when the app truly cannot classify the problem.
+
+Expected behavior:
+
+- Map Firebase/Functions errors to realistic, actionable, localized messages.
+- Keep technical details out of normal user-facing messages.
+- Do not expose security internals.
+- Log useful debug details in development if needed, but do not log passwords, tokens, reset links, or private data.
+- AppFeedback should receive specific messages whenever possible.
+
+Examples of better messages:
 
 ```text
-Security/rules changes:
-Cloud Functions changes:
-Critical warnings:
+You do not have permission to add this user to a team.
+This user is inactive. Activate the user before assigning them to a team.
+This team is inactive. Activate the team first.
+This manager already owns an active team.
+This user is not eligible for team membership.
+The selected company is inactive.
+This feature is disabled for this company.
+The record was changed or removed. Refresh and try again.
+The connection was interrupted. Check your internet and try again.
+The reset link could not be generated for this user.
+The current password is incorrect.
+Your session expired. Sign in again and retry.
 ```
 
-If there are no remaining issues, write:
+Arabic messages must be natural and direct, not literal machine translations.
+
+Recommended error mapping:
 
 ```text
-Remaining issues:
-- None known
+permission-denied -> clear permission message
+unauthenticated -> ask user to sign in again
+failed-precondition -> explain the business condition that failed
+invalid-argument -> explain the invalid field/input
+not-found -> selected record/user/company no longer exists
+already-exists -> duplicate entity message
+unavailable/deadline-exceeded -> network/server temporary issue
+aborted -> data changed, refresh and retry
+unknown -> fallback with retry guidance
+```
+
+For Team Management specifically, avoid only saying:
+
+```text
+Team update failed
+```
+
+Prefer:
+
+```text
+User could not be added because they are inactive.
+User could not be added because they are not eligible for team membership.
+User could not be added because you do not have permission.
+User could not be added because the team is inactive.
 ```
 
 ---
@@ -721,160 +954,6 @@ lib/features/<feature>/
     pages/
     widgets/
 ```
-
----
-
-# Firebase Structure
-
-## Platform / Global
-
-```text
-platform_admins/{uid}
-users/{uid}
-users/{uid}/memberships/{companyId}
-companies/{companyId}
-```
-
-## Company CRM
-
-```text
-companies/{companyId}/users/{userId}
-companies/{companyId}/leads/{leadId}
-companies/{companyId}/clients/{clientId}
-companies/{companyId}/properties/{propertyId}
-companies/{companyId}/deals/{dealId}
-companies/{companyId}/tasks/{taskId}
-companies/{companyId}/appointments/{appointmentId}
-companies/{companyId}/notifications/{notificationId}
-companies/{companyId}/audit_logs/{auditLogId}
-```
-
-Rules:
-
-- Never create global CRM collections such as `/leads`, `/clients`, `/properties`, `/tasks`, `/deals`.
-- All CRM operations must require company context.
-- Never allow cross-company access for normal users.
-- Never hard delete CRM business records unless explicitly requested.
-- Prefer archive/soft delete.
-
----
-
-# Auth and Session Rules
-
-## Normal Company User Flow
-
-```text
-Firebase Auth sign-in
-  -> read users/{uid}/memberships
-  -> resolve active companyId
-  -> read companies/{companyId}
-  -> read companies/{companyId}/users/{uid}
-  -> start CRM session
-```
-
-Company users must have:
-
-- active global user if used by resolver
-- active membership
-- active company
-- active company user profile
-
-## Platform Admin Flow
-
-```text
-Firebase Auth sign-in
-  -> read platform_admins/{uid}
-  -> if active, allow /platform
-```
-
-Platform-only users do not need company membership.
-
-Do not block `/platform` because company profile loading fails.
-
-## Multiple Memberships
-
-The structure supports multiple memberships later.
-
-For now:
-
-- if one active membership exists, enter directly
-- if multiple active memberships exist, do not build full company switching unless explicitly requested
-- do not redesign the database when company switching is added later
-
----
-
-# Security Rules
-
-Security rules are part of the application logic.
-
-Rules must protect:
-
-- company isolation
-- platform admin isolation
-- user active status
-- role permissions
-- read permissions
-- write permissions
-- delete permissions
-- privilege escalation
-
-Never allow in production:
-
-```text
-allow read, write: if true;
-```
-
-Route guards are UX protection only. Firestore/Storage rules are the real security boundary.
-
-## Platform Security
-
-- Normal users cannot create/update/delete `platform_admins`.
-- Normal users cannot create companies directly.
-- Normal users cannot create memberships directly.
-- Platform actions must use Cloud Functions/Admin SDK.
-- Platform admin read-only preview must not imply platform write access to CRM records.
-
-## API Key / Project Security
-
-Firebase client API keys are not passwords, but before real production:
-
-- restrict Web API key to Firebase Hosting/custom domains
-- restrict Android key to package name and SHA certificates before mobile release
-- restrict iOS key to final bundle ID before App Store release
-- enable MFA on Google/Firebase/GitHub accounts
-- remove unnecessary IAM owners
-- never commit service account JSON/private keys/secrets
-
-## App Check Later
-
-Firebase App Check should be added later for stronger abuse protection.
-
-App Check is not a replacement for Security Rules.
-
----
-
-# Cloud Functions Rules
-
-Use Cloud Functions only when logic must be trusted server-side.
-
-Current platform functions:
-
-```text
-createCompanyWithAdmin
-addUserToCompany
-setCompanyActiveStatus
-setCompanyUserActiveStatus
-```
-
-Rules:
-
-- Admin SDK code must stay inside Functions.
-- Do not expose Admin SDK keys to Flutter.
-- Do not store plaintext passwords in Firestore.
-- Do not add service account JSON files to the repo.
-- Callable functions must check `request.auth`.
-- Callable platform functions must verify active `platform_admins/{uid}`.
-- Do not rely only on UI hiding for platform actions.
 
 ---
 
@@ -959,9 +1038,11 @@ Future UI work must reuse the same:
 - Forms should disable fields while saving.
 - Save/update buttons must show circular loading until backend request completes.
 - Pages/dialogs/sheets must not close before success.
-- Failures must keep user on the same page and show clean feedback.
+- Failures must keep user on the same page and show clean, specific feedback.
 - Audit log writes must not block main actions.
 - Platform function calls must show loading and clean errors.
+- Use `context.mounted` before showing feedback after async work.
+- Avoid using stale BuildContext from disposed widgets.
 
 ---
 
@@ -984,6 +1065,7 @@ Rules:
 - Do not fix web by breaking mobile.
 - Do not fix mobile by making desktop empty.
 - Keep useful content visible quickly.
+- Reusable buttons must handle Arabic RTL labels without text painter/render overflow.
 
 ---
 
@@ -991,21 +1073,27 @@ Rules:
 
 ## Auth
 
-Implemented, but currently being updated for platform admin/company membership session behavior.
+Implemented with platform/company resolution and password-management work.
 
 ## Dashboard
 
 Implemented with real data and real audit log activity.
 
-Must support future read-only platform preview mode without enabling actions.
+Must respect feature flags and visibility policy.
+
+Unassigned leads must not be visible to Sales Agent, Marketing, or Viewer.
 
 ## Leads
 
 Implemented.
 
+Next visibility cleanup should align Manager access to team scope.
+
 ## Clients
 
 Implemented.
+
+Next visibility cleanup should align Manager access to team scope.
 
 ## Properties
 
@@ -1020,17 +1108,19 @@ Saved backlog:
 - verify related Deal support in task forms/lists
 - improve complete/cancel row-level loading if practical
 - avoid fragile success handling after await if practical
-- do not add manager/team logic yet
+- later align task visibility/assignment to team hierarchy
 
 ## Deals
 
 Implemented.
 
+Next visibility cleanup should align Manager access to team scope.
+
 ## Reports
 
 Implemented.
 
-Agent/assignee filters should focus on salesAgent users where the meaning is sales ownership.
+Reports agent filters should focus on salesAgent ownership and later manager/team scope.
 
 ## Audit Logs
 
@@ -1042,15 +1132,15 @@ Not built. Skip for now unless explicitly requested.
 
 ## Notifications
 
-Not built. Future phase after platform foundation and stabilization.
+Not built. Future phase after stabilization.
 
-## Manager/Team Hierarchy
+## Team Management
 
-Not built. Future phase.
+Implemented but current stabilization phase must move member assignment/removal to Cloud Functions.
 
 ## Platform Admin
 
-Current active phase. Needs finishing pass described above.
+Implemented and being polished/stabilized with platform security and feature management.
 
 ---
 
@@ -1059,20 +1149,19 @@ Current active phase. Needs finishing pass described above.
 Recommended order from current state:
 
 ```text
-1. Finish Platform Foundation / Professional Platform Dashboard / Platform Auth Fix
-2. Final platform + CRM regression testing
-3. Finish assignee policy cleanup if not fully tested/committed
+1. Team Assignment Server-side Fix + Manager Visibility Rules
+2. Validate Team Hierarchy / Manager Teams
+3. Assignee Policy Cleanup
 4. Version/app info polish
 5. Notifications/reminders foundation
-6. Manager/team hierarchy
-7. Final security QA: rules tests, API key restrictions, App Check, IAM review
-8. Import/export if needed
-9. Mobile app packaging if needed
-10. Platform subscriptions/billing much later
-11. Appointments only if real scheduling becomes necessary
+6. Final security QA: rules tests, API key restrictions, App Check, IAM review
+7. Import/export if needed
+8. Mobile app packaging if needed
+9. Platform subscriptions/billing much later
+10. Appointments only if real scheduling becomes necessary
 ```
 
-Do not add more business modules before the platform foundation is stable.
+Do not add more business modules before team/security visibility is stable.
 
 ---
 
@@ -1111,6 +1200,8 @@ Do not commit:
 ```text
 .env
 .env.local
+config/firebase.local.json
+config/firebase.prod.json
 serviceAccountKey.json
 firebase-adminsdk*.json
 google credentials JSON files
@@ -1130,6 +1221,7 @@ firestore.rules
 storage.rules
 pubspec.yaml
 pubspec.lock
+lib/firebase_options.dart if it only uses String.fromEnvironment(...)
 functions/package.json
 functions/package-lock.json
 functions/src/index.js
@@ -1147,70 +1239,108 @@ LF/CRLF warnings on Windows are usually not the main issue.
 
 ---
 
-# Manual Test Checklist For Current Platform Phase
+# Codex Operational Defaults
 
-1. Platform-only owner:
-   - exists in `platform_admins/{uid}`
-   - exists in `users/{uid}`
-   - does not exist in `companies/demo_company/users/{uid}`
-   - login succeeds
-   - opens `/platform`
-   - companies load
+## Working Branch
 
-2. Company manager:
-   - has membership and company user profile
-   - login opens CRM dashboard
-   - `/platform` is blocked
+- Work on branch `dev`.
+- Do not work directly on `main`.
+- Do not assume changes are committed.
+- Keep each task focused.
 
-3. Sales agent:
-   - has membership and company user profile
-   - login opens CRM dashboard
-   - `/platform` is blocked
+## Command Usage
 
-4. Create company:
-   - platform admin creates a trial company
-   - company appears in list
-   - Firebase Auth user for first admin is created
-   - `companies/{newCompanyId}` exists
-   - `companies/{newCompanyId}/users/{adminUid}` exists
-   - `users/{adminUid}` exists
-   - `users/{adminUid}/memberships/{newCompanyId}` exists
+Do not run CLI commands unless explicitly requested.
 
-5. New company admin:
-   - login succeeds
-   - sees empty CRM data
-   - cannot see `demo_company` records
-   - `/platform` blocked unless explicitly platform admin
+Do not run:
 
-6. Add user:
-   - platform admin adds user to company
-   - user can login
-   - user sees only their company
+- `flutter analyze`
+- `flutter pub get`
+- `flutter gen-l10n`
+- `dart format`
+- `flutter run`
+- `flutter build`
+- Firebase deploy commands
+- Git commands
+- destructive commands
+- production data modification commands
 
-7. Toggle active:
-   - deactivating user blocks user cleanly
-   - reactivating user restores login
-   - deactivating company blocks company login cleanly
+The user will run checks locally unless they explicitly allow commands.
 
-8. Platform company dashboard preview:
-   - platform owner previews `demo_company` dashboard
-   - same CRM Dashboard style is shown
-   - read-only badge visible
-   - no create/edit/archive/action buttons usable
-   - platform owner previews trial company dashboard
-   - only selected company data appears
-   - company users cannot access preview route
+Read-only inspection of directly relevant files is allowed.
 
-9. Layout:
-   - no RenderFlex overflow on `/platform`
-   - company users list scrolls safely
-   - mobile width usable
-   - Arabic RTL layout good
+## File Editing Rules
 
-10. CRM regression:
-   - demo company Admin/Manager/Sales still open Dashboard, Leads, Clients, Properties, Tasks, Deals, Reports
-   - audit logs still work
-   - property images still upload for allowed roles
+- Do not touch unrelated files.
+- Do not format broad folders.
+- Do not run broad formatting like `dart format lib`.
+- If formatting is needed, format only changed files.
+- If a reusable widget API is unknown, inspect the existing widget file before using it.
+- Do not create duplicate UI components if an existing reusable component can be used.
+- Do not leave temporary zip, patch, exported Auth JSON, generated seed files, or test files inside the repo unless explicitly requested.
+
+## Reporting Format
+
+After every task, report:
+
+```text
+Files changed:
+- ...
+
+What was broken / missing:
+- ...
+
+What was implemented:
+- ...
+
+How to test:
+- ...
+
+Assumptions:
+- ...
+
+Remaining issues:
+- ...
+```
+
+If relevant, also include:
+
+```text
+Security/rules changes:
+Cloud Functions changes:
+Critical warnings:
+```
+
+If there are no remaining issues, write:
+
+```text
+Remaining issues:
+- None known
+```
+
+---
+
+# Manual Test Checklist For Current Team Stabilization Phase
+
+1. Platform owner creates a new company user.
+2. Do not login as the new user.
+3. Login as company Admin.
+4. Open Team Management.
+5. Add the newly created Sales Agent/Marketing user to an active team.
+6. It must succeed without requiring the target user to login first.
+7. Remove the user from the team.
+8. Move the user between teams.
+9. Manager sees only their own team and team members.
+10. Sales/Marketing/Viewer cannot access `/teams`.
+11. Admin still sees all teams and all company users.
+12. Admin sees unassigned leads if intended.
+13. Manager does not see all company leads.
+14. Sales/Marketing/Viewer do not see unassigned leads.
+15. Arabic RTL works.
+16. English LTR works.
+17. Dark mode works.
+18. Mobile width has no overflow.
+19. Errors are specific and useful, not only “failed to update”.
 
 ---
 
@@ -1228,3 +1358,24 @@ It should not feel like:
 - a messy Flutter demo
 
 Build carefully. Make the smallest clean change that supports the scalable product direction.
+
+---
+
+# Versioning / App Info Rule
+
+For every major phase, stabilization package, security fix, or visible product update, update the app version shown in Settings before handing the build back.
+
+Required files:
+
+```text
+pubspec.yaml
+lib/core/constants/app_constants.dart
+```
+
+Rules:
+
+- Keep `pubspec.yaml` `version:` aligned with `AppConstants.appVersion` and `AppConstants.appBuildNumber`.
+- Use semantic versions for product phases, for example `1.2.0+2`.
+- Show the version/build in Settings > About app.
+- Mention the version bump clearly in the final report.
+- Do not change versions for tiny text-only fixes unless explicitly requested.

@@ -131,6 +131,17 @@ class _ReportsContentState extends State<_ReportsContent> {
     super.initState();
     _watchAll();
   }
+
+  @override
+  void didUpdateWidget(covariant _ReportsContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.role != widget.role ||
+        oldWidget.currentUserId != widget.currentUserId) {
+      _watchAll();
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -138,21 +149,29 @@ class _ReportsContentState extends State<_ReportsContent> {
   }
 
   void _watchAll() {
-    final assignedTo = widget.role == UserRole.salesAgent
+    final assignedTo = widget.role == UserRole.salesAgent ||
+            widget.role == UserRole.marketing ||
+            widget.role == UserRole.viewer
+        ? widget.currentUserId
+        : null;
+    final managerId = widget.role == UserRole.manager
         ? widget.currentUserId
         : null;
     context.read<LeadsCubit>().watchLeads(
       companyId: widget.companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
     );
     context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
     context.read<ClientsCubit>().watchClients(
       companyId: widget.companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
     );
     context.read<TasksCubit>().watchTasks(
       companyId: widget.companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
     );
     context.read<DealsCubit>().watchDeals(
       companyId: widget.companyId,
@@ -1447,7 +1466,7 @@ class _AgentActivityCard extends StatelessWidget {
     final completionPercent = (row.completionRate * 100).round();
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -1456,47 +1475,24 @@ class _AgentActivityCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            row.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          _AgentMetricGroup(
-            title: l.workload,
-            tone: AppStatusTone.info,
-            items: [
-              _AgentMetricItem(l.leads, row.leads),
-              _AgentMetricItem(l.deals, row.deals),
-              _AgentMetricItem(l.tasks, row.tasks),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          _AgentMetricGroup(
-            title: l.results,
-            tone: AppStatusTone.success,
-            items: [
-              _AgentMetricItem(l.wonDeals, row.wonDeals),
-              _AgentMetricItem(l.completedTasks, row.completedTasks),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
           Row(
             children: [
+              CircleAvatar(
+                radius: 16,
+                child: Text(
+                  row.name.trim().isEmpty
+                      ? 'U'
+                      : row.name.trim().substring(0, 1).toUpperCase(),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  l.taskCompletion,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                    fontWeight: FontWeight.w800,
+                  row.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -1507,45 +1503,93 @@ class _AgentActivityCard extends StatelessWidget {
                   color: completionPercent >= 80
                       ? AppColors.successColor(context)
                       : completionPercent >= 50
-                      ? AppColors.warningColor(context)
-                      : AppColors.errorColor(context),
+                          ? AppColors.warningColor(context)
+                          : AppColors.errorColor(context),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          TweenAnimationBuilder<double>(
-            tween: Tween(
-                begin: 0.0, end: row.completionRate.clamp(0.0, 1.0)),
-            duration: const Duration(milliseconds: 520),
-            curve: Curves.easeOutCubic,
-            builder: (context, animValue, _) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: animValue,
-                  minHeight: 8,
-                  backgroundColor: AppColors.borderColor(context),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    completionPercent >= 80
-                        ? AppColors.successColor(context)
-                        : completionPercent >= 50
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _CompactAgentMetric(label: l.leads, value: row.leads),
+              _CompactAgentMetric(label: l.deals, value: row.deals),
+              _CompactAgentMetric(label: l.tasks, value: row.tasks),
+              _CompactAgentMetric(label: l.wonDeals, value: row.wonDeals),
+              _CompactAgentMetric(
+                label: l.completedTasks,
+                value: row.completedTasks,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: row.completionRate.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: AppColors.borderColor(context),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                completionPercent >= 80
+                    ? AppColors.successColor(context)
+                    : completionPercent >= 50
                         ? AppColors.warningColor(context)
                         : AppColors.errorColor(context),
-                  ),
-                ),
-              );
-            },
+              ),
+            ),
           ),
-
-          const SizedBox(height: AppSpacing.md),
-
+          const SizedBox(height: AppSpacing.xs),
           _AgentFollowUpLine(row: row),
         ],
       ),
     );
   }
 }
+
+class _CompactAgentMetric extends StatelessWidget {
+  const _CompactAgentMetric({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.medium,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value.toString(),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: AppColors.primaryColor(context),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AgentMetricItem {
   const _AgentMetricItem(this.label, this.value);
 
@@ -1730,14 +1774,20 @@ class _AgentReportSection extends StatelessWidget {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 900 ? 2 : 1;
+                final columns = constraints.maxWidth >= 1180
+                    ? 4
+                    : constraints.maxWidth >= 900
+                        ? 3
+                        : constraints.maxWidth >= 620
+                            ? 2
+                            : 1;
                 final cardWidth =
-                    (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
+                    (constraints.maxWidth - (columns - 1) * AppSpacing.sm) /
                         columns;
 
                 return Wrap(
-                  spacing: AppSpacing.md,
-                  runSpacing: AppSpacing.md,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final row in rows.take(8))
                       SizedBox(

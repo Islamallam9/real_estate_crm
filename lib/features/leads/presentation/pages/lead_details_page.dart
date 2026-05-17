@@ -296,16 +296,45 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       builder: (context, constraints) {
         final useDesktopLayout = constraints.maxWidth >= 1024;
         if (!useDesktopLayout) {
-          return ListView(
-            children: [
-              ..._mainContent(l),
-              const SizedBox(height: AppSpacing.lg),
-              _TimelineSection(
-                timeline: widget.timeline,
-                users: widget.activeUsers,
-                scrollable: false,
-              ),
-            ],
+          return DefaultTabController(
+            length: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _LeadDetailsTabBar(
+                  tabs: [
+                    _LeadDetailsTab(
+                      label: l.leadDetails,
+                      icon: Icons.info_outline_rounded,
+                    ),
+                    _LeadDetailsTab(
+                      label: l.timeline,
+                      icon: Icons.timeline_outlined,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Expanded(
+                  child: TabBarView(
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      ListView(
+                        children: _mainContent(l),
+                      ),
+                      ListView(
+                        children: [
+                          _TimelineSection(
+                            timeline: widget.timeline,
+                            users: widget.activeUsers,
+                            scrollable: false,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
@@ -573,6 +602,54 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         updatedBy: widget.uid,
       ),
       actorName: widget.actorName,
+    );
+  }
+}
+
+
+class _LeadDetailsTab {
+  const _LeadDetailsTab({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+}
+
+class _LeadDetailsTabBar extends StatelessWidget {
+  const _LeadDetailsTabBar({required this.tabs});
+
+  final List<_LeadDetailsTab> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: TabBar(
+        isScrollable: false,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: AppColors.selectedSurface(context),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        labelColor: AppColors.primaryColor(context),
+        unselectedLabelColor: AppColors.textSecondaryColor(context),
+        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+        padding: const EdgeInsets.all(4),
+        tabs: [
+          for (final tab in tabs)
+            Tab(
+              iconMargin: const EdgeInsets.only(bottom: 2),
+              icon: Icon(tab.icon, size: 18),
+              text: tab.label,
+            ),
+        ],
+      ),
     );
   }
 }

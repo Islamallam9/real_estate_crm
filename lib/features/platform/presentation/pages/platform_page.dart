@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -23,14 +24,18 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../auth/presentation/widgets/change_password_dialog.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../data/datasources/platform_remote_data_source.dart';
 import '../../data/repositories/platform_repository_impl.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
+import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
+import '../../domain/usecases/set_company_user_email_usecase.dart';
+import '../../domain/usecases/set_company_user_password_usecase.dart';
 import '../../domain/usecases/update_company_platform_settings_usecase.dart';
 import '../../domain/usecases/watch_platform_companies_usecase.dart';
 import '../../domain/usecases/watch_platform_company_users_usecase.dart';
@@ -59,6 +64,12 @@ class PlatformPage extends StatelessWidget {
         ),
         setCompanyUserActiveStatusUseCase:
             SetCompanyUserActiveStatusUseCase(repository),
+        setCompanyUserEmailUseCase: SetCompanyUserEmailUseCase(repository),
+        setCompanyUserPasswordUseCase: SetCompanyUserPasswordUseCase(
+          repository,
+        ),
+        generateCompanyUserPasswordResetLinkUseCase:
+            GenerateCompanyUserPasswordResetLinkUseCase(repository),
         updateCompanyPlatformSettingsUseCase:
             UpdateCompanyPlatformSettingsUseCase(repository),
       )..watchCompanies(),
@@ -471,6 +482,16 @@ void _showPlatformSettingsSheet(BuildContext context) {
                       ),
                     ],
                   );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppButton(
+                label: l.changePassword,
+                icon: Icons.lock_reset,
+                variant: AppButtonVariant.secondary,
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  showChangePasswordDialog(context);
                 },
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -1997,6 +2018,15 @@ class _UsersTable extends StatelessWidget {
                           color: AppColors.textSecondaryColor(context),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _lastLoginSummary(context, user),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2027,6 +2057,42 @@ class _UsersTable extends StatelessWidget {
                             AppFeedback.success(context, l.savedSuccessfully);
                           }
                         },
+                ),
+                AppButton(
+                  label: l.changeEmail,
+                  icon: Icons.alternate_email_rounded,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: isBusy
+                      ? null
+                      : () => _showPlatformChangeEmailDialog(
+                            context,
+                            companyId: companyId,
+                            user: user,
+                          ),
+                ),
+                AppButton(
+                  label: l.changePassword,
+                  icon: Icons.lock_reset,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: isBusy
+                      ? null
+                      : () => _showPlatformChangePasswordDialog(
+                            context,
+                            companyId: companyId,
+                            user: user,
+                          ),
+                ),
+                AppButton(
+                  label: l.generateResetLink,
+                  icon: Icons.link,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: isBusy
+                      ? null
+                      : () => _showGenerateResetLinkDialog(
+                            context,
+                            companyId: companyId,
+                            user: user,
+                          ),
                 ),
               ],
             ),
@@ -2139,6 +2205,51 @@ Future<void> _showAddUserDialog(BuildContext context, String companyId) {
     builder: (_) => _AddUserDialog(
       cubit: context.read<PlatformCubit>(),
       companyId: companyId,
+    ),
+  );
+}
+
+Future<void> _showPlatformChangeEmailDialog(
+  BuildContext context, {
+  required String companyId,
+  required PlatformCompanyUser user,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _PlatformChangeEmailDialog(
+      cubit: context.read<PlatformCubit>(),
+      companyId: companyId,
+      user: user,
+    ),
+  );
+}
+
+Future<void> _showPlatformChangePasswordDialog(
+  BuildContext context, {
+  required String companyId,
+  required PlatformCompanyUser user,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _PlatformChangePasswordDialog(
+      cubit: context.read<PlatformCubit>(),
+      companyId: companyId,
+      user: user,
+    ),
+  );
+}
+
+Future<void> _showGenerateResetLinkDialog(
+  BuildContext context, {
+  required String companyId,
+  required PlatformCompanyUser user,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _GenerateResetLinkDialog(
+      cubit: context.read<PlatformCubit>(),
+      companyId: companyId,
+      user: user,
     ),
   );
 }
@@ -2534,6 +2645,336 @@ class _CreateCompanyDialogState extends State<_CreateCompanyDialog> {
   }
 }
 
+class _PlatformChangeEmailDialog extends StatefulWidget {
+  const _PlatformChangeEmailDialog({
+    required this.cubit,
+    required this.companyId,
+    required this.user,
+  });
+
+  final PlatformCubit cubit;
+  final String companyId;
+  final PlatformCompanyUser user;
+
+  @override
+  State<_PlatformChangeEmailDialog> createState() =>
+      _PlatformChangeEmailDialogState();
+}
+
+class _PlatformChangeEmailDialogState
+    extends State<_PlatformChangeEmailDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _email;
+  var _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _email = TextEditingController(text: widget.user.email);
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.changeEmail),
+      content: SizedBox(
+        width: 440,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.user.fullName,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _email,
+                label: l.email,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !_saving,
+                validator: (value) {
+                  final email = (value ?? '').trim();
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+                    return l.invalidEmail;
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.save,
+          isLoading: _saving,
+          onPressed: _saving ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() => _saving = true);
+    final success = await widget.cubit.setCompanyUserEmail(
+      companyId: widget.companyId,
+      uid: widget.user.uid,
+      newEmail: _email.text.trim(),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _saving = false);
+    if (success) {
+      AppFeedback.success(
+        context,
+        AppLocalizations.of(context)!.platformEmailChanged,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _PlatformChangePasswordDialog extends StatefulWidget {
+  const _PlatformChangePasswordDialog({
+    required this.cubit,
+    required this.companyId,
+    required this.user,
+  });
+
+  final PlatformCubit cubit;
+  final String companyId;
+  final PlatformCompanyUser user;
+
+  @override
+  State<_PlatformChangePasswordDialog> createState() =>
+      _PlatformChangePasswordDialogState();
+}
+
+class _PlatformChangePasswordDialogState
+    extends State<_PlatformChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  var _saving = false;
+
+  @override
+  void dispose() {
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.changePassword),
+      content: SizedBox(
+        width: 440,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.user.email,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _newPassword,
+                label: l.newPassword,
+                obscureText: true,
+                enabled: !_saving,
+                validator: (value) => _password(value, l),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _confirmPassword,
+                label: l.confirmPassword,
+                obscureText: true,
+                enabled: !_saving,
+                validator: (value) {
+                  if ((value ?? '') != _newPassword.text) {
+                    return l.passwordsDoNotMatch;
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.save,
+          isLoading: _saving,
+          onPressed: _saving ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _saving = true);
+    final success = await widget.cubit.setCompanyUserPassword(
+      companyId: widget.companyId,
+      uid: widget.user.uid,
+      newPassword: _newPassword.text,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _saving = false);
+    if (success) {
+      AppFeedback.success(
+        context,
+        AppLocalizations.of(context)!.platformPasswordChanged,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _GenerateResetLinkDialog extends StatefulWidget {
+  const _GenerateResetLinkDialog({
+    required this.cubit,
+    required this.companyId,
+    required this.user,
+  });
+
+  final PlatformCubit cubit;
+  final String companyId;
+  final PlatformCompanyUser user;
+
+  @override
+  State<_GenerateResetLinkDialog> createState() =>
+      _GenerateResetLinkDialogState();
+}
+
+class _GenerateResetLinkDialogState extends State<_GenerateResetLinkDialog> {
+  var _loading = true;
+  String? _link;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.generateResetLink),
+      content: SizedBox(
+        width: 560,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _InfoChip(label: l.email, value: widget.user.email),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              l.sendThisLinkManuallyToTheUser,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if ((_link ?? '').isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.appBackground(context),
+                  border: Border.all(color: AppColors.borderColor(context)),
+                  borderRadius: AppRadius.large,
+                ),
+                child: SelectableText(_link!),
+              )
+            else
+              Text(l.passwordChangeFailed),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: Text(l.close),
+        ),
+        AppButton(
+          label: l.copyResetLink,
+          icon: Icons.copy,
+          isLoading: _loading,
+          onPressed: _loading || (_link ?? '').isEmpty
+              ? null
+              : () async {
+                  await Clipboard.setData(ClipboardData(text: _link!));
+                  if (context.mounted) {
+                    AppFeedback.success(context, l.resetLinkCopied);
+                  }
+                },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _load() async {
+    final link = await widget.cubit.generateCompanyUserPasswordResetLink(
+      companyId: widget.companyId,
+      uid: widget.user.uid,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _link = link;
+      _loading = false;
+    });
+    if (link != null && context.mounted) {
+      AppFeedback.success(
+        context,
+        AppLocalizations.of(context)!.resetLinkGenerated,
+      );
+    }
+  }
+}
+
 class _AddUserDialog extends StatefulWidget {
   const _AddUserDialog({required this.cubit, required this.companyId});
 
@@ -2817,8 +3258,38 @@ String _formatDate(BuildContext context, DateTime value) {
   return DateFormat.yMd(localeName).add_jm().format(value.toLocal());
 }
 
+String _lastLoginSummary(BuildContext context, PlatformCompanyUser user) {
+  final l = AppLocalizations.of(context)!;
+  final at = user.lastLoginAt;
+  if (at == null) {
+    return l.noLoginActivityYet;
+  }
+
+  final device = [
+    user.lastLoginDeviceType,
+    user.lastLoginBrowser,
+    user.lastLoginPlatform,
+  ].where((value) => value.trim().isNotEmpty).join(' / ');
+  final ip = user.lastLoginIp.trim().isEmpty
+      ? l.notAvailable
+      : user.lastLoginIp.trim();
+  final deviceLabel = device.isEmpty ? l.notAvailable : device;
+  return '${l.lastLogin}: ${_formatDate(context, at)} - ${l.ipAddress}: $ip - ${l.device}: $deviceLabel';
+}
+
 String? _required(String? value, AppLocalizations l) {
   return (value ?? '').trim().isEmpty ? l.requiredField : null;
+}
+
+String? _password(String? value, AppLocalizations l) {
+  final text = value ?? '';
+  if (text.isEmpty) {
+    return l.newPasswordRequired;
+  }
+  if (text.length < 8) {
+    return l.newPasswordTooShort;
+  }
+  return null;
 }
 
 String? _positiveInteger(String? value, AppLocalizations l) {

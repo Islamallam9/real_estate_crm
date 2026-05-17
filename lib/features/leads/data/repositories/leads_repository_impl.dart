@@ -65,11 +65,13 @@ class LeadsRepositoryImpl implements LeadsRepository {
   Stream<List<Lead>> watchLeads({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     return _remoteDataSource.watchLeads(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }

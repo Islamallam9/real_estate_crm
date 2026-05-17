@@ -90,7 +90,11 @@ class LeadsCubit extends Cubit<LeadsState> {
     return fallback;
   }
 
-  void watchLeads({required String companyId, String? assignedTo}) {
+  void watchLeads({
+    required String companyId,
+    String? assignedTo,
+    String? managerId,
+  }) {
     emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
     _leadsSubscription?.cancel();
     _leadsInitialLoadTimeout.start(() {
@@ -105,7 +109,11 @@ class LeadsCubit extends Cubit<LeadsState> {
       );
     });
     _leadsSubscription =
-        _watchLeadsUseCase(companyId: companyId, assignedTo: assignedTo).listen(
+        _watchLeadsUseCase(
+          companyId: companyId,
+          assignedTo: assignedTo,
+          managerId: managerId,
+        ).listen(
           (leads) {
             if (isClosed) {
               return;

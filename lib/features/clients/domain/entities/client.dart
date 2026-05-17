@@ -15,6 +15,10 @@ class Client extends Equatable {
     required this.assignedTo,
     required this.assignedToName,
     required this.assignedToEmail,
+    this.teamId = '',
+    this.teamName = '',
+    this.managerId = '',
+    this.managerName = '',
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -35,6 +39,10 @@ class Client extends Equatable {
   final String assignedTo;
   final String assignedToName;
   final String assignedToEmail;
+  final String teamId;
+  final String teamName;
+  final String managerId;
+  final String managerName;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -56,6 +64,10 @@ class Client extends Equatable {
     assignedTo,
     assignedToName,
     assignedToEmail,
+    teamId,
+    teamName,
+    managerId,
+    managerName,
     isActive,
     createdAt,
     updatedAt,

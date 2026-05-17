@@ -9,11 +9,13 @@ class WatchLeadsUseCase {
   Stream<List<Lead>> call({
     required String companyId,
     String? assignedTo,
+    String? managerId,
     int limit = 30,
   }) {
     return _repository.watchLeads(
       companyId: companyId,
       assignedTo: assignedTo,
+      managerId: managerId,
       limit: limit,
     );
   }

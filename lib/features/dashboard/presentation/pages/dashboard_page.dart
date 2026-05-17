@@ -203,9 +203,33 @@ class _DashboardContent extends StatefulWidget {
 }
 
 class _DashboardContentState extends State<_DashboardContent> {
+  String? _watchKey;
+
   @override
   void initState() {
     super.initState();
+    _watchScopedDashboardData();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DashboardContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldRole =
+        oldWidget.authState.userProfile?.role ?? oldWidget.authState.user?.role;
+    final newRole =
+        widget.authState.userProfile?.role ?? widget.authState.user?.role;
+    final oldUid = oldWidget.authState.user?.uid ?? '';
+    final newUid = widget.authState.user?.uid ?? '';
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.platformPreview != widget.platformPreview ||
+        oldRole != newRole ||
+        oldUid != newUid) {
+      _watchKey = null;
+      _watchScopedDashboardData();
+    }
+  }
+
+  void _watchScopedDashboardData() {
     if (widget.platformPreview) {
       _watchPlatformPreviewData();
       return;
@@ -214,43 +238,49 @@ class _DashboardContentState extends State<_DashboardContent> {
     final role =
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
+    if (role == null || uid.isEmpty) {
+      return;
+    }
+    final key = '${widget.companyId}:${role.name}:$uid';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
+    final managerId = role == UserRole.manager ? uid : null;
 
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
         PermissionService.can(role, AppPermission.viewLeads)) {
       context.read<LeadsCubit>().watchLeads(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
-    if (role != null &&
-        widget.authState.companyMetadata
+    if (widget.authState.companyMetadata
             .isFeatureEnabled(CompanyFeature.properties) &&
         PermissionService.can(role, AppPermission.viewProperties)) {
       context.read<PropertiesCubit>().watchProperties(
         companyId: widget.companyId,
       );
     }
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
         PermissionService.can(role, AppPermission.viewClients)) {
       context.read<ClientsCubit>().watchClients(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
         PermissionService.can(role, AppPermission.viewTasks)) {
       context.read<TasksCubit>().watchTasks(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
-    if (role != null &&
-        uid.isNotEmpty &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
+    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         PermissionService.can(role, AppPermission.viewDeals)) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
@@ -276,6 +306,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         widget.authState.userProfile?.role ?? widget.authState.user?.role;
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
+    final managerId = role == UserRole.manager ? uid : null;
 
     if (role != null &&
         widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
@@ -283,6 +314,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       context.read<LeadsCubit>().watchLeads(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
     if (role != null &&
@@ -299,6 +331,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       context.read<ClientsCubit>().watchClients(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
     if (role != null &&
@@ -307,6 +340,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       context.read<TasksCubit>().watchTasks(
         companyId: widget.companyId,
         assignedTo: assignedTo,
+        managerId: managerId,
       );
     }
     if (role != null &&
@@ -768,9 +802,29 @@ class _DashboardView extends StatelessWidget {
             features.isFeatureEnabled(CompanyFeature.auditLogs);
         final analyticsEnabled =
             leadsEnabled || tasksEnabled || propertiesEnabled || dealsEnabled;
+        final canViewUnassignedLeads = _canViewUnassignedLeads(
+          authState,
+          platformPreview: platformPreview,
+        );
         final quickAddActions = platformPreview
             ? <_QuickAddAction>[]
             : _quickAddActions(context, authState);
+
+        if (mobile) {
+          return _MobileDashboardTabs(
+            data: data,
+            authState: authState,
+            platformPreview: platformPreview,
+            previewCompanyName: previewCompanyName,
+            leadsEnabled: leadsEnabled,
+            tasksEnabled: tasksEnabled,
+            dealsEnabled: dealsEnabled,
+            auditLogsEnabled: auditLogsEnabled,
+            analyticsEnabled: analyticsEnabled,
+            canViewUnassignedLeads: canViewUnassignedLeads,
+            quickAddActions: quickAddActions,
+          );
+        }
 
         return Stack(
           children: [
@@ -944,17 +998,19 @@ class _DashboardView extends StatelessWidget {
                         readOnly: platformPreview,
                       ),
                     ),
-                    const SizedBox(height: _kDashboardSectionGap),
-                    _DashboardReveal(
-                      id: 'unassigned-leads-compact',
-                      delay: const Duration(milliseconds: 340),
-                      child: _LeadSection(
-                        title: copy.unassignedLeads,
-                        leads: data.unassignedLeads,
-                        emptyMessage: l.noLeads,
-                        readOnly: platformPreview,
+                    if (canViewUnassignedLeads) ...[
+                      const SizedBox(height: _kDashboardSectionGap),
+                      _DashboardReveal(
+                        id: 'unassigned-leads-compact',
+                        delay: const Duration(milliseconds: 340),
+                        child: _LeadSection(
+                          title: copy.unassignedLeads,
+                          leads: data.unassignedLeads,
+                          emptyMessage: l.noLeads,
+                          readOnly: platformPreview,
+                        ),
                       ),
-                    ),
+                    ],
                   ] else if (leadsEnabled)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,19 +1027,21 @@ class _DashboardView extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: _kDashboardSectionGap),
-                        Expanded(
-                          child: _DashboardReveal(
-                            id: 'unassigned-leads-desktop',
-                            delay: const Duration(milliseconds: 340),
-                            child: _LeadSection(
-                              title: copy.unassignedLeads,
-                              leads: data.unassignedLeads,
-                              emptyMessage: l.noLeads,
-                              readOnly: platformPreview,
+                        if (canViewUnassignedLeads) ...[
+                          const SizedBox(width: _kDashboardSectionGap),
+                          Expanded(
+                            child: _DashboardReveal(
+                              id: 'unassigned-leads-desktop',
+                              delay: const Duration(milliseconds: 340),
+                              child: _LeadSection(
+                                title: copy.unassignedLeads,
+                                leads: data.unassignedLeads,
+                                emptyMessage: l.noLeads,
+                                readOnly: platformPreview,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
 
@@ -1050,6 +1108,294 @@ class _DashboardView extends StatelessWidget {
         ),
     ];
   }
+}
+
+
+class _MobileDashboardTabs extends StatelessWidget {
+  const _MobileDashboardTabs({
+    required this.data,
+    required this.authState,
+    required this.platformPreview,
+    required this.leadsEnabled,
+    required this.tasksEnabled,
+    required this.dealsEnabled,
+    required this.auditLogsEnabled,
+    required this.analyticsEnabled,
+    required this.canViewUnassignedLeads,
+    required this.quickAddActions,
+    this.previewCompanyName,
+  });
+
+  final _DashboardData data;
+  final AuthState authState;
+  final bool platformPreview;
+  final String? previewCompanyName;
+  final bool leadsEnabled;
+  final bool tasksEnabled;
+  final bool dealsEnabled;
+  final bool auditLogsEnabled;
+  final bool analyticsEnabled;
+  final bool canViewUnassignedLeads;
+  final List<_QuickAddAction> quickAddActions;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final copy = _DashboardCopy.of(context);
+    final tabs = <_MobileDashboardTab>[
+      _MobileDashboardTab(
+        label: l.dashboard,
+        icon: Icons.space_dashboard_outlined,
+        child: _MobileDashboardTabBody(
+          hasQuickActions: quickAddActions.isNotEmpty,
+          children: _withDashboardGaps([
+            _DashboardReveal(
+              id: 'mobile-welcome',
+              delay: Duration.zero,
+              child: _WelcomePanel(
+                authState: authState,
+                platformPreview: platformPreview,
+                previewCompanyName: previewCompanyName,
+              ),
+            ),
+            _DashboardReveal(
+              id: 'mobile-summary-grid',
+              delay: const Duration(milliseconds: 60),
+              child: _SummaryGrid(data: data, authState: authState),
+            ),
+          ], gap: AppSpacing.sm),
+        ),
+      ),
+      if (analyticsEnabled)
+        _MobileDashboardTab(
+          label: copy.visualAnalytics,
+          icon: Icons.donut_large_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-analytics',
+                delay: const Duration(milliseconds: 80),
+                child: _AnalyticsPanel(data: data, authState: authState),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+      if (dealsEnabled)
+        _MobileDashboardTab(
+          label: l.deals,
+          icon: Icons.handshake_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-deals',
+                delay: const Duration(milliseconds: 120),
+                child: _DealsDashboardSection(
+                  data: data,
+                  readOnly: platformPreview,
+                ),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+      if (tasksEnabled)
+        _MobileDashboardTab(
+          label: l.tasks,
+          icon: Icons.event_note_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-tasks',
+                delay: const Duration(milliseconds: 160),
+                child: _TaskBreakdownSection(
+                  data: data,
+                  readOnly: platformPreview,
+                ),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+      if (leadsEnabled)
+        _MobileDashboardTab(
+          label: l.followUps,
+          icon: Icons.event_available_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-today-followups',
+                delay: const Duration(milliseconds: 180),
+                child: _LeadSection(
+                  title: copy.todaysFollowUps,
+                  leads: data.todaysFollowUps,
+                  emptyMessage: l.noLeads,
+                  readOnly: platformPreview,
+                ),
+              ),
+              if (canViewUnassignedLeads)
+                _DashboardReveal(
+                  id: 'mobile-unassigned-leads',
+                  delay: const Duration(milliseconds: 220),
+                  child: _LeadSection(
+                    title: copy.unassignedLeads,
+                    leads: data.unassignedLeads,
+                    emptyMessage: l.noLeads,
+                    readOnly: platformPreview,
+                  ),
+                ),
+              _DashboardReveal(
+                id: 'mobile-recent-leads',
+                delay: const Duration(milliseconds: 260),
+                child: _LeadSection(
+                  title: copy.recentlyUpdatedLeads,
+                  leads: data.recentLeads,
+                  emptyMessage: l.noLeads,
+                  readOnly: platformPreview,
+                ),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+      if (auditLogsEnabled &&
+          _canViewRecentActivity(authState, platformPreview: platformPreview))
+        _MobileDashboardTab(
+          label: l.dashboardRecentActivity,
+          icon: Icons.history_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-recent-activity',
+                delay: const Duration(milliseconds: 300),
+                child: _RecentActivityPanel(
+                  authState: authState,
+                  platformPreview: platformPreview,
+                ),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+    ];
+
+    return Stack(
+      children: [
+        DefaultTabController(
+          length: tabs.length,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MobileDashboardTabBar(tabs: tabs),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: TabBarView(
+                  physics: const BouncingScrollPhysics(),
+                  children: [for (final tab in tabs) tab.child],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (quickAddActions.isNotEmpty)
+          Positioned.fill(
+            child: _MobileQuickAddFab(actions: quickAddActions),
+          ),
+      ],
+    );
+  }
+}
+
+class _MobileDashboardTab {
+  const _MobileDashboardTab({
+    required this.label,
+    required this.icon,
+    required this.child,
+  });
+
+  final String label;
+  final IconData icon;
+  final Widget child;
+}
+
+class _MobileDashboardTabBar extends StatelessWidget {
+  const _MobileDashboardTabBar({required this.tabs});
+
+  final List<_MobileDashboardTab> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.isDark(context)
+        ? AppColors.darkSurfaceAlt
+        : AppColors.cardSurface(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: colors,
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: TabBar(
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: AppColors.selectedSurface(context),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        labelColor: AppColors.primaryColor(context),
+        unselectedLabelColor: AppColors.textSecondaryColor(context),
+        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+        padding: const EdgeInsets.all(4),
+        tabs: [
+          for (final tab in tabs)
+            Tab(
+              iconMargin: const EdgeInsets.only(bottom: 2),
+              icon: Icon(tab.icon, size: 18),
+              text: tab.label,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileDashboardTabBody extends StatelessWidget {
+  const _MobileDashboardTabBody({
+    required this.children,
+    required this.hasQuickActions,
+  });
+
+  final List<Widget> children;
+  final bool hasQuickActions;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.only(
+        bottom: hasQuickActions ? 88 : AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+}
+
+List<Widget> _withDashboardGaps(
+  List<Widget> children, {
+  double gap = _kDashboardSectionGap,
+}) {
+  return [
+    for (var index = 0; index < children.length; index++) ...[
+      children[index],
+      if (index != children.length - 1) SizedBox(height: gap),
+    ],
+  ];
 }
 
 class _MobileQuickAddFab extends StatefulWidget {
@@ -3036,9 +3382,23 @@ bool _canViewRecentActivity(
   }
 
   final role = authState.userProfile?.role ?? authState.user?.role;
-  return role == UserRole.admin || role == UserRole.manager;
+  return role == UserRole.admin;
+}
+
+bool _canViewUnassignedLeads(
+  AuthState authState, {
+  bool platformPreview = false,
+}) {
+  if (platformPreview) {
+    return true;
+  }
+
+  final role = authState.userProfile?.role ?? authState.user?.role;
+  return role == UserRole.admin;
 }
 
 bool _assignedOnlyScope(UserRole? role) {
-  return role == UserRole.salesAgent || role == UserRole.marketing;
+  return role == UserRole.salesAgent ||
+      role == UserRole.marketing ||
+      role == UserRole.viewer;
 }

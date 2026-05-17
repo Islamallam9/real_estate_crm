@@ -19,6 +19,10 @@ class Deal extends Equatable {
     required this.assignedTo,
     required this.assignedToName,
     required this.assignedToEmail,
+    this.teamId = '',
+    this.teamName = '',
+    this.managerId = '',
+    this.managerName = '',
     required this.stage,
     required this.expectedValue,
     required this.commission,
@@ -47,6 +51,10 @@ class Deal extends Equatable {
   final String assignedTo;
   final String assignedToName;
   final String assignedToEmail;
+  final String teamId;
+  final String teamName;
+  final String managerId;
+  final String managerName;
   final DealStage stage;
   final num expectedValue;
   final num commission;
@@ -75,6 +83,10 @@ class Deal extends Equatable {
     String? assignedTo,
     String? assignedToName,
     String? assignedToEmail,
+    String? teamId,
+    String? teamName,
+    String? managerId,
+    String? managerName,
     DealStage? stage,
     num? expectedValue,
     num? commission,
@@ -103,6 +115,10 @@ class Deal extends Equatable {
       assignedTo: assignedTo ?? this.assignedTo,
       assignedToName: assignedToName ?? this.assignedToName,
       assignedToEmail: assignedToEmail ?? this.assignedToEmail,
+      teamId: teamId ?? this.teamId,
+      teamName: teamName ?? this.teamName,
+      managerId: managerId ?? this.managerId,
+      managerName: managerName ?? this.managerName,
       stage: stage ?? this.stage,
       expectedValue: expectedValue ?? this.expectedValue,
       commission: commission ?? this.commission,
@@ -134,6 +150,10 @@ class Deal extends Equatable {
     assignedTo,
     assignedToName,
     assignedToEmail,
+    teamId,
+    teamName,
+    managerId,
+    managerName,
     stage,
     expectedValue,
     commission,
