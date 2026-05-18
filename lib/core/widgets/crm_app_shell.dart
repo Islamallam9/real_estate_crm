@@ -35,6 +35,7 @@ enum CrmNavigationItem {
   deals,
   reports,
   teams,
+  dataHealth,
   more,
 }
 
@@ -92,6 +93,11 @@ class CrmAppShell extends StatelessWidget {
       item: CrmNavigationItem.teams,
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.dataHealth,
+      icon: Icons.health_and_safety_outlined,
+      selectedIcon: Icons.health_and_safety,
     ),
   ];
 
@@ -185,6 +191,7 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
     CrmNavigationItem.teams => null,
+    CrmNavigationItem.dataHealth => null,
     CrmNavigationItem.more => null,
   };
 }
@@ -216,6 +223,8 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.reports);
     case CrmNavigationItem.teams:
       context.go(RouteNames.teams);
+    case CrmNavigationItem.dataHealth:
+      context.go(RouteNames.dataHealth);
     case CrmNavigationItem.more:
       break;
   }
@@ -226,10 +235,13 @@ List<_CrmShellItem> _visibleItemsForRole(
   UserRole? role,
 ) {
   return items.where((item) {
-    if (item.item != CrmNavigationItem.teams) {
-      return true;
+    if (item.item == CrmNavigationItem.teams) {
+      return role == UserRole.admin || role == UserRole.manager;
     }
-    return role == UserRole.admin || role == UserRole.manager;
+    if (item.item == CrmNavigationItem.dataHealth) {
+      return role == UserRole.admin;
+    }
+    return true;
   }).toList();
 }
 
@@ -733,7 +745,8 @@ class _MobileBottomNavigation extends StatelessWidget {
         (selectedItem == CrmNavigationItem.tasks ||
             selectedItem == CrmNavigationItem.deals ||
             selectedItem == CrmNavigationItem.reports ||
-            selectedItem == CrmNavigationItem.teams);
+            selectedItem == CrmNavigationItem.teams ||
+            selectedItem == CrmNavigationItem.dataHealth);
   }
 }
 
@@ -895,6 +908,15 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       context.go(RouteNames.teams);
+                    },
+                  ),
+                if (role == UserRole.admin)
+                  _MoreSheetTile(
+                    icon: Icons.health_and_safety_outlined,
+                    label: localizations.dataHealth,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.go(RouteNames.dataHealth);
                     },
                   ),
 
@@ -2378,6 +2400,8 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.reports;
     case CrmNavigationItem.teams:
       return localizations.teamManagement;
+    case CrmNavigationItem.dataHealth:
+      return localizations.dataHealth;
     case CrmNavigationItem.more:
       return localizations.more;
   }

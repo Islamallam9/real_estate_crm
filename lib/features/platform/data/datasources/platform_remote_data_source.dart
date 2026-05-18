@@ -78,6 +78,12 @@ abstract interface class PlatformRemoteDataSource {
   Future<CompanyDataHealthReportModel> getCompanyDataHealthReport({
     required String companyId,
   });
+
+  Future<void> backfillAssignedRecordSnapshots({
+    required String companyId,
+    required String module,
+    required String recordId,
+  });
 }
 
 class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
@@ -253,6 +259,19 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       'companyId': companyId,
     });
     return CompanyDataHealthReportModel.fromMap(data);
+  }
+
+  @override
+  Future<void> backfillAssignedRecordSnapshots({
+    required String companyId,
+    required String module,
+    required String recordId,
+  }) async {
+    await _call('backfillAssignedRecordSnapshots', {
+      'companyId': companyId,
+      'module': module,
+      'recordId': recordId,
+    });
   }
 
   Future<void> _call(String name, Map<String, Object?> data) async {

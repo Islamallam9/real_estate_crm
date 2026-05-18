@@ -795,5 +795,15 @@
   "noManagersAvailable": "No managers available",
   "noManagersAvailableMessage": "Add an active Manager user before creating a team.",
   "noUnassignedUsers": "No eligible users",
-  "noUnassignedUsersMessage": "Sales and marketing users are already assigned or unavailable."
+  "noUnassignedUsersMessage": "Sales and marketing users are already assigned or unavailable.",
+  "backfillSnapshots": "Backfill snapshots",
+  "dataHealthRepairSuccess": "Snapshots repaired successfully.",
+  "companyDataHealthMessage": "Company admin tools for fixing invalid assignment ownership and stale team snapshots.",
+  "reassignRecord": "Reassign record",
+  "notifyManager": "Notify manager",
+  "notificationsComingSoon": "Notifications are not available yet.",
+  "noEligibleAssignees": "No eligible assignees",
+  "noEligibleAssigneesMessage": "There are no active eligible users for this record type.",
+  "dataHealthReassignSuccess": "Record reassigned successfully.",
+  "companyAdminActionRequired": "Company admin action required."
 }

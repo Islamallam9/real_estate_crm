@@ -4291,6 +4291,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sales and marketing users are already assigned or unavailable.'**
   String get noUnassignedUsersMessage;
+
+  /// No description provided for @backfillSnapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Backfill snapshots'**
+  String get backfillSnapshots;
+
+  /// No description provided for @dataHealthRepairSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Snapshots repaired successfully.'**
+  String get dataHealthRepairSuccess;
+
+  /// No description provided for @companyDataHealthMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Company admin tools for fixing invalid assignment ownership and stale team snapshots.'**
+  String get companyDataHealthMessage;
+
+  /// No description provided for @reassignRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign record'**
+  String get reassignRecord;
+
+  /// No description provided for @notifyManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify manager'**
+  String get notifyManager;
+
+  /// No description provided for @notificationsComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are not available yet.'**
+  String get notificationsComingSoon;
+
+  /// No description provided for @noEligibleAssignees.
+  ///
+  /// In en, this message translates to:
+  /// **'No eligible assignees'**
+  String get noEligibleAssignees;
+
+  /// No description provided for @noEligibleAssigneesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'There are no active eligible users for this record type.'**
+  String get noEligibleAssigneesMessage;
+
+  /// No description provided for @dataHealthReassignSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Record reassigned successfully.'**
+  String get dataHealthReassignSuccess;
+
+  /// No description provided for @companyAdminActionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Company admin action required.'**
+  String get companyAdminActionRequired;
 }
 
 class _AppLocalizationsDelegate

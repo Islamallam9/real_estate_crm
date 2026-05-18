@@ -2221,4 +2221,36 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get noUnassignedUsersMessage =>
       'مستخدمو المبيعات والتسويق معيّنون بالفعل أو غير متاحين.';
+
+  @override
+  String get backfillSnapshots => 'إصلاح اللقطات';
+
+  @override
+  String get dataHealthRepairSuccess => 'تم إصلاح اللقطات بنجاح.';
+
+  @override
+  String get companyDataHealthMessage =>
+      'أدوات مسؤول الشركة لإصلاح الإسناد غير الصحيح ولقطات الفريق القديمة.';
+
+  @override
+  String get reassignRecord => 'إعادة إسناد السجل';
+
+  @override
+  String get notifyManager => 'إشعار المدير';
+
+  @override
+  String get notificationsComingSoon => 'الإشعارات غير متاحة حالياً.';
+
+  @override
+  String get noEligibleAssignees => 'لا يوجد مستخدمون مؤهلون';
+
+  @override
+  String get noEligibleAssigneesMessage =>
+      'لا يوجد مستخدمون نشطون ومؤهلون لهذا النوع من السجلات.';
+
+  @override
+  String get dataHealthReassignSuccess => 'تمت إعادة إسناد السجل بنجاح.';
+
+  @override
+  String get companyAdminActionRequired => 'يتطلب إجراء من مسؤول الشركة.';
 }

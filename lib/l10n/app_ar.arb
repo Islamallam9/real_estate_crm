@@ -795,5 +795,15 @@
   "noManagersAvailable": "لا يوجد مديرون متاحون",
   "noManagersAvailableMessage": "أضف مستخدمًا نشطًا بدور مدير قبل إنشاء فريق.",
   "noUnassignedUsers": "لا يوجد مستخدمون مؤهلون",
-  "noUnassignedUsersMessage": "مستخدمو المبيعات والتسويق معيّنون بالفعل أو غير متاحين."
+  "noUnassignedUsersMessage": "مستخدمو المبيعات والتسويق معيّنون بالفعل أو غير متاحين.",
+  "backfillSnapshots": "إصلاح اللقطات",
+  "dataHealthRepairSuccess": "تم إصلاح اللقطات بنجاح.",
+  "companyDataHealthMessage": "أدوات مسؤول الشركة لإصلاح الإسناد غير الصحيح ولقطات الفريق القديمة.",
+  "reassignRecord": "إعادة إسناد السجل",
+  "notifyManager": "إشعار المدير",
+  "notificationsComingSoon": "الإشعارات غير متاحة حالياً.",
+  "noEligibleAssignees": "لا يوجد مستخدمون مؤهلون",
+  "noEligibleAssigneesMessage": "لا يوجد مستخدمون نشطون ومؤهلون لهذا النوع من السجلات.",
+  "dataHealthReassignSuccess": "تمت إعادة إسناد السجل بنجاح.",
+  "companyAdminActionRequired": "يتطلب إجراء من مسؤول الشركة."
 }

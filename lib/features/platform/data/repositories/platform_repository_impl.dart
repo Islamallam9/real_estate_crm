@@ -152,4 +152,17 @@ class PlatformRepositoryImpl implements PlatformRepository {
   }) {
     return _remoteDataSource.getCompanyDataHealthReport(companyId: companyId);
   }
+
+  @override
+  Future<void> backfillAssignedRecordSnapshots({
+    required String companyId,
+    required String module,
+    required String recordId,
+  }) {
+    return _remoteDataSource.backfillAssignedRecordSnapshots(
+      companyId: companyId,
+      module: module,
+      recordId: recordId,
+    );
+  }
 }

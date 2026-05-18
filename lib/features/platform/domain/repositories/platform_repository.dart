@@ -71,4 +71,10 @@ abstract interface class PlatformRepository {
   Future<CompanyDataHealthReport> getCompanyDataHealthReport({
     required String companyId,
   });
+
+  Future<void> backfillAssignedRecordSnapshots({
+    required String companyId,
+    required String module,
+    required String recordId,
+  });
 }

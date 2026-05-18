@@ -2228,4 +2228,36 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noUnassignedUsersMessage =>
       'Sales and marketing users are already assigned or unavailable.';
+
+  @override
+  String get backfillSnapshots => 'Backfill snapshots';
+
+  @override
+  String get dataHealthRepairSuccess => 'Snapshots repaired successfully.';
+
+  @override
+  String get companyDataHealthMessage =>
+      'Company admin tools for fixing invalid assignment ownership and stale team snapshots.';
+
+  @override
+  String get reassignRecord => 'Reassign record';
+
+  @override
+  String get notifyManager => 'Notify manager';
+
+  @override
+  String get notificationsComingSoon => 'Notifications are not available yet.';
+
+  @override
+  String get noEligibleAssignees => 'No eligible assignees';
+
+  @override
+  String get noEligibleAssigneesMessage =>
+      'There are no active eligible users for this record type.';
+
+  @override
+  String get dataHealthReassignSuccess => 'Record reassigned successfully.';
+
+  @override
+  String get companyAdminActionRequired => 'Company admin action required.';
 }

@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 
 import '../../../../core/constants/role_constants.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
+import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
@@ -32,6 +33,8 @@ class PlatformCubit extends Cubit<PlatformState> {
         updateCompanyPlatformSettingsUseCase,
     required GetCompanyDataHealthReportUseCase
         getCompanyDataHealthReportUseCase,
+    required BackfillAssignedRecordSnapshotsUseCase
+        backfillAssignedRecordSnapshotsUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
        _watchCompanyUsersUseCase = watchCompanyUsersUseCase,
        _createCompanyWithAdminUseCase = createCompanyWithAdminUseCase,
@@ -45,6 +48,8 @@ class PlatformCubit extends Cubit<PlatformState> {
        _updateCompanyPlatformSettingsUseCase =
            updateCompanyPlatformSettingsUseCase,
        _getCompanyDataHealthReportUseCase = getCompanyDataHealthReportUseCase,
+       _backfillAssignedRecordSnapshotsUseCase =
+           backfillAssignedRecordSnapshotsUseCase,
        super(const PlatformState.initial());
 
   final WatchPlatformCompaniesUseCase _watchCompaniesUseCase;
@@ -60,6 +65,8 @@ class PlatformCubit extends Cubit<PlatformState> {
   final UpdateCompanyPlatformSettingsUseCase
       _updateCompanyPlatformSettingsUseCase;
   final GetCompanyDataHealthReportUseCase _getCompanyDataHealthReportUseCase;
+  final BackfillAssignedRecordSnapshotsUseCase
+      _backfillAssignedRecordSnapshotsUseCase;
 
   StreamSubscription? _companiesSubscription;
   StreamSubscription? _companyUsersSubscription;
@@ -389,6 +396,49 @@ class PlatformCubit extends Cubit<PlatformState> {
           message: error.toString(),
         ),
       );
+    }
+  }
+
+  Future<bool> backfillAssignedRecordSnapshots({
+    required String companyId,
+    required String module,
+    required String recordId,
+  }) async {
+    final actionId = '$module/$recordId';
+    emit(
+      state.copyWith(
+        status: PlatformStatus.saving,
+        activeDataHealthActionId: actionId,
+        clearMessage: true,
+      ),
+    );
+    try {
+      await _backfillAssignedRecordSnapshotsUseCase(
+        companyId: companyId,
+        module: module,
+        recordId: recordId,
+      );
+      final report = await _getCompanyDataHealthReportUseCase(
+        companyId: companyId,
+      );
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          dataHealthReport: report,
+          clearActiveDataHealthAction: true,
+          clearMessage: true,
+        ),
+      );
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: error.toString(),
+          clearActiveDataHealthAction: true,
+        ),
+      );
+      return false;
     }
   }
 

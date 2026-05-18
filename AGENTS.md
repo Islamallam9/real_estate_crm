@@ -108,7 +108,7 @@ For every major user-facing, security, data, or platform phase:
 Do not bump version for tiny compile-only fixes unless the user asks.
 
 Current known version after recent stabilization:
-- Around `1.2.5+7`.
+- Around `1.2.6+8`.
 
 ## Firebase structure
 
@@ -453,12 +453,14 @@ The latest confirmed good state includes:
 
 ## Recommended next phases
 
-Option A — Data Health Repair / Backfill Function:
-- Add safe platform/admin repair actions for missing snapshots.
-- Backfill from current assignee profile.
-- Explicit actions only, no automatic destructive migration.
+Option A — Notifications + Reminders Foundation:
+- Follow-up reminders.
+- Task due/overdue alerts.
+- Assignment/reassignment notifications.
+- In-app notification center.
+- Later browser/FCM notifications.
 
-Option B — Notifications + Reminders Foundation:
+Option B — Appointments / Calendar:
 - Follow-up reminders.
 - Task due/overdue alerts.
 - Assignment/reassignment notifications.
@@ -468,3 +470,8 @@ Option B — Notifications + Reminders Foundation:
 Recommendation:
 If Data Health shows many bad records, do Option A first.
 Otherwise move to Notifications + Reminders Foundation.
+
+
+## Latest Data Health ownership rule
+
+Platform owner Data Health is SaaS monitoring plus safe snapshot backfill only. Company Admin Data Health is operational action mode and can reassign invalid records. Manager Data Health may repair/reassign only inside their own team. Notification buttons for managers may be shown disabled until the Notifications foundation is implemented.

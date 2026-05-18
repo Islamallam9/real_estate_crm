@@ -31,6 +31,7 @@ import '../../data/datasources/platform_remote_data_source.dart';
 import '../../data/repositories/platform_repository_impl.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
+import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
@@ -76,6 +77,8 @@ class PlatformPage extends StatelessWidget {
             UpdateCompanyPlatformSettingsUseCase(repository),
         getCompanyDataHealthReportUseCase:
             GetCompanyDataHealthReportUseCase(repository),
+        backfillAssignedRecordSnapshotsUseCase:
+            BackfillAssignedRecordSnapshotsUseCase(repository),
       )..watchCompanies(),
       child: const PlatformPage(),
     );
@@ -2028,23 +2031,27 @@ class _CompanyDataHealthPanel extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (report.generatedAt != null) ...[
+                  Text(
+                    '${l.updatedAt}: ${_formatDate(context, report.generatedAt!)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final columns = constraints.maxWidth >= 760 ? 4 : 2;
+                    final columns = constraints.maxWidth >= 760 ? 2 : 1;
                     return GridView.count(
                       crossAxisCount: columns,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: AppSpacing.sm,
                       crossAxisSpacing: AppSpacing.sm,
-                      childAspectRatio: constraints.maxWidth < 520 ? 1.6 : 2.1,
+                      childAspectRatio: constraints.maxWidth < 520 ? 2.1 : 3.4,
                       children: [
-                        _KpiCard(
-                          label: l.missingSnapshots,
-                          value: report.missingSnapshots.toString(),
-                          icon: Icons.dataset_linked_outlined,
-                          tone: AppStatusTone.warning,
-                        ),
                         _KpiCard(
                           label: l.invalidAssignees,
                           value: report.invalidAssignees.toString(),
@@ -2056,12 +2063,6 @@ class _CompanyDataHealthPanel extends StatelessWidget {
                           value: report.inactiveAssignees.toString(),
                           icon: Icons.block_outlined,
                           tone: AppStatusTone.warning,
-                        ),
-                        _KpiCard(
-                          label: l.staleTeamSnapshots,
-                          value: report.staleTeamSnapshots.toString(),
-                          icon: Icons.groups_2_outlined,
-                          tone: AppStatusTone.info,
                         ),
                       ],
                     );
@@ -2075,7 +2076,7 @@ class _CompanyDataHealthPanel extends StatelessWidget {
                     message: l.dataHealthCleanMessage,
                   )
                 else
-                  _DataHealthIssueList(issues: report.issues),
+                  _DataHealthIssueList(state: state, issues: report.issues),
               ],
             ),
     );
@@ -2083,8 +2084,9 @@ class _CompanyDataHealthPanel extends StatelessWidget {
 }
 
 class _DataHealthIssueList extends StatelessWidget {
-  const _DataHealthIssueList({required this.issues});
+  const _DataHealthIssueList({required this.state, required this.issues});
 
+  final PlatformState state;
   final List<DataHealthIssue> issues;
 
   @override
@@ -2101,7 +2103,10 @@ class _DataHealthIssueList extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         for (final issue in issues.take(80)) ...[
-          _DataHealthIssueTile(issue: issue),
+          _DataHealthIssueTile(
+            state: state,
+            issue: issue,
+          ),
           const SizedBox(height: AppSpacing.xs),
         ],
       ],
@@ -2110,13 +2115,19 @@ class _DataHealthIssueList extends StatelessWidget {
 }
 
 class _DataHealthIssueTile extends StatelessWidget {
-  const _DataHealthIssueTile({required this.issue});
+  const _DataHealthIssueTile({required this.state, required this.issue});
 
+  final PlatformState state;
   final DataHealthIssue issue;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final companyId = state.selectedCompany?.id ?? '';
+    final actionId = '${issue.module}/${issue.recordId}';
+    final isRepairing = state.activeDataHealthActionId == actionId;
+    final assigneeLabel = _dataHealthAssigneeLabel(l, issue);
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
@@ -2125,6 +2136,7 @@ class _DataHealthIssueTile extends StatelessWidget {
         borderRadius: AppRadius.large,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           AppStatusBadge(
             label: _moduleLabel(l, issue.module),
@@ -2143,21 +2155,68 @@ class _DataHealthIssueTile extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${_issueLabel(l, issue.issueType)} - ${issue.assignedToName.isEmpty ? issue.assignedTo : issue.assignedToName}',
+                  '${_issueLabel(l, issue.issueType)} - $assigneeLabel',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondaryColor(context),
                       ),
                 ),
+                if (issue.suggestedAction.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _dataHealthSuggestedAction(l, issue),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          AppStatusBadge(
-            label: issue.canBackfill ? l.safeBackfillAvailable : l.manualReview,
-            tone: issue.canBackfill ? AppStatusTone.info : AppStatusTone.warning,
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              AppStatusBadge(
+                label: issue.canBackfill
+                    ? l.safeBackfillAvailable
+                    : l.manualReview,
+                tone: issue.canBackfill
+                    ? AppStatusTone.info
+                    : AppStatusTone.warning,
+              ),
+              if (issue.canBackfill)
+                AppButton(
+                  label: l.backfillSnapshots,
+                  icon: Icons.auto_fix_high_outlined,
+                  variant: AppButtonVariant.secondary,
+                  isLoading: isRepairing,
+                  onPressed: companyId.isEmpty || isRepairing
+                      ? null
+                      : () async {
+                          final success = await context
+                              .read<PlatformCubit>()
+                              .backfillAssignedRecordSnapshots(
+                                companyId: companyId,
+                                module: issue.module,
+                                recordId: issue.recordId,
+                              );
+                          if (context.mounted && success) {
+                            AppFeedback.success(
+                              context,
+                              l.dataHealthRepairSuccess,
+                            );
+                          }
+                        },
+                ),
+            ],
           ),
         ],
       ),
@@ -3828,6 +3887,36 @@ String _issueLabel(AppLocalizations l, String issueType) {
     'staleSnapshots' => l.staleTeamSnapshots,
     _ => issueType,
   };
+}
+
+String _dataHealthAssigneeLabel(AppLocalizations l, DataHealthIssue issue) {
+  if (issue.issueType == 'missingAssignee') {
+    return l.missingAssignee;
+  }
+  final name = issue.assignedToName.trim();
+  if (name.isNotEmpty && !_looksLikeUid(name)) {
+    return name;
+  }
+  return switch (issue.issueType) {
+    'inactiveAssignee' => l.inactiveAssignees,
+    'ineligibleAssignee' => l.invalidAssignees,
+    _ => l.manualReview,
+  };
+}
+
+bool _looksLikeUid(String value) {
+  final clean = value.trim();
+  if (clean.contains(' ') || clean.length < 16) {
+    return false;
+  }
+  return RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(clean);
+}
+
+String _dataHealthSuggestedAction(AppLocalizations l, DataHealthIssue issue) {
+  if (issue.canBackfill) {
+    return l.safeBackfillAvailable;
+  }
+  return l.manualReview;
 }
 
 IconData _workspaceTabIcon(_WorkspaceTab tab) {

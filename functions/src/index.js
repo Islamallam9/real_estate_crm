@@ -43,6 +43,13 @@ const LEAD_STATUSES = new Set([
   'lost',
 ]);
 const LEAD_PRIORITIES = new Set(['low', 'medium', 'high']);
+const DATA_HEALTH_MODULE_POLICIES = {
+  leads: { titleField: 'fullName', allowedRoles: new Set(['salesAgent', 'marketing']) },
+  clients: { titleField: 'fullName', allowedRoles: new Set(['salesAgent']) },
+  tasks: { titleField: 'title', allowedRoles: new Set(['salesAgent', 'marketing']) },
+  deals: { titleField: 'clientName', fallbackTitleField: 'propertyTitle', allowedRoles: new Set(['salesAgent']) },
+  properties: { titleField: 'title', allowedRoles: new Set(['salesAgent']), onlyWhenAssigned: true },
+};
 
 exports.createCompanyWithAdmin = onCall(async (request) => {
   const callerUid = requireActivePlatformAdmin(request);
@@ -316,13 +323,9 @@ exports.getCompanyDataHealthReport = onCall(async (request) => {
     users.set(doc.id, doc.data() || {});
   });
 
-  const modulePolicies = [
-    { module: 'leads', titleField: 'fullName', allowedRoles: new Set(['salesAgent', 'marketing']) },
-    { module: 'clients', titleField: 'fullName', allowedRoles: new Set(['salesAgent']) },
-    { module: 'tasks', titleField: 'title', allowedRoles: new Set(['salesAgent', 'marketing']) },
-    { module: 'deals', titleField: 'clientName', fallbackTitleField: 'propertyTitle', allowedRoles: new Set(['salesAgent']) },
-    { module: 'properties', titleField: 'title', allowedRoles: new Set(['salesAgent']), onlyWhenAssigned: true },
-  ];
+  const modulePolicies = Object.entries(DATA_HEALTH_MODULE_POLICIES).map(
+    ([module, policy]) => ({ module, ...policy }),
+  );
 
   const issues = [];
   const counts = {
@@ -354,6 +357,239 @@ exports.getCompanyDataHealthReport = onCall(async (request) => {
     counts,
     issues: issues.slice(0, 200),
     scannedLimitPerModule: 500,
+  };
+});
+
+
+exports.getOperationalDataHealthReport = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const actor = await requireDataHealthActor({
+    request,
+    companyId,
+    allowPlatform: false,
+    allowCompanyAdmin: true,
+    allowManager: true,
+  });
+
+  const usersSnapshot = await db.collection(`companies/${companyId}/users`).get();
+  const users = new Map();
+  usersSnapshot.docs.forEach((doc) => {
+    users.set(doc.id, doc.data() || {});
+  });
+
+  const modulePolicies = Object.entries(DATA_HEALTH_MODULE_POLICIES).map(
+    ([module, policy]) => ({ module, ...policy }),
+  );
+
+  const issues = [];
+  const counts = {
+    missingSnapshots: 0,
+    invalidAssignees: 0,
+    inactiveAssignees: 0,
+    staleTeamSnapshots: 0,
+  };
+
+  for (const policy of modulePolicies) {
+    const snapshot = await db.collection(`companies/${companyId}/${policy.module}`)
+      .limit(500)
+      .get();
+    snapshot.docs.forEach((doc) => {
+      const record = doc.data() || {};
+      if (!canActorInspectDataHealthRecord({ actor, record })) {
+        return;
+      }
+      inspectAssignedRecord({
+        companyId,
+        modulePolicy: policy,
+        doc,
+        users,
+        issues,
+        counts,
+      });
+    });
+  }
+
+  return {
+    companyId,
+    generatedAt: new Date().toISOString(),
+    counts,
+    issues: issues.slice(0, 200),
+    scannedLimitPerModule: 500,
+  };
+});
+
+exports.reassignDataHealthRecord = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const module = requiredString(data.module, 'module');
+  const recordId = requiredString(data.recordId, 'recordId');
+  const newAssigneeUid = requiredString(data.newAssigneeUid, 'newAssigneeUid');
+  validateCompanyId(companyId);
+
+  const actor = await requireDataHealthActor({
+    request,
+    companyId,
+    allowPlatform: false,
+    allowCompanyAdmin: true,
+    allowManager: true,
+  });
+  const policy = dataHealthPolicyFor(module);
+  const recordRef = db.doc(`companies/${companyId}/${module}/${recordId}`);
+  const [recordSnapshot, assigneeSnapshot] = await Promise.all([
+    recordRef.get(),
+    db.doc(`companies/${companyId}/users/${newAssigneeUid}`).get(),
+  ]);
+
+  if (!recordSnapshot.exists) {
+    throw new HttpsError('not-found', 'Record was not found.');
+  }
+  if (!assigneeSnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Selected assignee was not found.');
+  }
+
+  const record = recordSnapshot.data() || {};
+  const assignee = assigneeSnapshot.data() || {};
+  if (assignee.companyId && assignee.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Selected user does not belong to this company.');
+  }
+  if (assignee.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Selected assignee is inactive.');
+  }
+  if (!policy.allowedRoles.has(assignee.role)) {
+    throw new HttpsError('failed-precondition', 'Selected assignee is not eligible for this record.');
+  }
+  if (!canActorRepairDataHealthRecord({ actor, record })) {
+    throw new HttpsError('permission-denied', 'You can only repair records in your allowed scope.');
+  }
+  if (!canActorAssignDataHealthUser({ actor, assignee })) {
+    throw new HttpsError('permission-denied', 'You can only reassign to eligible users in your team.');
+  }
+
+  const previousAssignedTo = optionalString(record.assignedTo);
+  const previousAssignedToName = optionalString(record.assignedToName);
+  const update = {
+    ...assignmentSnapshotFromAssignee(newAssigneeUid, assignee),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+  };
+  await recordRef.set(update, { merge: true });
+
+  const changedFields = changedSnapshotFields(record, update);
+  await writeDataHealthAuditLog({
+    companyId,
+    actor,
+    module,
+    recordId,
+    record,
+    policy,
+    update,
+    metadata: {
+      repairAction: 'reassignDataHealthRecord',
+      previousAssignedTo,
+      previousAssignedToName,
+      newAssignedTo: newAssigneeUid,
+      newAssignedToName: optionalString(assignee.fullName),
+      changedFields,
+    },
+  });
+
+  if (module === 'leads') {
+    await writeLeadDataHealthReassignTimeline({
+      companyId,
+      leadId: recordId,
+      actor,
+      previousAssignedToName: previousAssignedToName || previousAssignedTo,
+      nextAssignedToName: optionalString(assignee.fullName) || newAssigneeUid,
+    });
+  }
+
+  return { companyId, module, recordId, assignedTo: newAssigneeUid };
+});
+
+exports.backfillAssignedRecordSnapshots = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const actor = await requireDataHealthActor({
+    request,
+    companyId,
+    allowPlatform: true,
+    allowCompanyAdmin: true,
+    allowManager: true,
+  });
+  const module = requiredString(data.module, 'module');
+  const recordId = requiredString(data.recordId, 'recordId');
+
+  const policy = dataHealthPolicyFor(module);
+  const recordRef = db.doc(`companies/${companyId}/${module}/${recordId}`);
+  const recordSnapshot = await recordRef.get();
+  if (!recordSnapshot.exists) {
+    throw new HttpsError('not-found', 'Record was not found.');
+  }
+
+  const record = recordSnapshot.data() || {};
+  if (!canActorRepairDataHealthRecord({ actor, record })) {
+    throw new HttpsError('permission-denied', 'You can only repair records in your allowed scope.');
+  }
+  const assignedTo = optionalString(record.assignedTo);
+  if (!assignedTo) {
+    throw new HttpsError('failed-precondition', 'Record has no assignee to backfill.');
+  }
+
+  const assigneeSnapshot = await db
+    .doc(`companies/${companyId}/users/${assignedTo}`)
+    .get();
+  if (!assigneeSnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Assigned user was not found.');
+  }
+
+  const assignee = assigneeSnapshot.data() || {};
+  if (assignee.companyId && assignee.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Assigned user does not belong to this company.');
+  }
+  if (assignee.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Assigned user is inactive.');
+  }
+  if (!policy.allowedRoles.has(assignee.role)) {
+    throw new HttpsError('failed-precondition', 'Assigned user is not eligible for this record.');
+  }
+
+  const snapshotUpdate = assignmentSnapshotFromAssignee(assignedTo, assignee);
+  const changedFields = changedSnapshotFields(record, snapshotUpdate);
+  if (Object.keys(changedFields).length === 0) {
+    return {
+      companyId,
+      module,
+      recordId,
+      repaired: false,
+      changedFields: {},
+    };
+  }
+
+  await recordRef.set(snapshotUpdate, { merge: true });
+
+  await writeDataHealthAuditLog({
+    companyId,
+    actor,
+    module,
+    recordId,
+    record,
+    policy,
+    update: snapshotUpdate,
+    metadata: {
+      repairAction: 'backfillAssignedRecordSnapshots',
+      changedFields,
+    },
+  });
+
+  return {
+    companyId,
+    module,
+    recordId,
+    repaired: true,
+    changedFields,
   };
 });
 
@@ -1122,6 +1358,182 @@ function writeMembership(batch, uid, companyId, data) {
     },
     { merge: true },
   );
+}
+
+
+async function requireDataHealthActor({
+  request,
+  companyId,
+  allowPlatform,
+  allowCompanyAdmin,
+  allowManager,
+}) {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  if (allowPlatform) {
+    const platformSnapshot = await db.doc(`platform_admins/${request.auth.uid}`).get();
+    if (platformSnapshot.exists && platformSnapshot.get('isActive') === true) {
+      const platformAdmin = platformSnapshot.data() || {};
+      return {
+        uid: request.auth.uid,
+        role: 'platformAdmin',
+        isPlatform: true,
+        user: platformAdmin,
+        teamId: '',
+      };
+    }
+  }
+
+  const companyUser = await requireActiveCompanyUser(request, companyId);
+  if (companyUser.role === 'admin' && allowCompanyAdmin) {
+    return {
+      uid: request.auth.uid,
+      role: 'admin',
+      isPlatform: false,
+      user: companyUser,
+      teamId: optionalString(companyUser.teamId),
+    };
+  }
+  if (companyUser.role === 'manager' && allowManager) {
+    return {
+      uid: request.auth.uid,
+      role: 'manager',
+      isPlatform: false,
+      user: companyUser,
+      teamId: optionalString(companyUser.teamId),
+    };
+  }
+
+  throw new HttpsError('permission-denied', 'Data health access is not allowed.');
+}
+
+function canActorInspectDataHealthRecord({ actor, record }) {
+  if (actor.role === 'platformAdmin' || actor.role === 'admin') {
+    return true;
+  }
+  return canActorRepairDataHealthRecord({ actor, record });
+}
+
+function canActorRepairDataHealthRecord({ actor, record }) {
+  if (actor.role === 'platformAdmin' || actor.role === 'admin') {
+    return true;
+  }
+  if (actor.role !== 'manager') {
+    return false;
+  }
+  const actorTeamId = optionalString(actor.user.teamId || actor.teamId);
+  return optionalString(record.managerId) === actor.uid ||
+    (actorTeamId && optionalString(record.teamId) === actorTeamId) ||
+    optionalString(record.assignedTo) === actor.uid;
+}
+
+function canActorAssignDataHealthUser({ actor, assignee }) {
+  if (actor.role === 'admin') {
+    return true;
+  }
+  if (actor.role !== 'manager') {
+    return false;
+  }
+  const actorTeamId = optionalString(actor.user.teamId || actor.teamId);
+  return optionalString(assignee.managerId) === actor.uid ||
+    (actorTeamId && optionalString(assignee.teamId) === actorTeamId);
+}
+
+async function writeDataHealthAuditLog({
+  companyId,
+  actor,
+  module,
+  recordId,
+  record,
+  policy,
+  update,
+  metadata,
+}) {
+  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+  await auditRef.set({
+    id: auditRef.id,
+    companyId,
+    actorId: actor.uid,
+    actorName: optionalString(actor.user.fullName) || optionalString(actor.user.email) || actor.role,
+    actorEmail: optionalString(actor.user.email),
+    actorRole: actor.role,
+    action: 'update',
+    module,
+    recordId,
+    recordTitle: assignedRecordTitle(record, policy, recordId),
+    recordSubtitle: 'Data health repair',
+    assignedTo: optionalString(update.assignedTo) || optionalString(record.assignedTo),
+    teamId: optionalString(update.teamId) || optionalString(record.teamId),
+    teamName: optionalString(update.teamName) || optionalString(record.teamName),
+    managerId: optionalString(update.managerId) || optionalString(record.managerId),
+    managerName: optionalString(update.managerName) || optionalString(record.managerName),
+    createdAt: FieldValue.serverTimestamp(),
+    metadata,
+  });
+}
+
+async function writeLeadDataHealthReassignTimeline({
+  companyId,
+  leadId,
+  actor,
+  previousAssignedToName,
+  nextAssignedToName,
+}) {
+  const timelineRef = db.collection(`companies/${companyId}/leads/${leadId}/timeline`).doc();
+  await timelineRef.set({
+    id: timelineRef.id,
+    leadId,
+    type: 'reassigned',
+    title: 'Lead reassigned from data health',
+    description: 'assignedTo',
+    oldValue: previousAssignedToName,
+    newValue: nextAssignedToName,
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: actor.uid,
+    createdByName: optionalString(actor.user.fullName) || optionalString(actor.user.email) || actor.role,
+  });
+}
+
+function dataHealthPolicyFor(module) {
+  const policy = DATA_HEALTH_MODULE_POLICIES[module];
+  if (!policy) {
+    throw new HttpsError('invalid-argument', 'Module is not supported for data health repair.');
+  }
+  return policy;
+}
+
+function assignmentSnapshotFromAssignee(assignedTo, assignee) {
+  return {
+    assignedTo,
+    assignedToName: optionalString(assignee.fullName),
+    assignedToEmail: optionalString(assignee.email),
+    teamId: optionalString(assignee.teamId),
+    teamName: optionalString(assignee.teamName),
+    managerId: optionalString(assignee.managerId),
+    managerName: optionalString(assignee.managerName),
+  };
+}
+
+function changedSnapshotFields(record, update) {
+  const changed = {};
+  for (const [field, nextValue] of Object.entries(update)) {
+    const previousValue = optionalString(record[field]);
+    if (previousValue !== nextValue) {
+      changed[field] = {
+        from: previousValue,
+        to: nextValue,
+      };
+    }
+  }
+  return changed;
+}
+
+function assignedRecordTitle(record, policy, fallbackId) {
+  return optionalString(record[policy.titleField]) ||
+    optionalString(record[policy.fallbackTitleField]) ||
+    fallbackId;
 }
 
 function inspectAssignedRecord({

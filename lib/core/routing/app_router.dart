@@ -13,6 +13,7 @@ import '../../features/clients/presentation/pages/client_details_page.dart';
 import '../../features/clients/presentation/pages/edit_client_page.dart';
 import '../../features/clients/presentation/pages/clients_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/data_health/presentation/pages/data_health_page.dart';
 import '../../features/deals/presentation/pages/create_deal_page.dart';
 import '../../features/deals/presentation/pages/deal_details_page.dart';
 import '../../features/deals/presentation/pages/deals_page.dart';
@@ -136,6 +137,10 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.teams,
           builder: (context, state) => TeamsPage.withDependencies(),
+        ),
+        GoRoute(
+          path: RouteNames.dataHealth,
+          builder: (context, state) => DataHealthPage.withDependencies(),
         ),
         GoRoute(
           path: RouteNames.profile,

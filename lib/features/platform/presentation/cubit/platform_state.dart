@@ -21,6 +21,7 @@ class PlatformState extends Equatable {
     this.activeSettingsActionId,
     this.dataHealthReport,
     this.dataHealthLoading = false,
+    this.activeDataHealthActionId,
     this.message,
   });
 
@@ -37,6 +38,7 @@ class PlatformState extends Equatable {
   final String? activeSettingsActionId;
   final CompanyDataHealthReport? dataHealthReport;
   final bool dataHealthLoading;
+  final String? activeDataHealthActionId;
   final String? message;
 
   CompanyMetadata? get selectedCompany {
@@ -86,12 +88,14 @@ class PlatformState extends Equatable {
     String? activeSettingsActionId,
     CompanyDataHealthReport? dataHealthReport,
     bool? dataHealthLoading,
+    String? activeDataHealthActionId,
     String? message,
     bool clearMessage = false,
     bool clearActiveCompanyAction = false,
     bool clearActiveUserAction = false,
     bool clearActiveSettingsAction = false,
     bool clearDataHealthReport = false,
+    bool clearActiveDataHealthAction = false,
   }) {
     return PlatformState(
       status: status ?? this.status,
@@ -112,6 +116,9 @@ class PlatformState extends Equatable {
       dataHealthReport:
           clearDataHealthReport ? null : dataHealthReport ?? this.dataHealthReport,
       dataHealthLoading: dataHealthLoading ?? this.dataHealthLoading,
+      activeDataHealthActionId: clearActiveDataHealthAction
+          ? null
+          : activeDataHealthActionId ?? this.activeDataHealthActionId,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -129,6 +136,7 @@ class PlatformState extends Equatable {
     activeSettingsActionId,
     dataHealthReport,
     dataHealthLoading,
+    activeDataHealthActionId,
     message,
   ];
 }
