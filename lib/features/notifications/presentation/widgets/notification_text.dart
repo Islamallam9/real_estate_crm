@@ -14,6 +14,34 @@ String notificationTitle(AppLocalizations l, CrmNotification notification) {
     CrmNotificationType.taskReassigned => l.notificationTaskReassignedTitle,
     CrmNotificationType.taskRemovedFromYou =>
       l.notificationTaskRemovedFromYouTitle,
+    CrmNotificationType.appointmentAssigned =>
+      l.notificationAppointmentAssignedTitle,
+    CrmNotificationType.appointmentReassigned =>
+      l.notificationAppointmentReassignedTitle,
+    CrmNotificationType.appointmentRemovedFromYou =>
+      l.notificationAppointmentRemovedFromYouTitle,
+    CrmNotificationType.appointmentDueNow =>
+      l.notificationAppointmentDueNowTitle,
+    CrmNotificationType.appointmentRescheduled =>
+      l.notificationAppointmentRescheduledTitle,
+    CrmNotificationType.appointmentCancelled =>
+      l.notificationAppointmentCancelledTitle,
+    CrmNotificationType.appointmentCompleted =>
+      l.notificationAppointmentCompletedTitle,
+    CrmNotificationType.appointmentMissed =>
+      l.notificationAppointmentMissedTitle,
+    CrmNotificationType.teamAppointmentAssigned =>
+      l.notificationTeamAppointmentAssignedTitle,
+    CrmNotificationType.teamAppointmentReassigned =>
+      l.notificationTeamAppointmentReassignedTitle,
+    CrmNotificationType.teamAppointmentRescheduled =>
+      l.notificationTeamAppointmentRescheduledTitle,
+    CrmNotificationType.teamAppointmentCancelled =>
+      l.notificationTeamAppointmentCancelledTitle,
+    CrmNotificationType.teamAppointmentCompleted =>
+      l.notificationTeamAppointmentCompletedTitle,
+    CrmNotificationType.teamAppointmentMissed =>
+      l.notificationTeamAppointmentMissedTitle,
     CrmNotificationType.clientAssigned => l.notificationClientAssignedTitle,
     CrmNotificationType.clientReassigned => l.notificationClientReassignedTitle,
     CrmNotificationType.clientRemovedFromYou =>
@@ -66,7 +94,11 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
   if (notification.type == CrmNotificationType.leadRemovedFromYou) {
     return l.notificationRecordNoLongerAssignedBody(record);
   }
+  if (notification.type == CrmNotificationType.appointmentDueNow) {
+    return l.notificationRecordBody(record);
+  }
   if (notification.type == CrmNotificationType.taskRemovedFromYou ||
+      notification.type == CrmNotificationType.appointmentRemovedFromYou ||
       notification.type == CrmNotificationType.clientRemovedFromYou ||
       notification.type == CrmNotificationType.dealRemovedFromYou) {
     return l.notificationRecordNoLongerAssignedBody(record);
@@ -77,9 +109,17 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
       notification.type == CrmNotificationType.dealWon ||
       notification.type == CrmNotificationType.dealLost ||
       notification.type == CrmNotificationType.taskStatusChanged ||
+      notification.type == CrmNotificationType.appointmentRescheduled ||
+      notification.type == CrmNotificationType.appointmentCancelled ||
+      notification.type == CrmNotificationType.appointmentCompleted ||
+      notification.type == CrmNotificationType.appointmentMissed ||
       notification.type == CrmNotificationType.teamLeadStatusChanged ||
       notification.type == CrmNotificationType.teamDealStageChanged ||
       notification.type == CrmNotificationType.teamTaskStatusChanged ||
+      notification.type == CrmNotificationType.teamAppointmentRescheduled ||
+      notification.type == CrmNotificationType.teamAppointmentCancelled ||
+      notification.type == CrmNotificationType.teamAppointmentCompleted ||
+      notification.type == CrmNotificationType.teamAppointmentMissed ||
       notification.type == CrmNotificationType.genericStatusChanged) {
     final next = (notification.metadata['newStatus'] ??
             notification.metadata['newStage'] ??
@@ -95,7 +135,9 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
   }
   if (notification.type == CrmNotificationType.teamMemberAssigned ||
       notification.type == CrmNotificationType.teamMemberReassigned ||
-      notification.type == CrmNotificationType.teamMemberRemovedFromRecord) {
+      notification.type == CrmNotificationType.teamMemberRemovedFromRecord ||
+      notification.type == CrmNotificationType.teamAppointmentAssigned ||
+      notification.type == CrmNotificationType.teamAppointmentReassigned) {
     final member = (notification.metadata['assignedToName'] ??
             notification.metadata['previousAssignedToName'] ??
             '')
@@ -105,7 +147,8 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
         (notification.metadata['previousAssignedToName'] ?? '')
             .toString()
             .trim();
-    if (notification.type == CrmNotificationType.teamMemberReassigned &&
+    if ((notification.type == CrmNotificationType.teamMemberReassigned ||
+            notification.type == CrmNotificationType.teamAppointmentReassigned) &&
         previousMember.isNotEmpty &&
         member.isNotEmpty &&
         previousMember != member) {
@@ -158,6 +201,14 @@ String reminderTitle(AppLocalizations l, AttentionReminder reminder) {
     AttentionReminderType.followUpOverdue => l.notificationFollowUpOverdueTitle,
     AttentionReminderType.taskDueToday => l.notificationTaskDueTodayTitle,
     AttentionReminderType.taskOverdue => l.notificationTaskOverdueTitle,
+    AttentionReminderType.appointmentToday =>
+      l.notificationAppointmentTodayAttentionTitle,
+    AttentionReminderType.appointmentDueNow =>
+      l.notificationAppointmentDueNowTitle,
+    AttentionReminderType.appointmentMissed =>
+      l.notificationAppointmentMissedAttentionTitle,
+    AttentionReminderType.appointmentUpcomingSoon =>
+      l.notificationAppointmentUpcomingSoonTitle,
     AttentionReminderType.unassignedLead => l.notificationUnassignedLeadTitle,
   };
 }
@@ -178,6 +229,7 @@ String moduleLabel(AppLocalizations l, String module) {
   return switch (module) {
     'leads' => l.leads,
     'tasks' => l.tasks,
+    'appointments' => l.appointments,
     'deals' => l.deals,
     'clients' => l.clients,
     'properties' => l.properties,
@@ -238,6 +290,8 @@ String _statusLabel(AppLocalizations l, String value) {
     'reservation' || 'reserved' => l.reserved,
     'completed' => l.completed,
     'cancelled' || 'canceled' => l.cancelled,
+    'missed' => l.appointmentStatusMissed,
+    'rescheduled' => l.appointmentStatusRescheduled,
     'closed' => value,
     'contract' => value,
     _ => value,

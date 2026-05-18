@@ -163,8 +163,10 @@ class AttentionReminderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final isOverdue = reminder.type == AttentionReminderType.followUpOverdue ||
-        reminder.type == AttentionReminderType.taskOverdue;
-    final accentColor = isOverdue
+        reminder.type == AttentionReminderType.taskOverdue ||
+        reminder.type == AttentionReminderType.appointmentMissed;
+    final isDueNow = reminder.type == AttentionReminderType.appointmentDueNow;
+    final accentColor = isOverdue || isDueNow
         ? AppColors.errorColor(context)
         : AppColors.warningColor(context);
     final body = [
@@ -196,7 +198,7 @@ class AttentionReminderCard extends StatelessWidget {
                   borderRadius: AppRadius.medium,
                 ),
                 child: Icon(
-                  isOverdue
+                  isOverdue || isDueNow
                       ? Icons.warning_amber_rounded
                       : Icons.event_available,
                   color: accentColor,

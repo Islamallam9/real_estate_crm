@@ -35,6 +35,7 @@ enum CrmNavigationItem {
   properties,
   clients,
   tasks,
+  appointments,
   deals,
   reports,
   teams,
@@ -81,6 +82,11 @@ class CrmAppShell extends StatelessWidget {
       item: CrmNavigationItem.tasks,
       icon: Icons.checklist_outlined,
       selectedIcon: Icons.checklist,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.appointments,
+      icon: Icons.event_note_outlined,
+      selectedIcon: Icons.event_note,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.deals,
@@ -274,6 +280,7 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.properties => CompanyFeature.properties,
     CrmNavigationItem.clients => CompanyFeature.clients,
     CrmNavigationItem.tasks => CompanyFeature.tasks,
+    CrmNavigationItem.appointments => CompanyFeature.appointments,
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
     CrmNavigationItem.teams => null,
@@ -303,6 +310,8 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.clients);
     case CrmNavigationItem.tasks:
       context.go(RouteNames.tasks);
+    case CrmNavigationItem.appointments:
+      context.go(RouteNames.appointments);
     case CrmNavigationItem.deals:
       context.go(RouteNames.deals);
     case CrmNavigationItem.reports:
@@ -326,6 +335,9 @@ List<_CrmShellItem> _visibleItemsForRole(
     }
     if (item.item == CrmNavigationItem.dataHealth) {
       return role == UserRole.admin;
+    }
+    if (item.item == CrmNavigationItem.appointments) {
+      return role != UserRole.viewer;
     }
     return true;
   }).toList();
@@ -829,6 +841,7 @@ class _MobileBottomNavigation extends StatelessWidget {
     }
     return item == CrmNavigationItem.more &&
         (selectedItem == CrmNavigationItem.tasks ||
+            selectedItem == CrmNavigationItem.appointments ||
             selectedItem == CrmNavigationItem.deals ||
             selectedItem == CrmNavigationItem.reports ||
             selectedItem == CrmNavigationItem.teams ||
@@ -967,6 +980,19 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                     context.go(RouteNames.tasks);
                   },
                 ),
+                if (role != UserRole.viewer)
+                  _MoreSheetTile(
+                    icon: Icons.event_note_outlined,
+                    label: localizations.appointments,
+                    enabled: companyMetadata.isFeatureEnabled(
+                      CompanyFeature.appointments,
+                    ),
+                    disabledSubtitle: localizations.moduleDisabled,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.go(RouteNames.appointments);
+                    },
+                  ),
                 _MoreSheetTile(
                   icon: Icons.handshake_outlined,
                   label: localizations.deals,
@@ -2462,6 +2488,8 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.clients;
     case CrmNavigationItem.tasks:
       return localizations.tasks;
+    case CrmNavigationItem.appointments:
+      return localizations.appointments;
     case CrmNavigationItem.deals:
       return localizations.deals;
     case CrmNavigationItem.reports:

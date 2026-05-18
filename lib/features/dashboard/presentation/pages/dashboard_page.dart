@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +23,10 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../appointments/domain/entities/appointment.dart';
+import '../../../appointments/presentation/cubit/appointments_cubit.dart';
+import '../../../appointments/presentation/cubit/appointments_state.dart';
+import '../../../appointments/presentation/widgets/appointments_scope.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/presentation/cubit/audit_logs_cubit.dart';
 import '../../../audit_logs/presentation/cubit/audit_logs_state.dart';
@@ -175,8 +181,10 @@ class _DashboardScopes extends StatelessWidget {
       child: PropertiesScope(
         child: ClientsScope(
           child: TasksScope(
-            child: DealsScope(
-              child: AuditLogsScope(child: child),
+            child: AppointmentsScope(
+              child: DealsScope(
+                child: AuditLogsScope(child: child),
+              ),
             ),
           ),
         ),
@@ -204,11 +212,17 @@ class _DashboardContent extends StatefulWidget {
 
 class _DashboardContentState extends State<_DashboardContent> {
   String? _watchKey;
+  Timer? _clockTicker;
 
   @override
   void initState() {
     super.initState();
     _watchScopedDashboardData();
+    _clockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -227,6 +241,12 @@ class _DashboardContentState extends State<_DashboardContent> {
       _watchKey = null;
       _watchScopedDashboardData();
     }
+  }
+
+  @override
+  void dispose() {
+    _clockTicker?.cancel();
+    super.dispose();
   }
 
   void _watchScopedDashboardData() {
@@ -278,6 +298,15 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
         PermissionService.can(role, AppPermission.viewTasks)) {
       context.read<TasksCubit>().watchTasks(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+        managerId: managerId,
+      );
+    }
+    if (widget.authState.companyMetadata
+            .isFeatureEnabled(CompanyFeature.appointments) &&
+        PermissionService.can(role, AppPermission.viewAppointments)) {
+      context.read<AppointmentsCubit>().watchAppointments(
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
@@ -352,6 +381,16 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     if (role != null &&
+        widget.authState.companyMetadata
+            .isFeatureEnabled(CompanyFeature.appointments) &&
+        PermissionService.can(role, AppPermission.viewAppointments)) {
+      context.read<AppointmentsCubit>().watchAppointments(
+        companyId: widget.companyId,
+        assignedTo: assignedTo,
+        managerId: managerId,
+      );
+    }
+    if (role != null &&
         uid.isNotEmpty &&
         widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         PermissionService.can(role, AppPermission.viewDeals)) {
@@ -394,13 +433,20 @@ class _DashboardContentState extends State<_DashboardContent> {
               builder: (context, clientsState) {
                 return BlocBuilder<TasksCubit, TasksState>(
                   builder: (context, tasksState) {
-                    return BlocBuilder<DealsCubit, DealsState>(
-                      builder: (context, dealsState) {
+                    return BlocBuilder<AppointmentsCubit, AppointmentsState>(
+                      builder: (context, appointmentsState) {
+                        return BlocBuilder<DealsCubit, DealsState>(
+                          builder: (context, dealsState) {
+                            final appointmentsEnabled = _canViewAppointments(
+                              widget.authState,
+                              platformPreview: widget.platformPreview,
+                            );
                         final data = _DashboardData(
                           leads: leadsState.leads,
                           properties: propertiesState.properties,
                           clients: clientsState.clients,
                           tasks: tasksState.tasks,
+                          appointments: appointmentsState.appointments,
                           deals: dealsState.deals,
                         );
 
@@ -414,6 +460,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 clientsState.clients.isEmpty ||
                             tasksState.status == TasksStatus.loading &&
                                 tasksState.tasks.isEmpty ||
+                            appointmentsEnabled &&
+                                appointmentsState.status ==
+                                    AppointmentsStatus.loading &&
+                                appointmentsState.appointments.isEmpty ||
                             dealsState.status == DealsStatus.loading &&
                                 dealsState.deals.isEmpty;
 
@@ -427,6 +477,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 clientsState.clients.isEmpty ||
                             tasksState.status == TasksStatus.failure &&
                                 tasksState.tasks.isEmpty ||
+                            appointmentsEnabled &&
+                                appointmentsState.status ==
+                                    AppointmentsStatus.failure &&
+                                appointmentsState.appointments.isEmpty ||
                             dealsState.status == DealsStatus.failure &&
                                 dealsState.deals.isEmpty;
 
@@ -435,6 +489,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                             propertiesState.message ??
                             clientsState.message ??
                             tasksState.message ??
+                            appointmentsState.message ??
                             dealsState.message;
 
                         return _DashboardView(
@@ -446,6 +501,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                           hasInitialFailure: hasInitialFailure,
                           failureMessage: failureMessage,
                           onRetry: _retry,
+                        );
+                          },
                         );
                       },
                     );
@@ -948,6 +1005,10 @@ class _DashboardView extends StatelessWidget {
             features.isFeatureEnabled(CompanyFeature.properties);
         final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
         final dealsEnabled = features.isFeatureEnabled(CompanyFeature.deals);
+        final appointmentsEnabled = _canViewAppointments(
+          authState,
+          platformPreview: platformPreview,
+        );
         final auditLogsEnabled =
             features.isFeatureEnabled(CompanyFeature.auditLogs);
         final analyticsEnabled =
@@ -969,6 +1030,7 @@ class _DashboardView extends StatelessWidget {
             leadsEnabled: leadsEnabled,
             tasksEnabled: tasksEnabled,
             dealsEnabled: dealsEnabled,
+            appointmentsEnabled: appointmentsEnabled,
             auditLogsEnabled: auditLogsEnabled,
             analyticsEnabled: analyticsEnabled,
             canViewUnassignedLeads: canViewUnassignedLeads,
@@ -1084,10 +1146,18 @@ class _DashboardView extends StatelessWidget {
                   const SizedBox(height: _kDashboardSectionGap),
 
                   if (compact) ...[
+                    if (appointmentsEnabled)
+                      _DashboardReveal(
+                        id: 'appointments-compact',
+                        delay: const Duration(milliseconds: 220),
+                        child: _AppointmentsDashboardSection(data: data),
+                      ),
+                    if (appointmentsEnabled && (dealsEnabled || tasksEnabled))
+                      const SizedBox(height: _kDashboardSectionGap),
                     if (dealsEnabled)
                       _DashboardReveal(
                         id: 'deals-compact',
-                      delay: const Duration(milliseconds: 220),
+                      delay: const Duration(milliseconds: 260),
                       child: _DealsDashboardSection(
                         data: data,
                         readOnly: platformPreview,
@@ -1098,21 +1168,31 @@ class _DashboardView extends StatelessWidget {
                     if (tasksEnabled)
                       _DashboardReveal(
                         id: 'tasks-compact',
-                      delay: const Duration(milliseconds: 260),
+                      delay: const Duration(milliseconds: 300),
                       child: _TaskBreakdownSection(
                         data: data,
                         readOnly: platformPreview,
                       ),
                     ),
-                  ] else if (leadsEnabled)
+                  ] else if (appointmentsEnabled || leadsEnabled)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (appointmentsEnabled)
+                          Expanded(
+                            child: _DashboardReveal(
+                              id: 'appointments-desktop',
+                              delay: const Duration(milliseconds: 220),
+                              child: _AppointmentsDashboardSection(data: data),
+                            ),
+                          ),
+                        if (appointmentsEnabled && (dealsEnabled || tasksEnabled))
+                          const SizedBox(width: _kDashboardSectionGap),
                         if (dealsEnabled)
                           Expanded(
                             child: _DashboardReveal(
                               id: 'deals-desktop',
-                            delay: const Duration(milliseconds: 220),
+                            delay: const Duration(milliseconds: 260),
                             child: _DealsDashboardSection(
                               data: data,
                               readOnly: platformPreview,
@@ -1125,7 +1205,7 @@ class _DashboardView extends StatelessWidget {
                           Expanded(
                             child: _DashboardReveal(
                               id: 'tasks-desktop',
-                            delay: const Duration(milliseconds: 260),
+                            delay: const Duration(milliseconds: 300),
                             child: _TaskBreakdownSection(
                               data: data,
                               readOnly: platformPreview,
@@ -1269,6 +1349,7 @@ class _MobileDashboardTabs extends StatelessWidget {
     required this.leadsEnabled,
     required this.tasksEnabled,
     required this.dealsEnabled,
+    required this.appointmentsEnabled,
     required this.auditLogsEnabled,
     required this.analyticsEnabled,
     required this.canViewUnassignedLeads,
@@ -1283,6 +1364,7 @@ class _MobileDashboardTabs extends StatelessWidget {
   final bool leadsEnabled;
   final bool tasksEnabled;
   final bool dealsEnabled;
+  final bool appointmentsEnabled;
   final bool auditLogsEnabled;
   final bool analyticsEnabled;
   final bool canViewUnassignedLeads;
@@ -1363,6 +1445,21 @@ class _MobileDashboardTabs extends StatelessWidget {
                   data: data,
                   readOnly: platformPreview,
                 ),
+              ),
+            ], gap: AppSpacing.sm),
+          ),
+        ),
+      if (appointmentsEnabled)
+        _MobileDashboardTab(
+          label: l.appointments,
+          icon: Icons.event_available_outlined,
+          child: _MobileDashboardTabBody(
+            hasQuickActions: quickAddActions.isNotEmpty,
+            children: _withDashboardGaps([
+              _DashboardReveal(
+                id: 'mobile-appointments',
+                delay: const Duration(milliseconds: 180),
+                child: _AppointmentsDashboardSection(data: data),
               ),
             ], gap: AppSpacing.sm),
           ),
@@ -2470,37 +2567,12 @@ class _DonutChartCardState extends State<_DonutChartCard>
                   builder: (context, _) {
                     return Transform.scale(
                       scale: _centerScale.value,
-                      child: CustomPaint(
-                        size: const Size.square(72),
-                        painter: _DonutPainter(
-                          segments: widget.segments,
-                          progress: _sweep.value,
-                        ),
-                        child: SizedBox.square(
-                          dimension: 72,
-                          child: Center(
-                            child: TweenAnimationBuilder<double>(
-                              key: ValueKey('donut-total-$_signature'),
-                              tween: Tween(
-                                begin: 0.0,
-                                end: total.toDouble(),
-                              ),
-                              duration: const Duration(milliseconds: 760),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, value, _) {
-                                return Text(
-                                  value.round().toString(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
+                      child: _ModernDonutChart(
+                        segments: widget.segments,
+                        progress: _sweep.value,
+                        total: total,
+                        size: 72,
+                        valueKey: 'donut-total-$_signature',
                       ),
                     );
                   },
@@ -2537,6 +2609,82 @@ class _DonutChartCardState extends State<_DonutChartCard>
         ),
       ),
     );
+  }
+}
+
+
+class _ModernDonutChart extends StatelessWidget {
+  const _ModernDonutChart({
+    required this.segments,
+    required this.progress,
+    required this.total,
+    required this.size,
+    required this.valueKey,
+  });
+
+  final List<_ChartSegment> segments;
+  final double progress;
+  final int total;
+  final double size;
+  final String valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: (size / 2) - 18,
+              startDegreeOffset: -90,
+              sections: _pieChartSections(context),
+            ),
+          ),
+          TweenAnimationBuilder<double>(
+            key: ValueKey(valueKey),
+            tween: Tween(begin: 0.0, end: total.toDouble()),
+            duration: const Duration(milliseconds: 760),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return Text(
+                value.round().toString(),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<PieChartSectionData> _pieChartSections(BuildContext context) {
+    final cleanTotal = segments.fold<int>(0, (sum, segment) => sum + segment.value);
+    if (cleanTotal == 0) {
+      return [
+        PieChartSectionData(
+          value: 1,
+          radius: 12,
+          showTitle: false,
+          color: AppColors.borderColor(context),
+        ),
+      ];
+    }
+    return [
+      for (final segment in segments)
+        if (segment.value > 0)
+          PieChartSectionData(
+            value: segment.value * progress,
+            radius: 12,
+            showTitle: false,
+            color: segment.color,
+          ),
+    ];
   }
 }
 
@@ -2842,6 +2990,71 @@ class _TaskBreakdownSection extends StatelessWidget {
                 tone: _taskDueTone(task),
                 onTap: readOnly ? null : () => context.go(RouteNames.tasks),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppointmentsDashboardSection extends StatelessWidget {
+  const _AppointmentsDashboardSection({required this.data});
+
+  final _DashboardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final nextAppointment = data.nextAppointment;
+    final attentionItems = data.appointmentAttentionItems;
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionTitle(title: l.dashboardAppointmentsTitle),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _MiniMetric(
+                label: l.todaysAppointments,
+                value: data.todayAppointments.length,
+              ),
+              _MiniMetric(
+                label: l.upcomingAppointments,
+                value: data.upcomingAppointments.length,
+              ),
+              _MiniMetric(
+                label: l.missedAppointments,
+                value: data.missedAppointments.length,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (attentionItems.isNotEmpty)
+            for (final appointment in attentionItems.take(4))
+              _DashboardListTile(
+                title: appointment.title,
+                subtitle: _dashboardAppointmentSubtitle(context, appointment),
+                badge: _dashboardAppointmentTimingLabel(context, appointment),
+                tone: _dashboardAppointmentTone(appointment),
+                onTap: () => context.go(
+                  RouteNames.appointmentEdit(appointment.id),
+                ),
+              )
+          else if (nextAppointment != null)
+            _DashboardListTile(
+              title: nextAppointment.title,
+              subtitle: _dashboardAppointmentSubtitle(context, nextAppointment),
+              badge: l.nextAppointment,
+              tone: AppStatusTone.info,
+              onTap: () => context.go(
+                RouteNames.appointmentEdit(nextAppointment.id),
+              ),
+            )
+          else
+            _CompactEmpty(message: l.noUpcomingAppointments),
         ],
       ),
     );
@@ -3176,6 +3389,7 @@ class _DashboardData {
     required this.properties,
     required this.clients,
     required this.tasks,
+    required this.appointments,
     required this.deals,
   });
 
@@ -3183,6 +3397,7 @@ class _DashboardData {
   final List<Property> properties;
   final List<Client> clients;
   final List<CrmTask> tasks;
+  final List<Appointment> appointments;
   final List<Deal> deals;
 
   List<Lead> get newLeads =>
@@ -3264,6 +3479,62 @@ class _DashboardData {
 
   List<CrmTask> get cancelledTasks =>
       tasks.where((task) => task.status == TaskStatus.cancelled).toList();
+
+  List<Appointment> get todayAppointments => appointments.where((appointment) {
+    final date = appointment.scheduledAt;
+    return date != null && _dateOnly(date.toLocal()) == _today;
+  }).toList();
+
+  List<Appointment> get missedAppointments => appointments.where((appointment) {
+    return _dashboardAppointmentIsMissed(appointment);
+  }).toList();
+
+  List<Appointment> get upcomingAppointments {
+    final now = DateTime.now();
+    final selected = appointments.where((appointment) {
+      final scheduledAt = appointment.scheduledAt;
+      return scheduledAt != null &&
+          scheduledAt.toLocal().isAfter(now) &&
+          !_dashboardAppointmentIsMissed(appointment) &&
+          (appointment.status == AppointmentStatus.scheduled ||
+              appointment.status == AppointmentStatus.rescheduled);
+    }).toList()
+      ..sort((a, b) {
+        final aDate = a.scheduledAt ?? DateTime(9999);
+        final bDate = b.scheduledAt ?? DateTime(9999);
+        return aDate.compareTo(bDate);
+      });
+    return selected;
+  }
+
+  Appointment? get nextAppointment {
+    final upcoming = upcomingAppointments;
+    return upcoming.isEmpty ? null : upcoming.first;
+  }
+
+  List<Appointment> get appointmentAttentionItems {
+    final selected = appointments.where((appointment) {
+      if (appointment.status == AppointmentStatus.completed ||
+          appointment.status == AppointmentStatus.cancelled) {
+        return false;
+      }
+      return _dashboardAppointmentIsMissed(appointment) ||
+          _dashboardAppointmentIsDueNow(appointment) ||
+          todayAppointments.contains(appointment);
+    }).toList()
+      ..sort((a, b) {
+        final rank = _dashboardAppointmentRank(a).compareTo(
+          _dashboardAppointmentRank(b),
+        );
+        if (rank != 0) {
+          return rank;
+        }
+        final aDate = a.scheduledAt ?? DateTime(9999);
+        final bDate = b.scheduledAt ?? DateTime(9999);
+        return aDate.compareTo(bDate);
+      });
+    return selected;
+  }
 
   List<Deal> get openDeals => deals.where((deal) {
     return deal.stage != DealStage.won && deal.stage != DealStage.lost;
@@ -3484,6 +3755,92 @@ String _taskSubtitle(BuildContext context, CrmTask task) {
   return copy.generalTask;
 }
 
+bool _dashboardAppointmentIsMissed(Appointment appointment) {
+  final endAt = appointment.endAt ?? appointment.scheduledAt;
+  return appointment.status == AppointmentStatus.missed ||
+      (appointment.status == AppointmentStatus.scheduled &&
+          endAt != null &&
+          endAt.toLocal().isBefore(DateTime.now()));
+}
+
+bool _dashboardAppointmentIsDueNow(Appointment appointment) {
+  final scheduledAt = appointment.scheduledAt;
+  if (appointment.status != AppointmentStatus.scheduled ||
+      scheduledAt == null) {
+    return false;
+  }
+  final now = DateTime.now();
+  final start = scheduledAt.toLocal();
+  final end = (appointment.endAt ?? scheduledAt).toLocal();
+  return !start.isAfter(now) && !end.isBefore(now);
+}
+
+int _dashboardAppointmentRank(Appointment appointment) {
+  if (_dashboardAppointmentIsMissed(appointment)) {
+    return 0;
+  }
+  if (_dashboardAppointmentIsDueNow(appointment)) {
+    return 1;
+  }
+  final scheduledAt = appointment.scheduledAt;
+  if (scheduledAt != null && _dateOnly(scheduledAt.toLocal()) == _today) {
+    return 2;
+  }
+  return 3;
+}
+
+String _dashboardAppointmentTimingLabel(
+  BuildContext context,
+  Appointment appointment,
+) {
+  final l = AppLocalizations.of(context)!;
+  if (_dashboardAppointmentIsMissed(appointment)) {
+    return l.notificationAppointmentMissedAttentionTitle;
+  }
+  if (_dashboardAppointmentIsDueNow(appointment)) {
+    return l.notificationAppointmentDueNowTitle;
+  }
+  final scheduledAt = appointment.scheduledAt;
+  if (scheduledAt != null && _dateOnly(scheduledAt.toLocal()) == _today) {
+    return l.todaysAppointments;
+  }
+  return l.upcoming;
+}
+
+AppStatusTone _dashboardAppointmentTone(Appointment appointment) {
+  if (_dashboardAppointmentIsMissed(appointment) ||
+      _dashboardAppointmentIsDueNow(appointment)) {
+    return AppStatusTone.error;
+  }
+  final scheduledAt = appointment.scheduledAt;
+  if (scheduledAt != null && _dateOnly(scheduledAt.toLocal()) == _today) {
+    return AppStatusTone.warning;
+  }
+  return AppStatusTone.info;
+}
+
+String _dashboardAppointmentSubtitle(
+  BuildContext context,
+  Appointment appointment,
+) {
+  final l = AppLocalizations.of(context)!;
+  final scheduledAt = appointment.scheduledAt;
+  final dateLabel = scheduledAt == null
+      ? l.notAvailable
+      : intl.DateFormat.yMMMd(l.localeName).add_jm().format(
+            scheduledAt.toLocal(),
+          );
+  final related = appointment.relatedTitle.trim().isNotEmpty
+      ? appointment.relatedTitle.trim()
+      : appointment.relatedSubtitle.trim();
+  final assignee = appointment.assignedToName.trim();
+  return [
+    dateLabel,
+    if (related.isNotEmpty) related,
+    if (assignee.isNotEmpty) assignee,
+  ].join(' - ');
+}
+
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
@@ -3533,6 +3890,19 @@ bool _canViewRecentActivity(
 
   final role = authState.userProfile?.role ?? authState.user?.role;
   return role == UserRole.admin || role == UserRole.manager;
+}
+
+bool _canViewAppointments(
+  AuthState authState, {
+  bool platformPreview = false,
+}) {
+  if (platformPreview) {
+    return false;
+  }
+  final role = authState.userProfile?.role ?? authState.user?.role;
+  return authState.companyMetadata.isFeatureEnabled(CompanyFeature.appointments) &&
+      role != null &&
+      PermissionService.can(role, AppPermission.viewAppointments);
 }
 
 bool _canViewUnassignedLeads(

@@ -1,7 +1,15 @@
 import '../../../../core/constants/role_constants.dart';
 import 'user_profile.dart';
 
-enum AssignableWorkType { lead, client, property, task, deal, salesOwner }
+enum AssignableWorkType {
+  lead,
+  client,
+  property,
+  task,
+  appointment,
+  deal,
+  salesOwner,
+}
 
 abstract final class AssignmentUserPolicy {
   static bool canOwn(AssignableWorkType type, UserProfile user) {
@@ -14,6 +22,7 @@ abstract final class AssignmentUserPolicy {
         return user.role == UserRole.salesAgent ||
             user.role == UserRole.marketing;
       case AssignableWorkType.task:
+      case AssignableWorkType.appointment:
         return user.role == UserRole.salesAgent ||
             user.role == UserRole.marketing;
       case AssignableWorkType.client:

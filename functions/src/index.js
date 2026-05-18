@@ -1,5 +1,6 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
 
@@ -18,6 +19,7 @@ const FEATURE_KEYS = new Set([
   'clients',
   'properties',
   'tasks',
+  'appointments',
   'deals',
   'reports',
   'auditLogs',
@@ -25,6 +27,24 @@ const FEATURE_KEYS = new Set([
 ]);
 const OPERATIONAL_TEAM_ROLES = new Set(['salesAgent', 'marketing']);
 const LEAD_ASSIGNABLE_ROLES = new Set(['salesAgent', 'marketing']);
+const APPOINTMENT_ASSIGNABLE_ROLES = new Set(['salesAgent', 'marketing']);
+const APPOINTMENT_TYPES = new Set([
+  'call',
+  'meeting',
+  'propertyViewing',
+  'siteVisit',
+  'contractMeeting',
+  'reservationMeeting',
+  'followUp',
+  'other',
+]);
+const APPOINTMENT_STATUSES = new Set([
+  'scheduled',
+  'completed',
+  'cancelled',
+  'missed',
+  'rescheduled',
+]);
 const LEAD_SOURCES = new Set([
   'facebook',
   'website',
@@ -58,6 +78,19 @@ const NOTIFICATION_TYPES = new Set([
   'taskAssigned',
   'taskReassigned',
   'taskRemovedFromYou',
+  'appointmentAssigned',
+  'appointmentReassigned',
+  'appointmentRemovedFromYou',
+  'appointmentRescheduled',
+  'appointmentCancelled',
+  'appointmentCompleted',
+  'appointmentMissed',
+  'teamAppointmentAssigned',
+  'teamAppointmentReassigned',
+  'teamAppointmentRescheduled',
+  'teamAppointmentCancelled',
+  'teamAppointmentCompleted',
+  'teamAppointmentMissed',
   'clientAssigned',
   'clientReassigned',
   'clientRemovedFromYou',
@@ -179,6 +212,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
       clients: true,
       properties: true,
       tasks: true,
+      appointments: true,
       deals: true,
       reports: true,
       auditLogs: true,
@@ -1165,6 +1199,254 @@ exports.saveLeadRecord = onCall(async (request) => {
 
   return { companyId, leadId };
 });
+
+exports.saveAppointmentRecord = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actorUid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const operation = requiredString(data.operation, 'operation');
+  const appointmentInput = requiredObject(data.appointment || {}, 'appointment');
+  validateCompanyId(companyId);
+
+  if (!['create', 'update'].includes(operation)) {
+    throw new HttpsError('invalid-argument', 'Appointment operation is invalid.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to save appointments.');
+  }
+
+  let appointmentId = optionalString(appointmentInput.id);
+  const appointmentsCollection = db.collection(`companies/${companyId}/appointments`);
+  if (operation === 'create' && !appointmentId) {
+    appointmentId = appointmentsCollection.doc().id;
+  }
+  if (!appointmentId) {
+    throw new HttpsError('invalid-argument', 'Appointment ID is required.');
+  }
+
+  const appointmentRef = appointmentsCollection.doc(appointmentId);
+  const appointmentSnapshot = await appointmentRef.get();
+  const existingAppointment = appointmentSnapshot.exists
+    ? (appointmentSnapshot.data() || {})
+    : null;
+
+  if (operation === 'create' && appointmentSnapshot.exists) {
+    throw new HttpsError('already-exists', 'Appointment already exists.');
+  }
+  if (operation === 'update' && !appointmentSnapshot.exists) {
+    throw new HttpsError('not-found', 'Appointment was not found.');
+  }
+
+  let assignedTo = optionalString(appointmentInput.assignedTo);
+  if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    assignedTo = actorUid;
+  }
+  if (!assignedTo) {
+    throw new HttpsError('failed-precondition', 'Appointment assignee is required.');
+  }
+
+  const assigneeSnapshot = await db
+    .doc(`companies/${companyId}/users/${assignedTo}`)
+    .get();
+  if (!assigneeSnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Selected assignee was not found.');
+  }
+  const assignee = assigneeSnapshot.data() || {};
+  if (assignee.companyId && assignee.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Selected assignee does not belong to this company.');
+  }
+  if (assignee.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Selected assignee is inactive.');
+  }
+  if (!APPOINTMENT_ASSIGNABLE_ROLES.has(assignee.role)) {
+    throw new HttpsError('failed-precondition', 'Selected assignee is not eligible for appointments.');
+  }
+
+  if (actorRole === 'manager') {
+    const managerTeamId = optionalString(actor.teamId);
+    const assigneeManagerId = optionalString(assignee.managerId);
+    const assigneeTeamId = optionalString(assignee.teamId);
+    const canAssignToUser = assigneeManagerId === actorUid ||
+      (managerTeamId && assigneeTeamId === managerTeamId);
+    if (!canAssignToUser) {
+      throw new HttpsError('permission-denied', 'You can only assign appointments to your team.');
+    }
+
+    if (existingAppointment) {
+      const existingTeamId = optionalString(existingAppointment.teamId);
+      const existingManagerId = optionalString(existingAppointment.managerId);
+      const existingAssignedTo = optionalString(existingAppointment.assignedTo);
+      const canManageExisting = existingAssignedTo === actorUid ||
+        existingManagerId === actorUid ||
+        (managerTeamId && existingTeamId === managerTeamId);
+      if (!canManageExisting) {
+        throw new HttpsError('permission-denied', 'You cannot update another team appointment.');
+      }
+    }
+  }
+
+  if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    if (operation === 'update') {
+      if (!existingAppointment || optionalString(existingAppointment.assignedTo) !== actorUid) {
+        throw new HttpsError('permission-denied', 'You can update only your appointments.');
+      }
+    }
+    if (assignedTo !== actorUid) {
+      throw new HttpsError('permission-denied', 'You can create only your own appointments.');
+    }
+  }
+
+  const relatedSnapshot = await appointmentRelatedSnapshot({
+    companyId,
+    actor,
+    actorUid,
+    actorRole,
+    relatedType: optionalString(appointmentInput.relatedType) || 'general',
+    relatedId: optionalString(appointmentInput.relatedId),
+  });
+
+  const now = FieldValue.serverTimestamp();
+  const payload = buildAppointmentPayload({
+    companyId,
+    appointmentId,
+    appointmentInput,
+    assignedTo,
+    assignee,
+    relatedSnapshot,
+    actorUid,
+    now,
+    existingAppointment,
+    isCreate: operation === 'create',
+  });
+
+  if (operation === 'create') {
+    await appointmentRef.set(payload);
+  } else {
+    await appointmentRef.set(payload, { merge: true });
+  }
+
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email);
+  await createAppointmentAssignmentNotifications({
+    companyId,
+    appointmentId,
+    operation,
+    actorUid,
+    actorName,
+    existingAppointment,
+    payload,
+  }).catch(() => undefined);
+
+  await createAppointmentStatusNotifications({
+    companyId,
+    appointmentId,
+    actorUid,
+    actorName,
+    before: existingAppointment,
+    after: payload,
+  }).catch(() => undefined);
+
+  return { companyId, appointmentId };
+});
+
+
+exports.createDueAppointmentNotifications = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'Africa/Cairo',
+    region: 'us-east1',
+  },
+  async () => {
+    const nowDate = new Date();
+    const lookbackDate = new Date(nowDate.getTime() - 10 * 60 * 1000);
+    const now = admin.firestore.Timestamp.fromDate(nowDate);
+    const lookback = admin.firestore.Timestamp.fromDate(lookbackDate);
+
+    const snapshot = await db.collectionGroup('appointments')
+      .where('scheduledAt', '>=', lookback)
+      .where('scheduledAt', '<=', now)
+      .limit(250)
+      .get();
+
+    const writes = [];
+    for (const document of snapshot.docs) {
+      const appointment = document.data() || {};
+      const companyId = optionalString(appointment.companyId);
+      const appointmentId = optionalString(appointment.id) || document.id;
+      const status = normalizedWorkflowValue(appointment.status);
+      if (!companyId || !appointmentId || !['scheduled', 'rescheduled'].includes(status)) {
+        continue;
+      }
+
+      const assignedTo = optionalString(appointment.assignedTo);
+      const managerId = optionalString(appointment.managerId);
+      const title = optionalString(appointment.title) || appointmentId;
+      const subtitle = appointmentRecordSubtitle(appointment);
+      const scheduledAt = firestoreTimestampToIso(appointment.scheduledAt);
+      const metadata = {
+        scheduledAt,
+        assignedToName: optionalString(appointment.assignedToName),
+        relatedTitle: optionalString(appointment.relatedTitle),
+      };
+
+      if (assignedTo) {
+        writes.push(createCompanyNotification({
+          companyId,
+          recipientUid: assignedTo,
+          recipientRole: '',
+          type: 'systemInfo',
+          module: 'appointments',
+          recordId: appointmentId,
+          recordTitle: title,
+          recordSubtitle: subtitle,
+          route: '/appointments',
+          actorUid: '',
+          actorName: '',
+          teamId: optionalString(appointment.teamId),
+          teamName: optionalString(appointment.teamName),
+          managerId,
+          priority: 'high',
+          metadata,
+          fallbackTitle: 'Appointment due now',
+          fallbackBody: `${title} is due now.`,
+          dedupeKey: `appointment_due_${companyId}_${appointmentId}_${assignedTo}`,
+        }));
+      }
+
+      if (managerId && managerId !== assignedTo) {
+        writes.push(createCompanyNotification({
+          companyId,
+          recipientUid: managerId,
+          recipientRole: 'manager',
+          type: 'systemInfo',
+          module: 'appointments',
+          recordId: appointmentId,
+          recordTitle: title,
+          recordSubtitle: subtitle,
+          route: '/appointments',
+          actorUid: '',
+          actorName: '',
+          teamId: optionalString(appointment.teamId),
+          teamName: optionalString(appointment.teamName),
+          managerId,
+          priority: 'high',
+          metadata,
+          fallbackTitle: 'Team appointment due now',
+          fallbackBody: `${title} is due now for ${optionalString(appointment.assignedToName) || 'a team member'}.`,
+          dedupeKey: `appointment_due_${companyId}_${appointmentId}_manager_${managerId}`,
+        }));
+      }
+    }
+
+    await Promise.all(writes);
+  },
+);
 
 exports.createTaskAssignmentNotification = onDocumentWritten(
   'companies/{companyId}/tasks/{taskId}',
@@ -2426,6 +2708,372 @@ function buildLeadPayload({
   return payload;
 }
 
+async function appointmentRelatedSnapshot({
+  companyId,
+  actor,
+  actorUid,
+  actorRole,
+  relatedType,
+  relatedId,
+}) {
+  const type = enumValue(relatedType || 'general', new Set([
+    'lead',
+    'client',
+    'property',
+    'deal',
+    'general',
+  ]), 'relatedType');
+  const id = optionalString(relatedId);
+  if (type === 'general') {
+    return {
+      relatedType: type,
+      relatedId: '',
+      relatedTitle: '',
+      relatedSubtitle: '',
+    };
+  }
+  if (!id) {
+    throw new HttpsError('failed-precondition', 'Related record is required.');
+  }
+
+  const collection = {
+    lead: 'leads',
+    client: 'clients',
+    property: 'properties',
+    deal: 'deals',
+  }[type];
+  const snapshot = await db.doc(`companies/${companyId}/${collection}/${id}`).get();
+  if (!snapshot.exists) {
+    throw new HttpsError('not-found', 'Related record was not found.');
+  }
+  const record = snapshot.data() || {};
+  if (optionalString(record.companyId) !== companyId) {
+    throw new HttpsError('permission-denied', 'Related record belongs to another company.');
+  }
+  if (type === 'lead' && record.isArchived === true) {
+    throw new HttpsError('failed-precondition', 'Related lead is archived.');
+  }
+  if ((type === 'client' || type === 'deal') && record.isActive === false) {
+    throw new HttpsError('failed-precondition', 'Related record is inactive.');
+  }
+  if (type === 'property' && optionalString(record.status) === 'inactive') {
+    throw new HttpsError('failed-precondition', 'Related property is inactive.');
+  }
+
+  if (actorRole === 'manager') {
+    const managerTeamId = optionalString(actor.teamId);
+    const canRead = optionalString(record.assignedTo) === actorUid ||
+      optionalString(record.managerId) === actorUid ||
+      (managerTeamId && optionalString(record.teamId) === managerTeamId);
+    if (!canRead) {
+      throw new HttpsError('permission-denied', 'You cannot link records outside your team.');
+    }
+  } else if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    if (optionalString(record.assignedTo) !== actorUid) {
+      throw new HttpsError('permission-denied', 'You cannot link another user record.');
+    }
+  }
+
+  return {
+    relatedType: type,
+    relatedId: id,
+    relatedTitle: appointmentRelatedTitle(type, record, id),
+    relatedSubtitle: appointmentRelatedSubtitle(type, record),
+  };
+}
+
+function appointmentRelatedTitle(type, record, fallbackId) {
+  if (type === 'lead' || type === 'client') {
+    return sanitizePlainString(optionalString(record.fullName) || fallbackId, 240);
+  }
+  if (type === 'property') {
+    return sanitizePlainString(optionalString(record.title) || fallbackId, 240);
+  }
+  if (type === 'deal') {
+    const clientName = optionalString(record.clientName);
+    const propertyTitle = optionalString(record.propertyTitle);
+    const title = clientName
+      ? (propertyTitle ? `${clientName} - ${propertyTitle}` : clientName)
+      : propertyTitle;
+    return sanitizePlainString(title || fallbackId, 240);
+  }
+  return '';
+}
+
+function appointmentRelatedSubtitle(type, record) {
+  if (type === 'lead') {
+    return sanitizePlainString(optionalString(record.phone) || optionalString(record.status), 240);
+  }
+  if (type === 'client') {
+    return sanitizePlainString(
+      optionalString(record.phone) || optionalString(record.preferredLocation),
+      240,
+    );
+  }
+  if (type === 'property') {
+    return sanitizePlainString(optionalString(record.location), 240);
+  }
+  if (type === 'deal') {
+    return sanitizePlainString(optionalString(record.stage), 240);
+  }
+  return '';
+}
+
+function buildAppointmentPayload({
+  companyId,
+  appointmentId,
+  appointmentInput,
+  assignedTo,
+  assignee,
+  relatedSnapshot,
+  actorUid,
+  now,
+  existingAppointment,
+  isCreate,
+}) {
+  const type = enumValue(appointmentInput.type, APPOINTMENT_TYPES, 'type');
+  let status = enumValue(appointmentInput.status || 'scheduled', APPOINTMENT_STATUSES, 'status');
+  const scheduledAt = requiredCallableTimestamp(appointmentInput.scheduledAt, 'scheduledAt');
+  const endAt = requiredCallableTimestamp(appointmentInput.endAt, 'endAt');
+  const durationMinutes = numberValue(appointmentInput.durationMinutes, 'durationMinutes');
+  if (durationMinutes <= 0 || durationMinutes > 1440) {
+    throw new HttpsError('invalid-argument', 'Appointment duration is invalid.');
+  }
+  if (endAt.toMillis() <= scheduledAt.toMillis()) {
+    throw new HttpsError('invalid-argument', 'Appointment end time must be after start time.');
+  }
+
+  const previousScheduledAt = existingAppointment && existingAppointment.scheduledAt
+    ? existingAppointment.scheduledAt
+    : null;
+  const previousEndAt = existingAppointment && existingAppointment.endAt
+    ? existingAppointment.endAt
+    : null;
+  const scheduleChanged = existingAppointment &&
+    previousScheduledAt &&
+    previousScheduledAt.toMillis &&
+    previousScheduledAt.toMillis() !== scheduledAt.toMillis();
+  if (scheduleChanged && status === 'scheduled') {
+    status = 'rescheduled';
+  }
+
+  const payload = {
+    id: appointmentId,
+    companyId,
+    title: sanitizePlainString(requiredString(appointmentInput.title, 'title'), 180),
+    type,
+    status,
+    scheduledAt,
+    endAt,
+    durationMinutes,
+    assignedTo,
+    assignedToName: optionalString(assignee.fullName),
+    assignedToEmail: optionalString(assignee.email),
+    teamId: optionalString(assignee.teamId),
+    teamName: optionalString(assignee.teamName),
+    managerId: optionalString(assignee.managerId),
+    managerName: optionalString(assignee.managerName),
+    relatedType: relatedSnapshot.relatedType,
+    relatedId: relatedSnapshot.relatedId,
+    relatedTitle: relatedSnapshot.relatedTitle,
+    relatedSubtitle: relatedSnapshot.relatedSubtitle,
+    location: sanitizePlainString(optionalString(appointmentInput.location), 240),
+    notes: sanitizePlainString(optionalString(appointmentInput.notes), 4000),
+    outcomeNotes: sanitizePlainString(optionalString(appointmentInput.outcomeNotes), 4000),
+    updatedAt: now,
+    updatedBy: actorUid,
+    completedAt: existingAppointment && existingAppointment.completedAt ? existingAppointment.completedAt : null,
+    completedBy: existingAppointment ? optionalString(existingAppointment.completedBy) : '',
+    cancelledAt: existingAppointment && existingAppointment.cancelledAt ? existingAppointment.cancelledAt : null,
+    cancelledBy: existingAppointment ? optionalString(existingAppointment.cancelledBy) : '',
+    missedAt: existingAppointment && existingAppointment.missedAt ? existingAppointment.missedAt : null,
+    missedBy: existingAppointment ? optionalString(existingAppointment.missedBy) : '',
+    rescheduledFrom: existingAppointment && existingAppointment.rescheduledFrom
+      ? existingAppointment.rescheduledFrom
+      : null,
+    previousScheduledAt: existingAppointment && existingAppointment.previousScheduledAt
+      ? existingAppointment.previousScheduledAt
+      : null,
+    previousEndAt: existingAppointment && existingAppointment.previousEndAt
+      ? existingAppointment.previousEndAt
+      : null,
+  };
+
+  if (status === 'completed' && optionalString(payload.completedBy) === '') {
+    payload.completedAt = now;
+    payload.completedBy = actorUid;
+  }
+  if (status === 'cancelled' && optionalString(payload.cancelledBy) === '') {
+    payload.cancelledAt = now;
+    payload.cancelledBy = actorUid;
+  }
+  if (status === 'missed' && optionalString(payload.missedBy) === '') {
+    payload.missedAt = now;
+    payload.missedBy = actorUid;
+  }
+  if (scheduleChanged) {
+    payload.rescheduledFrom = previousScheduledAt;
+    payload.previousScheduledAt = previousScheduledAt;
+    payload.previousEndAt = previousEndAt;
+  }
+
+  if (isCreate) {
+    payload.createdAt = now;
+    payload.createdBy = actorUid;
+    payload.completedAt = status === 'completed' ? now : null;
+    payload.completedBy = status === 'completed' ? actorUid : '';
+    payload.cancelledAt = status === 'cancelled' ? now : null;
+    payload.cancelledBy = status === 'cancelled' ? actorUid : '';
+    payload.missedAt = status === 'missed' ? now : null;
+    payload.missedBy = status === 'missed' ? actorUid : '';
+    payload.rescheduledFrom = null;
+    payload.previousScheduledAt = null;
+    payload.previousEndAt = null;
+  }
+
+  return payload;
+}
+
+async function createAppointmentAssignmentNotifications({
+  companyId,
+  appointmentId,
+  operation,
+  actorUid,
+  actorName,
+  existingAppointment,
+  payload,
+}) {
+  const previousAssignedTo = existingAppointment
+    ? optionalString(existingAppointment.assignedTo)
+    : '';
+  const nextAssignedTo = optionalString(payload.assignedTo);
+  await createAssignmentNotificationsForRecord({
+    companyId,
+    module: 'appointments',
+    recordId: appointmentId,
+    recordTitle: optionalString(payload.title),
+    recordSubtitle: appointmentRecordSubtitle(payload),
+    route: '/appointments',
+    previousRecord: operation === 'create' ? null : existingAppointment,
+    nextRecord: payload,
+    actorUid,
+    actorName,
+    assignedType: previousAssignedTo ? 'appointmentReassigned' : 'appointmentAssigned',
+    removedType: 'appointmentRemovedFromYou',
+    priority: 'normal',
+    metadata: {
+      assignedToName: optionalString(payload.assignedToName),
+      relatedTitle: optionalString(payload.relatedTitle),
+      scheduledAt: firestoreTimestampToIso(payload.scheduledAt),
+    },
+    dedupePrefix: `appointment_assignment_${appointmentId}_${previousAssignedTo}_${nextAssignedTo}`,
+    managerAssignedType: 'teamAppointmentAssigned',
+    managerReassignedType: 'teamAppointmentReassigned',
+  });
+}
+
+async function createAppointmentStatusNotifications({
+  companyId,
+  appointmentId,
+  actorUid,
+  actorName,
+  before,
+  after,
+}) {
+  if (!before) {
+    return;
+  }
+  const previousStatus = optionalString(before.status);
+  const nextStatus = optionalString(after.status);
+  if (!nextStatus || previousStatus === nextStatus) {
+    return;
+  }
+  const userType = appointmentStatusNotificationType(nextStatus);
+  const teamType = teamAppointmentStatusNotificationType(nextStatus);
+  if (!userType || !teamType) {
+    return;
+  }
+  const eventId = Date.now().toString(36);
+  const base = {
+    companyId,
+    module: 'appointments',
+    recordId: appointmentId,
+    recordTitle: optionalString(after.title),
+    recordSubtitle: appointmentRecordSubtitle(after),
+    route: '/appointments',
+    actorUid,
+    actorName,
+    teamId: optionalString(after.teamId),
+    teamName: optionalString(after.teamName),
+    managerId: optionalString(after.managerId),
+    priority: nextStatus === 'cancelled' || nextStatus === 'missed' ? 'high' : 'normal',
+    metadata: {
+      previousStatus,
+      newStatus: nextStatus,
+      assignedToName: optionalString(after.assignedToName),
+      scheduledAt: firestoreTimestampToIso(after.scheduledAt),
+    },
+  };
+  const assignedTo = optionalString(after.assignedTo);
+  if (assignedTo && assignedTo !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: assignedTo,
+      recipientRole: '',
+      type: userType,
+      dedupeKey: `appointment_status_${appointmentId}_${eventId}_${assignedTo}`,
+    });
+  }
+  const managerId = optionalString(after.managerId);
+  if (managerId && managerId !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: managerId,
+      recipientRole: 'manager',
+      type: teamType,
+      dedupeKey: `appointment_status_${appointmentId}_${eventId}_manager_${managerId}`,
+    });
+  }
+}
+
+function appointmentStatusNotificationType(status) {
+  if (status === 'rescheduled') {
+    return 'appointmentRescheduled';
+  }
+  if (status === 'cancelled') {
+    return 'appointmentCancelled';
+  }
+  if (status === 'completed') {
+    return 'appointmentCompleted';
+  }
+  if (status === 'missed') {
+    return 'appointmentMissed';
+  }
+  return '';
+}
+
+function teamAppointmentStatusNotificationType(status) {
+  if (status === 'rescheduled') {
+    return 'teamAppointmentRescheduled';
+  }
+  if (status === 'cancelled') {
+    return 'teamAppointmentCancelled';
+  }
+  if (status === 'completed') {
+    return 'teamAppointmentCompleted';
+  }
+  if (status === 'missed') {
+    return 'teamAppointmentMissed';
+  }
+  return '';
+}
+
+function appointmentRecordSubtitle(appointment) {
+  return optionalString(appointment.relatedTitle) ||
+    optionalString(appointment.relatedSubtitle) ||
+    firestoreTimestampToIso(appointment.scheduledAt);
+}
+
 async function createLeadAssignmentNotifications({
   companyId,
   leadId,
@@ -2546,6 +3194,9 @@ async function createAssignmentNotificationsForRecord({
   priority,
   metadata,
   dedupePrefix,
+  managerAssignedType,
+  managerReassignedType,
+  managerRemovedType,
 }) {
   const previousAssignedTo = previousRecord ? optionalString(previousRecord.assignedTo) : '';
   const nextAssignedTo = optionalString(nextRecord.assignedTo);
@@ -2627,6 +3278,9 @@ async function createAssignmentNotificationsForRecord({
     priority,
     metadata,
     dedupePrefix,
+    managerAssignedType,
+    managerReassignedType,
+    managerRemovedType,
   });
 }
 
@@ -2663,12 +3317,17 @@ async function createManagerAssignmentNotificationsForRecord({
   priority,
   metadata,
   dedupePrefix,
+  managerAssignedType,
+  managerReassignedType,
+  managerRemovedType,
 }) {
   const notificationsByManager = new Map();
 
   if (nextAssignedTo && nextSnapshot.managerId && nextSnapshot.managerId !== actorUid) {
     notificationsByManager.set(nextSnapshot.managerId, {
-      type: previousAssignedTo ? 'teamMemberReassigned' : 'teamMemberAssigned',
+      type: previousAssignedTo
+        ? optionalString(managerReassignedType) || 'teamMemberReassigned'
+        : optionalString(managerAssignedType) || 'teamMemberAssigned',
       teamId: nextSnapshot.teamId,
       teamName: nextSnapshot.teamName,
       managerId: nextSnapshot.managerId,
@@ -2686,7 +3345,9 @@ async function createManagerAssignmentNotificationsForRecord({
   ) {
     const existing = notificationsByManager.get(previousSnapshot.managerId);
     notificationsByManager.set(previousSnapshot.managerId, {
-      type: existing ? 'teamMemberReassigned' : 'teamMemberRemovedFromRecord',
+      type: existing
+        ? optionalString(managerReassignedType) || 'teamMemberReassigned'
+        : optionalString(managerRemovedType) || 'teamMemberRemovedFromRecord',
       teamId: existing ? existing.teamId : previousSnapshot.teamId,
       teamName: existing ? existing.teamName : previousSnapshot.teamName,
       managerId: previousSnapshot.managerId,
@@ -2954,6 +3615,8 @@ async function createCompanyNotification({
   managerId,
   priority,
   metadata,
+  fallbackTitle,
+  fallbackBody,
   dedupeKey,
 }) {
   validateCompanyId(companyId);
@@ -2974,6 +3637,12 @@ async function createCompanyNotification({
   const notificationRef = dedupeKey
     ? db.collection(`companies/${companyId}/notifications`).doc(safeDocumentId(dedupeKey))
     : db.collection(`companies/${companyId}/notifications`).doc();
+  if (dedupeKey) {
+    const existingNotification = await notificationRef.get();
+    if (existingNotification.exists) {
+      return notificationRef.id;
+    }
+  }
   const cleanPriority = NOTIFICATION_PRIORITIES.has(optionalString(priority))
     ? optionalString(priority)
     : 'normal';
@@ -3006,6 +3675,8 @@ async function createCompanyNotification({
     createdAt: now,
     updatedAt: now,
     metadata: safeNotificationMetadata(metadata),
+    fallbackTitle: sanitizePlainString(optionalString(fallbackTitle), 240),
+    fallbackBody: sanitizePlainString(optionalString(fallbackBody), 360),
   };
 
   await notificationRef.set(payload, { merge: false });
@@ -3098,6 +3769,14 @@ function optionalCallableTimestamp(value) {
     return admin.firestore.Timestamp.fromDate(date);
   }
   throw new HttpsError('invalid-argument', 'Date field is invalid.');
+}
+
+function requiredCallableTimestamp(value, field) {
+  const timestamp = optionalCallableTimestamp(value);
+  if (!timestamp) {
+    throw new HttpsError('invalid-argument', `${field} is required.`);
+  }
+  return timestamp;
 }
 
 function validateRole(role) {

@@ -664,6 +664,13 @@ service cloud.firestore {
         || (isViewer(companyId) && activeAssignedRecord(resource.data));
     }
 
+    function canReadAppointment(companyId) {
+      return companyReadableRecord(companyId)
+        || managerScopedRecord(companyId, resource.data)
+        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
+        || (isMarketing(companyId) && activeAssignedRecord(resource.data));
+    }
+
     function canUpdateTask(companyId) {
       return isAdmin(companyId)
         || managerScopedRecord(companyId, resource.data)
@@ -1320,6 +1327,12 @@ service cloud.firestore {
             ['salesAgent', 'marketing']
           );
         allow delete: if false;
+      }
+
+      match /appointments/{appointmentId} {
+        allow get, list: if commonCrmRead(companyId)
+          && canReadAppointment(companyId);
+        allow create, update, delete: if false;
       }
 
       match /deals/{dealId} {

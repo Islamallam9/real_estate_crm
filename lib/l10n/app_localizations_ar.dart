@@ -1313,6 +1313,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardOverdueTasks => 'مهام متأخرة';
 
   @override
+  String get dashboardAppointmentsTitle => 'متابعة المواعيد';
+
+  @override
+  String get nextAppointment => 'الموعد التالي';
+
+  @override
+  String get noUpcomingAppointments => 'لا توجد مواعيد قادمة';
+
+  @override
   String get dashboardUnassignedLeads => 'عملاء محتملون غير مسندين';
 
   @override
@@ -2534,4 +2543,257 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get notificationsUnavailableInPlatform =>
       'إشعارات مبيعات الشركات غير متاحة في وضع المنصة.';
+
+  @override
+  String get appointments => 'المواعيد';
+
+  @override
+  String get appointmentsSubtitle =>
+      'نظم المعاينات والاجتماعات والمكالمات ومتابعات الصفقات في جدول واحد مضبوط.';
+
+  @override
+  String get newAppointment => 'موعد جديد';
+
+  @override
+  String get editAppointment => 'تعديل الموعد';
+
+  @override
+  String get appointmentDetails => 'تفاصيل الموعد';
+
+  @override
+  String get appointmentTitle => 'عنوان الموعد';
+
+  @override
+  String get appointmentType => 'نوع الموعد';
+
+  @override
+  String get appointmentSchedule => 'الجدولة';
+
+  @override
+  String get appointmentNotes => 'الملاحظات والنتيجة';
+
+  @override
+  String get outcomeNotes => 'ملاحظات النتيجة';
+
+  @override
+  String get appointmentTime => 'الوقت';
+
+  @override
+  String get duration => 'المدة';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes دقيقة';
+  }
+
+  @override
+  String get selectAppointmentDate => 'اختر التاريخ';
+
+  @override
+  String get selectStartTime => 'اختر وقت البداية';
+
+  @override
+  String get saveAppointment => 'حفظ الموعد';
+
+  @override
+  String get updateAppointment => 'تحديث الموعد';
+
+  @override
+  String get appointmentDateRequired => 'اختر تاريخ الموعد ووقت البداية.';
+
+  @override
+  String get appointmentDurationRequired =>
+      'يجب أن تكون مدة الموعد أكبر من صفر.';
+
+  @override
+  String get appointmentAssigneeRequired => 'اختر المستخدم المسؤول قبل الحفظ.';
+
+  @override
+  String get appointmentEndAfterStartRequired =>
+      'يجب أن يكون وقت نهاية الموعد بعد وقت البداية.';
+
+  @override
+  String get appointmentSaved => 'تم حفظ الموعد.';
+
+  @override
+  String get appointmentUpdated => 'تم تحديث الموعد.';
+
+  @override
+  String get appointmentCancelled => 'تم إلغاء الموعد.';
+
+  @override
+  String get appointmentCompleted => 'تم إكمال الموعد.';
+
+  @override
+  String get appointmentMissed => 'تم تسجيل الموعد كفائت.';
+
+  @override
+  String get appointmentRescheduled => 'تمت إعادة جدولة الموعد.';
+
+  @override
+  String get appointmentNotFound => 'لم يتم العثور على الموعد.';
+
+  @override
+  String get appointmentAttention => 'تنبيهات المواعيد';
+
+  @override
+  String get todaysAppointments => 'مواعيد اليوم';
+
+  @override
+  String get upcomingAppointments => 'المواعيد القادمة';
+
+  @override
+  String get missedAppointments => 'المواعيد الفائتة';
+
+  @override
+  String get completedAppointments => 'المواعيد المكتملة';
+
+  @override
+  String get cancelledAppointments => 'المواعيد الملغاة';
+
+  @override
+  String get rescheduledAppointments => 'المواعيد المعاد جدولتها';
+
+  @override
+  String get searchAppointments => 'بحث في المواعيد';
+
+  @override
+  String get filterByDate => 'تصفية حسب التاريخ';
+
+  @override
+  String get filterByStatus => 'تصفية حسب الحالة';
+
+  @override
+  String get filterByType => 'تصفية حسب النوع';
+
+  @override
+  String get allAppointments => 'كل المواعيد';
+
+  @override
+  String get allAppointmentTypes => 'كل الأنواع';
+
+  @override
+  String get noAppointmentsYet => 'لا توجد مواعيد بعد';
+
+  @override
+  String get createFirstAppointment => 'أنشئ أول موعد';
+
+  @override
+  String get noAppointmentsMatchFilters => 'لا توجد مواعيد تطابق عوامل التصفية';
+
+  @override
+  String get completeAppointment => 'إكمال الموعد';
+
+  @override
+  String get cancelAppointment => 'إلغاء الموعد';
+
+  @override
+  String get markMissed => 'تسجيل كفائت';
+
+  @override
+  String get reschedule => 'إعادة جدولة';
+
+  @override
+  String get cancelAppointmentConfirmation =>
+      'هل تريد إلغاء هذا الموعد؟ سيبقى السجل محفوظًا في التاريخ.';
+
+  @override
+  String get markMissedConfirmation => 'هل تريد تسجيل هذا الموعد كموعد فائت؟';
+
+  @override
+  String get appointmentTypeCall => 'مكالمة';
+
+  @override
+  String get appointmentTypeMeeting => 'اجتماع';
+
+  @override
+  String get appointmentTypePropertyViewing => 'معاينة عقار';
+
+  @override
+  String get appointmentTypeSiteVisit => 'زيارة موقع';
+
+  @override
+  String get appointmentTypeContractMeeting => 'اجتماع عقد';
+
+  @override
+  String get appointmentTypeReservationMeeting => 'اجتماع حجز';
+
+  @override
+  String get appointmentTypeFollowUp => 'متابعة';
+
+  @override
+  String get appointmentTypeOther => 'أخرى';
+
+  @override
+  String get appointmentStatusScheduled => 'مجدول';
+
+  @override
+  String get appointmentStatusCompleted => 'مكتمل';
+
+  @override
+  String get appointmentStatusCancelled => 'ملغى';
+
+  @override
+  String get appointmentStatusMissed => 'فائت';
+
+  @override
+  String get appointmentStatusRescheduled => 'معاد جدولته';
+
+  @override
+  String get notificationAppointmentAssignedTitle => 'تم إسناد موعد جديد';
+
+  @override
+  String get notificationAppointmentReassignedTitle =>
+      'تمت إعادة إسناد موعد إليك';
+
+  @override
+  String get notificationAppointmentRemovedFromYouTitle =>
+      'تمت إزالة موعد من جدولك';
+
+  @override
+  String get notificationAppointmentRescheduledTitle => 'تمت إعادة جدولة موعد';
+
+  @override
+  String get notificationAppointmentCancelledTitle => 'تم إلغاء موعد';
+
+  @override
+  String get notificationAppointmentCompletedTitle => 'تم إكمال موعد';
+
+  @override
+  String get notificationAppointmentMissedTitle => 'موعد فائت';
+
+  @override
+  String get notificationAppointmentTodayAttentionTitle => 'موعد اليوم';
+
+  @override
+  String get notificationAppointmentDueNowTitle => 'الموعد مستحق الآن';
+
+  @override
+  String get notificationAppointmentMissedAttentionTitle => 'موعد فائت';
+
+  @override
+  String get notificationAppointmentUpcomingSoonTitle => 'موعد قريب';
+
+  @override
+  String get notificationTeamAppointmentAssignedTitle =>
+      'تم إسناد موعد داخل الفريق';
+
+  @override
+  String get notificationTeamAppointmentReassignedTitle =>
+      'تمت إعادة إسناد موعد داخل الفريق';
+
+  @override
+  String get notificationTeamAppointmentRescheduledTitle =>
+      'تمت إعادة جدولة موعد في الفريق';
+
+  @override
+  String get notificationTeamAppointmentCancelledTitle =>
+      'تم إلغاء موعد في الفريق';
+
+  @override
+  String get notificationTeamAppointmentCompletedTitle =>
+      'تم إكمال موعد في الفريق';
+
+  @override
+  String get notificationTeamAppointmentMissedTitle => 'موعد فائت في الفريق';
 }

@@ -5,6 +5,10 @@ enum AttentionReminderType {
   followUpOverdue,
   taskDueToday,
   taskOverdue,
+  appointmentToday,
+  appointmentDueNow,
+  appointmentMissed,
+  appointmentUpcomingSoon,
   unassignedLead,
 }
 

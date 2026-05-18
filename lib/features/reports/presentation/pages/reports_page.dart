@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -1543,32 +1544,12 @@ class _DonutReportCardState extends State<_DonutReportCard>
             builder: (context, _) {
               return Transform.scale(
                 scale: _centerScale.value,
-                child: CustomPaint(
-                  size: const Size.square(82),
-                  painter: _DonutPainter(
-                    segments: widget.segments,
-                    progress: _sweep.value,
-                  ),
-                  child: SizedBox.square(
-                    dimension: 82,
-                    child: Center(
-                      child: TweenAnimationBuilder<double>(
-                        key: ValueKey('report-donut-total-$_signature'),
-                        tween: Tween(begin: 0.0, end: total.toDouble()),
-                        duration: const Duration(milliseconds: 760),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) {
-                          return Text(
-                            value.round().toString(),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                child: _ModernDonutChart(
+                  segments: widget.segments,
+                  progress: _sweep.value,
+                  total: total,
+                  size: 82,
+                  valueKey: 'report-donut-total-$_signature',
                 ),
               );
             },
@@ -1600,6 +1581,82 @@ class _DonutReportCardState extends State<_DonutReportCard>
         ],
       ),
     );
+  }
+}
+
+
+class _ModernDonutChart extends StatelessWidget {
+  const _ModernDonutChart({
+    required this.segments,
+    required this.progress,
+    required this.total,
+    required this.size,
+    required this.valueKey,
+  });
+
+  final List<_ChartSegment> segments;
+  final double progress;
+  final int total;
+  final double size;
+  final String valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: (size / 2) - 18,
+              startDegreeOffset: -90,
+              sections: _pieChartSections(context),
+            ),
+          ),
+          TweenAnimationBuilder<double>(
+            key: ValueKey(valueKey),
+            tween: Tween(begin: 0.0, end: total.toDouble()),
+            duration: const Duration(milliseconds: 760),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return Text(
+                value.round().toString(),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<PieChartSectionData> _pieChartSections(BuildContext context) {
+    final cleanTotal = segments.fold<int>(0, (sum, segment) => sum + segment.value);
+    if (cleanTotal == 0) {
+      return [
+        PieChartSectionData(
+          value: 1,
+          radius: 12,
+          showTitle: false,
+          color: AppColors.borderColor(context),
+        ),
+      ];
+    }
+    return [
+      for (final segment in segments)
+        if (segment.value > 0)
+          PieChartSectionData(
+            value: segment.value * progress,
+            radius: 12,
+            showTitle: false,
+            color: segment.color,
+          ),
+    ];
   }
 }
 

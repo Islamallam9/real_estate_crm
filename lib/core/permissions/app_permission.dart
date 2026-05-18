@@ -23,4 +23,6 @@ enum AppPermission {
   viewReports,
   viewTasks,
   createTask,
+  viewAppointments,
+  createAppointment,
 }

@@ -1,5 +1,5 @@
 abstract final class AppConstants {
 // lib/core/constants/app_constants.dart
-  static const appVersion = '1.3.2';
-  static const appBuildNumber = '12';
+  static const appVersion = '1.4.0';
+  static const appBuildNumber = '13';
 }

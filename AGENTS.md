@@ -107,8 +107,8 @@ For every major user-facing, security, data, or platform phase:
 
 Do not bump version for tiny compile-only fixes unless the user asks.
 
-Current known version after latest Data Health stabilization:
-- Around `1.2.7+9`.
+Current known version after Appointments + Calendar Foundation Phase 1:
+- Around `1.4.0+13`.
 
 ## Firebase structure
 
@@ -465,6 +465,11 @@ Do not claim deployment happened unless the user confirms it.
 ## Current latest known stable fixes
 
 The latest confirmed good state includes:
+- Notifications + Reminders Foundation Phase 1.2 is stable.
+- Saved notifications persist after refresh and read/unread behavior is stable.
+- Manager/team notification routing works and notifications connect assigned users and managers.
+- Appointments + Calendar Foundation Phase 1 added a company-scoped appointments workspace.
+- Appointments support role-scoped schedules, related record snapshots, assignment/team snapshots, status actions, and appointment notifications.
 - Lead create/update/reassign is stabilized through the `saveLeadRecord` Cloud Function.
 - Admin can create/assign/reassign leads company-wide.
 - Manager can assign/reassign only inside own team.
@@ -484,19 +489,17 @@ The latest confirmed good state includes:
 
 ## Recommended next phases
 
-Option A — Notifications + Reminders Foundation:
-- Follow-up reminders.
-- Task due/overdue alerts.
-- Assignment/reassignment notifications.
-- In-app notification center.
-- Disabled Notify Manager placeholders can become real actions.
-- Later browser/FCM notifications.
+Option A — Appointments Phase 1.1 polish:
+- Dashboard appointment cards.
+- Notification-center appointment attention reminders.
+- Global Search appointment results.
+- Appointment detail timeline/audit polish.
 
-Option B — Appointments / Calendar:
+Option B — Calendar depth:
 - Calendar-style appointments/follow-ups.
-- Meeting scheduling.
-- Lead/client/deal related appointments.
-- Optional notification integration after notifications foundation.
+- More advanced appointment grouping.
+- Optional recurring appointments.
+- Later Google/Outlook sync.
 
 Option C — Data Health polish if needed:
 - Repair history.
@@ -505,7 +508,7 @@ Option C — Data Health polish if needed:
 - Notify company admin/manager after Notifications foundation exists.
 
 Recommendation:
-Move to Notifications + Reminders Foundation next unless Data Health testing reveals blocking issues.
+Move to Appointments Phase 1.1 polish next unless Appointments Phase 1 testing reveals blocking issues.
 
 
 ## Latest Data Health ownership rule

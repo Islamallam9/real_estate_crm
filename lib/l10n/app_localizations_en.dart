@@ -1318,6 +1318,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardOverdueTasks => 'Overdue tasks';
 
   @override
+  String get dashboardAppointmentsTitle => 'Appointment control';
+
+  @override
+  String get nextAppointment => 'Next appointment';
+
+  @override
+  String get noUpcomingAppointments => 'No upcoming appointments';
+
+  @override
   String get dashboardUnassignedLeads => 'Unassigned leads';
 
   @override
@@ -2541,4 +2550,263 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationsUnavailableInPlatform =>
       'Tenant sales notifications are not available in platform mode.';
+
+  @override
+  String get appointments => 'Appointments';
+
+  @override
+  String get appointmentsSubtitle =>
+      'Plan viewings, meetings, calls, and deal follow-ups in one controlled schedule.';
+
+  @override
+  String get newAppointment => 'New appointment';
+
+  @override
+  String get editAppointment => 'Edit appointment';
+
+  @override
+  String get appointmentDetails => 'Appointment details';
+
+  @override
+  String get appointmentTitle => 'Appointment title';
+
+  @override
+  String get appointmentType => 'Appointment type';
+
+  @override
+  String get appointmentSchedule => 'Schedule';
+
+  @override
+  String get appointmentNotes => 'Notes and outcome';
+
+  @override
+  String get outcomeNotes => 'Outcome notes';
+
+  @override
+  String get appointmentTime => 'Time';
+
+  @override
+  String get duration => 'Duration';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get selectAppointmentDate => 'Select date';
+
+  @override
+  String get selectStartTime => 'Select start time';
+
+  @override
+  String get saveAppointment => 'Save appointment';
+
+  @override
+  String get updateAppointment => 'Update appointment';
+
+  @override
+  String get appointmentDateRequired =>
+      'Select appointment date and start time.';
+
+  @override
+  String get appointmentDurationRequired =>
+      'Appointment duration must be greater than zero.';
+
+  @override
+  String get appointmentAssigneeRequired =>
+      'Select an assigned user before saving.';
+
+  @override
+  String get appointmentEndAfterStartRequired =>
+      'Appointment end time must be after start time.';
+
+  @override
+  String get appointmentSaved => 'Appointment saved.';
+
+  @override
+  String get appointmentUpdated => 'Appointment updated.';
+
+  @override
+  String get appointmentCancelled => 'Appointment cancelled.';
+
+  @override
+  String get appointmentCompleted => 'Appointment completed.';
+
+  @override
+  String get appointmentMissed => 'Appointment marked missed.';
+
+  @override
+  String get appointmentRescheduled => 'Appointment rescheduled.';
+
+  @override
+  String get appointmentNotFound => 'Appointment was not found.';
+
+  @override
+  String get appointmentAttention => 'Appointment attention';
+
+  @override
+  String get todaysAppointments => 'Today';
+
+  @override
+  String get upcomingAppointments => 'Upcoming';
+
+  @override
+  String get missedAppointments => 'Missed';
+
+  @override
+  String get completedAppointments => 'Completed';
+
+  @override
+  String get cancelledAppointments => 'Cancelled appointments';
+
+  @override
+  String get rescheduledAppointments => 'Rescheduled appointments';
+
+  @override
+  String get searchAppointments => 'Search appointments';
+
+  @override
+  String get filterByDate => 'Filter by date';
+
+  @override
+  String get filterByStatus => 'Filter by status';
+
+  @override
+  String get filterByType => 'Filter by type';
+
+  @override
+  String get allAppointments => 'All appointments';
+
+  @override
+  String get allAppointmentTypes => 'All types';
+
+  @override
+  String get noAppointmentsYet => 'No appointments yet';
+
+  @override
+  String get createFirstAppointment => 'Create the first appointment';
+
+  @override
+  String get noAppointmentsMatchFilters => 'No appointments match filters';
+
+  @override
+  String get completeAppointment => 'Complete appointment';
+
+  @override
+  String get cancelAppointment => 'Cancel appointment';
+
+  @override
+  String get markMissed => 'Mark missed';
+
+  @override
+  String get reschedule => 'Reschedule';
+
+  @override
+  String get cancelAppointmentConfirmation =>
+      'Cancel this appointment? The record will stay in history.';
+
+  @override
+  String get markMissedConfirmation => 'Mark this appointment as missed?';
+
+  @override
+  String get appointmentTypeCall => 'Call';
+
+  @override
+  String get appointmentTypeMeeting => 'Meeting';
+
+  @override
+  String get appointmentTypePropertyViewing => 'Property viewing';
+
+  @override
+  String get appointmentTypeSiteVisit => 'Site visit';
+
+  @override
+  String get appointmentTypeContractMeeting => 'Contract meeting';
+
+  @override
+  String get appointmentTypeReservationMeeting => 'Reservation meeting';
+
+  @override
+  String get appointmentTypeFollowUp => 'Follow-up';
+
+  @override
+  String get appointmentTypeOther => 'Other';
+
+  @override
+  String get appointmentStatusScheduled => 'Scheduled';
+
+  @override
+  String get appointmentStatusCompleted => 'Completed';
+
+  @override
+  String get appointmentStatusCancelled => 'Cancelled';
+
+  @override
+  String get appointmentStatusMissed => 'Missed';
+
+  @override
+  String get appointmentStatusRescheduled => 'Rescheduled';
+
+  @override
+  String get notificationAppointmentAssignedTitle => 'New appointment assigned';
+
+  @override
+  String get notificationAppointmentReassignedTitle =>
+      'Appointment reassigned to you';
+
+  @override
+  String get notificationAppointmentRemovedFromYouTitle =>
+      'Appointment removed from your schedule';
+
+  @override
+  String get notificationAppointmentRescheduledTitle =>
+      'Appointment rescheduled';
+
+  @override
+  String get notificationAppointmentCancelledTitle => 'Appointment cancelled';
+
+  @override
+  String get notificationAppointmentCompletedTitle => 'Appointment completed';
+
+  @override
+  String get notificationAppointmentMissedTitle => 'Appointment missed';
+
+  @override
+  String get notificationAppointmentTodayAttentionTitle => 'Appointment today';
+
+  @override
+  String get notificationAppointmentDueNowTitle => 'Appointment due now';
+
+  @override
+  String get notificationAppointmentMissedAttentionTitle =>
+      'Missed appointment';
+
+  @override
+  String get notificationAppointmentUpcomingSoonTitle =>
+      'Appointment coming up';
+
+  @override
+  String get notificationTeamAppointmentAssignedTitle =>
+      'Team appointment assigned';
+
+  @override
+  String get notificationTeamAppointmentReassignedTitle =>
+      'Team appointment reassigned';
+
+  @override
+  String get notificationTeamAppointmentRescheduledTitle =>
+      'Team appointment rescheduled';
+
+  @override
+  String get notificationTeamAppointmentCancelledTitle =>
+      'Team appointment cancelled';
+
+  @override
+  String get notificationTeamAppointmentCompletedTitle =>
+      'Team appointment completed';
+
+  @override
+  String get notificationTeamAppointmentMissedTitle =>
+      'Team appointment missed';
 }

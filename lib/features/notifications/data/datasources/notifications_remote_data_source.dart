@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/constants/notification_limits.dart';
 import '../../domain/entities/attention_reminder.dart';
@@ -117,14 +118,37 @@ class FirestoreNotificationsRemoteDataSource
     final controller = StreamController<List<AttentionReminder>>();
     List<AttentionReminder> latestLeadReminders = const [];
     List<AttentionReminder> latestTaskReminders = const [];
+    List<AttentionReminder> latestAppointmentReminders = const [];
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> latestAppointmentDocs =
+        const [];
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? leadsSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? tasksSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? appointmentsSub;
+    Timer? appointmentTicker;
 
     void emitCombined() {
-      final reminders = [...latestLeadReminders, ...latestTaskReminders];
+      final reminders = [
+        ...latestAppointmentReminders,
+        ...latestLeadReminders,
+        ...latestTaskReminders,
+      ];
       reminders.sort(_compareReminderUrgency);
       if (!controller.isClosed) {
         controller.add(reminders.take(limit).toList());
+      }
+    }
+
+    void refreshAppointmentReminders() {
+      try {
+        latestAppointmentReminders = _appointmentRemindersFromDocs(
+          latestAppointmentDocs,
+          companyId: companyId,
+        );
+        emitCombined();
+      } catch (error) {
+        if (!controller.isClosed) {
+          controller.addError(NotificationException(_mapFirestoreError(error)));
+        }
       }
     }
 
@@ -171,9 +195,34 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
+    appointmentsSub = _appointmentReminderQuery(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      limit: limit,
+    ).snapshots().listen(
+      (snapshot) {
+        latestAppointmentDocs = snapshot.docs;
+        refreshAppointmentReminders();
+      },
+      onError: (Object error) {
+        if (!controller.isClosed) {
+          controller.addError(NotificationException(_mapFirestoreError(error)));
+        }
+      },
+    );
+
+    appointmentTicker = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => refreshAppointmentReminders(),
+    );
+
     controller.onCancel = () async {
+      appointmentTicker?.cancel();
       await leadsSub?.cancel();
       await tasksSub?.cancel();
+      await appointmentsSub?.cancel();
     };
 
     return controller.stream;
@@ -270,6 +319,27 @@ class FirestoreNotificationsRemoteDataSource
   }) {
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyTasks(companyId),
+    );
+    if (role == UserRole.manager) {
+      final teamId = (managerTeamId ?? '').trim();
+      query = teamId.isNotEmpty
+          ? query.where('teamId', isEqualTo: teamId)
+          : query.where('managerId', isEqualTo: currentUserId);
+    } else if (role == UserRole.salesAgent || role == UserRole.marketing) {
+      query = query.where('assignedTo', isEqualTo: currentUserId);
+    }
+    return query.limit(limit);
+  }
+
+  Query<Map<String, dynamic>> _appointmentReminderQuery({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    required int limit,
+  }) {
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      FirebasePaths.companyAppointments(companyId),
     );
     if (role == UserRole.manager) {
       final teamId = (managerTeamId ?? '').trim();
@@ -390,6 +460,78 @@ class FirestoreNotificationsRemoteDataSource
     return reminders;
   }
 
+  List<AttentionReminder> _appointmentRemindersFromDocs(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> documents, {
+    required String companyId,
+  }) {
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    final soonCutoff = now.add(const Duration(hours: 2));
+    final reminders = <AttentionReminder>[];
+    for (final document in documents) {
+      final data = document.data();
+      if ((data['companyId'] as String? ?? '') != companyId) {
+        throw const NotificationException(AppErrorMessages.permissionDenied);
+      }
+      final status = data['status'] as String? ?? '';
+      if (status == 'completed' || status == 'cancelled') {
+        continue;
+      }
+      final scheduledAt = _dateTimeFromValue(data['scheduledAt']);
+      if (scheduledAt == null) {
+        continue;
+      }
+      final endAt = _dateTimeFromValue(data['endAt']) ?? scheduledAt;
+      final scheduledDay = _dateOnly(scheduledAt);
+      final isStoredMissed = status == 'missed';
+      final isOverdueScheduled =
+          status == 'scheduled' && endAt.toLocal().isBefore(now);
+      final isDueNow = status == 'scheduled' &&
+          !scheduledAt.toLocal().isAfter(now) &&
+          !endAt.toLocal().isBefore(now);
+      final isUpcomingSoon =
+          scheduledAt.toLocal().isAfter(now) &&
+          scheduledAt.toLocal().isBefore(soonCutoff);
+      final isToday = scheduledDay == today;
+
+      AttentionReminderType? type;
+      if (isStoredMissed || isOverdueScheduled) {
+        type = AttentionReminderType.appointmentMissed;
+      } else if (isDueNow) {
+        type = AttentionReminderType.appointmentDueNow;
+      } else if (isUpcomingSoon) {
+        type = AttentionReminderType.appointmentUpcomingSoon;
+      } else if (isToday) {
+        type = AttentionReminderType.appointmentToday;
+      }
+      if (type == null) {
+        continue;
+      }
+
+      final relatedTitle = data['relatedTitle'] as String? ?? '';
+      final relatedSubtitle = data['relatedSubtitle'] as String? ?? '';
+      final location = data['location'] as String? ?? '';
+      reminders.add(
+        AttentionReminder(
+          id: 'appointment-${document.id}-${type.name}',
+          type: type,
+          module: 'appointments',
+          recordId: document.id,
+          recordTitle: data['title'] as String? ?? '',
+          recordSubtitle: relatedTitle.trim().isNotEmpty
+              ? relatedTitle
+              : relatedSubtitle.trim().isNotEmpty
+                  ? relatedSubtitle
+                  : location,
+          route: RouteNames.appointments,
+          dueAt: scheduledAt,
+          assignedToName: data['assignedToName'] as String? ?? '',
+        ),
+      );
+    }
+    return reminders;
+  }
+
   CollectionReference<Map<String, dynamic>> _notificationsCollection(
     String companyId,
   ) {
@@ -438,11 +580,15 @@ int _compareReminderUrgency(AttentionReminder a, AttentionReminder b) {
 
 int _reminderGroup(AttentionReminder reminder) {
   return switch (reminder.type) {
-    AttentionReminderType.followUpOverdue => 0,
-    AttentionReminderType.taskOverdue => 1,
-    AttentionReminderType.unassignedLead => 2,
-    AttentionReminderType.followUpDueToday => 3,
-    AttentionReminderType.taskDueToday => 4,
+    AttentionReminderType.appointmentMissed => 0,
+    AttentionReminderType.appointmentDueNow => 1,
+    AttentionReminderType.followUpOverdue => 2,
+    AttentionReminderType.taskOverdue => 3,
+    AttentionReminderType.unassignedLead => 4,
+    AttentionReminderType.appointmentUpcomingSoon => 5,
+    AttentionReminderType.appointmentToday => 6,
+    AttentionReminderType.followUpDueToday => 7,
+    AttentionReminderType.taskDueToday => 8,
   };
 }
 

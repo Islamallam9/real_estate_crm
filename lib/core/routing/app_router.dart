@@ -23,6 +23,9 @@ import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
 import '../../features/leads/presentation/pages/leads_list_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../features/appointments/presentation/pages/appointments_page.dart';
+import '../../features/appointments/presentation/pages/create_appointment_page.dart';
+import '../../features/appointments/presentation/pages/edit_appointment_page.dart';
 import '../../features/properties/presentation/pages/create_property_page.dart';
 import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/property_details_page.dart';
@@ -128,6 +131,10 @@ abstract final class AppRouter {
           builder: (context, state) => const TasksPage(),
         ),
         GoRoute(
+          path: RouteNames.appointments,
+          builder: (context, state) => const AppointmentsPage(),
+        ),
+        GoRoute(
           path: RouteNames.deals,
           builder: (context, state) => const DealsPage(),
         ),
@@ -193,6 +200,18 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.tasksCreate,
           builder: (context, state) => const CreateTaskPage(),
+        ),
+        GoRoute(
+          path: RouteNames.appointmentsCreate,
+          builder: (context, state) => const CreateAppointmentPage(),
+        ),
+        GoRoute(
+          path: '/appointments/:appointmentId/edit',
+          builder: (context, state) {
+            return EditAppointmentPage(
+              appointmentId: state.pathParameters['appointmentId'] ?? '',
+            );
+          },
         ),
         GoRoute(
           path: '/tasks/:taskId/edit',

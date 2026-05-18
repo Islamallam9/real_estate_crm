@@ -3873,6 +3873,7 @@ String _moduleLabel(AppLocalizations l, String module) {
     'clients' => l.clients,
     'properties' => l.properties,
     'tasks' => l.tasks,
+    'appointments' => l.appointments,
     'deals' => l.deals,
     _ => module,
   };
@@ -3936,6 +3937,7 @@ const _featureKeys = [
   'clients',
   'properties',
   'tasks',
+  'appointments',
   'deals',
   'reports',
   'auditLogs',
@@ -3948,6 +3950,7 @@ String _featureLabel(AppLocalizations l, String feature) {
     'clients' => l.clients,
     'properties' => l.properties,
     'tasks' => l.tasks,
+    'appointments' => l.appointments,
     'deals' => l.deals,
     'reports' => l.reports,
     'auditLogs' => l.auditLogs,

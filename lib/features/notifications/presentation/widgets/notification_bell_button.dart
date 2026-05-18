@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/constants/notification_limits.dart';
+import '../../domain/entities/attention_reminder.dart';
 import '../cubit/notifications_cubit.dart';
 import '../cubit/notifications_state.dart';
 import 'notification_cards.dart';
@@ -53,11 +54,14 @@ class NotificationBellButton extends StatelessWidget {
     }
     return BlocBuilder<NotificationsCubit, NotificationsState>(
       buildWhen: (previous, current) =>
-          previous.unreadCount != current.unreadCount,
+          previous.unreadCount != current.unreadCount ||
+          previous.reminders != current.reminders,
       builder: (context, state) {
+        final badgeCount = state.unreadCount +
+            _criticalAttentionBadgeCount(state.reminders);
         return _BellIconButton(
           compact: compact,
-          unreadCount: state.unreadCount,
+          unreadCount: badgeCount,
           onPressed: () {
             final width = MediaQuery.sizeOf(context).width;
             if (width < 720) {
@@ -75,6 +79,13 @@ class NotificationBellButton extends StatelessWidget {
       },
     );
   }
+}
+
+int _criticalAttentionBadgeCount(List<AttentionReminder> reminders) {
+  return reminders.where((reminder) {
+    return reminder.type == AttentionReminderType.appointmentDueNow ||
+        reminder.type == AttentionReminderType.appointmentMissed;
+  }).length;
 }
 
 class _BellIconButton extends StatelessWidget {
@@ -400,6 +411,8 @@ void _openRoute(BuildContext context, String route) {
 bool _isAllowedNotificationRoute(String route) {
   return route == RouteNames.dashboard ||
       route == RouteNames.dataHealth ||
+      route == RouteNames.appointments ||
+      route.startsWith('/appointments/') ||
       route.startsWith('/leads/') ||
       route.startsWith('/tasks/') ||
       route.startsWith('/deals/') ||

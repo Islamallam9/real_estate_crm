@@ -2570,6 +2570,24 @@ abstract class AppLocalizations {
   /// **'Overdue tasks'**
   String get dashboardOverdueTasks;
 
+  /// No description provided for @dashboardAppointmentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment control'**
+  String get dashboardAppointmentsTitle;
+
+  /// No description provided for @nextAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Next appointment'**
+  String get nextAppointment;
+
+  /// No description provided for @noUpcomingAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'No upcoming appointments'**
+  String get noUpcomingAppointments;
+
   /// No description provided for @dashboardUnassignedLeads.
   ///
   /// In en, this message translates to:
@@ -4786,6 +4804,486 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tenant sales notifications are not available in platform mode.'**
   String get notificationsUnavailableInPlatform;
+
+  /// No description provided for @appointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments'**
+  String get appointments;
+
+  /// No description provided for @appointmentsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan viewings, meetings, calls, and deal follow-ups in one controlled schedule.'**
+  String get appointmentsSubtitle;
+
+  /// No description provided for @newAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'New appointment'**
+  String get newAppointment;
+
+  /// No description provided for @editAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit appointment'**
+  String get editAppointment;
+
+  /// No description provided for @appointmentDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment details'**
+  String get appointmentDetails;
+
+  /// No description provided for @appointmentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment title'**
+  String get appointmentTitle;
+
+  /// No description provided for @appointmentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment type'**
+  String get appointmentType;
+
+  /// No description provided for @appointmentSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule'**
+  String get appointmentSchedule;
+
+  /// No description provided for @appointmentNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes and outcome'**
+  String get appointmentNotes;
+
+  /// No description provided for @outcomeNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Outcome notes'**
+  String get outcomeNotes;
+
+  /// No description provided for @appointmentTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get appointmentTime;
+
+  /// No description provided for @duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get duration;
+
+  /// No description provided for @durationMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String durationMinutes(int minutes);
+
+  /// No description provided for @selectAppointmentDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select date'**
+  String get selectAppointmentDate;
+
+  /// No description provided for @selectStartTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Select start time'**
+  String get selectStartTime;
+
+  /// No description provided for @saveAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Save appointment'**
+  String get saveAppointment;
+
+  /// No description provided for @updateAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Update appointment'**
+  String get updateAppointment;
+
+  /// No description provided for @appointmentDateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select appointment date and start time.'**
+  String get appointmentDateRequired;
+
+  /// No description provided for @appointmentDurationRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment duration must be greater than zero.'**
+  String get appointmentDurationRequired;
+
+  /// No description provided for @appointmentAssigneeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an assigned user before saving.'**
+  String get appointmentAssigneeRequired;
+
+  /// No description provided for @appointmentEndAfterStartRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment end time must be after start time.'**
+  String get appointmentEndAfterStartRequired;
+
+  /// No description provided for @appointmentSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment saved.'**
+  String get appointmentSaved;
+
+  /// No description provided for @appointmentUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment updated.'**
+  String get appointmentUpdated;
+
+  /// No description provided for @appointmentCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment cancelled.'**
+  String get appointmentCancelled;
+
+  /// No description provided for @appointmentCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment completed.'**
+  String get appointmentCompleted;
+
+  /// No description provided for @appointmentMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment marked missed.'**
+  String get appointmentMissed;
+
+  /// No description provided for @appointmentRescheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment rescheduled.'**
+  String get appointmentRescheduled;
+
+  /// No description provided for @appointmentNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment was not found.'**
+  String get appointmentNotFound;
+
+  /// No description provided for @appointmentAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment attention'**
+  String get appointmentAttention;
+
+  /// No description provided for @todaysAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get todaysAppointments;
+
+  /// No description provided for @upcomingAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get upcomingAppointments;
+
+  /// No description provided for @missedAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get missedAppointments;
+
+  /// No description provided for @completedAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completedAppointments;
+
+  /// No description provided for @cancelledAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled appointments'**
+  String get cancelledAppointments;
+
+  /// No description provided for @rescheduledAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescheduled appointments'**
+  String get rescheduledAppointments;
+
+  /// No description provided for @searchAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Search appointments'**
+  String get searchAppointments;
+
+  /// No description provided for @filterByDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by date'**
+  String get filterByDate;
+
+  /// No description provided for @filterByStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by status'**
+  String get filterByStatus;
+
+  /// No description provided for @filterByType.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by type'**
+  String get filterByType;
+
+  /// No description provided for @allAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'All appointments'**
+  String get allAppointments;
+
+  /// No description provided for @allAppointmentTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All types'**
+  String get allAppointmentTypes;
+
+  /// No description provided for @noAppointmentsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments yet'**
+  String get noAppointmentsYet;
+
+  /// No description provided for @createFirstAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the first appointment'**
+  String get createFirstAppointment;
+
+  /// No description provided for @noAppointmentsMatchFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments match filters'**
+  String get noAppointmentsMatchFilters;
+
+  /// No description provided for @completeAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete appointment'**
+  String get completeAppointment;
+
+  /// No description provided for @cancelAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel appointment'**
+  String get cancelAppointment;
+
+  /// No description provided for @markMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark missed'**
+  String get markMissed;
+
+  /// No description provided for @reschedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Reschedule'**
+  String get reschedule;
+
+  /// No description provided for @cancelAppointmentConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this appointment? The record will stay in history.'**
+  String get cancelAppointmentConfirmation;
+
+  /// No description provided for @markMissedConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark this appointment as missed?'**
+  String get markMissedConfirmation;
+
+  /// No description provided for @appointmentTypeCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get appointmentTypeCall;
+
+  /// No description provided for @appointmentTypeMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting'**
+  String get appointmentTypeMeeting;
+
+  /// No description provided for @appointmentTypePropertyViewing.
+  ///
+  /// In en, this message translates to:
+  /// **'Property viewing'**
+  String get appointmentTypePropertyViewing;
+
+  /// No description provided for @appointmentTypeSiteVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Site visit'**
+  String get appointmentTypeSiteVisit;
+
+  /// No description provided for @appointmentTypeContractMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Contract meeting'**
+  String get appointmentTypeContractMeeting;
+
+  /// No description provided for @appointmentTypeReservationMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reservation meeting'**
+  String get appointmentTypeReservationMeeting;
+
+  /// No description provided for @appointmentTypeFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up'**
+  String get appointmentTypeFollowUp;
+
+  /// No description provided for @appointmentTypeOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get appointmentTypeOther;
+
+  /// No description provided for @appointmentStatusScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get appointmentStatusScheduled;
+
+  /// No description provided for @appointmentStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get appointmentStatusCompleted;
+
+  /// No description provided for @appointmentStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get appointmentStatusCancelled;
+
+  /// No description provided for @appointmentStatusMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get appointmentStatusMissed;
+
+  /// No description provided for @appointmentStatusRescheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescheduled'**
+  String get appointmentStatusRescheduled;
+
+  /// No description provided for @notificationAppointmentAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New appointment assigned'**
+  String get notificationAppointmentAssignedTitle;
+
+  /// No description provided for @notificationAppointmentReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment reassigned to you'**
+  String get notificationAppointmentReassignedTitle;
+
+  /// No description provided for @notificationAppointmentRemovedFromYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment removed from your schedule'**
+  String get notificationAppointmentRemovedFromYouTitle;
+
+  /// No description provided for @notificationAppointmentRescheduledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment rescheduled'**
+  String get notificationAppointmentRescheduledTitle;
+
+  /// No description provided for @notificationAppointmentCancelledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment cancelled'**
+  String get notificationAppointmentCancelledTitle;
+
+  /// No description provided for @notificationAppointmentCompletedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment completed'**
+  String get notificationAppointmentCompletedTitle;
+
+  /// No description provided for @notificationAppointmentMissedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment missed'**
+  String get notificationAppointmentMissedTitle;
+
+  /// No description provided for @notificationAppointmentTodayAttentionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment today'**
+  String get notificationAppointmentTodayAttentionTitle;
+
+  /// No description provided for @notificationAppointmentDueNowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment due now'**
+  String get notificationAppointmentDueNowTitle;
+
+  /// No description provided for @notificationAppointmentMissedAttentionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed appointment'**
+  String get notificationAppointmentMissedAttentionTitle;
+
+  /// No description provided for @notificationAppointmentUpcomingSoonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment coming up'**
+  String get notificationAppointmentUpcomingSoonTitle;
+
+  /// No description provided for @notificationTeamAppointmentAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment assigned'**
+  String get notificationTeamAppointmentAssignedTitle;
+
+  /// No description provided for @notificationTeamAppointmentReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment reassigned'**
+  String get notificationTeamAppointmentReassignedTitle;
+
+  /// No description provided for @notificationTeamAppointmentRescheduledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment rescheduled'**
+  String get notificationTeamAppointmentRescheduledTitle;
+
+  /// No description provided for @notificationTeamAppointmentCancelledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment cancelled'**
+  String get notificationTeamAppointmentCancelledTitle;
+
+  /// No description provided for @notificationTeamAppointmentCompletedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment completed'**
+  String get notificationTeamAppointmentCompletedTitle;
+
+  /// No description provided for @notificationTeamAppointmentMissedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment missed'**
+  String get notificationTeamAppointmentMissedTitle;
 }
 
 class _AppLocalizationsDelegate

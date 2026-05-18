@@ -620,6 +620,8 @@ void _openRoute(BuildContext context, String route) {
 bool _isAllowedNotificationRoute(String route) {
   return route == RouteNames.dashboard ||
       route == RouteNames.dataHealth ||
+      route == RouteNames.appointments ||
+      route.startsWith('/appointments/') ||
       route.startsWith('/leads/') ||
       route.startsWith('/tasks/') ||
       route.startsWith('/deals/') ||
