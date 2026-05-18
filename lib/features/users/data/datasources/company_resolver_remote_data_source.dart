@@ -29,9 +29,16 @@ class FirestoreCompanyResolverRemoteDataSource
           .get();
 
       final platformAdminDocument = await platformAdminFuture;
+      final platformAdminData = platformAdminDocument.data();
       final isPlatformAdmin =
           platformAdminDocument.exists &&
-          (platformAdminDocument.data()?['isActive'] as bool? ?? false);
+          (platformAdminData?['isActive'] as bool? ?? false);
+      final platformFullName = isPlatformAdmin
+          ? (platformAdminData?['fullName'] as String? ?? '')
+          : '';
+      final platformPhotoUrl = isPlatformAdmin
+          ? (platformAdminData?['photoUrl'] as String? ?? '')
+          : '';
 
       final membershipsSnapshot = await membershipsFuture;
       final memberships =
@@ -45,7 +52,11 @@ class FirestoreCompanyResolverRemoteDataSource
             ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
       if (memberships.isEmpty) {
-        return AuthCompanyResolution(isPlatformAdmin: isPlatformAdmin);
+        return AuthCompanyResolution(
+          isPlatformAdmin: isPlatformAdmin,
+          platformFullName: platformFullName,
+          platformPhotoUrl: platformPhotoUrl,
+        );
       }
 
       final membership = memberships.first;
@@ -57,6 +68,8 @@ class FirestoreCompanyResolverRemoteDataSource
         return AuthCompanyResolution(
           isPlatformAdmin: isPlatformAdmin,
           membership: membership,
+          platformFullName: platformFullName,
+          platformPhotoUrl: platformPhotoUrl,
         );
       }
 
@@ -64,6 +77,8 @@ class FirestoreCompanyResolverRemoteDataSource
         isPlatformAdmin: isPlatformAdmin,
         membership: membership,
         company: CompanyMetadataModel.fromFirestore(companyDocument),
+        platformFullName: platformFullName,
+        platformPhotoUrl: platformPhotoUrl,
       );
     } on FirebaseException catch (error) {
       throw UserProfileException(_mapFirestoreError(error));

@@ -129,6 +129,14 @@ class _CreateDealView extends StatelessWidget {
                                   isSaving: isSaving,
                                   submitLabel: l.createDeal,
                                   onSubmit: (deal) {
+                                    if (role == UserRole.manager &&
+                                        deal.managerId.trim() != user.uid) {
+                                      AppFeedback.warning(
+                                        context,
+                                        l.canOnlyAssignRecordsToYourTeam,
+                                      );
+                                      return;
+                                    }
                                     context.read<DealsCubit>().createDeal(
                                       companyId: userProfile.companyId,
                                       deal: deal,

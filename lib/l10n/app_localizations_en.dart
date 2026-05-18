@@ -180,6 +180,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load recent activity.';
 
   @override
+  String get teamRecentActivity => 'Team Recent Activity';
+
+  @override
+  String get teamRecentActivitySubtitle =>
+      'Latest logged CRM changes for your team.';
+
+  @override
+  String get noRecentTeamActivity => 'No recent team activity yet.';
+
+  @override
   String dashboardAuditActionLabel(Object module, Object action) {
     return '$module · $action';
   }
@@ -1021,6 +1031,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'You can only assign records to users in your team.';
 
   @override
+  String get selectedAssigneeInactive => 'The selected assignee is inactive.';
+
+  @override
+  String get selectedAssigneeNotEligible =>
+      'The selected assignee is not eligible for this record.';
+
+  @override
+  String get permissionToViewAnotherTeamRecordsDenied =>
+      'You do not have permission to view records from another team.';
+
+  @override
+  String get sessionOrCompanyProfileMissing =>
+      'Your session or company profile is missing. Please sign in again.';
+
+  @override
   String get cannotAssignAcrossCompanies =>
       'Cannot assign a lead outside your company.';
 
@@ -1600,6 +1625,50 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get companySettings => 'Company settings';
+
+  @override
+  String get dataHealth => 'Data health';
+
+  @override
+  String get runDataHealthCheck => 'Run data health check';
+
+  @override
+  String get dataHealthNotRun => 'No data health report yet';
+
+  @override
+  String get dataHealthNotRunMessage =>
+      'Run a company-scoped check to find missing assignment snapshots and invalid assignees.';
+
+  @override
+  String get dataHealthClean => 'No assignment issues found';
+
+  @override
+  String get dataHealthCleanMessage =>
+      'The scanned records are consistent with the current assignee policy.';
+
+  @override
+  String get dataHealthAffectedRecords => 'Affected records';
+
+  @override
+  String get missingSnapshots => 'Missing snapshots';
+
+  @override
+  String get invalidAssignees => 'Invalid assignees';
+
+  @override
+  String get inactiveAssignees => 'Inactive assignees';
+
+  @override
+  String get staleTeamSnapshots => 'Stale team snapshots';
+
+  @override
+  String get missingAssignee => 'Missing assignee';
+
+  @override
+  String get safeBackfillAvailable => 'Safe backfill';
+
+  @override
+  String get manualReview => 'Manual review';
 
   @override
   String get editCompanySettings => 'Edit company settings';

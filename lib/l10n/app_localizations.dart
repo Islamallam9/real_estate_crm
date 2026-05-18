@@ -428,6 +428,24 @@ abstract class AppLocalizations {
   /// **'Unable to load recent activity.'**
   String get dashboardUnableToLoadRecentActivity;
 
+  /// No description provided for @teamRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Team Recent Activity'**
+  String get teamRecentActivity;
+
+  /// No description provided for @teamRecentActivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest logged CRM changes for your team.'**
+  String get teamRecentActivitySubtitle;
+
+  /// No description provided for @noRecentTeamActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent team activity yet.'**
+  String get noRecentTeamActivity;
+
   /// No description provided for @dashboardAuditActionLabel.
   ///
   /// In en, this message translates to:
@@ -2036,6 +2054,30 @@ abstract class AppLocalizations {
   /// **'You can only assign records to users in your team.'**
   String get canOnlyAssignRecordsToYourTeam;
 
+  /// No description provided for @selectedAssigneeInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected assignee is inactive.'**
+  String get selectedAssigneeInactive;
+
+  /// No description provided for @selectedAssigneeNotEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected assignee is not eligible for this record.'**
+  String get selectedAssigneeNotEligible;
+
+  /// No description provided for @permissionToViewAnotherTeamRecordsDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to view records from another team.'**
+  String get permissionToViewAnotherTeamRecordsDenied;
+
+  /// No description provided for @sessionOrCompanyProfileMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session or company profile is missing. Please sign in again.'**
+  String get sessionOrCompanyProfileMissing;
+
   /// No description provided for @cannotAssignAcrossCompanies.
   ///
   /// In en, this message translates to:
@@ -3133,6 +3175,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Company settings'**
   String get companySettings;
+
+  /// No description provided for @dataHealth.
+  ///
+  /// In en, this message translates to:
+  /// **'Data health'**
+  String get dataHealth;
+
+  /// No description provided for @runDataHealthCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Run data health check'**
+  String get runDataHealthCheck;
+
+  /// No description provided for @dataHealthNotRun.
+  ///
+  /// In en, this message translates to:
+  /// **'No data health report yet'**
+  String get dataHealthNotRun;
+
+  /// No description provided for @dataHealthNotRunMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a company-scoped check to find missing assignment snapshots and invalid assignees.'**
+  String get dataHealthNotRunMessage;
+
+  /// No description provided for @dataHealthClean.
+  ///
+  /// In en, this message translates to:
+  /// **'No assignment issues found'**
+  String get dataHealthClean;
+
+  /// No description provided for @dataHealthCleanMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The scanned records are consistent with the current assignee policy.'**
+  String get dataHealthCleanMessage;
+
+  /// No description provided for @dataHealthAffectedRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Affected records'**
+  String get dataHealthAffectedRecords;
+
+  /// No description provided for @missingSnapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing snapshots'**
+  String get missingSnapshots;
+
+  /// No description provided for @invalidAssignees.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid assignees'**
+  String get invalidAssignees;
+
+  /// No description provided for @inactiveAssignees.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive assignees'**
+  String get inactiveAssignees;
+
+  /// No description provided for @staleTeamSnapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Stale team snapshots'**
+  String get staleTeamSnapshots;
+
+  /// No description provided for @missingAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing assignee'**
+  String get missingAssignee;
+
+  /// No description provided for @safeBackfillAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe backfill'**
+  String get safeBackfillAvailable;
+
+  /// No description provided for @manualReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual review'**
+  String get manualReview;
 
   /// No description provided for @editCompanySettings.
   ///

@@ -8,6 +8,8 @@ abstract interface class AuditLogRepository {
 
   Stream<List<AuditLog>> watchAuditLogs({
     required String companyId,
+    String? managerId,
+    String? teamId,
     int limit,
   });
 }

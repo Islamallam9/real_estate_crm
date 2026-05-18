@@ -23,10 +23,14 @@ class AuditLogRepositoryImpl implements AuditLogRepository {
   @override
   Stream<List<AuditLog>> watchAuditLogs({
     required String companyId,
+    String? managerId,
+    String? teamId,
     int limit = 20,
   }) {
     return _remoteDataSource.watchAuditLogs(
       companyId: companyId,
+      managerId: managerId,
+      teamId: teamId,
       limit: limit,
     ).map((logs) => List<AuditLog>.unmodifiable(logs));
   }

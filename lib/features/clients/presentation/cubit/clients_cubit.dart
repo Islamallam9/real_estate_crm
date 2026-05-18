@@ -219,6 +219,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           metadata: {
             'assignedTo': createdClient.assignedTo,
             'assignedToName': createdClient.assignedToName,
+            'teamId': createdClient.teamId,
+            'teamName': createdClient.teamName,
+            'managerId': createdClient.managerId,
+            'managerName': createdClient.managerName,
           },
         ),
       );
@@ -284,6 +288,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           metadata: {
             'assignedTo': updatedClient.assignedTo,
             'assignedToName': updatedClient.assignedToName,
+            'teamId': updatedClient.teamId,
+            'teamName': updatedClient.teamName,
+            'managerId': updatedClient.managerId,
+            'managerName': updatedClient.managerName,
           },
         ),
       );
@@ -366,6 +374,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           metadata: {
             'assignedTo': assignedTo,
             'assignedToName': assignedToName,
+            'teamId': teamId,
+            'teamName': teamName,
+            'managerId': managerId,
+            'managerName': managerName,
           },
         ),
       );
@@ -431,7 +443,16 @@ class ClientsCubit extends Cubit<ClientsState> {
           recordId: clientId,
           recordTitle: client == null ? 'Client' : _clientTitle(client),
           recordSubtitle: client == null ? '' : _clientSubtitle(client),
-          metadata: const {},
+          metadata: {
+            if (client != null) ...{
+              'assignedTo': client.assignedTo,
+              'assignedToName': client.assignedToName,
+              'teamId': client.teamId,
+              'teamName': client.teamName,
+              'managerId': client.managerId,
+              'managerName': client.managerName,
+            },
+          },
         ),
       );
       if (isClosed) {

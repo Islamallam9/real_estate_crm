@@ -8,6 +8,7 @@ import '../../../users/data/models/company_metadata_model.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../models/company_data_health_report_model.dart';
 import '../models/platform_company_user_model.dart';
 
 abstract interface class PlatformRemoteDataSource {
@@ -72,6 +73,10 @@ abstract interface class PlatformRemoteDataSource {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+  });
+
+  Future<CompanyDataHealthReportModel> getCompanyDataHealthReport({
+    required String companyId,
   });
 }
 
@@ -238,6 +243,16 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       if (limits != null) 'limits': limits,
       if (features != null) 'features': features,
     });
+  }
+
+  @override
+  Future<CompanyDataHealthReportModel> getCompanyDataHealthReport({
+    required String companyId,
+  }) async {
+    final data = await _callMap('getCompanyDataHealthReport', {
+      'companyId': companyId,
+    });
+    return CompanyDataHealthReportModel.fromMap(data);
   }
 
   Future<void> _call(String name, Map<String, Object?> data) async {

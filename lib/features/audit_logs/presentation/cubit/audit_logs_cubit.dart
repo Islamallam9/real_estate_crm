@@ -15,7 +15,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
 
   StreamSubscription<List<AuditLog>>? _subscription;
 
-  void watchAuditLogs({required String companyId}) {
+  void watchAuditLogs({required String companyId, String? managerId, String? teamId}) {
     if (companyId.trim().isEmpty) {
       return;
     }
@@ -27,7 +27,11 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
       ),
     );
     _subscription?.cancel();
-    _subscription = _watchAuditLogsUseCase(companyId: companyId).listen(
+    _subscription = _watchAuditLogsUseCase(
+      companyId: companyId,
+      managerId: managerId,
+      teamId: teamId,
+    ).listen(
       (logs) {
         if (isClosed) {
           return;

@@ -1,5 +1,6 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../entities/company_data_health_report.dart';
 import '../entities/password_reset_link_result.dart';
 import '../entities/platform_company_user.dart';
 
@@ -65,5 +66,9 @@ abstract interface class PlatformRepository {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+  });
+
+  Future<CompanyDataHealthReport> getCompanyDataHealthReport({
+    required String companyId,
   });
 }

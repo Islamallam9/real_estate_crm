@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/platform_company_user.dart';
 
 enum PlatformStatus { initial, loading, ready, saving, failure }
@@ -18,6 +19,8 @@ class PlatformState extends Equatable {
     this.activeCompanyActionId,
     this.activeUserActionId,
     this.activeSettingsActionId,
+    this.dataHealthReport,
+    this.dataHealthLoading = false,
     this.message,
   });
 
@@ -32,6 +35,8 @@ class PlatformState extends Equatable {
   final String? activeCompanyActionId;
   final String? activeUserActionId;
   final String? activeSettingsActionId;
+  final CompanyDataHealthReport? dataHealthReport;
+  final bool dataHealthLoading;
   final String? message;
 
   CompanyMetadata? get selectedCompany {
@@ -79,11 +84,14 @@ class PlatformState extends Equatable {
     String? activeCompanyActionId,
     String? activeUserActionId,
     String? activeSettingsActionId,
+    CompanyDataHealthReport? dataHealthReport,
+    bool? dataHealthLoading,
     String? message,
     bool clearMessage = false,
     bool clearActiveCompanyAction = false,
     bool clearActiveUserAction = false,
     bool clearActiveSettingsAction = false,
+    bool clearDataHealthReport = false,
   }) {
     return PlatformState(
       status: status ?? this.status,
@@ -101,6 +109,9 @@ class PlatformState extends Equatable {
       activeSettingsActionId: clearActiveSettingsAction
           ? null
           : activeSettingsActionId ?? this.activeSettingsActionId,
+      dataHealthReport:
+          clearDataHealthReport ? null : dataHealthReport ?? this.dataHealthReport,
+      dataHealthLoading: dataHealthLoading ?? this.dataHealthLoading,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -116,6 +127,8 @@ class PlatformState extends Equatable {
     activeCompanyActionId,
     activeUserActionId,
     activeSettingsActionId,
+    dataHealthReport,
+    dataHealthLoading,
     message,
   ];
 }

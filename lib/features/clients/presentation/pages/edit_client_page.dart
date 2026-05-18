@@ -153,6 +153,14 @@ class _EditClientViewState extends State<_EditClientView> {
                               if (_isSubmitting) {
                                 return;
                               }
+                              if (role == UserRole.manager &&
+                                  updatedClient.managerId.trim() != uid) {
+                                AppFeedback.warning(
+                                  context,
+                                  l.canOnlyAssignRecordsToYourTeam,
+                                );
+                                return;
+                              }
                               setState(() => _isSubmitting = true);
                               context.read<ClientsCubit>().updateClient(
                                 companyId: companyId,

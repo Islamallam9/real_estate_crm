@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/global_search/data/datasources/global_search_remote_data_source.dart';
+import '../../features/global_search/data/repositories/global_search_repository_impl.dart';
+import '../../features/global_search/domain/entities/global_search_result.dart';
+import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
+import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
+import '../../features/global_search/presentation/cubit/global_search_state.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
 import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
@@ -409,7 +416,7 @@ class _WorkspacePatternPainter extends CustomPainter {
   }
 }
 
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends StatefulWidget {
   const _MobileShell({
     required this.selectedItem,
     required this.items,
@@ -427,8 +434,77 @@ class _MobileShell extends StatelessWidget {
   final ValueChanged<CrmNavigationItem>? onItemSelected;
 
   @override
+  State<_MobileShell> createState() => _MobileShellState();
+}
+
+class _MobileShellState extends State<_MobileShell> {
+  static const _scrollThreshold = 18.0;
+
+  bool _showBottomNavigation = true;
+  bool _modalOpen = false;
+  double _scrollDelta = 0;
+
+  Future<void> _openMoreSheet() async {
+    setState(() {
+      _modalOpen = true;
+      _showBottomNavigation = true;
+    });
+    await _showMobileMoreSheet(context);
+    if (mounted) {
+      setState(() => _modalOpen = false);
+    }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical || _modalOpen) {
+      return false;
+    }
+
+    if (FocusManager.instance.primaryFocus != null ||
+        MediaQuery.viewInsetsOf(context).bottom > 0) {
+      _showNavigationIfNeeded();
+      return false;
+    }
+
+    if (notification.metrics.pixels <= notification.metrics.minScrollExtent + 8) {
+      _scrollDelta = 0;
+      _showNavigationIfNeeded();
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta == 0) {
+        return false;
+      }
+      if ((_scrollDelta > 0 && delta < 0) || (_scrollDelta < 0 && delta > 0)) {
+        _scrollDelta = 0;
+      }
+      _scrollDelta += delta;
+
+      if (_scrollDelta > _scrollThreshold && _showBottomNavigation) {
+        setState(() => _showBottomNavigation = false);
+        _scrollDelta = 0;
+      } else if (_scrollDelta < -_scrollThreshold && !_showBottomNavigation) {
+        setState(() => _showBottomNavigation = true);
+        _scrollDelta = 0;
+      }
+    }
+
+    return false;
+  }
+
+  void _showNavigationIfNeeded() {
+    if (!_showBottomNavigation) {
+      setState(() => _showBottomNavigation = true);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = _CrmShellColors.of(context);
+    final effectiveShowBottomNavigation =
+        _showBottomNavigation || MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -449,7 +525,7 @@ class _MobileShell extends StatelessWidget {
             0,
           ),
           child: _MobileHeaderCard(
-            title: title ?? _labelFor(context, selectedItem),
+            title: widget.title ?? _labelFor(context, widget.selectedItem),
           ),
         ),
         centerTitle: false,
@@ -457,28 +533,43 @@ class _MobileShell extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: _WorkspaceBackground(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.lg,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.lg,
+              ),
+              child: widget.child,
             ),
-            child: child,
           ),
         ),
       ),
-      bottomNavigationBar: _MobileBottomNavigation(
-        selectedItem: selectedItem,
-        items: items,
-        companyMetadata: companyMetadata,
-        onItemSelected: (item) {
-          if (item == CrmNavigationItem.more) {
-            _showMobileMoreSheet(context);
-            return;
-          }
-          onItemSelected?.call(item);
-        },
+      bottomNavigationBar: AnimatedSlide(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        offset: effectiveShowBottomNavigation ? Offset.zero : const Offset(0, 1),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          opacity: effectiveShowBottomNavigation ? 1 : 0,
+          child: IgnorePointer(
+            ignoring: !effectiveShowBottomNavigation,
+            child: _MobileBottomNavigation(
+              selectedItem: widget.selectedItem,
+              items: widget.items,
+              companyMetadata: widget.companyMetadata,
+              onItemSelected: (item) {
+                if (item == CrmNavigationItem.more) {
+                  _openMoreSheet();
+                  return;
+                }
+                widget.onItemSelected?.call(item);
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -504,6 +595,7 @@ class _MobileHeaderCard extends StatelessWidget {
         final localizations = AppLocalizations.of(context)!;
         final fullName = _resolvedUserName(state, localizations.crmUser);
         final photoUrl = _resolvedUserPhotoUrl(state);
+        _debugProfileImageSources(state, 'mobile shell avatar');
 
         return Material(
           color: colors.chromeSurface,
@@ -528,14 +620,7 @@ class _MobileHeaderCard extends StatelessWidget {
               children: [
                 Tooltip(
                   message: localizations.profile,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () => context.go(RouteNames.profile),
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: _UserAvatar(name: fullName, photoUrl: photoUrl),
-                    ),
-                  ),
+                  child: const _ProfileMenuButton(compact: true),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -727,12 +812,11 @@ class _MobileNavItemButton extends StatelessWidget {
   }
 }
 
-void _showMobileMoreSheet(BuildContext context) {
-  final authBloc = context.read<AuthBloc>();
+Future<void> _showMobileMoreSheet(BuildContext context) {
   final authState = context.read<AuthBloc>().state;
   final companyMetadata = authState.companyMetadata;
   final role = authState.userProfile?.role;
-  showModalBottomSheet<void>(
+  return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     isDismissible: true,
@@ -775,23 +859,6 @@ void _showMobileMoreSheet(BuildContext context) {
                   ),
                 ),
                 _MoreSheetTile(
-                  icon: Icons.person_outline,
-                  label: localizations.myProfile,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    context.go(RouteNames.profile);
-                  },
-                ),
-                _MoreSheetTile(
-                  icon: Icons.settings_outlined,
-                  label: localizations.settings,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    context.go(RouteNames.settings);
-                  },
-                ),
-                const Divider(height: AppSpacing.lg),
-                _MoreSheetTile(
                   icon: Icons.checklist_outlined,
                   label: localizations.tasks,
                   enabled: companyMetadata.isFeatureEnabled(CompanyFeature.tasks),
@@ -831,16 +898,6 @@ void _showMobileMoreSheet(BuildContext context) {
                     },
                   ),
 
-                const Divider(height: AppSpacing.lg),
-                _MoreSheetTile(
-                  icon: Icons.logout,
-                  label: localizations.logout,
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    authBloc.add(const AuthSignOutRequested());
-                  },
-                ),
               ],
             ),
           ),
@@ -1428,8 +1485,9 @@ class _TopBar extends StatelessWidget {
               if (!compact)
                 Flexible(
                   child: TextField(
+                    readOnly: true,
                     textInputAction: TextInputAction.search,
-                    onSubmitted: (value) => _handleGlobalSearch(context, value),
+                    onTap: () => _showGlobalSearchDialog(context),
                     decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.searchCrm,
                       prefixIcon: const Icon(Icons.search),
@@ -1607,49 +1665,66 @@ class _MobileSearchIconButton extends StatelessWidget {
   }
 }
 
-void _handleGlobalSearch(BuildContext context, String query) {
-  final cleanQuery = query.trim().toLowerCase();
-  if (cleanQuery.isEmpty) {
-    _showGlobalSearchDialog(context);
-    return;
-  }
-
-  final targets = _globalSearchTargets(context);
-  final matches = targets.where((target) => target.matches(cleanQuery)).toList();
-  if (matches.length == 1) {
-    _openSearchTarget(context, matches.first);
-    return;
-  }
-
-  _showGlobalSearchDialog(context, initialQuery: query);
-}
-
 Future<void> _showGlobalSearchDialog(
   BuildContext context, {
   String initialQuery = '',
 }) {
-  final targets = _globalSearchTargets(context);
+  final authState = context.read<AuthBloc>().state;
+  final profile = authState.userProfile;
+  final user = authState.user;
+  if (profile == null || user == null) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final l = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(l.searchCrm),
+          content: Text(l.missingCompanyProfile),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l.close),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  final repository = GlobalSearchRepositoryImpl(
+    remoteDataSource: FirestoreGlobalSearchRemoteDataSource(),
+  );
 
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
       final l = AppLocalizations.of(dialogContext)!;
-      return AlertDialog(
-        title: Text(l.searchCrm),
-        content: _GlobalSearchDialogContent(
-          initialQuery: initialQuery,
-          targets: targets,
-          onSelected: (target) {
-            Navigator.of(dialogContext).pop();
-            _openSearchTarget(context, target);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l.close),
+      return BlocProvider(
+        create: (_) => GlobalSearchCubit(
+          searchGlobalDataUseCase: SearchGlobalDataUseCase(repository),
+          companyId: profile.companyId,
+          currentUserId: user.uid,
+          role: profile.role,
+          includeUsers: profile.role == UserRole.admin ||
+              profile.role == UserRole.manager,
+          enabledModules: _enabledSearchModules(authState),
+        )..queryChanged(initialQuery),
+        child: AlertDialog(
+          title: Text(l.searchCrm),
+          content: _GlobalSearchDialogContent(
+            initialQuery: initialQuery,
+            onSelected: (result) {
+              Navigator.of(dialogContext).pop();
+              context.go(result.route);
+            },
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l.close),
+            ),
+          ],
+        ),
       );
     },
   );
@@ -1658,13 +1733,11 @@ Future<void> _showGlobalSearchDialog(
 class _GlobalSearchDialogContent extends StatefulWidget {
   const _GlobalSearchDialogContent({
     required this.initialQuery,
-    required this.targets,
     required this.onSelected,
   });
 
   final String initialQuery;
-  final List<_GlobalSearchTarget> targets;
-  final ValueChanged<_GlobalSearchTarget> onSelected;
+  final ValueChanged<GlobalSearchResult> onSelected;
 
   @override
   State<_GlobalSearchDialogContent> createState() =>
@@ -1678,6 +1751,9 @@ class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> 
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
+    if (widget.initialQuery.trim().isNotEmpty) {
+      context.read<GlobalSearchCubit>().queryChanged(widget.initialQuery);
+    }
   }
 
   @override
@@ -1702,20 +1778,41 @@ class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> 
               hintText: l.searchCrm,
               prefixIcon: const Icon(Icons.search),
             ),
-            onSubmitted: _openSingleMatch,
+            onChanged: context.read<GlobalSearchCubit>().queryChanged,
           ),
           const SizedBox(height: AppSpacing.md),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _controller,
-            builder: (context, value, _) {
-              final query = value.text.trim().toLowerCase();
-              final filtered = query.isEmpty
-                  ? widget.targets
-                  : widget.targets
-                      .where((target) => target.matches(query))
-                      .toList();
+          BlocBuilder<GlobalSearchCubit, GlobalSearchState>(
+            builder: (context, state) {
+              if (state.query.length < 2) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Text(
+                    l.searchCrm,
+                    style: TextStyle(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
+                  ),
+                );
+              }
 
-              if (filtered.isEmpty) {
+              if (state.status == GlobalSearchStatus.loading) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (state.status == GlobalSearchStatus.failure) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Text(
+                    l.unableToConnect,
+                    style: TextStyle(color: AppColors.errorColor(context)),
+                  ),
+                );
+              }
+
+              if (state.results.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                   child: Text(
@@ -1727,18 +1824,18 @@ class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> 
                 );
               }
 
+              final grouped = _groupSearchResults(state.results);
               return ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView.separated(
+                child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemCount: grouped.length,
                   itemBuilder: (context, index) {
-                    final target = filtered[index];
-                    return ListTile(
-                      leading: Icon(target.icon),
-                      title: Text(target.label),
-                      onTap: () => widget.onSelected(target),
+                    final entry = grouped[index];
+                    return _GlobalSearchGroup(
+                      module: entry.key,
+                      results: entry.value,
+                      onSelected: widget.onSelected,
                     );
                   },
                 ),
@@ -1749,131 +1846,132 @@ class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> 
       ),
     );
   }
+}
 
-  void _openSingleMatch(String value) {
-    final submitted = value.trim().toLowerCase();
-    if (submitted.isEmpty) {
-      return;
-    }
-
-    final matches = widget.targets
-        .where((target) => target.matches(submitted))
-        .toList(growable: false);
-    if (matches.length == 1) {
-      widget.onSelected(matches.first);
-    }
+List<MapEntry<GlobalSearchModule, List<GlobalSearchResult>>> _groupSearchResults(
+  List<GlobalSearchResult> results,
+) {
+  final grouped = <GlobalSearchModule, List<GlobalSearchResult>>{};
+  for (final result in results) {
+    grouped.putIfAbsent(result.module, () => []).add(result);
   }
+  return grouped.entries.toList();
 }
 
-List<_GlobalSearchTarget> _globalSearchTargets(BuildContext context) {
-  final l = AppLocalizations.of(context)!;
-  final authState = context.read<AuthBloc>().state;
-  final role = authState.userProfile?.role;
+Set<GlobalSearchModule> _enabledSearchModules(AuthState authState) {
   final metadata = authState.companyMetadata;
-
-  final targets = <_GlobalSearchTarget>[
-    _GlobalSearchTarget(
-      label: l.dashboard,
-      route: RouteNames.dashboard,
-      icon: Icons.dashboard_outlined,
-      aliases: ['dashboard', 'home', 'لوحة', 'الرئيسية'],
-    ),
-    _GlobalSearchTarget(
-      label: l.leads,
-      route: RouteNames.leads,
-      icon: Icons.people_alt_outlined,
-      feature: CompanyFeature.leads,
-      aliases: ['leads', 'lead', 'customers', 'عملاء', 'العملاء', 'محتمل'],
-    ),
-    _GlobalSearchTarget(
-      label: l.properties,
-      route: RouteNames.properties,
-      icon: Icons.business_outlined,
-      feature: CompanyFeature.properties,
-      aliases: ['properties', 'property', 'عقارات', 'العقارات'],
-    ),
-    _GlobalSearchTarget(
-      label: l.clients,
-      route: RouteNames.clients,
-      icon: Icons.person_outline,
-      feature: CompanyFeature.clients,
-      aliases: ['clients', 'client', 'customers', 'عملاء', 'العملاء'],
-    ),
-    _GlobalSearchTarget(
-      label: l.tasks,
-      route: RouteNames.tasks,
-      icon: Icons.checklist_outlined,
-      feature: CompanyFeature.tasks,
-      aliases: ['tasks', 'task', 'followups', 'مهام', 'المهام', 'متابعة'],
-    ),
-    _GlobalSearchTarget(
-      label: l.deals,
-      route: RouteNames.deals,
-      icon: Icons.handshake_outlined,
-      feature: CompanyFeature.deals,
-      aliases: ['deals', 'deal', 'صفقات', 'الصفقات'],
-    ),
-    _GlobalSearchTarget(
-      label: l.reports,
-      route: RouteNames.reports,
-      icon: Icons.bar_chart_outlined,
-      feature: CompanyFeature.reports,
-      aliases: ['reports', 'report', 'analytics', 'تقارير', 'التقارير'],
-    ),
+  final role = authState.userProfile?.role;
+  return {
+    if (metadata.isFeatureEnabled(CompanyFeature.leads))
+      GlobalSearchModule.leads,
+    if (metadata.isFeatureEnabled(CompanyFeature.clients))
+      GlobalSearchModule.clients,
+    if (metadata.isFeatureEnabled(CompanyFeature.properties))
+      GlobalSearchModule.properties,
+    if (metadata.isFeatureEnabled(CompanyFeature.deals))
+      GlobalSearchModule.deals,
+    if (metadata.isFeatureEnabled(CompanyFeature.tasks))
+      GlobalSearchModule.tasks,
     if (role == UserRole.admin || role == UserRole.manager)
-      _GlobalSearchTarget(
-        label: l.teamManagement,
-        route: RouteNames.teams,
-        icon: Icons.groups_outlined,
-        aliases: ['teams', 'team', 'management', 'فرق', 'الفريق', 'إدارة الفرق'],
-      ),
-    _GlobalSearchTarget(
-      label: l.myProfile,
-      route: RouteNames.profile,
-      icon: Icons.person_outline,
-      aliases: ['profile', 'account', 'ملف', 'حساب'],
-    ),
-    _GlobalSearchTarget(
-      label: l.settings,
-      route: RouteNames.settings,
-      icon: Icons.settings_outlined,
-      aliases: ['settings', 'preferences', 'إعدادات', 'الاعدادات'],
-    ),
-  ];
-
-  return targets.where((target) {
-    final feature = target.feature;
-    return feature == null || metadata.isFeatureEnabled(feature);
-  }).toList();
+      GlobalSearchModule.users,
+  };
 }
 
-void _openSearchTarget(BuildContext context, _GlobalSearchTarget target) {
-  context.go(target.route);
-}
-
-class _GlobalSearchTarget {
-  const _GlobalSearchTarget({
-    required this.label,
-    required this.route,
-    required this.icon,
-    this.feature,
-    this.aliases = const [],
+class _GlobalSearchGroup extends StatelessWidget {
+  const _GlobalSearchGroup({
+    required this.module,
+    required this.results,
+    required this.onSelected,
   });
 
-  final String label;
-  final String route;
-  final IconData icon;
-  final CompanyFeature? feature;
-  final List<String> aliases;
+  final GlobalSearchModule module;
+  final List<GlobalSearchResult> results;
+  final ValueChanged<GlobalSearchResult> onSelected;
 
-  bool matches(String query) {
-    final clean = query.trim().toLowerCase();
-    if (clean.isEmpty) {
-      return true;
-    }
-    return label.toLowerCase().contains(clean) ||
-        aliases.any((alias) => alias.toLowerCase().contains(clean));
+  @override
+  Widget build(BuildContext context) {
+    final colors = _CrmShellColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
+            child: Text(
+              _searchModuleLabel(context, module),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          for (final result in results)
+            Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+              color: colors.inputSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.large,
+                side: BorderSide(color: colors.border),
+              ),
+              child: ListTile(
+                leading: Icon(_searchModuleIcon(module), color: colors.primary),
+                title: Text(
+                  result.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  _searchSubtitle(result),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: result.status.trim().isEmpty
+                    ? null
+                    : Text(
+                        result.status,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                onTap: () => onSelected(result),
+              ),
+            ),
+        ],
+      ),
+    );
   }
+}
+
+String _searchSubtitle(GlobalSearchResult result) {
+  final parts = [
+    result.subtitle,
+    result.owner,
+  ].where((part) => part.trim().isNotEmpty).toList();
+  return parts.isEmpty ? result.route : parts.join(' - ');
+}
+
+String _searchModuleLabel(BuildContext context, GlobalSearchModule module) {
+  final l = AppLocalizations.of(context)!;
+  return switch (module) {
+    GlobalSearchModule.leads => l.leads,
+    GlobalSearchModule.clients => l.clients,
+    GlobalSearchModule.properties => l.properties,
+    GlobalSearchModule.deals => l.deals,
+    GlobalSearchModule.tasks => l.tasks,
+    GlobalSearchModule.users => l.teamMembers,
+  };
+}
+
+IconData _searchModuleIcon(GlobalSearchModule module) {
+  return switch (module) {
+    GlobalSearchModule.leads => Icons.people_alt_outlined,
+    GlobalSearchModule.clients => Icons.person_outline,
+    GlobalSearchModule.properties => Icons.business_outlined,
+    GlobalSearchModule.deals => Icons.handshake_outlined,
+    GlobalSearchModule.tasks => Icons.checklist_outlined,
+    GlobalSearchModule.users => Icons.badge_outlined,
+  };
 }
 
 class _NotificationIconButton extends StatelessWidget {
@@ -1908,7 +2006,9 @@ class _NotificationIconButton extends StatelessWidget {
 enum _ProfileMenuAction { profile, settings, logout }
 
 class _ProfileMenuButton extends StatelessWidget {
-  const _ProfileMenuButton();
+  const _ProfileMenuButton({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1923,6 +2023,7 @@ class _ProfileMenuButton extends StatelessWidget {
                 '')
             .trim();
         final photoUrl = _resolvedUserPhotoUrl(authState);
+        _debugProfileImageSources(authState, 'account menu avatar');
 
         return PopupMenuButton<_ProfileMenuAction>(
           tooltip: l.profile,
@@ -1993,7 +2094,7 @@ class _ProfileMenuButton extends StatelessWidget {
               border: Border.all(color: colors.border),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(2),
+              padding: EdgeInsets.all(compact ? 0 : 2),
               child: _UserAvatar(name: userName, photoUrl: photoUrl),
             ),
           ),
@@ -2166,6 +2267,10 @@ String _resolvedUserPhotoUrl(AuthState state) {
   return (state.user?.photoUrl ?? '').trim();
 }
 
+void _debugProfileImageSources(AuthState state, String source) {
+  // Intentionally silent. Avoid noisy profile image logs and URL/token output.
+  return;
+}
 String _resolvedUserName(AuthState state, String fallback) {
   final profileName = (state.userProfile?.fullName ?? '').trim();
   if (profileName.isNotEmpty) {

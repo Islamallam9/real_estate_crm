@@ -25,12 +25,14 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/widgets/change_password_dialog.dart';
+import '../../domain/entities/company_data_health_report.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../data/datasources/platform_remote_data_source.dart';
 import '../../data/repositories/platform_repository_impl.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
+import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
@@ -72,6 +74,8 @@ class PlatformPage extends StatelessWidget {
             GenerateCompanyUserPasswordResetLinkUseCase(repository),
         updateCompanyPlatformSettingsUseCase:
             UpdateCompanyPlatformSettingsUseCase(repository),
+        getCompanyDataHealthReportUseCase:
+            GetCompanyDataHealthReportUseCase(repository),
       )..watchCompanies(),
       child: const PlatformPage(),
     );
@@ -156,10 +160,11 @@ class _PlatformTopBar extends StatelessWidget {
         builder: (context, authState) {
           final adminName = _platformUserName(authState, l.platformAdmin);
           final greeting = _platformGreeting(l, DateTime.now());
+          final adminPhotoUrl = (authState.user?.photoUrl ?? '').trim();
 
           return Row(
             children: [
-              _PlatformAvatar(name: adminName),
+              _PlatformAvatar(name: adminName, photoUrl: adminPhotoUrl),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -194,7 +199,7 @@ class _PlatformTopBar extends StatelessWidget {
                   child: TextField(
                     readOnly: true,
                     decoration: InputDecoration(
-                      hintText: l.searchCrm,
+                      hintText: l.searchCompanies,
                       prefixIcon: const Icon(Icons.search),
                       isDense: true,
                     ),
@@ -275,7 +280,7 @@ class _PlatformThemeButton extends StatelessWidget {
   }
 }
 
-enum _PlatformProfileAction { settings, logout }
+enum _PlatformProfileAction { profile, settings, logout }
 
 class _PlatformProfileMenu extends StatelessWidget {
   const _PlatformProfileMenu();
@@ -288,6 +293,7 @@ class _PlatformProfileMenu extends StatelessWidget {
       builder: (context, authState) {
         final userName = _platformUserName(authState, l.platformAdmin);
         final email = (authState.user?.email ?? '').trim();
+        final photoUrl = (authState.user?.photoUrl ?? '').trim();
 
         return PopupMenuButton<_PlatformProfileAction>(
           tooltip: l.profile,
@@ -299,6 +305,8 @@ class _PlatformProfileMenu extends StatelessWidget {
           ),
           onSelected: (action) {
             switch (action) {
+              case _PlatformProfileAction.profile:
+                context.go(RouteNames.profile);
               case _PlatformProfileAction.settings:
                 _showPlatformSettingsSheet(context);
               case _PlatformProfileAction.logout:
@@ -310,7 +318,7 @@ class _PlatformProfileMenu extends StatelessWidget {
               enabled: false,
               child: Row(
                 children: [
-                  _PlatformAvatar(name: userName),
+                  _PlatformAvatar(name: userName, photoUrl: photoUrl),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
@@ -339,6 +347,13 @@ class _PlatformProfileMenu extends StatelessWidget {
             ),
             const PopupMenuDivider(height: 1),
             PopupMenuItem<_PlatformProfileAction>(
+              value: _PlatformProfileAction.profile,
+              child: _PlatformProfileMenuTile(
+                icon: Icons.person_outline,
+                label: l.profile,
+              ),
+            ),
+            PopupMenuItem<_PlatformProfileAction>(
               value: _PlatformProfileAction.settings,
               child: _PlatformProfileMenuTile(
                 icon: Icons.settings_outlined,
@@ -361,7 +376,7 @@ class _PlatformProfileMenu extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(2),
-              child: _PlatformAvatar(name: userName),
+              child: _PlatformAvatar(name: userName, photoUrl: photoUrl),
             ),
           ),
         );
@@ -404,13 +419,15 @@ class _PlatformProfileMenuTile extends StatelessWidget {
 }
 
 class _PlatformAvatar extends StatelessWidget {
-  const _PlatformAvatar({required this.name});
+  const _PlatformAvatar({required this.name, this.photoUrl = ''});
 
   final String name;
+  final String photoUrl;
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
+    final cleanUrl = photoUrl.trim();
+    final fallback = CircleAvatar(
       radius: 18,
       backgroundColor: AppColors.primaryColor(context),
       child: Text(
@@ -418,6 +435,24 @@ class _PlatformAvatar extends StatelessWidget {
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+
+    if (cleanUrl.isEmpty) {
+      return fallback;
+    }
+
+    return ClipOval(
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Image.network(
+          cleanUrl,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          errorBuilder: (_, __, ___) => fallback,
         ),
       ),
     );
@@ -538,11 +573,17 @@ String _platformUserName(AuthState state, String fallback) {
 enum _PlatformSection {
   overview,
   companies,
-  details,
+  workspace,
+  security,
+}
+
+enum _WorkspaceTab {
+  summary,
   users,
-  settings,
   features,
   limits,
+  settings,
+  maintenance,
   preview,
 }
 
@@ -620,17 +661,17 @@ class _PlatformSectionContent extends StatelessWidget {
         _OverviewGrid(
           state: state,
           onOpenCompanies: () => onSectionSelected(_PlatformSection.companies),
-          onOpenSettings: () => onSectionSelected(_PlatformSection.settings),
-          onOpenPreview: () => onSectionSelected(_PlatformSection.preview),
+          onOpenWorkspace: () => onSectionSelected(_PlatformSection.workspace),
         ),
       ],
-      _PlatformSection.companies => [_CompaniesPanel(state: state)],
-      _PlatformSection.details => [_CompanyDetailsPanel(state: state)],
-      _PlatformSection.users => [_CompanyUsersPanel(state: state)],
-      _PlatformSection.settings => [_CompanySettingsPanel(state: state)],
-      _PlatformSection.features => [_CompanyFeaturesPanel(state: state)],
-      _PlatformSection.limits => [_CompanyLimitsPanel(state: state)],
-      _PlatformSection.preview => [_CompanyPreviewPanel(state: state)],
+      _PlatformSection.companies => [
+        _CompaniesPanel(
+          state: state,
+          onOpenWorkspace: () => onSectionSelected(_PlatformSection.workspace),
+        ),
+      ],
+      _PlatformSection.workspace => [_CompanyWorkspacePanel(state: state)],
+      _PlatformSection.security => [_PlatformSecurityPanel(state: state)],
     };
 
     return ListView(
@@ -995,9 +1036,13 @@ class _KpiCard extends StatelessWidget {
 }
 
 class _CompaniesPanel extends StatefulWidget {
-  const _CompaniesPanel({required this.state});
+  const _CompaniesPanel({
+    required this.state,
+    required this.onOpenWorkspace,
+  });
 
   final PlatformState state;
+  final VoidCallback onOpenWorkspace;
 
   @override
   State<_CompaniesPanel> createState() => _CompaniesPanelState();
@@ -1079,6 +1124,12 @@ class _CompaniesPanelState extends State<_CompaniesPanel> {
                         return _CompanyTile(
                           company: company,
                           selected: state.selectedCompany?.id == company.id,
+                          onOpenWorkspace: () {
+                            context
+                                .read<PlatformCubit>()
+                                .selectCompany(company.id);
+                            widget.onOpenWorkspace();
+                          },
                           onTap: () {
                             context
                                 .read<PlatformCubit>()
@@ -1119,6 +1170,185 @@ class _CompanyFilterChips extends StatelessWidget {
   }
 }
 
+class _CompanyWorkspacePanel extends StatefulWidget {
+  const _CompanyWorkspacePanel({required this.state});
+
+  final PlatformState state;
+
+  @override
+  State<_CompanyWorkspacePanel> createState() => _CompanyWorkspacePanelState();
+}
+
+class _CompanyWorkspacePanelState extends State<_CompanyWorkspacePanel> {
+  var _tab = _WorkspaceTab.summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final company = widget.state.selectedCompany;
+    if (company == null) {
+      return _Panel(
+        title: l.workspace,
+        child: AppEmptyState(
+          icon: Icons.apartment_outlined,
+          title: l.noCompanySelected,
+          message: l.noCompanySelectedMessage,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _WorkspaceHeader(company: company, state: widget.state),
+        const SizedBox(height: AppSpacing.md),
+        _WorkspaceTabs(
+          selected: _tab,
+          onSelected: (tab) => setState(() => _tab = tab),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        switch (_tab) {
+          _WorkspaceTab.summary => _CompanyDetailsPanel(state: widget.state),
+          _WorkspaceTab.users => _CompanyUsersPanel(state: widget.state),
+          _WorkspaceTab.features => _CompanyFeaturesPanel(state: widget.state),
+          _WorkspaceTab.limits => _CompanyLimitsPanel(state: widget.state),
+          _WorkspaceTab.settings => _CompanySettingsPanel(state: widget.state),
+          _WorkspaceTab.maintenance =>
+            _CompanyDataHealthPanel(state: widget.state),
+          _WorkspaceTab.preview => _CompanyPreviewPanel(state: widget.state),
+        },
+      ],
+    );
+  }
+}
+
+class _WorkspaceHeader extends StatelessWidget {
+  const _WorkspaceHeader({required this.company, required this.state});
+
+  final CompanyMetadata company;
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final companyActive = _isOperationalCompany(company);
+    final busy = state.activeCompanyActionId == company.id;
+
+    return _Panel(
+      title: _companyTitle(company),
+      action: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        children: [
+          AppButton(
+            label: l.previewDashboard,
+            icon: Icons.dashboard_customize_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _openPreview(context, company),
+          ),
+          AppButton(
+            label: companyActive ? l.deactivateCompany : l.activateCompany,
+            icon: companyActive ? Icons.block : Icons.check_circle_outline,
+            variant: companyActive
+                ? AppButtonVariant.danger
+                : AppButtonVariant.secondary,
+            isLoading: busy,
+            onPressed: busy
+                ? null
+                : () async {
+                    final success = await context
+                        .read<PlatformCubit>()
+                        .setCompanyActiveStatus(
+                          companyId: company.id,
+                          isActive: !companyActive,
+                        );
+                    if (context.mounted && success) {
+                      AppFeedback.success(context, l.savedSuccessfully);
+                    }
+                  },
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _InfoChip(label: l.companyIdSlug, value: company.id),
+          _InfoChip(label: l.status, value: _statusLabel(l, company)),
+          _InfoChip(
+            label: l.usersUsed,
+            value: _usersUsedLabel(context, state, company),
+          ),
+          _InfoChip(
+            label: l.storageLimitMb,
+            value: _limitLabel(context, company.limits['storageMb']),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceTabs extends StatelessWidget {
+  const _WorkspaceTabs({required this.selected, required this.onSelected});
+
+  final _WorkspaceTab selected;
+  final ValueChanged<_WorkspaceTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _WorkspaceTab.values.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
+        itemBuilder: (context, index) {
+          final tab = _WorkspaceTab.values[index];
+          return ChoiceChip(
+            avatar: Icon(_workspaceTabIcon(tab), size: 18),
+            label: Text(_workspaceTabLabel(l, tab)),
+            selected: selected == tab,
+            onSelected: (_) => onSelected(tab),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PlatformSecurityPanel extends StatelessWidget {
+  const _PlatformSecurityPanel({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final company = state.selectedCompany;
+
+    return _Panel(
+      title: l.security,
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          _InfoChip(label: l.platformAdmin, value: l.active),
+          if (company != null)
+            _InfoChip(label: l.companyName, value: _companyTitle(company)),
+          _InfoChip(
+            label: l.loginActivity,
+            value: l.noLoginActivityYet,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CompanyDetailsPanel extends StatelessWidget {
   const _CompanyDetailsPanel({required this.state});
 
@@ -1139,47 +1369,8 @@ class _CompanyDetailsPanel extends StatelessWidget {
       );
     }
 
-    final companyBusy = state.activeCompanyActionId == company.id;
-    final companyActive = _isOperationalCompany(company);
-    final userLimit = _limitValue(company.limits['users']);
-    final userLimitReached =
-        userLimit != null && state.companyUsers.length >= userLimit;
-
     return _Panel(
-      title: company.displayName.isEmpty ? company.name : company.displayName,
-      action: Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.xs,
-        children: [
-          AppButton(
-            label: l.previewDashboard,
-            icon: Icons.dashboard_customize_outlined,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => _openPreview(context, company),
-          ),
-          AppButton(
-            label: companyActive ? l.deactivateCompany : l.activateCompany,
-            icon: companyActive ? Icons.block : Icons.check_circle_outline,
-            variant: companyActive
-                ? AppButtonVariant.danger
-                : AppButtonVariant.secondary,
-            isLoading: companyBusy,
-            onPressed: companyBusy
-                ? null
-                : () async {
-                    final success = await context
-                        .read<PlatformCubit>()
-                        .setCompanyActiveStatus(
-                          companyId: company.id,
-                          isActive: !companyActive,
-                        );
-                    if (context.mounted && success) {
-                      AppFeedback.success(context, l.savedSuccessfully);
-                    }
-                  },
-          ),
-        ],
-      ),
+      title: l.companyDetails,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1201,54 +1392,6 @@ class _CompanyDetailsPanel extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _CompanyMetadataSections(company: company),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l.companyUsers,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              AppButton(
-                label: l.addUser,
-                icon: Icons.person_add_alt_1,
-                variant: AppButtonVariant.secondary,
-                onPressed: state.status == PlatformStatus.saving ||
-                        userLimitReached
-                    ? null
-                    : () => _showAddUserDialog(context, company.id),
-              ),
-            ],
-          ),
-          if (userLimitReached) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              l.userLimitReached,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.warningColor(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          if (state.companyUsers.isEmpty)
-            AppEmptyState(
-              icon: Icons.people_outline,
-              title: l.noCompanyUsers,
-              message: l.noCompanyUsersMessage,
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: _UsersTable(
-                companyId: company.id,
-                users: state.companyUsers,
-                activeUserActionId: state.activeUserActionId,
-              ),
-            ),
         ],
       ),
     );
@@ -1259,14 +1402,12 @@ class _OverviewGrid extends StatelessWidget {
   const _OverviewGrid({
     required this.state,
     required this.onOpenCompanies,
-    required this.onOpenSettings,
-    required this.onOpenPreview,
+    required this.onOpenWorkspace,
   });
 
   final PlatformState state;
   final VoidCallback onOpenCompanies;
-  final VoidCallback onOpenSettings;
-  final VoidCallback onOpenPreview;
+  final VoidCallback onOpenWorkspace;
 
   @override
   Widget build(BuildContext context) {
@@ -1324,16 +1465,10 @@ class _OverviewGrid extends StatelessWidget {
                     runSpacing: AppSpacing.xs,
                     children: [
                       AppButton(
-                        label: l.editCompanySettings,
-                        icon: Icons.tune,
+                        label: l.workspace,
+                        icon: Icons.view_quilt_outlined,
                         variant: AppButtonVariant.secondary,
-                        onPressed: onOpenSettings,
-                      ),
-                      AppButton(
-                        label: l.previewDashboard,
-                        icon: Icons.dashboard_customize_outlined,
-                        variant: AppButtonVariant.secondary,
-                        onPressed: onOpenPreview,
+                        onPressed: onOpenWorkspace,
                       ),
                     ],
                   ),
@@ -1389,14 +1524,30 @@ class _OverviewGrid extends StatelessWidget {
   }
 }
 
-class _CompanyUsersPanel extends StatelessWidget {
+class _CompanyUsersPanel extends StatefulWidget {
   const _CompanyUsersPanel({required this.state});
 
   final PlatformState state;
 
   @override
+  State<_CompanyUsersPanel> createState() => _CompanyUsersPanelState();
+}
+
+class _CompanyUsersPanelState extends State<_CompanyUsersPanel> {
+  final _searchController = TextEditingController();
+  UserRole? _roleFilter;
+  bool? _activeFilter;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final state = widget.state;
     final company = state.selectedCompany;
     if (company == null) {
       return _Panel(
@@ -1412,6 +1563,7 @@ class _CompanyUsersPanel extends StatelessWidget {
     final userLimit = _limitValue(company.limits['users']);
     final userLimitReached =
         userLimit != null && state.companyUsers.length >= userLimit;
+    final filteredUsers = _filteredUsers(state.companyUsers);
 
     return _Panel(
       title: l.companyUsers,
@@ -1451,23 +1603,133 @@ class _CompanyUsersPanel extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.md),
+          _UserFiltersBar(
+            searchController: _searchController,
+            roleFilter: _roleFilter,
+            activeFilter: _activeFilter,
+            onSearchChanged: (_) => setState(() {}),
+            onClearSearch: () {
+              _searchController.clear();
+              setState(() {});
+            },
+            onRoleChanged: (role) => setState(() => _roleFilter = role),
+            onActiveChanged: (active) =>
+                setState(() => _activeFilter = active),
+          ),
+          const SizedBox(height: AppSpacing.md),
           if (state.companyUsers.isEmpty)
             AppEmptyState(
               icon: Icons.people_outline,
               title: l.noCompanyUsers,
               message: l.noCompanyUsersMessage,
             )
+          else if (filteredUsers.isEmpty)
+            AppEmptyState(
+              icon: Icons.search_off_outlined,
+              title: l.noCompanyUsers,
+              message: l.noCompaniesFoundMessage,
+            )
           else
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 620),
               child: _UsersTable(
                 companyId: company.id,
-                users: state.companyUsers,
+                users: filteredUsers,
                 activeUserActionId: state.activeUserActionId,
               ),
             ),
         ],
       ),
+    );
+  }
+
+  List<PlatformCompanyUser> _filteredUsers(List<PlatformCompanyUser> users) {
+    final query = _searchController.text.trim().toLowerCase();
+    return users.where((user) {
+      final matchesQuery = query.isEmpty ||
+          user.fullName.toLowerCase().contains(query) ||
+          user.email.toLowerCase().contains(query) ||
+          user.uid.toLowerCase().contains(query);
+      final matchesRole = _roleFilter == null || user.role == _roleFilter;
+      final matchesActive =
+          _activeFilter == null || user.isActive == _activeFilter;
+      return matchesQuery && matchesRole && matchesActive;
+    }).toList();
+  }
+}
+
+class _UserFiltersBar extends StatelessWidget {
+  const _UserFiltersBar({
+    required this.searchController,
+    required this.roleFilter,
+    required this.activeFilter,
+    required this.onSearchChanged,
+    required this.onClearSearch,
+    required this.onRoleChanged,
+    required this.onActiveChanged,
+  });
+
+  final TextEditingController searchController;
+  final UserRole? roleFilter;
+  final bool? activeFilter;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<UserRole?> onRoleChanged;
+  final ValueChanged<bool?> onActiveChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 720;
+        final search = AppSearchField(
+          controller: searchController,
+          hint: l.searchCrm,
+          onChanged: onSearchChanged,
+          onClear: onClearSearch,
+        );
+        final role = AppDropdown<UserRole?>(
+          label: l.role,
+          value: roleFilter,
+          items: const [null, ...UserRole.values],
+          itemLabelBuilder: (value) =>
+              value == null ? l.allAgents : _roleLabel(l, value),
+          onChanged: onRoleChanged,
+        );
+        final status = AppDropdown<bool?>(
+          label: l.status,
+          value: activeFilter,
+          items: const [null, true, false],
+          itemLabelBuilder: (value) => value == null
+              ? l.allStatuses
+              : (value ? l.active : l.inactive),
+          onChanged: onActiveChanged,
+        );
+
+        if (narrow) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: AppSpacing.sm),
+              role,
+              const SizedBox(height: AppSpacing.sm),
+              status,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(flex: 2, child: search),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: role),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: status),
+          ],
+        );
+      },
     );
   }
 }
@@ -1699,7 +1961,11 @@ class _CompanyLimitsPanel extends StatelessWidget {
         variant: AppButtonVariant.secondary,
         onPressed: state.status == PlatformStatus.saving
             ? null
-            : () => _showEditCompanySettingsDialog(context, company),
+            : () => _showEditCompanySettingsDialog(
+                  context,
+                  company,
+                  limitsOnly: true,
+                ),
       ),
       child: Wrap(
         spacing: AppSpacing.sm,
@@ -1716,6 +1982,182 @@ class _CompanyLimitsPanel extends StatelessWidget {
           _InfoChip(
             label: l.storageLimitMb,
             value: _limitLabel(context, company.limits['storageMb']),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompanyDataHealthPanel extends StatelessWidget {
+  const _CompanyDataHealthPanel({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final company = state.selectedCompany;
+    if (company == null) {
+      return AppEmptyState(
+        icon: Icons.apartment_outlined,
+        title: l.noCompanySelected,
+        message: l.noCompanySelectedMessage,
+      );
+    }
+
+    final report = state.dataHealthReport;
+    return _Panel(
+      title: l.dataHealth,
+      action: AppButton(
+        label: l.runDataHealthCheck,
+        icon: Icons.fact_check_outlined,
+        isLoading: state.dataHealthLoading,
+        onPressed: state.dataHealthLoading
+            ? null
+            : () => context
+                .read<PlatformCubit>()
+                .loadDataHealthReport(company.id),
+      ),
+      child: report == null
+          ? AppEmptyState(
+              icon: Icons.health_and_safety_outlined,
+              title: l.dataHealthNotRun,
+              message: l.dataHealthNotRunMessage,
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 760 ? 4 : 2;
+                    return GridView.count(
+                      crossAxisCount: columns,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: AppSpacing.sm,
+                      crossAxisSpacing: AppSpacing.sm,
+                      childAspectRatio: constraints.maxWidth < 520 ? 1.6 : 2.1,
+                      children: [
+                        _KpiCard(
+                          label: l.missingSnapshots,
+                          value: report.missingSnapshots.toString(),
+                          icon: Icons.dataset_linked_outlined,
+                          tone: AppStatusTone.warning,
+                        ),
+                        _KpiCard(
+                          label: l.invalidAssignees,
+                          value: report.invalidAssignees.toString(),
+                          icon: Icons.person_off_outlined,
+                          tone: AppStatusTone.error,
+                        ),
+                        _KpiCard(
+                          label: l.inactiveAssignees,
+                          value: report.inactiveAssignees.toString(),
+                          icon: Icons.block_outlined,
+                          tone: AppStatusTone.warning,
+                        ),
+                        _KpiCard(
+                          label: l.staleTeamSnapshots,
+                          value: report.staleTeamSnapshots.toString(),
+                          icon: Icons.groups_2_outlined,
+                          tone: AppStatusTone.info,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (!report.hasIssues)
+                  AppEmptyState(
+                    icon: Icons.verified_outlined,
+                    title: l.dataHealthClean,
+                    message: l.dataHealthCleanMessage,
+                  )
+                else
+                  _DataHealthIssueList(issues: report.issues),
+              ],
+            ),
+    );
+  }
+}
+
+class _DataHealthIssueList extends StatelessWidget {
+  const _DataHealthIssueList({required this.issues});
+
+  final List<DataHealthIssue> issues;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l.dataHealthAffectedRecords,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        for (final issue in issues.take(80)) ...[
+          _DataHealthIssueTile(issue: issue),
+          const SizedBox(height: AppSpacing.xs),
+        ],
+      ],
+    );
+  }
+}
+
+class _DataHealthIssueTile extends StatelessWidget {
+  const _DataHealthIssueTile({required this.issue});
+
+  final DataHealthIssue issue;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          AppStatusBadge(
+            label: _moduleLabel(l, issue.module),
+            tone: AppStatusTone.neutral,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  issue.title.isEmpty ? issue.recordId : issue.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                Text(
+                  '${_issueLabel(l, issue.issueType)} - ${issue.assignedToName.isEmpty ? issue.assignedTo : issue.assignedToName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          AppStatusBadge(
+            label: issue.canBackfill ? l.safeBackfillAvailable : l.manualReview,
+            tone: issue.canBackfill ? AppStatusTone.info : AppStatusTone.warning,
           ),
         ],
       ),
@@ -1803,7 +2245,7 @@ class _CompanyMetadataSections extends StatelessWidget {
               for (final feature in _featureKeys)
                 _FeatureChip(
                   label: _featureLabel(l, feature),
-                  enabled: company.features[feature] as bool? ?? false,
+                  enabled: _featureEnabled(company, feature),
                 ),
             ],
           ),
@@ -1892,11 +2334,13 @@ class _CompanyTile extends StatelessWidget {
   const _CompanyTile({
     required this.company,
     required this.selected,
+    required this.onOpenWorkspace,
     required this.onTap,
   });
 
   final CompanyMetadata company;
   final bool selected;
+  final VoidCallback onOpenWorkspace;
   final VoidCallback onTap;
 
   @override
@@ -1924,36 +2368,101 @@ class _CompanyTile extends StatelessWidget {
               ),
               borderRadius: AppRadius.large,
             ),
-            child: Row(
-              children: [
-                Icon(Icons.apartment, color: colors.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 680;
+                final title = Row(
+                  children: [
+                    Icon(Icons.apartment, color: colors.primary),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _companyTitle(company),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            company.id,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color:
+                                      AppColors.textSecondaryColor(context),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+                final meta = Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    AppStatusBadge(
+                      label: _statusLabel(l, company),
+                      tone: _isOperationalCompany(company)
+                          ? AppStatusTone.success
+                          : AppStatusTone.neutral,
+                    ),
+                    _InfoChip(
+                      label: l.userLimit,
+                      value: _limitLabel(context, company.limits['users']),
+                    ),
+                    _InfoChip(
+                      label: l.companyFeatures,
+                      value: _enabledFeaturesCount(company).toString(),
+                    ),
+                  ],
+                );
+                final actions = Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppButton(
+                      label: l.workspace,
+                      icon: Icons.view_quilt_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: onOpenWorkspace,
+                    ),
+                    AppButton(
+                      label: l.previewDashboard,
+                      icon: Icons.dashboard_customize_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () => _openPreview(context, company),
+                    ),
+                  ],
+                );
+
+                if (narrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        company.displayName.isEmpty
-                            ? company.name
-                            : company.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${company.id} - ${_statusLabel(l, company)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
-                        ),
-                      ),
+                      title,
+                      const SizedBox(height: AppSpacing.sm),
+                      meta,
+                      const SizedBox(height: AppSpacing.sm),
+                      actions,
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: title),
+                    Expanded(flex: 3, child: meta),
+                    actions,
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -1995,8 +2504,9 @@ class _UsersTable extends StatelessWidget {
               runSpacing: AppSpacing.sm,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                CircleAvatar(
-                  child: Text(_initialFor(user.fullName)),
+                _PlatformUserAvatar(
+                  name: user.fullName,
+                  photoUrl: user.photoUrl,
                 ),
                 SizedBox(
                   width: 280,
@@ -2011,13 +2521,31 @@ class _UsersTable extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${user.email} - ${_roleLabel(l, user.role)}',
+                        user.email,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondaryColor(context),
                         ),
                       ),
+                      if (user.teamName.trim().isNotEmpty ||
+                          user.managerName.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (user.teamName.trim().isNotEmpty)
+                              user.teamName.trim(),
+                            if (user.managerName.trim().isNotEmpty)
+                              user.managerName.trim(),
+                          ].join(' / '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: AppColors.textSecondaryColor(context),
+                              ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
                         _lastLoginSummary(context, user),
@@ -2031,73 +2559,204 @@ class _UsersTable extends StatelessWidget {
                   ),
                 ),
                 AppStatusBadge(
+                  label: _roleLabel(l, user.role),
+                  tone: AppStatusTone.info,
+                ),
+                AppStatusBadge(
                   label: user.isActive ? l.active : l.inactive,
                   tone: user.isActive
                       ? AppStatusTone.success
                       : AppStatusTone.neutral,
                 ),
-                AppButton(
-                  label: user.isActive ? l.deactivateUser : l.activateUser,
-                  icon: user.isActive ? Icons.block : Icons.check_circle_outline,
-                  variant: user.isActive
-                      ? AppButtonVariant.danger
-                      : AppButtonVariant.secondary,
-                  isLoading: isBusy,
-                  onPressed: isBusy
-                      ? null
-                      : () async {
-                          final success = await context
-                              .read<PlatformCubit>()
-                              .setCompanyUserActiveStatus(
-                                companyId: companyId,
-                                uid: user.uid,
-                                isActive: !user.isActive,
-                              );
-                          if (context.mounted && success) {
-                            AppFeedback.success(context, l.savedSuccessfully);
-                          }
-                        },
-                ),
-                AppButton(
-                  label: l.changeEmail,
-                  icon: Icons.alternate_email_rounded,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: isBusy
-                      ? null
-                      : () => _showPlatformChangeEmailDialog(
-                            context,
-                            companyId: companyId,
-                            user: user,
-                          ),
-                ),
-                AppButton(
-                  label: l.changePassword,
-                  icon: Icons.lock_reset,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: isBusy
-                      ? null
-                      : () => _showPlatformChangePasswordDialog(
-                            context,
-                            companyId: companyId,
-                            user: user,
-                          ),
-                ),
-                AppButton(
-                  label: l.generateResetLink,
-                  icon: Icons.link,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: isBusy
-                      ? null
-                      : () => _showGenerateResetLinkDialog(
-                            context,
-                            companyId: companyId,
-                            user: user,
-                          ),
-                ),
+                if (isBusy)
+                  const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  _UserActionsMenu(companyId: companyId, user: user),
               ],
             ),
           );
       },
+    );
+  }
+}
+
+class _PlatformUserAvatar extends StatelessWidget {
+  const _PlatformUserAvatar({required this.name, required this.photoUrl});
+
+  final String name;
+  final String photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanUrl = photoUrl.trim();
+    final fallback = CircleAvatar(child: Text(_initialFor(name)));
+    if (cleanUrl.isEmpty) {
+      return fallback;
+    }
+
+    return ClipOval(
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Image.network(
+          cleanUrl,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      ),
+    );
+  }
+}
+
+class _UserActionsMenu extends StatelessWidget {
+  const _UserActionsMenu({required this.companyId, required this.user});
+
+  final String companyId;
+  final PlatformCompanyUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    return PopupMenuButton<_UserAction>(
+      tooltip: l.actions,
+      icon: const Icon(Icons.more_horiz),
+      onSelected: (action) => _handleAction(context, action),
+      itemBuilder: (context) => [
+        PopupMenuItem<_UserAction>(
+          value: _UserAction.changeEmail,
+          child: _MenuItem(
+            icon: Icons.alternate_email_rounded,
+            label: l.changeEmail,
+          ),
+        ),
+        PopupMenuItem<_UserAction>(
+          value: _UserAction.setPassword,
+          child: _MenuItem(icon: Icons.lock_reset, label: l.changePassword),
+        ),
+        PopupMenuItem<_UserAction>(
+          value: _UserAction.resetLink,
+          child: _MenuItem(icon: Icons.link, label: l.generateResetLink),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<_UserAction>(
+          value: _UserAction.toggleActive,
+          child: _MenuItem(
+            icon: user.isActive ? Icons.block : Icons.check_circle_outline,
+            label: user.isActive ? l.deactivateUser : l.activateUser,
+            danger: user.isActive,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleAction(BuildContext context, _UserAction action) async {
+    switch (action) {
+      case _UserAction.changeEmail:
+        return _showPlatformChangeEmailDialog(
+          context,
+          companyId: companyId,
+          user: user,
+        );
+      case _UserAction.setPassword:
+        return _showPlatformChangePasswordDialog(
+          context,
+          companyId: companyId,
+          user: user,
+        );
+      case _UserAction.resetLink:
+        return _showGenerateResetLinkDialog(
+          context,
+          companyId: companyId,
+          user: user,
+        );
+      case _UserAction.toggleActive:
+        return _toggleUserStatus(context);
+    }
+  }
+
+  Future<void> _toggleUserStatus(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final l = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(user.isActive ? l.deactivateUser : l.activateUser),
+          content: Text(user.email),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l.cancel),
+            ),
+            AppButton(
+              label: l.save,
+              variant: user.isActive
+                  ? AppButtonVariant.danger
+                  : AppButtonVariant.secondary,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    final success = await context
+        .read<PlatformCubit>()
+        .setCompanyUserActiveStatus(
+          companyId: companyId,
+          uid: user.uid,
+          isActive: !user.isActive,
+        );
+    if (context.mounted && success) {
+      AppFeedback.success(
+        context,
+        AppLocalizations.of(context)!.savedSuccessfully,
+      );
+    }
+  }
+}
+
+enum _UserAction { changeEmail, setPassword, resetLink, toggleActive }
+
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? AppColors.errorColor(context)
+        : AppColors.textPrimaryColor(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: color,
+                  fontWeight: danger ? FontWeight.w700 : FontWeight.w500,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2256,13 +2915,15 @@ Future<void> _showGenerateResetLinkDialog(
 
 Future<void> _showEditCompanySettingsDialog(
   BuildContext context,
-  CompanyMetadata company,
-) {
+  CompanyMetadata company, {
+  bool limitsOnly = false,
+}) {
   return showDialog<void>(
     context: context,
     builder: (_) => _EditCompanySettingsDialog(
       cubit: context.read<PlatformCubit>(),
       company: company,
+      limitsOnly: limitsOnly,
     ),
   );
 }
@@ -2271,10 +2932,12 @@ class _EditCompanySettingsDialog extends StatefulWidget {
   const _EditCompanySettingsDialog({
     required this.cubit,
     required this.company,
+    required this.limitsOnly,
   });
 
   final PlatformCubit cubit;
   final CompanyMetadata company;
+  final bool limitsOnly;
 
   @override
   State<_EditCompanySettingsDialog> createState() =>
@@ -2331,7 +2994,7 @@ class _EditCompanySettingsDialogState
     final l = AppLocalizations.of(context)!;
 
     return AlertDialog(
-      title: Text(l.editCompanySettings),
+      title: Text(widget.limitsOnly ? l.companyLimits : l.editCompanySettings),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -2340,106 +3003,107 @@ class _EditCompanySettingsDialogState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AppTextField(
-                  controller: _companyName,
-                  label: l.companyName,
-                  enabled: !_saving,
-                  validator: (value) => _required(value, l),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppTextField(
-                  controller: _displayName,
-                  label: l.companyDisplayName,
-                  enabled: !_saving,
-                  validator: (value) => _required(value, l),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final narrow = constraints.maxWidth < 520;
-                    final status = AppDropdown<String>(
-                      label: l.status,
-                      value: _status,
-                      items: const ['active', 'trial', 'inactive'],
-                      itemLabelBuilder: (value) =>
-                          _companyStatusOptionLabel(l, value),
-                      enabled: !_saving,
-                      onChanged: (value) => setState(() => _status = value),
-                    );
-                    final locale = AppDropdown<String>(
-                      label: l.locale,
-                      value: _locale,
-                      items: const ['en', 'ar'],
-                      itemLabelBuilder: (value) =>
-                          value == 'ar' ? l.arabic : l.english,
-                      enabled: !_saving,
-                      onChanged: (value) => setState(() => _locale = value),
-                    );
+                if (!widget.limitsOnly) ...[
+                  AppTextField(
+                    controller: _companyName,
+                    label: l.companyName,
+                    enabled: !_saving,
+                    validator: (value) => _required(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppTextField(
+                    controller: _displayName,
+                    label: l.companyDisplayName,
+                    enabled: !_saving,
+                    validator: (value) => _required(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final narrow = constraints.maxWidth < 520;
+                      final status = AppDropdown<String>(
+                        label: l.status,
+                        value: _status,
+                        items: const ['active', 'trial', 'inactive'],
+                        itemLabelBuilder: (value) =>
+                            _companyStatusOptionLabel(l, value),
+                        enabled: !_saving,
+                        onChanged: (value) => setState(() => _status = value),
+                      );
+                      final locale = AppDropdown<String>(
+                        label: l.locale,
+                        value: _locale,
+                        items: const ['en', 'ar'],
+                        itemLabelBuilder: (value) =>
+                            value == 'ar' ? l.arabic : l.english,
+                        enabled: !_saving,
+                        onChanged: (value) => setState(() => _locale = value),
+                      );
 
-                    if (narrow) {
-                      return Column(
+                      if (narrow) {
+                        return Column(
+                          children: [
+                            status,
+                            const SizedBox(height: AppSpacing.md),
+                            locale,
+                          ],
+                        );
+                      }
+
+                      return Row(
                         children: [
-                          status,
-                          const SizedBox(height: AppSpacing.md),
-                          locale,
+                          Expanded(child: status),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(child: locale),
                         ],
                       );
-                    }
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppTextField(
+                    controller: _timezone,
+                    label: l.timezone,
+                    enabled: !_saving,
+                    validator: (value) => _required(value, l),
+                  ),
+                ] else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final narrow = constraints.maxWidth < 520;
+                      final users = AppTextField(
+                        controller: _userLimit,
+                        label: l.userLimit,
+                        keyboardType: TextInputType.number,
+                        enabled: !_saving,
+                        validator: (value) => _positiveInteger(value, l),
+                      );
+                      final storage = AppTextField(
+                        controller: _storageLimit,
+                        label: l.storageLimitMb,
+                        keyboardType: TextInputType.number,
+                        enabled: !_saving,
+                        validator: (value) => _positiveInteger(value, l),
+                      );
 
-                    return Row(
-                      children: [
-                        Expanded(child: status),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(child: locale),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppTextField(
-                  controller: _timezone,
-                  label: l.timezone,
-                  enabled: !_saving,
-                  validator: (value) => _required(value, l),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final narrow = constraints.maxWidth < 520;
-                    final users = AppTextField(
-                      controller: _userLimit,
-                      label: l.userLimit,
-                      keyboardType: TextInputType.number,
-                      enabled: !_saving,
-                      validator: (value) => _positiveInteger(value, l),
-                    );
-                    final storage = AppTextField(
-                      controller: _storageLimit,
-                      label: l.storageLimitMb,
-                      keyboardType: TextInputType.number,
-                      enabled: !_saving,
-                      validator: (value) => _positiveInteger(value, l),
-                    );
+                      if (narrow) {
+                        return Column(
+                          children: [
+                            users,
+                            const SizedBox(height: AppSpacing.md),
+                            storage,
+                          ],
+                        );
+                      }
 
-                    if (narrow) {
-                      return Column(
+                      return Row(
                         children: [
-                          users,
-                          const SizedBox(height: AppSpacing.md),
-                          storage,
+                          Expanded(child: users),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(child: storage),
                         ],
                       );
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(child: users),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(child: storage),
-                      ],
-                    );
-                  },
-                ),
+                    },
+                  ),
               ],
             ),
           ),
@@ -2467,19 +3131,23 @@ class _EditCompanySettingsDialogState
     setState(() => _saving = true);
     final success = await widget.cubit.updateCompanyPlatformSettings(
       companyId: widget.company.id,
-      name: _companyName.text.trim(),
-      displayName: _displayName.text.trim(),
-      status: _status,
-      isActive: _status != 'inactive',
-      settings: {
-        'locale': _locale,
-        'timezone': _timezone.text.trim(),
-      },
-      limits: {
-        'users': int.parse(_userLimit.text.trim()),
-        'storageMb': int.parse(_storageLimit.text.trim()),
-      },
-      actionId: 'settings',
+      name: widget.limitsOnly ? null : _companyName.text.trim(),
+      displayName: widget.limitsOnly ? null : _displayName.text.trim(),
+      status: widget.limitsOnly ? null : _status,
+      isActive: widget.limitsOnly ? null : _status != 'inactive',
+      settings: widget.limitsOnly
+          ? null
+          : {
+              'locale': _locale,
+              'timezone': _timezone.text.trim(),
+            },
+      limits: widget.limitsOnly
+          ? {
+              'users': int.parse(_userLimit.text.trim()),
+              'storageMb': int.parse(_storageLimit.text.trim()),
+            }
+          : null,
+      actionId: widget.limitsOnly ? 'limits' : 'settings',
     );
     if (!mounted) {
       return;
@@ -3114,12 +3782,8 @@ String _sectionLabel(AppLocalizations l, _PlatformSection section) {
   return switch (section) {
     _PlatformSection.overview => l.platformOverview,
     _PlatformSection.companies => l.platformCompanies,
-    _PlatformSection.details => l.companyDetails,
-    _PlatformSection.users => l.companyUsers,
-    _PlatformSection.settings => l.companySettings,
-    _PlatformSection.features => l.companyFeatures,
-    _PlatformSection.limits => l.companyLimits,
-    _PlatformSection.preview => l.companyDashboardPreview,
+    _PlatformSection.workspace => l.workspace,
+    _PlatformSection.security => l.security,
   };
 }
 
@@ -3127,12 +3791,54 @@ IconData _sectionIcon(_PlatformSection section) {
   return switch (section) {
     _PlatformSection.overview => Icons.space_dashboard_outlined,
     _PlatformSection.companies => Icons.apartment_outlined,
-    _PlatformSection.details => Icons.badge_outlined,
-    _PlatformSection.users => Icons.people_outline,
-    _PlatformSection.settings => Icons.tune,
-    _PlatformSection.features => Icons.extension_outlined,
-    _PlatformSection.limits => Icons.speed_outlined,
-    _PlatformSection.preview => Icons.dashboard_customize_outlined,
+    _PlatformSection.workspace => Icons.view_quilt_outlined,
+    _PlatformSection.security => Icons.shield_outlined,
+  };
+}
+
+String _workspaceTabLabel(AppLocalizations l, _WorkspaceTab tab) {
+  return switch (tab) {
+    _WorkspaceTab.summary => l.companyDetails,
+    _WorkspaceTab.users => l.companyUsers,
+    _WorkspaceTab.features => l.companyFeatures,
+    _WorkspaceTab.limits => l.companyLimits,
+    _WorkspaceTab.settings => l.companySettings,
+    _WorkspaceTab.maintenance => l.dataHealth,
+    _WorkspaceTab.preview => l.companyDashboardPreview,
+  };
+}
+
+String _moduleLabel(AppLocalizations l, String module) {
+  return switch (module) {
+    'leads' => l.leads,
+    'clients' => l.clients,
+    'properties' => l.properties,
+    'tasks' => l.tasks,
+    'deals' => l.deals,
+    _ => module,
+  };
+}
+
+String _issueLabel(AppLocalizations l, String issueType) {
+  return switch (issueType) {
+    'missingSnapshots' => l.missingSnapshots,
+    'missingAssignee' => l.missingAssignee,
+    'inactiveAssignee' => l.inactiveAssignees,
+    'ineligibleAssignee' => l.invalidAssignees,
+    'staleSnapshots' => l.staleTeamSnapshots,
+    _ => issueType,
+  };
+}
+
+IconData _workspaceTabIcon(_WorkspaceTab tab) {
+  return switch (tab) {
+    _WorkspaceTab.summary => Icons.summarize_outlined,
+    _WorkspaceTab.users => Icons.people_outline,
+    _WorkspaceTab.features => Icons.extension_outlined,
+    _WorkspaceTab.limits => Icons.speed_outlined,
+    _WorkspaceTab.settings => Icons.tune,
+    _WorkspaceTab.maintenance => Icons.health_and_safety_outlined,
+    _WorkspaceTab.preview => Icons.dashboard_customize_outlined,
   };
 }
 
@@ -3163,6 +3869,10 @@ String _featureLabel(AppLocalizations l, String feature) {
 
 bool _featureEnabled(CompanyMetadata company, String feature) {
   return company.features[feature] as bool? ?? true;
+}
+
+int _enabledFeaturesCount(CompanyMetadata company) {
+  return _featureKeys.where((feature) => _featureEnabled(company, feature)).length;
 }
 
 String _companyTitle(CompanyMetadata company) {

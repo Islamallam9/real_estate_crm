@@ -190,6 +190,14 @@ class _CreateLeadFormContent extends StatelessWidget {
                                   );
                                   return;
                                 }
+                                if (roleName == 'manager' &&
+                                    lead.managerId.trim() != uid) {
+                                  AppFeedback.warning(
+                                    context,
+                                    l.canOnlyAssignRecordsToYourTeam,
+                                  );
+                                  return;
+                                }
                                 final isAssignedOnlyRole =
                                     roleName == 'salesAgent' ||
                                     roleName == 'marketing';

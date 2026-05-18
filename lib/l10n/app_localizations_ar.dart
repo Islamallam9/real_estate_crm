@@ -180,6 +180,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardUnableToLoadRecentActivity => 'تعذر تحميل آخر النشاط.';
 
   @override
+  String get teamRecentActivity => 'آخر نشاط للفريق';
+
+  @override
+  String get teamRecentActivitySubtitle => 'آخر تغييرات CRM المسجلة لفريقك.';
+
+  @override
+  String get noRecentTeamActivity => 'لا يوجد نشاط حديث للفريق حتى الآن.';
+
+  @override
   String dashboardAuditActionLabel(Object module, Object action) {
     return '$module · $action';
   }
@@ -1017,6 +1026,21 @@ class AppLocalizationsAr extends AppLocalizations {
       'يمكنك إسناد السجلات لمستخدمي فريقك فقط.';
 
   @override
+  String get selectedAssigneeInactive => 'المستخدم المحدد غير نشط.';
+
+  @override
+  String get selectedAssigneeNotEligible =>
+      'المستخدم المحدد غير مؤهل لهذا السجل.';
+
+  @override
+  String get permissionToViewAnotherTeamRecordsDenied =>
+      'ليس لديك صلاحية لعرض سجلات فريق آخر.';
+
+  @override
+  String get sessionOrCompanyProfileMissing =>
+      'بيانات الجلسة أو الشركة غير مكتملة. يرجى تسجيل الدخول مرة أخرى.';
+
+  @override
   String get cannotAssignAcrossCompanies =>
       'لا يمكن إسناد عميل محتمل خارج شركتك.';
 
@@ -1596,6 +1620,50 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get companySettings => 'إعدادات الشركة';
+
+  @override
+  String get dataHealth => 'صحة البيانات';
+
+  @override
+  String get runDataHealthCheck => 'تشغيل فحص صحة البيانات';
+
+  @override
+  String get dataHealthNotRun => 'لا يوجد تقرير صحة بيانات بعد';
+
+  @override
+  String get dataHealthNotRunMessage =>
+      'شغّل فحصًا خاصًا بالشركة لاكتشاف لقطات الإسناد الناقصة والمستخدمين غير المؤهلين.';
+
+  @override
+  String get dataHealthClean => 'لم يتم العثور على مشاكل إسناد';
+
+  @override
+  String get dataHealthCleanMessage =>
+      'السجلات التي تم فحصها متوافقة مع سياسة الإسناد الحالية.';
+
+  @override
+  String get dataHealthAffectedRecords => 'السجلات المتأثرة';
+
+  @override
+  String get missingSnapshots => 'لقطات ناقصة';
+
+  @override
+  String get invalidAssignees => 'مسندون غير صالحين';
+
+  @override
+  String get inactiveAssignees => 'مسندون غير نشطين';
+
+  @override
+  String get staleTeamSnapshots => 'لقطات فريق قديمة';
+
+  @override
+  String get missingAssignee => 'مسند غير موجود';
+
+  @override
+  String get safeBackfillAvailable => 'إصلاح آمن';
+
+  @override
+  String get manualReview => 'مراجعة يدوية';
 
   @override
   String get editCompanySettings => 'تعديل إعدادات الشركة';

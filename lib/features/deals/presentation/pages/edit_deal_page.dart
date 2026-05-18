@@ -151,6 +151,15 @@ class _EditDealViewState extends State<_EditDealView> {
                                         if (_isSubmitting) {
                                           return;
                                         }
+                                        if (role == UserRole.manager &&
+                                            updatedDeal.managerId.trim() !=
+                                                user.uid) {
+                                          AppFeedback.warning(
+                                            context,
+                                            l.canOnlyAssignRecordsToYourTeam,
+                                          );
+                                          return;
+                                        }
                                         setState(() => _isSubmitting = true);
                                         context.read<DealsCubit>().updateDeal(
                                           companyId: userProfile.companyId,

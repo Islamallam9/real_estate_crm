@@ -200,6 +200,13 @@ class FirestoreUserProfileRemoteDataSource
           'photoUrl': url,
           'photoStoragePath': uploadedPath,
         },
+      );
+      await _debugProfileImageSnapshot(
+        uid: uid,
+        companyId: companyId,
+        source: 'upload',
+        savedPhotoUrl: url,
+        savedPhotoStoragePath: uploadedPath,
         previousPhotoStoragePath: oldPath,
       );
       if (companyId.trim().isEmpty) {
@@ -237,6 +244,14 @@ class FirestoreUserProfileRemoteDataSource
         },
         previousPhotoStoragePath: oldPath,
       );
+      await _debugProfileImageSnapshot(
+        uid: uid,
+        companyId: companyId,
+        source: 'remove',
+        savedPhotoUrl: '',
+        savedPhotoStoragePath: '',
+        previousPhotoStoragePath: oldPath,
+      );
       if (companyId.trim().isEmpty) {
         return null;
       }
@@ -271,6 +286,12 @@ class FirestoreUserProfileRemoteDataSource
       if (previousPhotoStoragePath.trim().isNotEmpty)
         'previousPhotoStoragePath': previousPhotoStoragePath.trim(),
     }).timeout(_firestoreTimeout);
+    try {
+      await _firebaseAuth.currentUser?.reload();
+    } catch (_) {
+      // Auth reload keeps the local shell in sync, but persistence already
+      // succeeded through the callable and should not be rolled back.
+    }
   }
 
   Future<String> _currentPhotoStoragePath({
@@ -308,6 +329,19 @@ class FirestoreUserProfileRemoteDataSource
     }
   }
 
+  Future<void> _debugProfileImageSnapshot({
+    required String uid,
+    required String companyId,
+    required String source,
+    required String savedPhotoUrl,
+    required String savedPhotoStoragePath,
+    required String previousPhotoStoragePath,
+  }) async {
+    // Keep the production/development console clean. Re-enable temporarily only
+    // when diagnosing a profile-image persistence issue.
+    return;
+  }
+
   void _validateProfileImage(ProfileImageUpload image) {
     if (!image.contentType.toLowerCase().startsWith('image/')) {
       throw const UserProfileException(AppErrorMessages.propertyImageInvalidType);
@@ -317,7 +351,6 @@ class FirestoreUserProfileRemoteDataSource
     }
   }
 }
-
 List<UserProfileModel> Function(QuerySnapshot<Map<String, dynamic>>)
 _activeUsersFromSnapshot(String companyId) {
   return (snapshot) {

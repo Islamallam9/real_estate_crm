@@ -29,6 +29,11 @@ class AuditLog extends Equatable {
     required this.recordId,
     required this.recordTitle,
     required this.recordSubtitle,
+    this.assignedTo = '',
+    this.teamId = '',
+    this.teamName = '',
+    this.managerId = '',
+    this.managerName = '',
     required this.createdAt,
     required this.metadata,
   });
@@ -44,6 +49,11 @@ class AuditLog extends Equatable {
   final String recordId;
   final String recordTitle;
   final String recordSubtitle;
+  final String assignedTo;
+  final String teamId;
+  final String teamName;
+  final String managerId;
+  final String managerName;
   final DateTime createdAt;
   final Map<String, Object?> metadata;
 
@@ -60,6 +70,11 @@ class AuditLog extends Equatable {
     recordId,
     recordTitle,
     recordSubtitle,
+    assignedTo,
+    teamId,
+    teamName,
+    managerId,
+    managerName,
     createdAt,
     metadata,
   ];

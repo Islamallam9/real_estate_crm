@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -196,6 +197,8 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                 canStatus: canStatus,
                 assigneeName: assigneeName,
                 activeUsers: users,
+                currentUserProfile: authState.userProfile ??
+                    _currentUserProfileFromUsers(users, uid),
               );
 
               final isBusy =
@@ -227,6 +230,15 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
       ),
     );
   }
+}
+
+UserProfile? _currentUserProfileFromUsers(List<UserProfile> users, String uid) {
+  for (final user in users) {
+    if (user.uid == uid) {
+      return user;
+    }
+  }
+  return null;
 }
 
 String _successMessageForAction(AppLocalizations l, LeadsAction action) {
@@ -262,6 +274,7 @@ class _LeadDetailsContent extends StatefulWidget {
     required this.canStatus,
     required this.assigneeName,
     required this.activeUsers,
+    this.currentUserProfile,
   });
 
   final Lead lead;
@@ -274,6 +287,7 @@ class _LeadDetailsContent extends StatefulWidget {
   final bool canStatus;
   final String assigneeName;
   final List<UserProfile> activeUsers;
+  final UserProfile? currentUserProfile;
 
   @override
   State<_LeadDetailsContent> createState() => _LeadDetailsContentState();
@@ -442,11 +456,14 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
                   return;
                 }
 
-                context.read<LeadsCubit>().updateStatus(
-                  companyId: widget.companyId,
-                  updatedBy: widget.uid,
-                  actorName: widget.actorName,
-                  status: status,
+                _updateLeadFromDetails(
+                  context,
+                  widget.lead.copyWith(
+                    status: status,
+                    updatedAt: DateTime.now(),
+                    updatedBy: widget.uid,
+                  ),
+                  successAction: LeadsAction.updateStatus,
                 );
               },
             );
@@ -528,6 +545,42 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
     );
   }
 
+  void _updateLeadFromDetails(
+    BuildContext context,
+    Lead lead, {
+    LeadsAction? successAction,
+  }) {
+    final safeLead = _withCurrentUserAssignmentSnapshots(lead);
+    context.read<LeadsCubit>().updateLead(
+      companyId: widget.companyId,
+      lead: safeLead,
+      actorName: widget.actorName,
+      successAction: successAction,
+    );
+  }
+
+  Lead _withCurrentUserAssignmentSnapshots(Lead lead) {
+    final profile = widget.currentUserProfile;
+    if (profile == null) {
+      return lead;
+    }
+    final isAssignedOnlyRole =
+        profile.role == UserRole.salesAgent ||
+        profile.role == UserRole.marketing ||
+        profile.role == UserRole.viewer;
+    if (!isAssignedOnlyRole || lead.assignedTo != widget.uid) {
+      return lead;
+    }
+    return lead.copyWith(
+      assignedTo: widget.uid,
+      assignedToName: profile.fullName,
+      teamId: profile.teamId,
+      teamName: profile.teamName,
+      managerId: profile.managerId,
+      managerName: profile.managerName,
+    );
+  }
+
   Future<void> _archive(BuildContext context) async {
     final l = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -564,14 +617,13 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
 
   void _markContactedToday(BuildContext context) {
     final now = DateTime.now();
-    context.read<LeadsCubit>().updateLead(
-      companyId: widget.companyId,
-      lead: widget.lead.copyWith(
+    _updateLeadFromDetails(
+      context,
+      widget.lead.copyWith(
         lastContactAt: now,
         updatedAt: now,
         updatedBy: widget.uid,
       ),
-      actorName: widget.actorName,
     );
   }
 
@@ -594,14 +646,13 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
     }
 
     final now = DateTime.now();
-    context.read<LeadsCubit>().updateLead(
-      companyId: widget.companyId,
-      lead: widget.lead.copyWith(
+    _updateLeadFromDetails(
+      context,
+      widget.lead.copyWith(
         nextFollowUpAt: DateUtils.dateOnly(pickedDate),
         updatedAt: now,
         updatedBy: widget.uid,
       ),
-      actorName: widget.actorName,
     );
   }
 }
@@ -909,6 +960,8 @@ String _fieldLabel(AppLocalizations l, String field) {
       return l.emailUpdated;
     case 'source':
       return l.sourceUpdated;
+    case 'sourceDetails':
+      return l.sourceDetails;
     case 'status':
       return l.statusUpdated;
     case 'priority':

@@ -312,7 +312,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (!resolution.hasCompany) {
         if (resolution.isPlatformAdmin) {
-          _emitPlatformOnlySession(emit: emit, user: user);
+          _emitPlatformOnlySession(
+            emit: emit,
+            user: user,
+            platformFullName: resolution.platformFullName,
+            platformPhotoUrl: resolution.platformPhotoUrl,
+          );
           _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
@@ -329,7 +334,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (!resolution.isCompanyActive) {
         if (resolution.isPlatformAdmin) {
-          _emitPlatformOnlySession(emit: emit, user: user);
+          _emitPlatformOnlySession(
+            emit: emit,
+            user: user,
+            platformFullName: resolution.platformFullName,
+            platformPhotoUrl: resolution.platformPhotoUrl,
+          );
           _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
@@ -352,7 +362,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       } on UserProfileException {
         if (resolution.isPlatformAdmin) {
-          _emitPlatformOnlySession(emit: emit, user: user);
+          _emitPlatformOnlySession(
+            emit: emit,
+            user: user,
+            platformFullName: resolution.platformFullName,
+            platformPhotoUrl: resolution.platformPhotoUrl,
+          );
           _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
@@ -361,7 +376,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (!profile.isActive) {
         if (resolution.isPlatformAdmin) {
-          _emitPlatformOnlySession(emit: emit, user: user);
+          _emitPlatformOnlySession(
+            emit: emit,
+            user: user,
+            platformFullName: resolution.platformFullName,
+            platformPhotoUrl: resolution.platformPhotoUrl,
+          );
           _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
@@ -488,11 +508,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _emitPlatformOnlySession({
     required Emitter<AuthState> emit,
     required AppUser user,
+    required String platformFullName,
+    required String platformPhotoUrl,
   }) {
+    final fullName = platformFullName.trim().isEmpty
+        ? (user.fullName ?? user.displayName)
+        : platformFullName.trim();
+    final photoUrl = platformPhotoUrl.trim().isEmpty
+        ? user.photoUrl
+        : platformPhotoUrl.trim();
     emit(
       AuthState(
         status: AuthStatus.authenticated,
-        user: user,
+        user: user.copyWith(
+          fullName: fullName,
+          displayName: fullName,
+          photoUrl: photoUrl,
+        ),
         isPlatformAdmin: true,
       ),
     );

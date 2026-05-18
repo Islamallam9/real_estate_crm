@@ -241,7 +241,10 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (role == null || uid.isEmpty) {
       return;
     }
-    final key = '${widget.companyId}:${role.name}:$uid';
+    final managerTeamId = role == UserRole.manager
+        ? widget.authState.userProfile?.teamId.trim()
+        : null;
+    final key = '${widget.companyId}:${role.name}:$uid:${managerTeamId ?? ''}';
     if (_watchKey == key) {
       return;
     }
@@ -292,6 +295,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         _canViewRecentActivity(widget.authState)) {
       context.read<AuditLogsCubit>().watchAuditLogs(
         companyId: widget.companyId,
+        managerId: role == UserRole.manager ? uid : null,
+        teamId: managerTeamId,
       );
     }
   }
@@ -307,6 +312,9 @@ class _DashboardContentState extends State<_DashboardContent> {
     final uid = widget.authState.user?.uid ?? '';
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
+    final managerTeamId = role == UserRole.manager
+        ? widget.authState.userProfile?.teamId.trim()
+        : null;
 
     if (role != null &&
         widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
@@ -357,6 +365,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         _canViewRecentActivity(widget.authState)) {
       context.read<AuditLogsCubit>().watchAuditLogs(
         companyId: widget.companyId,
+        managerId: role == UserRole.manager ? uid : null,
+        teamId: managerTeamId,
       );
     }
   }
@@ -470,15 +480,20 @@ class _RecentActivityPanel extends StatelessWidget {
     }
 
     final l = AppLocalizations.of(context)!;
+    final isManager = !platformPreview && role == UserRole.manager;
 
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionTitle(title: l.dashboardRecentActivity),
+          _SectionTitle(
+            title: isManager ? l.teamRecentActivity : l.dashboardRecentActivity,
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            l.dashboardRecentActivitySubtitle,
+            isManager
+                ? l.teamRecentActivitySubtitle
+                : l.dashboardRecentActivitySubtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppColors.textSecondaryColor(context),
             ),
@@ -509,7 +524,11 @@ class _RecentActivityPanel extends StatelessWidget {
                   .toList();
 
               if (items.isEmpty) {
-                return _CompactEmpty(message: l.dashboardNoRecentActivity);
+                return _CompactEmpty(
+                  message: isManager
+                      ? l.noRecentTeamActivity
+                      : l.dashboardNoRecentActivity,
+                );
               }
 
               return AnimatedSwitcher(
@@ -569,12 +588,13 @@ _RecentActivityItem _auditLogActivityItem(
   final l = AppLocalizations.of(context)!;
   final action = _auditActionLabel(l, log.action);
   final module = _auditModuleLabel(l, log.module);
+  final details = _auditLogDetails(l, log);
 
   return _RecentActivityItem(
     id: '${log.id}-${log.createdAt.millisecondsSinceEpoch}',
     action: l.dashboardAuditActionLabel(module, action),
     title: _fallback(log.recordTitle, module),
-    subtitle: log.recordSubtitle.trim(),
+    subtitle: _fallback(details, log.recordSubtitle.trim()),
     actorName: _fallback(
       log.actorName,
       _fallback(log.actorEmail, l.unknownUser),
@@ -585,6 +605,136 @@ _RecentActivityItem _auditLogActivityItem(
     tone: _auditActionTone(log.action),
     onTap: readOnly ? null : _auditRecordTap(log),
   );
+}
+
+String _auditLogDetails(AppLocalizations l, AuditLog log) {
+  final changedFields = log.metadata['changedFields'];
+  if (changedFields is Iterable) {
+    final details = <String>[];
+    for (final entry in changedFields) {
+      if (entry is! Map) {
+        continue;
+      }
+      final field = (entry['field'] ?? '').toString();
+      final oldValue = (entry['oldValue'] ?? '').toString();
+      final newValue = (entry['newValue'] ?? '').toString();
+      if (field.isEmpty || oldValue == newValue) {
+        continue;
+      }
+      details.add(
+        '${_auditFieldLabel(l, field)}: '
+        '${_auditChangeLabel(l, field, oldValue, newValue)}',
+      );
+    }
+    if (details.isNotEmpty) {
+      return details.take(3).join(' • ');
+    }
+  }
+
+  final previousStatus = (log.metadata['previousStatus'] ?? '').toString();
+  final newStatus = (log.metadata['newStatus'] ?? '').toString();
+  if (previousStatus.isNotEmpty && newStatus.isNotEmpty) {
+    return '${l.statusUpdated}: '
+        '${_auditChangeLabel(l, 'status', previousStatus, newStatus)}';
+  }
+
+  final assignedToName = (log.metadata['assignedToName'] ?? '').toString();
+  if (assignedToName.isNotEmpty) {
+    return '${l.assignedToLabel}: $assignedToName';
+  }
+
+  return '';
+}
+
+String _auditChangeLabel(
+  AppLocalizations l,
+  String field,
+  String oldValue,
+  String newValue,
+) {
+  final oldLabel = _directionalAuditValue(_auditValueLabel(l, field, oldValue));
+  final newLabel = _directionalAuditValue(_auditValueLabel(l, field, newValue));
+  final localeName = l.localeName.toLowerCase();
+  if (localeName.startsWith('ar')) {
+    return 'من $oldLabel إلى $newLabel';
+  }
+  return '$oldLabel → $newLabel';
+}
+
+String _directionalAuditValue(String value) {
+  if (value.trim().isEmpty) {
+    return value;
+  }
+  return '⁨$value⁩';
+}
+
+String _auditFieldLabel(AppLocalizations l, String field) {
+  return switch (field) {
+    'fullName' => l.fullNameUpdated,
+    'phone' => l.phoneUpdated,
+    'email' => l.emailUpdated,
+    'source' => l.sourceUpdated,
+    'sourceDetails' => l.sourceDetails,
+    'status' => l.statusUpdated,
+    'priority' => l.priorityUpdated,
+    'budget' => l.budgetUpdated,
+    'budgetMin' => l.budgetMin,
+    'budgetMax' => l.budgetMax,
+    'preferredLocation' => l.preferredLocationUpdated,
+    'preferredPropertyType' => l.preferredPropertyTypeUpdated,
+    'assignedTo' => l.assignedToLabel,
+    'notes' => l.notes,
+    'lastContactAt' => l.lastContact,
+    'nextFollowUpAt' => l.nextFollowUp,
+    _ => field,
+  };
+}
+
+String _auditValueLabel(AppLocalizations l, String field, String value) {
+  if (value.trim().isEmpty) {
+    return l.notAvailable;
+  }
+  return switch (field) {
+    'status' => _auditStatusValueLabel(l, value),
+    'source' => _auditSourceValueLabel(l, value),
+    'priority' => _auditPriorityValueLabel(l, value),
+    _ => value,
+  };
+}
+
+String _auditStatusValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'newLead' || 'new' => l.newLeadStatus,
+    'contacted' => l.contactedLeadStatus,
+    'interested' => l.interestedLeadStatus,
+    'visitScheduled' => l.visitScheduledLeadStatus,
+    'negotiation' => l.negotiationLeadStatus,
+    'won' => l.wonLeadStatus,
+    'lost' => l.lostLeadStatus,
+    _ => value,
+  };
+}
+
+String _auditSourceValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'facebook' => l.facebook,
+    'website' => l.website,
+    'phoneCall' => l.phoneCall,
+    'whatsapp' => l.whatsapp,
+    'referral' => l.referral,
+    'walkIn' => l.walkIn,
+    'other' => l.other,
+    _ => value,
+  };
+}
+
+String _auditPriorityValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'low' => l.low,
+    'medium' => l.medium,
+    'high' => l.high,
+    _ => value,
+  };
 }
 
 String _auditActionLabel(AppLocalizations l, AuditLogAction action) {
@@ -730,7 +880,7 @@ class _RecentActivityTile extends StatelessWidget {
                         ),
                         Text(
                           meta,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
@@ -3382,7 +3532,7 @@ bool _canViewRecentActivity(
   }
 
   final role = authState.userProfile?.role ?? authState.user?.role;
-  return role == UserRole.admin;
+  return role == UserRole.admin || role == UserRole.manager;
 }
 
 bool _canViewUnassignedLeads(

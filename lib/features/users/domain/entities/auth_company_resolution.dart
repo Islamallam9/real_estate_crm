@@ -8,16 +8,26 @@ class AuthCompanyResolution extends Equatable {
     required this.isPlatformAdmin,
     this.membership,
     this.company,
+    this.platformFullName = '',
+    this.platformPhotoUrl = '',
   });
 
   final bool isPlatformAdmin;
   final UserMembership? membership;
   final CompanyMetadata? company;
+  final String platformFullName;
+  final String platformPhotoUrl;
 
   bool get hasCompany => membership != null && company != null;
 
   bool get isCompanyActive => company?.isUsable ?? false;
 
   @override
-  List<Object?> get props => [isPlatformAdmin, membership, company];
+  List<Object?> get props => [
+    isPlatformAdmin,
+    membership,
+    company,
+    platformFullName,
+    platformPhotoUrl,
+  ];
 }

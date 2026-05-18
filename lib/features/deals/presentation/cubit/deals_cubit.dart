@@ -190,6 +190,10 @@ class DealsCubit extends Cubit<DealsState> {
               'newStage': dealStageToValue(createdDeal.stage),
               'assignedTo': createdDeal.assignedTo,
               'assignedToName': createdDeal.assignedToName,
+              'teamId': createdDeal.teamId,
+              'teamName': createdDeal.teamName,
+              'managerId': createdDeal.managerId,
+              'managerName': createdDeal.managerName,
             },
           ),
         );
@@ -226,6 +230,10 @@ class DealsCubit extends Cubit<DealsState> {
               },
               'assignedTo': updatedDeal.assignedTo,
               'assignedToName': updatedDeal.assignedToName,
+              'teamId': updatedDeal.teamId,
+              'teamName': updatedDeal.teamName,
+              'managerId': updatedDeal.managerId,
+              'managerName': updatedDeal.managerName,
             },
           ),
         );
@@ -265,6 +273,14 @@ class DealsCubit extends Cubit<DealsState> {
               if (previousDeal != null)
                 'previousStage': dealStageToValue(previousDeal.stage),
               'newStage': dealStageToValue(stage),
+              if (previousDeal != null) ...{
+                'assignedTo': previousDeal.assignedTo,
+                'assignedToName': previousDeal.assignedToName,
+                'teamId': previousDeal.teamId,
+                'teamName': previousDeal.teamName,
+                'managerId': previousDeal.managerId,
+                'managerName': previousDeal.managerName,
+              },
             },
           ),
         );
@@ -294,7 +310,16 @@ class DealsCubit extends Cubit<DealsState> {
             recordId: dealId,
             recordTitle: deal == null ? 'Deal' : _dealTitle(deal),
             recordSubtitle: deal == null ? '' : _dealSubtitle(deal),
-            metadata: const {},
+            metadata: {
+              if (deal != null) ...{
+                'assignedTo': deal.assignedTo,
+                'assignedToName': deal.assignedToName,
+                'teamId': deal.teamId,
+                'teamName': deal.teamName,
+                'managerId': deal.managerId,
+                'managerName': deal.managerName,
+              },
+            },
           ),
         );
       },

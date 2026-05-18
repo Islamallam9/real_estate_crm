@@ -154,6 +154,14 @@ class _EditTaskViewState extends State<_EditTaskView> {
                               if (_isSubmitting) {
                                 return;
                               }
+                              if (role == UserRole.manager &&
+                                  updatedTask.managerId.trim() != uid) {
+                                AppFeedback.warning(
+                                  context,
+                                  l.canOnlyAssignRecordsToYourTeam,
+                                );
+                                return;
+                              }
                               setState(() => _isSubmitting = true);
                               context.read<TasksCubit>().updateTask(
                                 companyId: companyId,

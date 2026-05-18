@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -43,10 +44,14 @@ abstract interface class LeadsRemoteDataSource {
 }
 
 class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
-  FirestoreLeadsRemoteDataSource({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreLeadsRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   @override
   Future<bool> hasDuplicateLead({
@@ -90,6 +95,9 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     } on LeadException {
       rethrow;
     } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        return false;
+      }
       throw LeadException(_mapFirestoreError(error));
     } catch (_) {
       throw const LeadException('Unable to check duplicate lead.');
@@ -110,10 +118,17 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       final leadToSave = LeadModel.fromEntity(
         lead.copyWith(id: document.id, companyId: companyId, isArchived: false),
       );
-      await document.set(leadToSave.toFirestore());
-      return leadToSave;
+      await _saveLeadRecord(
+        companyId: companyId,
+        operation: 'create',
+        lead: leadToSave,
+      );
+      final snapshot = await document.get();
+      return LeadModel.fromFirestore(snapshot);
     } on LeadException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw LeadException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw LeadException(_mapFirestoreError(error));
     } catch (_) {
@@ -128,17 +143,35 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   }) async {
     _ensureSameCompany(companyId: companyId, lead: lead);
     try {
+      await _saveLeadRecord(
+        companyId: companyId,
+        operation: 'update',
+        lead: lead,
+      );
       final document = _leadsCollection(companyId).doc(lead.id);
-      await document.update(lead.toFirestore());
       final snapshot = await document.get();
       return LeadModel.fromFirestore(snapshot);
     } on LeadException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw LeadException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw LeadException(_mapFirestoreError(error));
     } catch (_) {
       throw const LeadException('Unable to update lead. Please try again.');
     }
+  }
+
+  Future<void> _saveLeadRecord({
+    required String companyId,
+    required String operation,
+    required LeadModel lead,
+  }) async {
+    await _functions.httpsCallable('saveLeadRecord').call(<String, Object?>{
+      'companyId': companyId,
+      'operation': operation,
+      'lead': _leadCallableData(lead),
+    });
   }
 
   @override
@@ -229,6 +262,83 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   }
 }
 
+
+Map<String, Object?> _leadCallableData(LeadModel lead) {
+  return {
+    'id': lead.id,
+    'companyId': lead.companyId,
+    'fullName': lead.fullName,
+    'phone': lead.phone,
+    'email': lead.email,
+    'source': leadSourceToValue(lead.source),
+    'sourceDetails': lead.sourceDetails,
+    'status': leadStatusToValue(lead.status),
+    'priority': leadPriorityToValue(lead.priority),
+    'budgetMin': lead.budgetMin,
+    'budgetMax': lead.budgetMax,
+    'preferredLocation': lead.preferredLocation,
+    'preferredPropertyType': lead.preferredPropertyType,
+    'assignedTo': lead.assignedTo,
+    'assignedToName': lead.assignedToName,
+    'teamId': lead.teamId,
+    'teamName': lead.teamName,
+    'managerId': lead.managerId,
+    'managerName': lead.managerName,
+    'notes': lead.notes,
+    'lastContactAt': _dateToCallable(lead.lastContactAt),
+    'nextFollowUpAt': _dateToCallable(lead.nextFollowUpAt),
+    'isArchived': lead.isArchived,
+    'archivedAt': _dateToCallable(lead.archivedAt),
+    'archivedBy': lead.archivedBy,
+  };
+}
+
+String? _dateToCallable(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+  return value.toUtc().toIso8601String();
+}
+
+Map<String, dynamic> _leadUpdateData(LeadModel lead) {
+  return {
+    'fullName': lead.fullName,
+    'phone': lead.phone,
+    'email': lead.email,
+    'source': leadSourceToValue(lead.source),
+    'sourceDetails': lead.sourceDetails,
+    'status': leadStatusToValue(lead.status),
+    'priority': leadPriorityToValue(lead.priority),
+    'budgetMin': lead.budgetMin,
+    'budgetMax': lead.budgetMax,
+    'preferredLocation': lead.preferredLocation,
+    'preferredPropertyType': lead.preferredPropertyType,
+    'assignedTo': lead.assignedTo,
+    'assignedToName': lead.assignedToName,
+    'teamId': lead.teamId,
+    'teamName': lead.teamName,
+    'managerId': lead.managerId,
+    'managerName': lead.managerName,
+    'notes': lead.notes,
+    'updatedAt': Timestamp.fromDate(lead.updatedAt),
+    'updatedBy': lead.updatedBy,
+    'lastContactAt': _timestampFromNullableDate(lead.lastContactAt),
+    'nextFollowUpAt': _timestampFromNullableDate(lead.nextFollowUpAt),
+    'isArchived': lead.isArchived,
+    'archivedAt': lead.archivedAt == null
+        ? null
+        : Timestamp.fromDate(lead.archivedAt!),
+    'archivedBy': lead.archivedBy,
+  };
+}
+
+Timestamp? _timestampFromNullableDate(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+  return Timestamp.fromDate(value);
+}
+
 String _normalizeEmail(String value) {
   return value.trim().toLowerCase();
 }
@@ -242,6 +352,28 @@ void _ensureSameCompany({required String companyId, required LeadModel lead}) {
     throw const LeadException(
       'You do not have permission to access this lead.',
     );
+  }
+}
+
+
+String _mapFunctionsError(FirebaseFunctionsException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    case 'already-exists':
+      return 'Lead already exists.';
+    case 'invalid-argument':
+    case 'failed-precondition':
+      return error.message ?? AppErrorMessages.permissionDenied;
+    default:
+      return AppErrorMessages.permissionDenied;
   }
 }
 

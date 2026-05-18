@@ -142,6 +142,14 @@ class _CreateTaskView extends StatelessWidget {
                                       );
                                       return;
                                     }
+                                    if (role == UserRole.manager &&
+                                        task.managerId.trim() != user.uid) {
+                                      AppFeedback.warning(
+                                        context,
+                                        l.canOnlyAssignRecordsToYourTeam,
+                                      );
+                                      return;
+                                    }
                                     context.read<TasksCubit>().createTask(
                                       companyId: userProfile.companyId,
                                       task: task,

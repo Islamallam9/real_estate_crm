@@ -141,6 +141,7 @@ service cloud.firestore {
         'preferredPropertyType',
         'assignedTo',
         'assignedToName',
+        'assignedToEmail',
         'teamId',
         'teamName',
         'managerId',
@@ -211,6 +212,7 @@ service cloud.firestore {
         && request.resource.data.assignedTo is string
         && isStringOrNull(request.resource.data.sourceDetails)
         && isStringOrNull(request.resource.data.assignedToName)
+        && isStringOrNull(request.resource.data.assignedToEmail)
         && isStringOrNull(request.resource.data.teamId)
         && isStringOrNull(request.resource.data.teamName)
         && isStringOrNull(request.resource.data.managerId)
@@ -258,7 +260,31 @@ service cloud.firestore {
     }
 
     function optionalSnapshotFieldMatches(data, field, expected) {
-      return !(field in data.keys()) || data[field] == expected;
+      return !(field in data.keys())
+        || data[field] == expected
+        || (data[field] == '' && expected == null);
+    }
+
+    function profileSnapshotFieldMatches(data, profile, field) {
+      return data[field] == profile[field]
+        || (!(field in profile.keys()) && data[field] == '')
+        || (profile[field] == null && data[field] == '');
+    }
+
+    function snapshotFieldUnchangedOrEmptyDefault(data, field) {
+      return data[field] == resource.data[field]
+        || (!(field in resource.data.keys()) && data[field] == '')
+        || (resource.data[field] == null && data[field] == '');
+    }
+
+    function assignmentFieldsUnchangedOrEmptyDefaults(data) {
+      return data.assignedTo == resource.data.assignedTo
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'assignedToName')
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'assignedToEmail')
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'teamId')
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'teamName')
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'managerId')
+        && snapshotFieldUnchangedOrEmptyDefault(data, 'managerName');
     }
 
     function assignmentSnapshotEmpty(data) {
@@ -277,22 +303,26 @@ service cloud.firestore {
       ).data;
     }
 
+    function managerCanAssignUser(companyId, assignedTo) {
+      return role(companyId) != 'manager'
+        || assignedUserData(companyId, assignedTo).managerId == request.auth.uid
+        || (assignedUserData(companyId, assignedTo).teamId is string
+          && assignedUserData(companyId, assignedTo).teamId != ''
+          && assignedUserData(companyId, assignedTo).teamId == currentUserData(companyId).teamId);
+    }
+
     function assignmentSnapshotMatches(companyId, data, allowedRoles) {
       return data.assignedTo is string
         && data.assignedTo != ''
-        && assignedUserData(companyId, data.assignedTo).companyId == companyId
         && assignedUserData(companyId, data.assignedTo).isActive == true
         && assignedUserData(companyId, data.assignedTo).role in allowedRoles
-        && data.assignedToName == assignedUserData(companyId, data.assignedTo).fullName
-        && optionalSnapshotFieldMatches(
-          data,
-          'assignedToEmail',
-          assignedUserData(companyId, data.assignedTo).email
-        )
-        && data.teamId == assignedUserData(companyId, data.assignedTo).teamId
-        && data.teamName == assignedUserData(companyId, data.assignedTo).teamName
-        && data.managerId == assignedUserData(companyId, data.assignedTo).managerId
-        && data.managerName == assignedUserData(companyId, data.assignedTo).managerName;
+        && optionalStringField(data, 'assignedToName')
+        && optionalStringField(data, 'assignedToEmail')
+        && optionalStringField(data, 'teamId')
+        && optionalStringField(data, 'teamName')
+        && optionalStringField(data, 'managerId')
+        && optionalStringField(data, 'managerName')
+        && managerCanAssignUser(companyId, data.assignedTo);
     }
 
     function validAssignmentSnapshot(companyId, data, allowedRoles) {
@@ -311,7 +341,15 @@ service cloud.firestore {
           'managerId',
           'managerName'
         ])
+        || assignmentFieldsUnchangedOrEmptyDefaults(data)
         || validAssignmentSnapshot(companyId, data, allowedRoles);
+    }
+
+    function nonArchivedLeadWrite() {
+      return request.resource.data.isArchived == false
+        && request.resource.data.archivedAt == null
+        && (request.resource.data.archivedBy == null
+          || request.resource.data.archivedBy == '');
     }
 
     function canUpdateLead(companyId) {
@@ -320,6 +358,7 @@ service cloud.firestore {
         || ((isSalesAgent(companyId) || isMarketing(companyId))
           && resource.data.assignedTo == request.auth.uid
           && request.resource.data.assignedTo == request.auth.uid
+          && nonArchivedLeadWrite()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'fullName',
             'phone',
@@ -341,6 +380,9 @@ service cloud.firestore {
             'notes',
             'lastContactAt',
             'nextFollowUpAt',
+            'isArchived',
+            'archivedAt',
+            'archivedBy',
             'updatedAt',
             'updatedBy'
           ]));
@@ -924,6 +966,11 @@ service cloud.firestore {
         'recordId',
         'recordTitle',
         'recordSubtitle',
+        'assignedTo',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
         'createdAt',
         'metadata'
       ];
@@ -976,6 +1023,11 @@ service cloud.firestore {
         && request.resource.data.recordId is string
         && request.resource.data.recordTitle is string
         && request.resource.data.recordSubtitle is string
+        && request.resource.data.assignedTo is string
+        && request.resource.data.teamId is string
+        && request.resource.data.teamName is string
+        && request.resource.data.managerId is string
+        && request.resource.data.managerName is string
         && request.resource.data.createdAt is timestamp
         && request.resource.data.metadata is map;
     }
@@ -1172,7 +1224,8 @@ service cloud.firestore {
               'contacted',
               'stageChanged',
               'archived',
-              'reassigned'
+              'reassigned',
+              'updated'
             ]
             && request.resource.data.title is string
             && request.resource.data.description is string
@@ -1276,7 +1329,16 @@ service cloud.firestore {
 
       match /audit_logs/{auditLogId} {
         allow get, list: if isActivePlatformAdmin()
-          || isAdmin(companyId);
+          || isAdmin(companyId)
+          || (isActiveCompanyUser(companyId)
+            && role(companyId) == 'manager'
+            && (
+              resource.data.managerId == request.auth.uid
+              || resource.data.actorId == request.auth.uid
+              || (resource.data.teamId is string
+                && resource.data.teamId != ''
+                && resource.data.teamId == currentUserData(companyId).teamId)
+            ));
         allow create: if validAuditLogCreate(companyId, auditLogId);
         allow update, delete: if false;
       }

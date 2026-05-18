@@ -1,5 +1,6 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/repositories/platform_repository.dart';
@@ -143,5 +144,12 @@ class PlatformRepositoryImpl implements PlatformRepository {
       limits: limits,
       features: features,
     );
+  }
+
+  @override
+  Future<CompanyDataHealthReport> getCompanyDataHealthReport({
+    required String companyId,
+  }) {
+    return _remoteDataSource.getCompanyDataHealthReport(companyId: companyId);
   }
 }

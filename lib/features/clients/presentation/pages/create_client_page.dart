@@ -106,6 +106,22 @@ class _CreateClientView extends StatelessWidget {
                             isSaving: isSaving,
                             submitLabel: l.createClient,
                             onSubmit: (client) {
+                              if (role == UserRole.manager &&
+                                  client.assignedTo.trim().isEmpty) {
+                                AppFeedback.warning(
+                                  context,
+                                  l.recordMustBeAssignedBeforeSaving,
+                                );
+                                return;
+                              }
+                              if (role == UserRole.manager &&
+                                  client.managerId.trim() != uid) {
+                                AppFeedback.warning(
+                                  context,
+                                  l.canOnlyAssignRecordsToYourTeam,
+                                );
+                                return;
+                              }
                               context.read<ClientsCubit>().createClient(
                                 companyId: companyId,
                                 client: client,

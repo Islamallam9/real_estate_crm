@@ -310,6 +310,10 @@ class LeadsCubit extends Cubit<LeadsState> {
             'status': _leadStatusValue(createdLead.status),
             'assignedTo': createdLead.assignedTo,
             'assignedToName': createdLead.assignedToName,
+            'teamId': createdLead.teamId,
+            'teamName': createdLead.teamName,
+            'managerId': createdLead.managerId,
+            'managerName': createdLead.managerName,
           },
         ),
       );
@@ -326,6 +330,10 @@ class LeadsCubit extends Cubit<LeadsState> {
             metadata: {
               'assignedTo': createdLead.assignedTo,
               'assignedToName': createdLead.assignedToName,
+              'teamId': createdLead.teamId,
+              'teamName': createdLead.teamName,
+              'managerId': createdLead.managerId,
+              'managerName': createdLead.managerName,
             },
           ),
         );
@@ -393,6 +401,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           : current.assignedTo != updated.assignedTo
           ? AuditLogAction.assign
           : AuditLogAction.update;
+      final auditMetadata = _leadChangeAuditMetadata(current, updated);
       unawaited(
         _writeAuditLog(
           companyId: companyId,
@@ -402,16 +411,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           recordId: updated.id,
           recordTitle: _leadTitle(updated),
           recordSubtitle: _leadSubtitle(updated),
-          metadata: {
-            if (current.status != updated.status) ...{
-              'previousStatus': _leadStatusValue(current.status),
-              'newStatus': _leadStatusValue(updated.status),
-            },
-            if (current.assignedTo != updated.assignedTo) ...{
-              'assignedTo': updated.assignedTo,
-              'assignedToName': updated.assignedToName,
-            },
-          },
+          metadata: auditMetadata,
         ),
       );
       if (isClosed) {
@@ -509,7 +509,16 @@ class LeadsCubit extends Cubit<LeadsState> {
           recordId: leadId,
           recordTitle: lead == null ? 'Lead' : _leadTitle(lead),
           recordSubtitle: lead == null ? '' : _leadSubtitle(lead),
-          metadata: const {},
+          metadata: {
+            if (lead != null) ...{
+              'assignedTo': lead.assignedTo,
+              'assignedToName': lead.assignedToName,
+              'teamId': lead.teamId,
+              'teamName': lead.teamName,
+              'managerId': lead.managerId,
+              'managerName': lead.managerName,
+            },
+          },
         ),
       );
       if (isClosed) {
@@ -741,6 +750,11 @@ class LeadsCubit extends Cubit<LeadsState> {
       newValue: newLead.source.name,
     );
     await addFieldEvent(
+      field: 'sourceDetails',
+      oldValue: oldLead.sourceDetails,
+      newValue: newLead.sourceDetails,
+    );
+    await addFieldEvent(
       field: 'status',
       oldValue: oldLead.status.name,
       newValue: newLead.status.name,
@@ -793,6 +807,88 @@ class LeadsCubit extends Cubit<LeadsState> {
       type: oldLead.assignedTo.isEmpty ? 'assigned' : 'reassigned',
       title: oldLead.assignedTo.isEmpty ? 'lead_assigned' : 'lead_reassigned',
     );
+  }
+
+  Map<String, Object?> _leadChangeAuditMetadata(
+    Lead oldLead,
+    Lead newLead,
+  ) {
+    final changes = <Map<String, String>>[];
+
+    void addChange(String field, String oldValue, String newValue) {
+      if (oldValue == newValue) {
+        return;
+      }
+      changes.add({
+        'field': field,
+        'oldValue': oldValue,
+        'newValue': newValue,
+      });
+    }
+
+    addChange('fullName', oldLead.fullName, newLead.fullName);
+    addChange('phone', oldLead.phone, newLead.phone);
+    addChange('email', oldLead.email, newLead.email);
+    addChange('source', oldLead.source.name, newLead.source.name);
+    addChange('sourceDetails', oldLead.sourceDetails, newLead.sourceDetails);
+    addChange('status', oldLead.status.name, newLead.status.name);
+    addChange('priority', oldLead.priority.name, newLead.priority.name);
+    addChange(
+      'budgetMin',
+      oldLead.budgetMin.toString(),
+      newLead.budgetMin.toString(),
+    );
+    addChange(
+      'budgetMax',
+      oldLead.budgetMax.toString(),
+      newLead.budgetMax.toString(),
+    );
+    addChange(
+      'preferredLocation',
+      oldLead.preferredLocation,
+      newLead.preferredLocation,
+    );
+    addChange(
+      'preferredPropertyType',
+      oldLead.preferredPropertyType,
+      newLead.preferredPropertyType,
+    );
+    addChange('notes', oldLead.notes, newLead.notes);
+    addChange(
+      'lastContactAt',
+      _timelineDateValue(oldLead.lastContactAt),
+      _timelineDateValue(newLead.lastContactAt),
+    );
+    addChange(
+      'nextFollowUpAt',
+      _timelineDateValue(oldLead.nextFollowUpAt),
+      _timelineDateValue(newLead.nextFollowUpAt),
+    );
+    addChange(
+      'assignedTo',
+      oldLead.assignedToName.isNotEmpty ? oldLead.assignedToName : oldLead.assignedTo,
+      newLead.assignedToName.isNotEmpty ? newLead.assignedToName : newLead.assignedTo,
+    );
+
+    return {
+      if (oldLead.status != newLead.status) ...{
+        'previousStatus': _leadStatusValue(oldLead.status),
+        'newStatus': _leadStatusValue(newLead.status),
+      },
+      'assignedTo': newLead.assignedTo,
+      'assignedToName': newLead.assignedToName,
+      'teamId': newLead.teamId,
+      'teamName': newLead.teamName,
+      'managerId': newLead.managerId,
+      'managerName': newLead.managerName,
+      if (changes.isNotEmpty) ...{
+        'changedFields': changes,
+        'changesSummary': changes
+            .map((change) => change['field'] ?? '')
+            .where((field) => field.isNotEmpty)
+            .join(', '),
+      },
+    };
   }
 
   Future<void> _addTimelineEvent({

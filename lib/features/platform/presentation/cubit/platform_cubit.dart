@@ -5,6 +5,7 @@ import 'package:bloc/bloc.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
+import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
@@ -29,6 +30,8 @@ class PlatformCubit extends Cubit<PlatformState> {
         generateCompanyUserPasswordResetLinkUseCase,
     required UpdateCompanyPlatformSettingsUseCase
         updateCompanyPlatformSettingsUseCase,
+    required GetCompanyDataHealthReportUseCase
+        getCompanyDataHealthReportUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
        _watchCompanyUsersUseCase = watchCompanyUsersUseCase,
        _createCompanyWithAdminUseCase = createCompanyWithAdminUseCase,
@@ -41,6 +44,7 @@ class PlatformCubit extends Cubit<PlatformState> {
            generateCompanyUserPasswordResetLinkUseCase,
        _updateCompanyPlatformSettingsUseCase =
            updateCompanyPlatformSettingsUseCase,
+       _getCompanyDataHealthReportUseCase = getCompanyDataHealthReportUseCase,
        super(const PlatformState.initial());
 
   final WatchPlatformCompaniesUseCase _watchCompaniesUseCase;
@@ -55,6 +59,7 @@ class PlatformCubit extends Cubit<PlatformState> {
       _generateCompanyUserPasswordResetLinkUseCase;
   final UpdateCompanyPlatformSettingsUseCase
       _updateCompanyPlatformSettingsUseCase;
+  final GetCompanyDataHealthReportUseCase _getCompanyDataHealthReportUseCase;
 
   StreamSubscription? _companiesSubscription;
   StreamSubscription? _companyUsersSubscription;
@@ -99,6 +104,7 @@ class PlatformCubit extends Cubit<PlatformState> {
       state.copyWith(
         selectedCompanyId: companyId,
         companyUsers: const [],
+        clearDataHealthReport: true,
         clearMessage: true,
       ),
     );
@@ -352,6 +358,37 @@ class PlatformCubit extends Cubit<PlatformState> {
         ),
       );
       return false;
+    }
+  }
+
+  Future<void> loadDataHealthReport(String companyId) async {
+    emit(
+      state.copyWith(
+        dataHealthLoading: true,
+        clearDataHealthReport: true,
+        clearMessage: true,
+      ),
+    );
+    try {
+      final report = await _getCompanyDataHealthReportUseCase(
+        companyId: companyId,
+      );
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          dataHealthReport: report,
+          dataHealthLoading: false,
+          clearMessage: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          dataHealthLoading: false,
+          message: error.toString(),
+        ),
+      );
     }
   }
 

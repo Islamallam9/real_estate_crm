@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -65,6 +66,12 @@ class _ProfileViewState extends State<_ProfileView> {
     final authState = context.read<AuthBloc>().state;
     final profile = authState.userProfile;
     final user = authState.user;
+    _debugProfileImageSources(
+      source: 'profile page',
+      authPhotoUrl: user?.photoUrl ?? '',
+      companyPhotoUrl: profile?.photoUrl ?? '',
+      companyPhotoStoragePath: profile?.photoStoragePath ?? '',
+    );
     _nameController = TextEditingController(
       text: profile?.fullName ??
           user?.fullName ??
@@ -730,4 +737,14 @@ String _contentTypeForFile(String fileName) {
     return 'image/gif';
   }
   return 'image/jpeg';
+}
+
+void _debugProfileImageSources({
+  required String source,
+  required String authPhotoUrl,
+  required String companyPhotoUrl,
+  required String companyPhotoStoragePath,
+}) {
+  // Intentionally silent. Avoid noisy profile image logs and URL/token output.
+  return;
 }

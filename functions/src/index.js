@@ -23,6 +23,26 @@ const FEATURE_KEYS = new Set([
   'notifications',
 ]);
 const OPERATIONAL_TEAM_ROLES = new Set(['salesAgent', 'marketing']);
+const LEAD_ASSIGNABLE_ROLES = new Set(['salesAgent', 'marketing']);
+const LEAD_SOURCES = new Set([
+  'facebook',
+  'website',
+  'phoneCall',
+  'whatsapp',
+  'referral',
+  'walkIn',
+  'other',
+]);
+const LEAD_STATUSES = new Set([
+  'new',
+  'contacted',
+  'interested',
+  'visitScheduled',
+  'negotiation',
+  'won',
+  'lost',
+]);
+const LEAD_PRIORITIES = new Set(['low', 'medium', 'high']);
 
 exports.createCompanyWithAdmin = onCall(async (request) => {
   const callerUid = requireActivePlatformAdmin(request);
@@ -277,6 +297,64 @@ exports.removeUserFromTeam = onCall(async (request) => {
   }
 
   return { companyId, uid };
+});
+
+exports.getCompanyDataHealthReport = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+
+  const usersSnapshot = await db.collection(`companies/${companyId}/users`).get();
+  const users = new Map();
+  usersSnapshot.docs.forEach((doc) => {
+    users.set(doc.id, doc.data() || {});
+  });
+
+  const modulePolicies = [
+    { module: 'leads', titleField: 'fullName', allowedRoles: new Set(['salesAgent', 'marketing']) },
+    { module: 'clients', titleField: 'fullName', allowedRoles: new Set(['salesAgent']) },
+    { module: 'tasks', titleField: 'title', allowedRoles: new Set(['salesAgent', 'marketing']) },
+    { module: 'deals', titleField: 'clientName', fallbackTitleField: 'propertyTitle', allowedRoles: new Set(['salesAgent']) },
+    { module: 'properties', titleField: 'title', allowedRoles: new Set(['salesAgent']), onlyWhenAssigned: true },
+  ];
+
+  const issues = [];
+  const counts = {
+    missingSnapshots: 0,
+    invalidAssignees: 0,
+    inactiveAssignees: 0,
+    staleTeamSnapshots: 0,
+  };
+
+  for (const policy of modulePolicies) {
+    const snapshot = await db.collection(`companies/${companyId}/${policy.module}`)
+      .limit(500)
+      .get();
+    snapshot.docs.forEach((doc) => {
+      inspectAssignedRecord({
+        companyId,
+        modulePolicy: policy,
+        doc,
+        users,
+        issues,
+        counts,
+      });
+    });
+  }
+
+  return {
+    companyId,
+    generatedAt: new Date().toISOString(),
+    counts,
+    issues: issues.slice(0, 200),
+    scannedLimitPerModule: 500,
+  };
 });
 
 exports.setCompanyActiveStatus = onCall(async (request) => {
@@ -635,6 +713,135 @@ exports.updateOwnProfileSettings = onCall(async (request) => {
   };
 });
 
+
+exports.saveLeadRecord = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actorUid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const operation = requiredString(data.operation, 'operation');
+  const leadInput = requiredObject(data.lead || {}, 'lead');
+  validateCompanyId(companyId);
+
+  if (!['create', 'update'].includes(operation)) {
+    throw new HttpsError('invalid-argument', 'Lead operation is invalid.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to save leads.');
+  }
+
+  let leadId = optionalString(leadInput.id);
+  const leadsCollection = db.collection(`companies/${companyId}/leads`);
+  if (operation === 'create' && !leadId) {
+    leadId = leadsCollection.doc().id;
+  }
+  if (!leadId) {
+    throw new HttpsError('invalid-argument', 'Lead ID is required.');
+  }
+
+  const leadRef = leadsCollection.doc(leadId);
+  const leadSnapshot = await leadRef.get();
+  const existingLead = leadSnapshot.exists ? (leadSnapshot.data() || {}) : null;
+
+  if (operation === 'create' && leadSnapshot.exists) {
+    throw new HttpsError('already-exists', 'Lead already exists.');
+  }
+  if (operation === 'update' && !leadSnapshot.exists) {
+    throw new HttpsError('not-found', 'Lead was not found.');
+  }
+
+  let assignedTo = optionalString(leadInput.assignedTo);
+  if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    assignedTo = actorUid;
+  }
+
+  if (actorRole === 'manager' && !assignedTo) {
+    throw new HttpsError('permission-denied', 'Managers must assign leads to their team.');
+  }
+
+  let assignee = null;
+  if (assignedTo) {
+    const assigneeSnapshot = await db
+      .doc(`companies/${companyId}/users/${assignedTo}`)
+      .get();
+    if (!assigneeSnapshot.exists) {
+      throw new HttpsError('failed-precondition', 'Selected assignee was not found.');
+    }
+    assignee = assigneeSnapshot.data() || {};
+    if (assignee.companyId && assignee.companyId !== companyId) {
+      throw new HttpsError('permission-denied', 'Selected assignee does not belong to this company.');
+    }
+    if (assignee.isActive !== true) {
+      throw new HttpsError('failed-precondition', 'Selected assignee is inactive.');
+    }
+    if (!LEAD_ASSIGNABLE_ROLES.has(assignee.role)) {
+      throw new HttpsError('failed-precondition', 'Selected assignee is not eligible for leads.');
+    }
+  }
+
+  if (actorRole === 'manager') {
+    const managerTeamId = optionalString(actor.teamId);
+    const assigneeManagerId = assignee ? optionalString(assignee.managerId) : '';
+    const assigneeTeamId = assignee ? optionalString(assignee.teamId) : '';
+    const canAssignToUser = assigneeManagerId === actorUid ||
+      (managerTeamId && assigneeTeamId === managerTeamId);
+    if (!canAssignToUser) {
+      throw new HttpsError('permission-denied', 'You can only assign leads to your team.');
+    }
+
+    if (existingLead) {
+      const existingTeamId = optionalString(existingLead.teamId);
+      const existingManagerId = optionalString(existingLead.managerId);
+      const existingAssignedTo = optionalString(existingLead.assignedTo);
+      const canManageExisting = existingAssignedTo === actorUid ||
+        existingManagerId === actorUid ||
+        (managerTeamId && existingTeamId === managerTeamId);
+      if (!canManageExisting) {
+        throw new HttpsError('permission-denied', 'You cannot update another team lead.');
+      }
+    }
+  }
+
+  if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    if (operation === 'update') {
+      if (!existingLead || optionalString(existingLead.assignedTo) !== actorUid) {
+        throw new HttpsError('permission-denied', 'You can update only your assigned leads.');
+      }
+    }
+    if (operation === 'create' && assignedTo !== actorUid) {
+      throw new HttpsError('permission-denied', 'You can create only your assigned leads.');
+    }
+  }
+
+  const now = FieldValue.serverTimestamp();
+  const payload = buildLeadPayload({
+    companyId,
+    leadId,
+    leadInput,
+    assignedTo,
+    assignee,
+    actorUid,
+    now,
+    existingLead,
+    isCreate: operation === 'create',
+  });
+
+  if (operation === 'create') {
+    await leadRef.set(payload);
+  } else {
+    await leadRef.set(payload, { merge: true });
+  }
+
+  return { companyId, leadId };
+});
+
+
 exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
   await requireActivePlatformAdmin(request);
   const data = request.data || {};
@@ -915,6 +1122,137 @@ function writeMembership(batch, uid, companyId, data) {
     },
     { merge: true },
   );
+}
+
+function inspectAssignedRecord({
+  companyId,
+  modulePolicy,
+  doc,
+  users,
+  issues,
+  counts,
+}) {
+  const record = doc.data() || {};
+  const assignedTo = optionalString(record.assignedTo);
+  if (!assignedTo) {
+    if (modulePolicy.onlyWhenAssigned) {
+      return;
+    }
+    return;
+  }
+
+  const title = optionalString(record[modulePolicy.titleField]) ||
+    optionalString(record[modulePolicy.fallbackTitleField]) ||
+    doc.id;
+  const assignee = users.get(assignedTo);
+  if (!assignee) {
+    counts.invalidAssignees += 1;
+    addDataHealthIssue({
+      issues,
+      module: modulePolicy.module,
+      recordId: doc.id,
+      title,
+      assignedTo,
+      assignedToName: optionalString(record.assignedToName),
+      issueType: 'missingAssignee',
+      suggestedAction: 'Reassign this record to an active eligible user.',
+      canBackfill: false,
+    });
+    return;
+  }
+
+  const assignedToName = optionalString(record.assignedToName);
+  const teamId = optionalString(record.teamId);
+  const managerId = optionalString(record.managerId);
+  if (!assignedToName || !teamId || !managerId) {
+    counts.missingSnapshots += 1;
+    addDataHealthIssue({
+      issues,
+      module: modulePolicy.module,
+      recordId: doc.id,
+      title,
+      assignedTo,
+      assignedToName: assignedToName || optionalString(assignee.fullName),
+      issueType: 'missingSnapshots',
+      suggestedAction: 'Backfill snapshots from current assignee profile.',
+      canBackfill: true,
+    });
+  }
+
+  if (assignee.isActive !== true) {
+    counts.inactiveAssignees += 1;
+    addDataHealthIssue({
+      issues,
+      module: modulePolicy.module,
+      recordId: doc.id,
+      title,
+      assignedTo,
+      assignedToName: assignedToName || optionalString(assignee.fullName),
+      issueType: 'inactiveAssignee',
+      suggestedAction: 'Activate the user or reassign this record.',
+      canBackfill: false,
+    });
+  }
+
+  if (!modulePolicy.allowedRoles.has(assignee.role)) {
+    counts.invalidAssignees += 1;
+    addDataHealthIssue({
+      issues,
+      module: modulePolicy.module,
+      recordId: doc.id,
+      title,
+      assignedTo,
+      assignedToName: assignedToName || optionalString(assignee.fullName),
+      issueType: 'ineligibleAssignee',
+      suggestedAction: 'Reassign this record to an eligible operational user.',
+      canBackfill: false,
+    });
+  }
+
+  const stale =
+    assignedToName !== optionalString(assignee.fullName) ||
+    optionalString(record.assignedToEmail) !== optionalString(assignee.email) ||
+    teamId !== optionalString(assignee.teamId) ||
+    optionalString(record.teamName) !== optionalString(assignee.teamName) ||
+    managerId !== optionalString(assignee.managerId) ||
+    optionalString(record.managerName) !== optionalString(assignee.managerName);
+  if (stale) {
+    counts.staleTeamSnapshots += 1;
+    addDataHealthIssue({
+      issues,
+      module: modulePolicy.module,
+      recordId: doc.id,
+      title,
+      assignedTo,
+      assignedToName: assignedToName || optionalString(assignee.fullName),
+      issueType: 'staleSnapshots',
+      suggestedAction: 'Backfill snapshots from current assignee profile.',
+      canBackfill: true,
+    });
+  }
+}
+
+function addDataHealthIssue({
+  issues,
+  module,
+  recordId,
+  title,
+  assignedTo,
+  assignedToName,
+  issueType,
+  suggestedAction,
+  canBackfill,
+}) {
+  issues.push({
+    module,
+    recordId,
+    title,
+    assignedTo,
+    assignedToName,
+    issueType,
+    suggestedAction,
+    canBackfill,
+  });
 }
 
 function requiredString(value, field) {
@@ -1358,9 +1696,110 @@ async function deleteSpoofedImageAndLog({
 }
 
 
+
+function buildLeadPayload({
+  companyId,
+  leadId,
+  leadInput,
+  assignedTo,
+  assignee,
+  actorUid,
+  now,
+  existingLead,
+  isCreate,
+}) {
+  const source = enumValue(leadInput.source, LEAD_SOURCES, 'source');
+  const status = enumValue(leadInput.status, LEAD_STATUSES, 'status');
+  const priority = enumValue(leadInput.priority, LEAD_PRIORITIES, 'priority');
+
+  const payload = {
+    id: leadId,
+    companyId,
+    fullName: sanitizePlainString(requiredString(leadInput.fullName, 'fullName'), 160),
+    phone: sanitizePlainString(requiredString(leadInput.phone, 'phone'), 80),
+    email: sanitizePlainString(optionalString(leadInput.email), 160),
+    source,
+    sourceDetails: sanitizePlainString(optionalString(leadInput.sourceDetails), 200),
+    status,
+    priority,
+    budgetMin: numberValue(leadInput.budgetMin, 'budgetMin'),
+    budgetMax: numberValue(leadInput.budgetMax, 'budgetMax'),
+    preferredLocation: sanitizePlainString(optionalString(leadInput.preferredLocation), 200),
+    preferredPropertyType: sanitizePlainString(optionalString(leadInput.preferredPropertyType), 120),
+    assignedTo,
+    assignedToName: assignee ? optionalString(assignee.fullName) : '',
+    assignedToEmail: assignee ? optionalString(assignee.email) : '',
+    teamId: assignee ? optionalString(assignee.teamId) : '',
+    teamName: assignee ? optionalString(assignee.teamName) : '',
+    managerId: assignee ? optionalString(assignee.managerId) : '',
+    managerName: assignee ? optionalString(assignee.managerName) : '',
+    notes: sanitizePlainString(optionalString(leadInput.notes), 4000),
+    updatedAt: now,
+    updatedBy: actorUid,
+    lastContactAt: optionalCallableTimestamp(leadInput.lastContactAt),
+    nextFollowUpAt: optionalCallableTimestamp(leadInput.nextFollowUpAt),
+    isArchived: existingLead && existingLead.isArchived === true ? true : false,
+    archivedAt: existingLead && existingLead.archivedAt ? existingLead.archivedAt : null,
+    archivedBy: existingLead ? optionalString(existingLead.archivedBy) : '',
+  };
+
+  if (isCreate) {
+    payload.createdAt = now;
+    payload.createdBy = actorUid;
+    payload.isArchived = false;
+    payload.archivedAt = null;
+    payload.archivedBy = '';
+  }
+
+  return payload;
+}
+
+function enumValue(value, allowedValues, field) {
+  const clean = requiredString(value, field);
+  if (!allowedValues.has(clean)) {
+    throw new HttpsError('invalid-argument', `${field} is invalid.`);
+  }
+  return clean;
+}
+
+function numberValue(value, field) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new HttpsError('invalid-argument', `${field} must be a positive number.`);
+  }
+  return value;
+}
+
+function sanitizePlainString(value, maxLength) {
+  const clean = optionalString(value);
+  if (clean.length > maxLength || /[<>]/.test(clean)) {
+    throw new HttpsError('invalid-argument', 'Text field is invalid.');
+  }
+  return clean;
+}
+
+function optionalCallableTimestamp(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new HttpsError('invalid-argument', 'Date field is invalid.');
+    }
+    return admin.firestore.Timestamp.fromDate(date);
+  }
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new HttpsError('invalid-argument', 'Date field is invalid.');
+    }
+    return admin.firestore.Timestamp.fromDate(date);
+  }
+  throw new HttpsError('invalid-argument', 'Date field is invalid.');
+}
+
 function validateRole(role) {
   if (!ROLES.has(role)) {
     throw new HttpsError('invalid-argument', 'Role is invalid.');
   }
 }
-

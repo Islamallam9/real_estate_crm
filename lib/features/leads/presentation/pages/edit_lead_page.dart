@@ -187,6 +187,16 @@ class _EditLeadViewState extends State<_EditLeadView> {
                                                     currentProfile.managerName,
                                               )
                                             : updatedLead;
+                                        if (role?.name == 'manager' &&
+                                            leadToUpdate.managerId.trim() !=
+                                                uid) {
+                                          AppFeedback.warning(
+                                            context,
+                                            localizations
+                                                .canOnlyAssignRecordsToYourTeam,
+                                          );
+                                          return;
+                                        }
                                         context.read<LeadsCubit>().updateLead(
                                           companyId: companyId,
                                           lead: leadToUpdate,
