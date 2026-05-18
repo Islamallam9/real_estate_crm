@@ -22,6 +22,7 @@ import '../../features/leads/presentation/pages/create_lead_page.dart';
 import '../../features/leads/presentation/pages/edit_lead_page.dart';
 import '../../features/leads/presentation/pages/lead_details_page.dart';
 import '../../features/leads/presentation/pages/leads_list_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/properties/presentation/pages/create_property_page.dart';
 import '../../features/properties/presentation/pages/edit_property_page.dart';
 import '../../features/properties/presentation/pages/property_details_page.dart';
@@ -141,6 +142,10 @@ abstract final class AppRouter {
         GoRoute(
           path: RouteNames.dataHealth,
           builder: (context, state) => DataHealthPage.withDependencies(),
+        ),
+        GoRoute(
+          path: RouteNames.notifications,
+          builder: (context, state) => NotificationsPage.withDependencies(),
         ),
         GoRoute(
           path: RouteNames.profile,

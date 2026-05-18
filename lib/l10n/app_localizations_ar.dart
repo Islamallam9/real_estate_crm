@@ -2253,4 +2253,285 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get companyAdminActionRequired => 'يتطلب إجراء من مسؤول الشركة.';
+
+  @override
+  String get notificationCenter => 'مركز الإشعارات';
+
+  @override
+  String notificationCenterSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count إشعارات غير مقروءة',
+      one: 'إشعار واحد غير مقروء',
+      zero: 'لا توجد إشعارات غير مقروءة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get all => 'الكل';
+
+  @override
+  String get unread => 'غير مقروء';
+
+  @override
+  String get attention => 'الانتباه';
+
+  @override
+  String get system => 'النظام';
+
+  @override
+  String get open => 'فتح';
+
+  @override
+  String get viewAll => 'عرض الكل';
+
+  @override
+  String get markRead => 'تحديد كمقروء';
+
+  @override
+  String get markAllRead => 'تحديد الكل كمقروء';
+
+  @override
+  String get attentionNeeded => 'يحتاج إلى انتباه';
+
+  @override
+  String get noNotificationsYet => 'لا توجد إشعارات حتى الآن';
+
+  @override
+  String get noNotificationsYetMessage =>
+      'ستظهر هنا تحديثات الإسناد والتنبيهات المهمة.';
+
+  @override
+  String get notificationDataRepairNeededTitle =>
+      'تحتاج بيانات الإشعارات إلى إصلاح';
+
+  @override
+  String get notificationDataRepairNeededMessage =>
+      'بعض الإشعارات تحتاج إلى إصلاح بياناتها. ستظهر الإشعارات الجديدة بعد النشاط التالي.';
+
+  @override
+  String get notificationStreamError => 'تعذر تحميل الإشعارات. حاول مرة أخرى.';
+
+  @override
+  String get noUrgentReminders => 'لا توجد تنبيهات عاجلة';
+
+  @override
+  String get noUrgentRemindersMessage =>
+      'ستظهر هنا الأعمال المستحقة والمتأخرة عند الحاجة للمتابعة.';
+
+  @override
+  String get notificationLeadAssignedTitle => 'تم تعيين عميل محتمل جديد لك';
+
+  @override
+  String get notificationLeadReassignedTitle => 'تم إعادة تعيين عميل محتمل لك';
+
+  @override
+  String get notificationLeadRemovedFromYouTitle =>
+      'تمت إزالة العميل المحتمل من قائمتك';
+
+  @override
+  String get notificationTaskAssignedTitle => 'تم تعيين مهمة جديدة لك';
+
+  @override
+  String get notificationTaskReassignedTitle => 'تم إعادة تعيين مهمة لك';
+
+  @override
+  String get notificationTaskRemovedFromYouTitle => 'تمت إزالة المهمة من عملك';
+
+  @override
+  String get notificationClientAssignedTitle => 'تم تعيين عميل جديد لك';
+
+  @override
+  String get notificationClientReassignedTitle => 'تم إعادة تعيين عميل لك';
+
+  @override
+  String get notificationClientRemovedFromYouTitle =>
+      'تمت إزالة العميل من قائمتك';
+
+  @override
+  String get notificationDealAssignedTitle => 'تم تعيين صفقة جديدة لك';
+
+  @override
+  String get notificationDealReassignedTitle => 'تم إعادة تعيين صفقة لك';
+
+  @override
+  String get notificationDealRemovedFromYouTitle =>
+      'تمت إزالة الصفقة من قائمتك';
+
+  @override
+  String get notificationLeadImportantStatusChangedTitle =>
+      'تغيرت حالة عميل محتمل مهمة';
+
+  @override
+  String get notificationDealStageChangedTitle => 'تغيرت مرحلة الصفقة';
+
+  @override
+  String get notificationDealImportantStatusChangedTitle =>
+      'تغيرت حالة صفقة مهمة';
+
+  @override
+  String get notificationDealWonTitle => 'تم كسب الصفقة';
+
+  @override
+  String get notificationDealLostTitle => 'تم خسارة الصفقة';
+
+  @override
+  String get notificationTaskStatusChangedTitle => 'تغيرت حالة المهمة';
+
+  @override
+  String get notificationTeamMemberAssignedTitle => 'إسناد ضمن الفريق';
+
+  @override
+  String get notificationTeamMemberReassignedTitle => 'إعادة إسناد ضمن الفريق';
+
+  @override
+  String get notificationTeamMemberRemovedTitle => 'إزالة إسناد ضمن الفريق';
+
+  @override
+  String get notificationTeamLeadStatusChangedTitle =>
+      'تغيرت حالة عميل محتمل في فريقك';
+
+  @override
+  String get notificationTeamDealStageChangedTitle =>
+      'تغيرت مرحلة صفقة في فريقك';
+
+  @override
+  String get notificationTeamTaskStatusChangedTitle =>
+      'تغيرت حالة مهمة في فريقك';
+
+  @override
+  String get notificationGenericStatusChangedTitle => 'تغيرت الحالة';
+
+  @override
+  String get notificationFollowUpDueTodayTitle => 'متابعة مستحقة اليوم';
+
+  @override
+  String get notificationFollowUpOverdueTitle => 'متابعة متأخرة';
+
+  @override
+  String get notificationTaskDueTodayTitle => 'مهمة مستحقة اليوم';
+
+  @override
+  String get notificationTaskOverdueTitle => 'مهمة متأخرة';
+
+  @override
+  String get notificationSystemInfoTitle => 'إشعار من النظام';
+
+  @override
+  String get notificationDataHealthIssueTitle =>
+      'صحة البيانات تحتاج إلى انتباه';
+
+  @override
+  String get notificationGenericTitle => 'إشعار من نظام CRM';
+
+  @override
+  String get notificationUnassignedLeadTitle =>
+      'عميل محتمل غير مسند يحتاج إلى متابعة';
+
+  @override
+  String get notificationRecordFallback => 'السجل';
+
+  @override
+  String get notificationSystemModule => 'النظام';
+
+  @override
+  String notificationRecordBody(Object record) {
+    return '$record يحتاج إلى انتباهك.';
+  }
+
+  @override
+  String notificationRecordByActorBody(Object record, Object actor) {
+    return 'تم تحديث $record بواسطة $actor.';
+  }
+
+  @override
+  String notificationRecordNoLongerAssignedBody(Object record) {
+    return 'لم يعد $record مسندًا إليك.';
+  }
+
+  @override
+  String notificationGenericBody(Object record) {
+    return 'افتح $record لمراجعة آخر تحديث.';
+  }
+
+  @override
+  String notificationReminderAssignedBody(Object record, Object assignee) {
+    return '$record مسند إلى $assignee.';
+  }
+
+  @override
+  String notificationUnassignedLeadBody(Object record) {
+    return '$record لا يزال غير مسند.';
+  }
+
+  @override
+  String notificationStatusChangedBody(Object record, Object status) {
+    return 'تغير $record إلى $status.';
+  }
+
+  @override
+  String notificationStatusChangedByActorBody(
+    Object record,
+    Object status,
+    Object actor,
+  ) {
+    return 'تغير $record إلى $status بواسطة $actor.';
+  }
+
+  @override
+  String notificationTeamMemberAssignedBody(Object record, Object member) {
+    return 'تم إسناد $record إلى $member.';
+  }
+
+  @override
+  String notificationTeamMemberAssignedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  ) {
+    return 'قام $actor بإسناد $record إلى $member.';
+  }
+
+  @override
+  String notificationTeamMemberReassignedBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+  ) {
+    return 'تم نقل $record من $oldMember إلى $newMember.';
+  }
+
+  @override
+  String notificationTeamMemberReassignedByActorBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+    Object actor,
+  ) {
+    return 'قام $actor بنقل $record من $oldMember إلى $newMember.';
+  }
+
+  @override
+  String notificationTeamMemberRemovedBody(Object record, Object member) {
+    return 'تمت إزالة $member من $record.';
+  }
+
+  @override
+  String notificationTeamMemberRemovedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  ) {
+    return 'قام $actor بإزالة $member من $record.';
+  }
+
+  @override
+  String get notificationRouteUnavailable =>
+      'لا يمكن فتح هذا الإشعار من صلاحياتك الحالية.';
+
+  @override
+  String get notificationsUnavailableInPlatform =>
+      'إشعارات مبيعات الشركات غير متاحة في وضع المنصة.';
 }

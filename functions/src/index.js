@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
 
@@ -50,6 +51,74 @@ const DATA_HEALTH_MODULE_POLICIES = {
   deals: { titleField: 'clientName', fallbackTitleField: 'propertyTitle', allowedRoles: new Set(['salesAgent']) },
   properties: { titleField: 'title', allowedRoles: new Set(['salesAgent']), onlyWhenAssigned: true },
 };
+const NOTIFICATION_TYPES = new Set([
+  'leadAssigned',
+  'leadReassigned',
+  'leadRemovedFromYou',
+  'taskAssigned',
+  'taskReassigned',
+  'taskRemovedFromYou',
+  'clientAssigned',
+  'clientReassigned',
+  'clientRemovedFromYou',
+  'dealAssigned',
+  'dealReassigned',
+  'dealRemovedFromYou',
+  'leadImportantStatusChanged',
+  'dealStageChanged',
+  'dealImportantStatusChanged',
+  'dealWon',
+  'dealLost',
+  'taskStatusChanged',
+  'teamMemberAssigned',
+  'teamMemberReassigned',
+  'teamMemberRemovedFromRecord',
+  'teamLeadStatusChanged',
+  'teamDealStageChanged',
+  'teamTaskStatusChanged',
+  'genericStatusChanged',
+  'followUpDueToday',
+  'followUpOverdue',
+  'taskDueToday',
+  'taskOverdue',
+  'systemInfo',
+  'dataHealthIssue',
+]);
+const NOTIFICATION_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
+const IMPORTANT_LEAD_STATUSES = new Set([
+  'hot',
+  'qualified',
+  'converted',
+  'won',
+  'lost',
+  'closed',
+  'closedWon',
+  'closedLost',
+  'interested',
+  'negotiation',
+]);
+const IMPORTANT_DEAL_STAGES = new Set([
+  'negotiation',
+  'reservation',
+  'reserved',
+  'contract',
+  'won',
+  'lost',
+  'closedWon',
+  'closedLost',
+  'closed',
+]);
+const IMPORTANT_TASK_STATUSES = new Set([
+  'completed',
+  'cancelled',
+  'canceled',
+]);
+const MAJOR_DEAL_OUTCOMES = new Set([
+  'won',
+  'lost',
+  'closedWon',
+  'closedLost',
+]);
 
 exports.createCompanyWithAdmin = onCall(async (request) => {
   const callerUid = requireActivePlatformAdmin(request);
@@ -113,7 +182,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
       deals: true,
       reports: true,
       auditLogs: true,
-      notifications: false,
+      notifications: true,
     },
   });
   writeCompanyUser(batch, companyId, userRecord.uid, {
@@ -1074,8 +1143,199 @@ exports.saveLeadRecord = onCall(async (request) => {
     await leadRef.set(payload, { merge: true });
   }
 
+  await createLeadAssignmentNotifications({
+    companyId,
+    leadId,
+    operation,
+    actorUid,
+    actor,
+    existingLead,
+    payload,
+    assignee,
+  }).catch(() => undefined);
+
+  await createLeadImportantStatusNotifications({
+    companyId,
+    leadId,
+    actorUid,
+    actor,
+    existingLead,
+    payload,
+  }).catch(() => undefined);
+
   return { companyId, leadId };
 });
+
+exports.createTaskAssignmentNotification = onDocumentWritten(
+  'companies/{companyId}/tasks/{taskId}',
+  async (event) => {
+    const companyId = optionalString(event.params.companyId);
+    const taskId = optionalString(event.params.taskId);
+    validateCompanyId(companyId);
+    if (!event.data || !event.data.after.exists) {
+      return;
+    }
+
+    const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
+    const after = event.data.after.data() || {};
+    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== taskId) {
+      return;
+    }
+    if (after.isActive === false) {
+      return;
+    }
+
+    const previousAssignedTo = before ? optionalString(before.assignedTo) : '';
+    const nextAssignedTo = optionalString(after.assignedTo);
+    const actorUid = optionalString(after.updatedBy) || optionalString(after.createdBy);
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    const actorName = actor
+      ? optionalString(actor.fullName) || optionalString(actor.email)
+      : '';
+    if (previousAssignedTo === nextAssignedTo) {
+      await createTaskStatusNotifications({
+        companyId,
+        taskId,
+        before,
+        after,
+        actorUid,
+        actorName,
+        eventId: event.id,
+      }).catch(() => undefined);
+      return;
+    }
+
+    await createAssignmentNotificationsForRecord({
+      companyId,
+      module: 'tasks',
+      recordId: taskId,
+      recordTitle: optionalString(after.title),
+      recordSubtitle: optionalString(after.relatedTitle) || optionalString(after.relatedSubtitle),
+      route: `/tasks/${taskId}/edit`,
+      previousRecord: before,
+      nextRecord: after,
+      actorUid,
+      actorName,
+      assignedType: previousAssignedTo ? 'taskReassigned' : 'taskAssigned',
+      removedType: 'taskRemovedFromYou',
+      priority: optionalString(after.priority) === 'high' ? 'high' : 'normal',
+      metadata: {
+        status: optionalString(after.status),
+        dueDate: firestoreTimestampToIso(after.dueDate),
+        relatedType: optionalString(after.relatedType),
+      },
+      dedupePrefix: `task_${taskId}_${event.id}`,
+    }).catch(() => undefined);
+    return;
+  },
+);
+
+exports.createClientAssignmentNotification = onDocumentWritten(
+  'companies/{companyId}/clients/{clientId}',
+  async (event) => {
+    const companyId = optionalString(event.params.companyId);
+    const clientId = optionalString(event.params.clientId);
+    validateCompanyId(companyId);
+    if (!event.data || !event.data.after.exists) {
+      return;
+    }
+    const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
+    const after = event.data.after.data() || {};
+    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== clientId) {
+      return;
+    }
+    if (after.isActive === false) {
+      return;
+    }
+    const previousAssignedTo = before ? optionalString(before.assignedTo) : '';
+    const nextAssignedTo = optionalString(after.assignedTo);
+    if (previousAssignedTo === nextAssignedTo) {
+      return;
+    }
+    const actorUid = optionalString(after.updatedBy) || optionalString(after.createdBy);
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    const actorName = actor ? optionalString(actor.fullName) || optionalString(actor.email) : '';
+    await createAssignmentNotificationsForRecord({
+      companyId,
+      module: 'clients',
+      recordId: clientId,
+      recordTitle: optionalString(after.fullName),
+      recordSubtitle: optionalString(after.phone) || optionalString(after.email),
+      route: `/clients/${clientId}`,
+      previousRecord: before,
+      nextRecord: after,
+      actorUid,
+      actorName,
+      assignedType: previousAssignedTo ? 'clientReassigned' : 'clientAssigned',
+      removedType: 'clientRemovedFromYou',
+      priority: 'normal',
+      metadata: {
+        preferredLocation: optionalString(after.preferredLocation),
+        preferredPropertyType: optionalString(after.preferredPropertyType),
+      },
+      dedupePrefix: `client_${clientId}_${event.id}`,
+    }).catch(() => undefined);
+  },
+);
+
+exports.createDealAssignmentNotification = onDocumentWritten(
+  'companies/{companyId}/deals/{dealId}',
+  async (event) => {
+    const companyId = optionalString(event.params.companyId);
+    const dealId = optionalString(event.params.dealId);
+    validateCompanyId(companyId);
+    if (!event.data || !event.data.after.exists) {
+      return;
+    }
+    const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
+    const after = event.data.after.data() || {};
+    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== dealId) {
+      return;
+    }
+    if (after.isActive === false) {
+      return;
+    }
+    const previousAssignedTo = before ? optionalString(before.assignedTo) : '';
+    const nextAssignedTo = optionalString(after.assignedTo);
+    const actorUid = optionalString(after.updatedBy) || optionalString(after.createdBy);
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    const actorName = actor ? optionalString(actor.fullName) || optionalString(actor.email) : '';
+
+    if (previousAssignedTo !== nextAssignedTo) {
+      await createAssignmentNotificationsForRecord({
+        companyId,
+        module: 'deals',
+        recordId: dealId,
+        recordTitle: dealTitle(after, dealId),
+        recordSubtitle: optionalString(after.propertyLocation) || optionalString(after.clientPhone),
+        route: `/deals/${dealId}`,
+        previousRecord: before,
+        nextRecord: after,
+        actorUid,
+        actorName,
+        assignedType: previousAssignedTo ? 'dealReassigned' : 'dealAssigned',
+        removedType: 'dealRemovedFromYou',
+        priority: optionalString(after.stage) === 'won' ? 'high' : 'normal',
+        metadata: {
+          stage: optionalString(after.stage),
+          expectedValue: typeof after.expectedValue === 'number' ? after.expectedValue : null,
+        },
+        dedupePrefix: `deal_${dealId}_${event.id}`,
+      }).catch(() => undefined);
+      return;
+    }
+
+    await createDealStageNotifications({
+      companyId,
+      dealId,
+      before,
+      after,
+      actorUid,
+      actorName,
+      eventId: event.id,
+    }).catch(() => undefined);
+  },
+);
 
 
 exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
@@ -2164,6 +2424,636 @@ function buildLeadPayload({
   }
 
   return payload;
+}
+
+async function createLeadAssignmentNotifications({
+  companyId,
+  leadId,
+  operation,
+  actorUid,
+  actor,
+  existingLead,
+  payload,
+}) {
+  const previousAssignedTo = existingLead ? optionalString(existingLead.assignedTo) : '';
+  const nextAssignedTo = optionalString(payload.assignedTo);
+  if (previousAssignedTo === nextAssignedTo) {
+    return;
+  }
+
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email);
+  await createAssignmentNotificationsForRecord({
+    companyId,
+    module: 'leads',
+    recordId: leadId,
+    recordTitle: optionalString(payload.fullName),
+    recordSubtitle: optionalString(payload.sourceDetails) || optionalString(payload.source),
+    route: `/leads/${leadId}`,
+    previousRecord: existingLead,
+    nextRecord: payload,
+    actorUid,
+    actorName,
+    assignedType: operation === 'create' || !previousAssignedTo ? 'leadAssigned' : 'leadReassigned',
+    removedType: 'leadRemovedFromYou',
+    priority: optionalString(payload.priority) === 'high' ? 'high' : 'normal',
+    metadata: {
+      source: optionalString(payload.source),
+      status: optionalString(payload.status),
+      previousAssignedTo,
+      assignedToName: optionalString(payload.assignedToName),
+    },
+    dedupePrefix: `lead_${leadId}_${operation}_${previousAssignedTo}_${nextAssignedTo}`,
+  });
+}
+
+async function createLeadImportantStatusNotifications({
+  companyId,
+  leadId,
+  actorUid,
+  actor,
+  existingLead,
+  payload,
+}) {
+  if (!existingLead) {
+    return;
+  }
+  const previousAssignedTo = optionalString(existingLead.assignedTo);
+  const nextAssignedTo = optionalString(payload.assignedTo);
+  if (previousAssignedTo !== nextAssignedTo) {
+    return;
+  }
+  const previousStatus = optionalString(existingLead.status);
+  const nextStatus = optionalString(payload.status);
+  if (!nextStatus || previousStatus === nextStatus || !isImportantLeadStatus(nextStatus)) {
+    return;
+  }
+
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email);
+  const base = {
+    companyId,
+    type: 'leadImportantStatusChanged',
+    module: 'leads',
+    recordId: leadId,
+    recordTitle: optionalString(payload.fullName),
+    recordSubtitle: optionalString(payload.sourceDetails) || optionalString(payload.source),
+    route: `/leads/${leadId}`,
+    actorUid,
+    actorName,
+    teamId: optionalString(payload.teamId),
+    teamName: optionalString(payload.teamName),
+    managerId: optionalString(payload.managerId),
+    priority: nextStatus === 'won' || nextStatus === 'lost' ? 'high' : 'normal',
+    metadata: {
+      previousStatus,
+      newStatus: nextStatus,
+    },
+  };
+
+  const assignedTo = optionalString(payload.assignedTo);
+  if (assignedTo && assignedTo !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: assignedTo,
+      recipientRole: '',
+      dedupeKey: `lead_status_${leadId}_${previousStatus}_${nextStatus}_${assignedTo}`,
+    });
+  }
+  const managerId = optionalString(payload.managerId);
+  if (managerId && managerId !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: managerId,
+      recipientRole: '',
+      type: 'teamLeadStatusChanged',
+      dedupeKey: `lead_status_${leadId}_${previousStatus}_${nextStatus}_manager_${managerId}`,
+    });
+  }
+}
+
+async function createAssignmentNotificationsForRecord({
+  companyId,
+  module,
+  recordId,
+  recordTitle,
+  recordSubtitle,
+  route,
+  previousRecord,
+  nextRecord,
+  actorUid,
+  actorName,
+  assignedType,
+  removedType,
+  priority,
+  metadata,
+  dedupePrefix,
+}) {
+  const previousAssignedTo = previousRecord ? optionalString(previousRecord.assignedTo) : '';
+  const nextAssignedTo = optionalString(nextRecord.assignedTo);
+  if (previousAssignedTo === nextAssignedTo) {
+    return;
+  }
+
+  const previousAssignee = await loadCompanyUserSafe(companyId, previousAssignedTo);
+  const nextAssignee = await loadCompanyUserSafe(companyId, nextAssignedTo);
+  const previousSnapshot = assigneeNotificationSnapshot(previousAssignee, previousRecord);
+  const nextSnapshot = assigneeNotificationSnapshot(nextAssignee, nextRecord);
+
+  if (nextAssignedTo && nextAssignedTo !== actorUid) {
+    await createCompanyNotification({
+      companyId,
+      recipientUid: nextAssignedTo,
+      recipientRole: optionalString(nextAssignee && nextAssignee.role),
+      type: assignedType,
+      module,
+      recordId,
+      recordTitle,
+      recordSubtitle,
+      route,
+      actorUid,
+      actorName,
+      teamId: nextSnapshot.teamId,
+      teamName: nextSnapshot.teamName,
+      managerId: nextSnapshot.managerId,
+      priority,
+      metadata: {
+        ...safeNotificationMetadata(metadata),
+        assignedToName: nextSnapshot.name,
+        previousAssignedToName: previousSnapshot.name,
+      },
+      dedupeKey: `${dedupePrefix}_${nextAssignedTo}`,
+    });
+  }
+
+  if (previousAssignedTo && previousAssignedTo !== nextAssignedTo && previousAssignedTo !== actorUid) {
+    await createCompanyNotification({
+      companyId,
+      recipientUid: previousAssignedTo,
+      recipientRole: '',
+      type: removedType,
+      module,
+      recordId,
+      recordTitle,
+      recordSubtitle,
+      route: '/dashboard',
+      actorUid,
+      actorName,
+      teamId: previousSnapshot.teamId,
+      teamName: previousSnapshot.teamName,
+      managerId: previousSnapshot.managerId,
+      priority: 'normal',
+      metadata: {
+        ...safeNotificationMetadata(metadata),
+        newAssignedTo: nextAssignedTo,
+        assignedToName: nextSnapshot.name,
+        previousAssignedToName: previousSnapshot.name,
+      },
+      dedupeKey: `${dedupePrefix}_removed_${previousAssignedTo}`,
+    });
+  }
+
+  await createManagerAssignmentNotificationsForRecord({
+    companyId,
+    module,
+    recordId,
+    recordTitle,
+    recordSubtitle,
+    route,
+    actorUid,
+    actorName,
+    previousAssignedTo,
+    nextAssignedTo,
+    previousSnapshot,
+    nextSnapshot,
+    priority,
+    metadata,
+    dedupePrefix,
+  });
+}
+
+function assigneeNotificationSnapshot(user, record) {
+  const source = record || {};
+  const cleanUser = user || {};
+  return {
+    name: optionalString(cleanUser.fullName) ||
+      optionalString(source.assignedToName) ||
+      optionalString(cleanUser.email) ||
+      optionalString(source.assignedToEmail),
+    email: optionalString(cleanUser.email) || optionalString(source.assignedToEmail),
+    role: optionalString(cleanUser.role),
+    teamId: optionalString(cleanUser.teamId) || optionalString(source.teamId),
+    teamName: optionalString(cleanUser.teamName) || optionalString(source.teamName),
+    managerId: optionalString(cleanUser.managerId) || optionalString(source.managerId),
+    managerName: optionalString(cleanUser.managerName) || optionalString(source.managerName),
+  };
+}
+
+async function createManagerAssignmentNotificationsForRecord({
+  companyId,
+  module,
+  recordId,
+  recordTitle,
+  recordSubtitle,
+  route,
+  actorUid,
+  actorName,
+  previousAssignedTo,
+  nextAssignedTo,
+  previousSnapshot,
+  nextSnapshot,
+  priority,
+  metadata,
+  dedupePrefix,
+}) {
+  const notificationsByManager = new Map();
+
+  if (nextAssignedTo && nextSnapshot.managerId && nextSnapshot.managerId !== actorUid) {
+    notificationsByManager.set(nextSnapshot.managerId, {
+      type: previousAssignedTo ? 'teamMemberReassigned' : 'teamMemberAssigned',
+      teamId: nextSnapshot.teamId,
+      teamName: nextSnapshot.teamName,
+      managerId: nextSnapshot.managerId,
+      route,
+      assignedToName: nextSnapshot.name,
+      previousAssignedToName: previousSnapshot.name,
+    });
+  }
+
+  if (
+    previousAssignedTo &&
+    previousAssignedTo !== nextAssignedTo &&
+    previousSnapshot.managerId &&
+    previousSnapshot.managerId !== actorUid
+  ) {
+    const existing = notificationsByManager.get(previousSnapshot.managerId);
+    notificationsByManager.set(previousSnapshot.managerId, {
+      type: existing ? 'teamMemberReassigned' : 'teamMemberRemovedFromRecord',
+      teamId: existing ? existing.teamId : previousSnapshot.teamId,
+      teamName: existing ? existing.teamName : previousSnapshot.teamName,
+      managerId: previousSnapshot.managerId,
+      route: existing ? existing.route : '/dashboard',
+      assignedToName: existing ? existing.assignedToName : nextSnapshot.name,
+      previousAssignedToName: previousSnapshot.name,
+    });
+  }
+
+  for (const [managerUid, item] of notificationsByManager.entries()) {
+    await createCompanyNotification({
+      companyId,
+      recipientUid: managerUid,
+      recipientRole: 'manager',
+      type: item.type,
+      module,
+      recordId,
+      recordTitle,
+      recordSubtitle,
+      route: item.route,
+      actorUid,
+      actorName,
+      teamId: item.teamId,
+      teamName: item.teamName,
+      managerId: item.managerId,
+      priority,
+      metadata: {
+        ...safeNotificationMetadata(metadata),
+        assignedToName: item.assignedToName,
+        previousAssignedToName: item.previousAssignedToName,
+      },
+      dedupeKey: `${dedupePrefix}_manager_${managerUid}`,
+    });
+  }
+}
+
+async function createTaskStatusNotifications({
+  companyId,
+  taskId,
+  before,
+  after,
+  actorUid,
+  actorName,
+  eventId,
+}) {
+  if (!before) {
+    return;
+  }
+  const previousStatus = optionalString(before.status);
+  const nextStatus = optionalString(after.status);
+  if (!nextStatus || previousStatus === nextStatus || !isImportantTaskStatus(nextStatus)) {
+    return;
+  }
+
+  const base = {
+    companyId,
+    module: 'tasks',
+    recordId: taskId,
+    recordTitle: optionalString(after.title),
+    recordSubtitle: optionalString(after.relatedTitle) || optionalString(after.relatedSubtitle),
+    route: `/tasks/${taskId}/edit`,
+    actorUid,
+    actorName,
+    teamId: optionalString(after.teamId),
+    teamName: optionalString(after.teamName),
+    managerId: optionalString(after.managerId),
+    priority: nextStatus === 'cancelled' || nextStatus === 'canceled' ? 'high' : 'normal',
+    metadata: {
+      previousStatus,
+      newStatus: nextStatus,
+      assignedToName: optionalString(after.assignedToName),
+    },
+  };
+
+  const assignedTo = optionalString(after.assignedTo);
+  if (assignedTo && assignedTo !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: assignedTo,
+      recipientRole: '',
+      type: 'taskStatusChanged',
+      dedupeKey: `task_status_${taskId}_${eventId}_${assignedTo}`,
+    });
+  }
+
+  const managerId = optionalString(after.managerId);
+  if (managerId && managerId !== actorUid) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid: managerId,
+      recipientRole: 'manager',
+      type: 'teamTaskStatusChanged',
+      dedupeKey: `task_status_${taskId}_${eventId}_manager_${managerId}`,
+    });
+  }
+}
+
+async function createDealStageNotifications({
+  companyId,
+  dealId,
+  before,
+  after,
+  actorUid,
+  actorName,
+  eventId,
+}) {
+  if (!before) {
+    return;
+  }
+  const previousStage = optionalString(before.stage);
+  const nextStage = optionalString(after.stage);
+  if (!nextStage || previousStage === nextStage) {
+    return;
+  }
+
+  const important = isImportantDealStage(nextStage);
+  const majorOutcome = isMajorDealOutcome(nextStage);
+  const type = nextStage === 'won' || nextStage === 'closedWon'
+    ? 'dealWon'
+    : nextStage === 'lost' || nextStage === 'closedLost'
+      ? 'dealLost'
+      : important
+        ? 'dealImportantStatusChanged'
+        : 'dealStageChanged';
+  const priority = majorOutcome ? 'high' : 'normal';
+  const base = {
+    companyId,
+    type,
+    module: 'deals',
+    recordId: dealId,
+    recordTitle: dealTitle(after, dealId),
+    recordSubtitle: optionalString(after.propertyLocation) || optionalString(after.clientPhone),
+    route: `/deals/${dealId}`,
+    actorUid,
+    actorName,
+    teamId: optionalString(after.teamId),
+    teamName: optionalString(after.teamName),
+    managerId: optionalString(after.managerId),
+    priority,
+    metadata: {
+      previousStage,
+      newStage: nextStage,
+      newStatus: nextStage,
+      expectedValue: typeof after.expectedValue === 'number' ? after.expectedValue : null,
+    },
+  };
+
+  const recipients = new Set();
+  const assignedTo = optionalString(after.assignedTo);
+  if (assignedTo && assignedTo !== actorUid) {
+    recipients.add(assignedTo);
+  }
+  if (important) {
+    const managerId = optionalString(after.managerId);
+    if (managerId && managerId !== actorUid) {
+      await createCompanyNotification({
+        ...base,
+        recipientUid: managerId,
+        recipientRole: 'manager',
+        type: 'teamDealStageChanged',
+        dedupeKey: `deal_stage_${dealId}_${eventId}_manager_${managerId}`,
+      });
+    }
+  }
+
+  for (const recipientUid of recipients) {
+    await createCompanyNotification({
+      ...base,
+      recipientUid,
+      recipientRole: '',
+      dedupeKey: `deal_stage_${dealId}_${eventId}_${recipientUid}`,
+    });
+  }
+
+  if (majorOutcome) {
+    await notifyCompanyAdminsForDealOutcome({
+      companyId,
+      base,
+      actorUid,
+      dealId,
+      eventId,
+    });
+  }
+}
+
+async function notifyCompanyAdminsForDealOutcome({
+  companyId,
+  base,
+  actorUid,
+  dealId,
+  eventId,
+}) {
+  const adminsSnapshot = await db.collection(`companies/${companyId}/users`)
+    .where('role', '==', 'admin')
+    .where('isActive', '==', true)
+    .limit(20)
+    .get();
+  for (const document of adminsSnapshot.docs) {
+    const adminUid = document.id;
+    if (!adminUid || adminUid === actorUid) {
+      continue;
+    }
+    await createCompanyNotification({
+      ...base,
+      recipientUid: adminUid,
+      recipientRole: 'admin',
+      dedupeKey: `deal_outcome_${dealId}_${eventId}_admin_${adminUid}`,
+    });
+  }
+}
+
+function normalizedWorkflowValue(value) {
+  return optionalString(value).replace(/[\s_-]/g, '').toLowerCase();
+}
+
+function setHasWorkflowValue(values, value) {
+  const key = normalizedWorkflowValue(value);
+  for (const item of values) {
+    if (normalizedWorkflowValue(item) === key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isImportantLeadStatus(value) {
+  return setHasWorkflowValue(IMPORTANT_LEAD_STATUSES, value);
+}
+
+function isImportantDealStage(value) {
+  return setHasWorkflowValue(IMPORTANT_DEAL_STAGES, value);
+}
+
+function isMajorDealOutcome(value) {
+  return setHasWorkflowValue(MAJOR_DEAL_OUTCOMES, value);
+}
+
+function isImportantTaskStatus(value) {
+  return setHasWorkflowValue(IMPORTANT_TASK_STATUSES, value);
+}
+
+function dealTitle(record, fallbackId) {
+  const clientName = optionalString(record.clientName);
+  const propertyTitle = optionalString(record.propertyTitle);
+  if (clientName && propertyTitle) {
+    return `${clientName} - ${propertyTitle}`;
+  }
+  return clientName || propertyTitle || fallbackId;
+}
+
+async function createCompanyNotification({
+  companyId,
+  recipientUid,
+  recipientRole,
+  type,
+  module,
+  recordId,
+  recordTitle,
+  recordSubtitle,
+  route,
+  actorUid,
+  actorName,
+  teamId,
+  teamName,
+  managerId,
+  priority,
+  metadata,
+  dedupeKey,
+}) {
+  validateCompanyId(companyId);
+  const cleanRecipientUid = optionalString(recipientUid);
+  if (!cleanRecipientUid) {
+    return null;
+  }
+  const cleanType = optionalString(type);
+  if (!NOTIFICATION_TYPES.has(cleanType)) {
+    return null;
+  }
+
+  const recipient = await loadCompanyUserSafe(companyId, cleanRecipientUid);
+  if (!recipient || recipient.isActive !== true) {
+    return null;
+  }
+
+  const notificationRef = dedupeKey
+    ? db.collection(`companies/${companyId}/notifications`).doc(safeDocumentId(dedupeKey))
+    : db.collection(`companies/${companyId}/notifications`).doc();
+  const cleanPriority = NOTIFICATION_PRIORITIES.has(optionalString(priority))
+    ? optionalString(priority)
+    : 'normal';
+  const cleanModule = sanitizePlainString(optionalString(module) || 'system', 40);
+  const cleanRecordId = sanitizePlainString(optionalString(recordId), 160);
+  const cleanRecordTitle = sanitizePlainString(
+    optionalString(recordTitle) || optionalString(recordSubtitle) || cleanRecordId || 'CRM notification',
+    240,
+  );
+  const now = FieldValue.serverTimestamp();
+  const payload = {
+    id: notificationRef.id,
+    companyId,
+    recipientUid: cleanRecipientUid,
+    recipientRole: optionalString(recipientRole) || optionalString(recipient.role),
+    type: cleanType,
+    module: cleanModule,
+    recordId: cleanRecordId,
+    recordTitle: cleanRecordTitle,
+    recordSubtitle: sanitizePlainString(optionalString(recordSubtitle), 240),
+    route: sanitizePlainString(optionalString(route) || '/dashboard', 240),
+    actorUid: sanitizePlainString(optionalString(actorUid), 160),
+    actorName: sanitizePlainString(optionalString(actorName), 160),
+    teamId: sanitizePlainString(optionalString(teamId), 160),
+    teamName: sanitizePlainString(optionalString(teamName), 160),
+    managerId: sanitizePlainString(optionalString(managerId), 160),
+    priority: cleanPriority,
+    isRead: false,
+    readAt: null,
+    createdAt: now,
+    updatedAt: now,
+    metadata: safeNotificationMetadata(metadata),
+  };
+
+  await notificationRef.set(payload, { merge: false });
+  return notificationRef.id;
+}
+
+async function loadCompanyUserSafe(companyId, uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return null;
+  }
+  const snapshot = await db.doc(`companies/${companyId}/users/${cleanUid}`).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  const data = snapshot.data() || {};
+  if (optionalString(data.companyId) && optionalString(data.companyId) !== companyId) {
+    return null;
+  }
+  return data;
+}
+
+function safeNotificationMetadata(metadata) {
+  const clean = {};
+  const source = metadata && typeof metadata === 'object' ? metadata : {};
+  for (const [key, value] of Object.entries(source)) {
+    const cleanKey = sanitizePlainString(optionalString(key), 80);
+    if (!cleanKey) {
+      continue;
+    }
+    if (typeof value === 'string') {
+      clean[cleanKey] = sanitizePlainString(value, 240);
+    } else if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+      clean[cleanKey] = value;
+    }
+  }
+  return clean;
+}
+
+function firestoreTimestampToIso(value) {
+  if (!value || typeof value.toDate !== 'function') {
+    return '';
+  }
+  return value.toDate().toISOString();
+}
+
+function safeDocumentId(value) {
+  return optionalString(value).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 180);
 }
 
 function enumValue(value, allowedValues, field) {

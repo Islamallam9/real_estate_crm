@@ -4351,6 +4351,441 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Company admin action required.'**
   String get companyAdminActionRequired;
+
+  /// No description provided for @notificationCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification center'**
+  String get notificationCenter;
+
+  /// No description provided for @notificationCenterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No unread notifications} =1{1 unread notification} other{{count} unread notifications}}'**
+  String notificationCenterSubtitle(int count);
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get unread;
+
+  /// No description provided for @attention.
+  ///
+  /// In en, this message translates to:
+  /// **'Attention'**
+  String get attention;
+
+  /// No description provided for @system.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get system;
+
+  /// No description provided for @open.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get open;
+
+  /// No description provided for @viewAll.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get viewAll;
+
+  /// No description provided for @markRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark read'**
+  String get markRead;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get markAllRead;
+
+  /// No description provided for @attentionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Attention needed'**
+  String get attentionNeeded;
+
+  /// No description provided for @noNotificationsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get noNotificationsYet;
+
+  /// No description provided for @noNotificationsYetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Important assignment updates and system alerts will appear here.'**
+  String get noNotificationsYetMessage;
+
+  /// No description provided for @notificationDataRepairNeededTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification data repair needed'**
+  String get notificationDataRepairNeededTitle;
+
+  /// No description provided for @notificationDataRepairNeededMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Some notifications need data repair. New notifications will appear after the next activity.'**
+  String get notificationDataRepairNeededMessage;
+
+  /// No description provided for @notificationStreamError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load notifications. Please try again.'**
+  String get notificationStreamError;
+
+  /// No description provided for @noUrgentReminders.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent reminders'**
+  String get noUrgentReminders;
+
+  /// No description provided for @noUrgentRemindersMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Due and overdue work will appear here when it needs attention.'**
+  String get noUrgentRemindersMessage;
+
+  /// No description provided for @notificationLeadAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New lead assigned to you'**
+  String get notificationLeadAssignedTitle;
+
+  /// No description provided for @notificationLeadReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead reassigned to you'**
+  String get notificationLeadReassignedTitle;
+
+  /// No description provided for @notificationLeadRemovedFromYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead removed from your pipeline'**
+  String get notificationLeadRemovedFromYouTitle;
+
+  /// No description provided for @notificationTaskAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New task assigned'**
+  String get notificationTaskAssignedTitle;
+
+  /// No description provided for @notificationTaskReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task reassigned to you'**
+  String get notificationTaskReassignedTitle;
+
+  /// No description provided for @notificationTaskRemovedFromYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task removed from your work'**
+  String get notificationTaskRemovedFromYouTitle;
+
+  /// No description provided for @notificationClientAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New client assigned to you'**
+  String get notificationClientAssignedTitle;
+
+  /// No description provided for @notificationClientReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Client reassigned to you'**
+  String get notificationClientReassignedTitle;
+
+  /// No description provided for @notificationClientRemovedFromYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Client removed from your pipeline'**
+  String get notificationClientRemovedFromYouTitle;
+
+  /// No description provided for @notificationDealAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New deal assigned to you'**
+  String get notificationDealAssignedTitle;
+
+  /// No description provided for @notificationDealReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal reassigned to you'**
+  String get notificationDealReassignedTitle;
+
+  /// No description provided for @notificationDealRemovedFromYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal removed from your pipeline'**
+  String get notificationDealRemovedFromYouTitle;
+
+  /// No description provided for @notificationLeadImportantStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Important lead status changed'**
+  String get notificationLeadImportantStatusChangedTitle;
+
+  /// No description provided for @notificationDealStageChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal stage changed'**
+  String get notificationDealStageChangedTitle;
+
+  /// No description provided for @notificationDealImportantStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Important deal status changed'**
+  String get notificationDealImportantStatusChangedTitle;
+
+  /// No description provided for @notificationDealWonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal won'**
+  String get notificationDealWonTitle;
+
+  /// No description provided for @notificationDealLostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal lost'**
+  String get notificationDealLostTitle;
+
+  /// No description provided for @notificationTaskStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task status changed'**
+  String get notificationTaskStatusChangedTitle;
+
+  /// No description provided for @notificationTeamMemberAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team assignment'**
+  String get notificationTeamMemberAssignedTitle;
+
+  /// No description provided for @notificationTeamMemberReassignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team reassignment'**
+  String get notificationTeamMemberReassignedTitle;
+
+  /// No description provided for @notificationTeamMemberRemovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team assignment removed'**
+  String get notificationTeamMemberRemovedTitle;
+
+  /// No description provided for @notificationTeamLeadStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team lead status changed'**
+  String get notificationTeamLeadStatusChangedTitle;
+
+  /// No description provided for @notificationTeamDealStageChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team deal stage changed'**
+  String get notificationTeamDealStageChangedTitle;
+
+  /// No description provided for @notificationTeamTaskStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team task status changed'**
+  String get notificationTeamTaskStatusChangedTitle;
+
+  /// No description provided for @notificationGenericStatusChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Status changed'**
+  String get notificationGenericStatusChangedTitle;
+
+  /// No description provided for @notificationFollowUpDueTodayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up due today'**
+  String get notificationFollowUpDueTodayTitle;
+
+  /// No description provided for @notificationFollowUpOverdueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up overdue'**
+  String get notificationFollowUpOverdueTitle;
+
+  /// No description provided for @notificationTaskDueTodayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task due today'**
+  String get notificationTaskDueTodayTitle;
+
+  /// No description provided for @notificationTaskOverdueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Task overdue'**
+  String get notificationTaskOverdueTitle;
+
+  /// No description provided for @notificationSystemInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'System notification'**
+  String get notificationSystemInfoTitle;
+
+  /// No description provided for @notificationDataHealthIssueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data health needs attention'**
+  String get notificationDataHealthIssueTitle;
+
+  /// No description provided for @notificationGenericTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM notification'**
+  String get notificationGenericTitle;
+
+  /// No description provided for @notificationUnassignedLeadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned lead needs attention'**
+  String get notificationUnassignedLeadTitle;
+
+  /// No description provided for @notificationRecordFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Record'**
+  String get notificationRecordFallback;
+
+  /// No description provided for @notificationSystemModule.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get notificationSystemModule;
+
+  /// No description provided for @notificationRecordBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} needs your attention.'**
+  String notificationRecordBody(Object record);
+
+  /// No description provided for @notificationRecordByActorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} was updated by {actor}.'**
+  String notificationRecordByActorBody(Object record, Object actor);
+
+  /// No description provided for @notificationRecordNoLongerAssignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} is no longer assigned to you.'**
+  String notificationRecordNoLongerAssignedBody(Object record);
+
+  /// No description provided for @notificationGenericBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {record} to review the latest update.'**
+  String notificationGenericBody(Object record);
+
+  /// No description provided for @notificationReminderAssignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} is assigned to {assignee}.'**
+  String notificationReminderAssignedBody(Object record, Object assignee);
+
+  /// No description provided for @notificationUnassignedLeadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} is still unassigned.'**
+  String notificationUnassignedLeadBody(Object record);
+
+  /// No description provided for @notificationStatusChangedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} changed to {status}.'**
+  String notificationStatusChangedBody(Object record, Object status);
+
+  /// No description provided for @notificationStatusChangedByActorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} changed to {status} by {actor}.'**
+  String notificationStatusChangedByActorBody(
+    Object record,
+    Object status,
+    Object actor,
+  );
+
+  /// No description provided for @notificationTeamMemberAssignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{member} was assigned to {record}.'**
+  String notificationTeamMemberAssignedBody(Object record, Object member);
+
+  /// No description provided for @notificationTeamMemberAssignedByActorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} assigned {member} to {record}.'**
+  String notificationTeamMemberAssignedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  );
+
+  /// No description provided for @notificationTeamMemberReassignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} moved from {oldMember} to {newMember}.'**
+  String notificationTeamMemberReassignedBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+  );
+
+  /// No description provided for @notificationTeamMemberReassignedByActorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} moved {record} from {oldMember} to {newMember}.'**
+  String notificationTeamMemberReassignedByActorBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+    Object actor,
+  );
+
+  /// No description provided for @notificationTeamMemberRemovedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{member} was removed from {record}.'**
+  String notificationTeamMemberRemovedBody(Object record, Object member);
+
+  /// No description provided for @notificationTeamMemberRemovedByActorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} removed {member} from {record}.'**
+  String notificationTeamMemberRemovedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  );
+
+  /// No description provided for @notificationRouteUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This notification cannot be opened from your current access.'**
+  String get notificationRouteUnavailable;
+
+  /// No description provided for @notificationsUnavailableInPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant sales notifications are not available in platform mode.'**
+  String get notificationsUnavailableInPlatform;
 }
 
 class _AppLocalizationsDelegate

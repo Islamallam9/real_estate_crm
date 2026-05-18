@@ -805,5 +805,167 @@
   "noEligibleAssignees": "لا يوجد مستخدمون مؤهلون",
   "noEligibleAssigneesMessage": "لا يوجد مستخدمون نشطون ومؤهلون لهذا النوع من السجلات.",
   "dataHealthReassignSuccess": "تمت إعادة إسناد السجل بنجاح.",
-  "companyAdminActionRequired": "يتطلب إجراء من مسؤول الشركة."
+  "companyAdminActionRequired": "يتطلب إجراء من مسؤول الشركة.",
+  "notificationCenter": "مركز الإشعارات",
+  "notificationCenterSubtitle": "{count, plural, =0{لا توجد إشعارات غير مقروءة} =1{إشعار واحد غير مقروء} other{{count} إشعارات غير مقروءة}}",
+  "@notificationCenterSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "all": "الكل",
+  "unread": "غير مقروء",
+  "attention": "الانتباه",
+  "system": "النظام",
+  "open": "فتح",
+  "viewAll": "عرض الكل",
+  "markRead": "تحديد كمقروء",
+  "markAllRead": "تحديد الكل كمقروء",
+  "attentionNeeded": "يحتاج إلى انتباه",
+  "noNotificationsYet": "لا توجد إشعارات حتى الآن",
+  "noNotificationsYetMessage": "ستظهر هنا تحديثات الإسناد والتنبيهات المهمة.",
+  "notificationDataRepairNeededTitle": "تحتاج بيانات الإشعارات إلى إصلاح",
+  "notificationDataRepairNeededMessage": "بعض الإشعارات تحتاج إلى إصلاح بياناتها. ستظهر الإشعارات الجديدة بعد النشاط التالي.",
+  "notificationStreamError": "تعذر تحميل الإشعارات. حاول مرة أخرى.",
+  "noUrgentReminders": "لا توجد تنبيهات عاجلة",
+  "noUrgentRemindersMessage": "ستظهر هنا الأعمال المستحقة والمتأخرة عند الحاجة للمتابعة.",
+  "notificationLeadAssignedTitle": "تم تعيين عميل محتمل جديد لك",
+  "notificationLeadReassignedTitle": "تم إعادة تعيين عميل محتمل لك",
+  "notificationLeadRemovedFromYouTitle": "تمت إزالة العميل المحتمل من قائمتك",
+  "notificationTaskAssignedTitle": "تم تعيين مهمة جديدة لك",
+  "notificationTaskReassignedTitle": "تم إعادة تعيين مهمة لك",
+  "notificationTaskRemovedFromYouTitle": "تمت إزالة المهمة من عملك",
+  "notificationClientAssignedTitle": "تم تعيين عميل جديد لك",
+  "notificationClientReassignedTitle": "تم إعادة تعيين عميل لك",
+  "notificationClientRemovedFromYouTitle": "تمت إزالة العميل من قائمتك",
+  "notificationDealAssignedTitle": "تم تعيين صفقة جديدة لك",
+  "notificationDealReassignedTitle": "تم إعادة تعيين صفقة لك",
+  "notificationDealRemovedFromYouTitle": "تمت إزالة الصفقة من قائمتك",
+  "notificationLeadImportantStatusChangedTitle": "تغيرت حالة عميل محتمل مهمة",
+  "notificationDealStageChangedTitle": "تغيرت مرحلة الصفقة",
+  "notificationDealImportantStatusChangedTitle": "تغيرت حالة صفقة مهمة",
+  "notificationDealWonTitle": "تم كسب الصفقة",
+  "notificationDealLostTitle": "تم خسارة الصفقة",
+  "notificationTaskStatusChangedTitle": "تغيرت حالة المهمة",
+  "notificationTeamMemberAssignedTitle": "إسناد ضمن الفريق",
+  "notificationTeamMemberReassignedTitle": "إعادة إسناد ضمن الفريق",
+  "notificationTeamMemberRemovedTitle": "إزالة إسناد ضمن الفريق",
+  "notificationTeamLeadStatusChangedTitle": "تغيرت حالة عميل محتمل في فريقك",
+  "notificationTeamDealStageChangedTitle": "تغيرت مرحلة صفقة في فريقك",
+  "notificationTeamTaskStatusChangedTitle": "تغيرت حالة مهمة في فريقك",
+  "notificationGenericStatusChangedTitle": "تغيرت الحالة",
+  "notificationFollowUpDueTodayTitle": "متابعة مستحقة اليوم",
+  "notificationFollowUpOverdueTitle": "متابعة متأخرة",
+  "notificationTaskDueTodayTitle": "مهمة مستحقة اليوم",
+  "notificationTaskOverdueTitle": "مهمة متأخرة",
+  "notificationSystemInfoTitle": "إشعار من النظام",
+  "notificationDataHealthIssueTitle": "صحة البيانات تحتاج إلى انتباه",
+  "notificationGenericTitle": "إشعار من نظام CRM",
+  "notificationUnassignedLeadTitle": "عميل محتمل غير مسند يحتاج إلى متابعة",
+  "notificationRecordFallback": "السجل",
+  "notificationSystemModule": "النظام",
+  "notificationRecordBody": "{record} يحتاج إلى انتباهك.",
+  "@notificationRecordBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationRecordByActorBody": "تم تحديث {record} بواسطة {actor}.",
+  "@notificationRecordByActorBody": {
+    "placeholders": {
+      "record": {},
+      "actor": {}
+    }
+  },
+  "notificationRecordNoLongerAssignedBody": "لم يعد {record} مسندًا إليك.",
+  "@notificationRecordNoLongerAssignedBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationGenericBody": "افتح {record} لمراجعة آخر تحديث.",
+  "@notificationGenericBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationReminderAssignedBody": "{record} مسند إلى {assignee}.",
+  "@notificationReminderAssignedBody": {
+    "placeholders": {
+      "record": {},
+      "assignee": {}
+    }
+  },
+  "notificationUnassignedLeadBody": "{record} لا يزال غير مسند.",
+  "@notificationUnassignedLeadBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationStatusChangedBody": "تغير {record} إلى {status}.",
+  "@notificationStatusChangedBody": {
+    "placeholders": {
+      "record": {},
+      "status": {}
+    }
+  },
+  "notificationStatusChangedByActorBody": "تغير {record} إلى {status} بواسطة {actor}.",
+  "@notificationStatusChangedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "status": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberAssignedBody": "تم إسناد {record} إلى {member}.",
+  "@notificationTeamMemberAssignedBody": {
+    "placeholders": {
+      "record": {},
+      "member": {}
+    }
+  },
+  "notificationTeamMemberAssignedByActorBody": "قام {actor} بإسناد {record} إلى {member}.",
+  "@notificationTeamMemberAssignedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "member": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberReassignedBody": "تم نقل {record} من {oldMember} إلى {newMember}.",
+  "@notificationTeamMemberReassignedBody": {
+    "placeholders": {
+      "record": {},
+      "oldMember": {},
+      "newMember": {}
+    }
+  },
+  "notificationTeamMemberReassignedByActorBody": "قام {actor} بنقل {record} من {oldMember} إلى {newMember}.",
+  "@notificationTeamMemberReassignedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "oldMember": {},
+      "newMember": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberRemovedBody": "تمت إزالة {member} من {record}.",
+  "@notificationTeamMemberRemovedBody": {
+    "placeholders": {
+      "record": {},
+      "member": {}
+    }
+  },
+  "notificationTeamMemberRemovedByActorBody": "قام {actor} بإزالة {member} من {record}.",
+  "@notificationTeamMemberRemovedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "member": {},
+      "actor": {}
+    }
+  },
+  "notificationRouteUnavailable": "لا يمكن فتح هذا الإشعار من صلاحياتك الحالية.",
+  "notificationsUnavailableInPlatform": "إشعارات مبيعات الشركات غير متاحة في وضع المنصة."
 }

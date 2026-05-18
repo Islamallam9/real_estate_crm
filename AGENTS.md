@@ -107,8 +107,8 @@ For every major user-facing, security, data, or platform phase:
 
 Do not bump version for tiny compile-only fixes unless the user asks.
 
-Current known version after recent stabilization:
-- Around `1.2.6+8`.
+Current known version after latest Data Health stabilization:
+- Around `1.2.7+9`.
 
 ## Firebase structure
 
@@ -332,8 +332,14 @@ Platform account menu:
 - Logout
 
 Data Health:
-- `getCompanyDataHealthReport` exists or may exist as platform callable.
-- Current Data Health is report-only unless a future phase implements safe repair.
+- Platform Data Health is SaaS monitoring mode plus safe snapshot backfill only.
+- Company Admin Data Health is operational action mode.
+- Company Admin can run health checks, backfill safe assignment snapshots, and reassign invalid/missing/inactive/ineligible assignee records.
+- Data Health is Admin-only inside normal CRM. Managers must not see Data Health navigation or access `/data-health`.
+- Platform owner must not manually reassign tenant business records.
+- Backfill/reassign actions must use Cloud Functions/Admin SDK, not direct client-side mass writes.
+- Data Health reports should remain visible after one run, including last run date/time, until the user runs the check again.
+- After a successful repair/reassign action, remove the affected issue from the visible report without clearing the whole report.
 - Do not perform destructive backfills automatically.
 
 ## Mobile behavior rules
@@ -420,6 +426,21 @@ Use:
 - local sorting only on small already-scoped result sets
 - circular progress indicators for loading states
 
+## Current Cloud Functions and privileged flows
+
+Important callable functions include:
+- `saveLeadRecord` for lead create/update/reassign with server-side role/team/assignee validation.
+- `getCompanyDataHealthReport` for platform SaaS monitoring.
+- `getOperationalDataHealthReport` for company Admin Data Health.
+- `backfillAssignedRecordSnapshots` for safe assignment/team snapshot backfill.
+- `reassignDataHealthRecord` for company Admin operational reassignment repair.
+- Platform user/company tools such as `createCompanyWithAdmin`, `addUserToCompany`, `setCompanyUserEmail`, `setCompanyUserPassword`, `generateCompanyUserPasswordResetLink`, `updateCompanyPlatformSettings`, `assignUserToTeam`, and `removeUserFromTeam`.
+
+Rules:
+- Keep privileged business-data repair/reassignment server-side.
+- Do not move these flows into direct Flutter Firestore writes.
+- When changing function names or adding new callables, report exact deploy commands.
+
 ## Deployment reporting rules
 
 In every final report, mention exact deployment needs:
@@ -444,12 +465,22 @@ Do not claim deployment happened unless the user confirms it.
 ## Current latest known stable fixes
 
 The latest confirmed good state includes:
+- Lead create/update/reassign is stabilized through the `saveLeadRecord` Cloud Function.
+- Admin can create/assign/reassign leads company-wide.
+- Manager can assign/reassign only inside own team.
+- Sales/Marketing can update own assigned leads where policy allows.
 - Manager Recent Activity works and is scoped to team.
 - Sales can edit own assigned lead after rules/snapshot fixes.
 - Profile image debug console spam removed.
 - Normal lead edits appear in lead timeline.
 - Admin/Manager Recent Activity shows edit details.
 - Arabic old/new value direction fixed using `من old إلى new`.
+- Platform Data Health remains SaaS monitoring mode.
+- Company Admin Data Health is implemented as Admin-only operational repair mode.
+- Data Health reports persist after running until a new check is triggered.
+- Data Health hides raw missing-assignee UIDs and shows clean issue labels.
+- Data Health reassign/backfill repairs update the visible report without clearing it.
+- Mobile More remains module navigation only; Profile/Settings/Logout belong to avatar menu.
 
 ## Recommended next phases
 
@@ -458,20 +489,25 @@ Option A — Notifications + Reminders Foundation:
 - Task due/overdue alerts.
 - Assignment/reassignment notifications.
 - In-app notification center.
+- Disabled Notify Manager placeholders can become real actions.
 - Later browser/FCM notifications.
 
 Option B — Appointments / Calendar:
-- Follow-up reminders.
-- Task due/overdue alerts.
-- Assignment/reassignment notifications.
-- In-app notification center.
-- Later browser/FCM notifications.
+- Calendar-style appointments/follow-ups.
+- Meeting scheduling.
+- Lead/client/deal related appointments.
+- Optional notification integration after notifications foundation.
+
+Option C — Data Health polish if needed:
+- Repair history.
+- Export health report.
+- Bulk safe snapshot backfill after manual confirmation.
+- Notify company admin/manager after Notifications foundation exists.
 
 Recommendation:
-If Data Health shows many bad records, do Option A first.
-Otherwise move to Notifications + Reminders Foundation.
+Move to Notifications + Reminders Foundation next unless Data Health testing reveals blocking issues.
 
 
 ## Latest Data Health ownership rule
 
-Platform owner Data Health is SaaS monitoring plus safe snapshot backfill only. Company Admin Data Health is operational action mode and can reassign invalid records. Manager Data Health may repair/reassign only inside their own team. Notification buttons for managers may be shown disabled until the Notifications foundation is implemented.
+Platform owner Data Health is SaaS monitoring plus safe snapshot backfill only. Company Admin Data Health is operational action mode and can reassign invalid records. Manager Data Health is currently removed/disabled; Managers should not see Data Health navigation or access `/data-health`. Notification buttons may remain disabled placeholders until the Notifications foundation is implemented.

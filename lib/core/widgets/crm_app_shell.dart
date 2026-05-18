@@ -12,6 +12,9 @@ import '../../features/global_search/domain/entities/global_search_result.dart';
 import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
 import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
 import '../../features/global_search/presentation/cubit/global_search_state.dart';
+import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
+import '../../features/notifications/presentation/widgets/notification_bell_button.dart';
+import '../../features/notifications/presentation/widgets/notifications_scope.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
 import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
@@ -141,32 +144,115 @@ class CrmAppShell extends StatelessWidget {
         onItemSelected ?? (item) => _goToItem(context, item);
 
     return _AuthLogoutListener(
-      child: ResponsiveLayout(
-        mobile: _MobileShell(
-          selectedItem: selectedItem,
-          title: title,
-          items: mobileItems,
-          companyMetadata: companyMetadata,
-          onItemSelected: effectiveOnItemSelected,
-          child: child,
-        ),
-        tablet: _DesktopShell(
-          selectedItem: selectedItem,
-          title: title,
-          items: desktopItems,
-          onItemSelected: effectiveOnItemSelected,
-          child: child,
-        ),
-        desktop: _DesktopShell(
-          selectedItem: selectedItem,
-          title: title,
-          items: desktopItems,
-          onItemSelected: effectiveOnItemSelected,
-          child: child,
+      child: _CrmNotificationsScope(
+        authState: authState,
+        child: ResponsiveLayout(
+          mobile: _MobileShell(
+            selectedItem: selectedItem,
+            title: title,
+            items: mobileItems,
+            companyMetadata: companyMetadata,
+            onItemSelected: effectiveOnItemSelected,
+            child: child,
+          ),
+          tablet: _DesktopShell(
+            selectedItem: selectedItem,
+            title: title,
+            items: desktopItems,
+            onItemSelected: effectiveOnItemSelected,
+            child: child,
+          ),
+          desktop: _DesktopShell(
+            selectedItem: selectedItem,
+            title: title,
+            items: desktopItems,
+            onItemSelected: effectiveOnItemSelected,
+            child: child,
+          ),
         ),
       ),
     );
   }
+}
+
+class _CrmNotificationsScope extends StatelessWidget {
+  const _CrmNotificationsScope({
+    required this.authState,
+    required this.child,
+  });
+
+  final AuthState authState;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = authState.userProfile;
+    final authUid = authState.user?.uid ?? '';
+    if (profile == null || authUid.isEmpty) {
+      return child;
+    }
+
+    return NotificationsScope(
+      child: _CrmNotificationsStarter(
+        companyId: profile.companyId,
+        currentUserId: authUid,
+        role: profile.role,
+        managerTeamId: profile.teamId,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _CrmNotificationsStarter extends StatefulWidget {
+  const _CrmNotificationsStarter({
+    required this.companyId,
+    required this.currentUserId,
+    required this.role,
+    required this.managerTeamId,
+    required this.child,
+  });
+
+  final String companyId;
+  final String currentUserId;
+  final UserRole role;
+  final String managerTeamId;
+  final Widget child;
+
+  @override
+  State<_CrmNotificationsStarter> createState() =>
+      _CrmNotificationsStarterState();
+}
+
+class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
+  @override
+  void initState() {
+    super.initState();
+    _watchNotifications();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CrmNotificationsStarter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.currentUserId != widget.currentUserId ||
+        oldWidget.role != widget.role ||
+        oldWidget.managerTeamId != widget.managerTeamId) {
+      _watchNotifications();
+    }
+  }
+
+  void _watchNotifications() {
+    context.read<NotificationsCubit>().watch(
+          companyId: widget.companyId,
+          currentUserId: widget.currentUserId,
+          role: widget.role,
+          managerTeamId: widget.managerTeamId,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 
@@ -2003,25 +2089,7 @@ class _NotificationIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _CrmShellColors.of(context);
-    final button = IconButton(
-      tooltip: AppLocalizations.of(context)!.notifications,
-      onPressed: () {},
-      icon: const Icon(Icons.notifications_none),
-    );
-
-    if (!compact) {
-      return button;
-    }
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.inputSurface,
-        border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: button,
-    );
+    return NotificationBellButton(compact: compact);
   }
 }
 

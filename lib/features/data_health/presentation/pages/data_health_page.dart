@@ -152,7 +152,7 @@ class _DataHealthContentState extends State<_DataHealthContent> {
                     : () => widget.cubit.loadReport(widget.companyId),
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             if (report != null) ...[
               Text(
                 '${l.updatedAt}: ${_formatDateTime(context, report.generatedAt)}',
@@ -171,7 +171,7 @@ class _DataHealthContentState extends State<_DataHealthContent> {
               )
             else ...[
               _SummaryGrid(report: report),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               if (!report.hasIssues)
                 AppEmptyState(
                   icon: Icons.verified_outlined,
@@ -204,7 +204,7 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -216,7 +216,7 @@ class _HeaderCard extends StatelessWidget {
           final text = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
               Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondaryColor(context))),
             ],
@@ -224,7 +224,14 @@ class _HeaderCard extends StatelessWidget {
           if (narrow) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [text, const SizedBox(height: AppSpacing.md), action],
+              children: [
+                text,
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: action,
+                ),
+              ],
             );
           }
           return Row(
@@ -246,14 +253,14 @@ class _SummaryGrid extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760 ? 2 : 1;
+        final columns = constraints.maxWidth >= 360 ? 2 : 1;
         return GridView.count(
           crossAxisCount: columns,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: AppSpacing.sm,
           crossAxisSpacing: AppSpacing.sm,
-          childAspectRatio: constraints.maxWidth < 520 ? 2.1 : 3.4,
+          childAspectRatio: constraints.maxWidth < 520 ? 2.8 : 4.8,
           children: [
             _KpiCard(label: l.invalidAssignees, value: report.invalidAssignees.toString(), icon: Icons.person_off_outlined, tone: AppStatusTone.error),
             _KpiCard(label: l.inactiveAssignees, value: report.inactiveAssignees.toString(), icon: Icons.block_outlined, tone: AppStatusTone.warning),
@@ -275,20 +282,37 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.large,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Icon(icon, color: AppColors.primaryColor(context)),
-          const SizedBox(height: AppSpacing.xs),
-          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondaryColor(context))),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor(context).withValues(alpha: 0.10),
+              borderRadius: AppRadius.medium,
+            ),
+            child: Icon(icon, color: AppColors.primaryColor(context), size: 16),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondaryColor(context))),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -316,7 +340,7 @@ class _IssueList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(l.dataHealthAffectedRecords, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        Text(l.dataHealthAffectedRecords, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
         for (final issue in issues.take(120)) ...[
           _IssueTile(
@@ -359,7 +383,7 @@ class _IssueTile extends StatelessWidget {
     final needsReassign = !issue.canBackfill;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -372,8 +396,9 @@ class _IssueTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
+                radius: 16,
                 backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.12),
-                child: Icon(Icons.fact_check_outlined, color: AppColors.primaryColor(context)),
+                child: Icon(Icons.fact_check_outlined, color: AppColors.primaryColor(context), size: 16),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -433,18 +458,13 @@ class _IssueTile extends StatelessWidget {
                       ? null
                       : () => _showReassignDialog(context, issue, currentUser!),
                 ),
-              AppButton(
-                label: l.notifyManager,
-                icon: Icons.notifications_active_outlined,
-                variant: AppButtonVariant.secondary,
-                onPressed: null,
-              ),
+
             ],
           );
           if (narrow) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [content, const SizedBox(height: AppSpacing.sm), actions],
+              children: [content, const SizedBox(height: AppSpacing.xs), Align(alignment: AlignmentDirectional.centerEnd, child: actions)],
             );
           }
           return Row(

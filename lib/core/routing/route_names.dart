@@ -9,6 +9,7 @@ abstract final class RouteNames {
   static const reports = '/reports';
   static const teams = '/teams';
   static const dataHealth = '/data-health';
+  static const notifications = '/notifications';
   static const profile = '/profile';
   static const settings = '/settings';
   static const platform = '/platform';

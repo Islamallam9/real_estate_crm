@@ -805,5 +805,167 @@
   "noEligibleAssignees": "No eligible assignees",
   "noEligibleAssigneesMessage": "There are no active eligible users for this record type.",
   "dataHealthReassignSuccess": "Record reassigned successfully.",
-  "companyAdminActionRequired": "Company admin action required."
+  "companyAdminActionRequired": "Company admin action required.",
+  "notificationCenter": "Notification center",
+  "notificationCenterSubtitle": "{count, plural, =0{No unread notifications} =1{1 unread notification} other{{count} unread notifications}}",
+  "@notificationCenterSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "all": "All",
+  "unread": "Unread",
+  "attention": "Attention",
+  "system": "System",
+  "open": "Open",
+  "viewAll": "View all",
+  "markRead": "Mark read",
+  "markAllRead": "Mark all read",
+  "attentionNeeded": "Attention needed",
+  "noNotificationsYet": "No notifications yet",
+  "noNotificationsYetMessage": "Important assignment updates and system alerts will appear here.",
+  "notificationDataRepairNeededTitle": "Notification data repair needed",
+  "notificationDataRepairNeededMessage": "Some notifications need data repair. New notifications will appear after the next activity.",
+  "notificationStreamError": "Unable to load notifications. Please try again.",
+  "noUrgentReminders": "No urgent reminders",
+  "noUrgentRemindersMessage": "Due and overdue work will appear here when it needs attention.",
+  "notificationLeadAssignedTitle": "New lead assigned to you",
+  "notificationLeadReassignedTitle": "Lead reassigned to you",
+  "notificationLeadRemovedFromYouTitle": "Lead removed from your pipeline",
+  "notificationTaskAssignedTitle": "New task assigned",
+  "notificationTaskReassignedTitle": "Task reassigned to you",
+  "notificationTaskRemovedFromYouTitle": "Task removed from your work",
+  "notificationClientAssignedTitle": "New client assigned to you",
+  "notificationClientReassignedTitle": "Client reassigned to you",
+  "notificationClientRemovedFromYouTitle": "Client removed from your pipeline",
+  "notificationDealAssignedTitle": "New deal assigned to you",
+  "notificationDealReassignedTitle": "Deal reassigned to you",
+  "notificationDealRemovedFromYouTitle": "Deal removed from your pipeline",
+  "notificationLeadImportantStatusChangedTitle": "Important lead status changed",
+  "notificationDealStageChangedTitle": "Deal stage changed",
+  "notificationDealImportantStatusChangedTitle": "Important deal status changed",
+  "notificationDealWonTitle": "Deal won",
+  "notificationDealLostTitle": "Deal lost",
+  "notificationTaskStatusChangedTitle": "Task status changed",
+  "notificationTeamMemberAssignedTitle": "Team assignment",
+  "notificationTeamMemberReassignedTitle": "Team reassignment",
+  "notificationTeamMemberRemovedTitle": "Team assignment removed",
+  "notificationTeamLeadStatusChangedTitle": "Team lead status changed",
+  "notificationTeamDealStageChangedTitle": "Team deal stage changed",
+  "notificationTeamTaskStatusChangedTitle": "Team task status changed",
+  "notificationGenericStatusChangedTitle": "Status changed",
+  "notificationFollowUpDueTodayTitle": "Follow-up due today",
+  "notificationFollowUpOverdueTitle": "Follow-up overdue",
+  "notificationTaskDueTodayTitle": "Task due today",
+  "notificationTaskOverdueTitle": "Task overdue",
+  "notificationSystemInfoTitle": "System notification",
+  "notificationDataHealthIssueTitle": "Data health needs attention",
+  "notificationGenericTitle": "CRM notification",
+  "notificationUnassignedLeadTitle": "Unassigned lead needs attention",
+  "notificationRecordFallback": "Record",
+  "notificationSystemModule": "System",
+  "notificationRecordBody": "{record} needs your attention.",
+  "@notificationRecordBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationRecordByActorBody": "{record} was updated by {actor}.",
+  "@notificationRecordByActorBody": {
+    "placeholders": {
+      "record": {},
+      "actor": {}
+    }
+  },
+  "notificationRecordNoLongerAssignedBody": "{record} is no longer assigned to you.",
+  "@notificationRecordNoLongerAssignedBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationGenericBody": "Open {record} to review the latest update.",
+  "@notificationGenericBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationReminderAssignedBody": "{record} is assigned to {assignee}.",
+  "@notificationReminderAssignedBody": {
+    "placeholders": {
+      "record": {},
+      "assignee": {}
+    }
+  },
+  "notificationUnassignedLeadBody": "{record} is still unassigned.",
+  "@notificationUnassignedLeadBody": {
+    "placeholders": {
+      "record": {}
+    }
+  },
+  "notificationStatusChangedBody": "{record} changed to {status}.",
+  "@notificationStatusChangedBody": {
+    "placeholders": {
+      "record": {},
+      "status": {}
+    }
+  },
+  "notificationStatusChangedByActorBody": "{record} changed to {status} by {actor}.",
+  "@notificationStatusChangedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "status": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberAssignedBody": "{member} was assigned to {record}.",
+  "@notificationTeamMemberAssignedBody": {
+    "placeholders": {
+      "record": {},
+      "member": {}
+    }
+  },
+  "notificationTeamMemberAssignedByActorBody": "{actor} assigned {member} to {record}.",
+  "@notificationTeamMemberAssignedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "member": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberReassignedBody": "{record} moved from {oldMember} to {newMember}.",
+  "@notificationTeamMemberReassignedBody": {
+    "placeholders": {
+      "record": {},
+      "oldMember": {},
+      "newMember": {}
+    }
+  },
+  "notificationTeamMemberReassignedByActorBody": "{actor} moved {record} from {oldMember} to {newMember}.",
+  "@notificationTeamMemberReassignedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "oldMember": {},
+      "newMember": {},
+      "actor": {}
+    }
+  },
+  "notificationTeamMemberRemovedBody": "{member} was removed from {record}.",
+  "@notificationTeamMemberRemovedBody": {
+    "placeholders": {
+      "record": {},
+      "member": {}
+    }
+  },
+  "notificationTeamMemberRemovedByActorBody": "{actor} removed {member} from {record}.",
+  "@notificationTeamMemberRemovedByActorBody": {
+    "placeholders": {
+      "record": {},
+      "member": {},
+      "actor": {}
+    }
+  },
+  "notificationRouteUnavailable": "This notification cannot be opened from your current access.",
+  "notificationsUnavailableInPlatform": "Tenant sales notifications are not available in platform mode."
 }

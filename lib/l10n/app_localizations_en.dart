@@ -2260,4 +2260,285 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get companyAdminActionRequired => 'Company admin action required.';
+
+  @override
+  String get notificationCenter => 'Notification center';
+
+  @override
+  String notificationCenterSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread notifications',
+      one: '1 unread notification',
+      zero: 'No unread notifications',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get unread => 'Unread';
+
+  @override
+  String get attention => 'Attention';
+
+  @override
+  String get system => 'System';
+
+  @override
+  String get open => 'Open';
+
+  @override
+  String get viewAll => 'View all';
+
+  @override
+  String get markRead => 'Mark read';
+
+  @override
+  String get markAllRead => 'Mark all read';
+
+  @override
+  String get attentionNeeded => 'Attention needed';
+
+  @override
+  String get noNotificationsYet => 'No notifications yet';
+
+  @override
+  String get noNotificationsYetMessage =>
+      'Important assignment updates and system alerts will appear here.';
+
+  @override
+  String get notificationDataRepairNeededTitle =>
+      'Notification data repair needed';
+
+  @override
+  String get notificationDataRepairNeededMessage =>
+      'Some notifications need data repair. New notifications will appear after the next activity.';
+
+  @override
+  String get notificationStreamError =>
+      'Unable to load notifications. Please try again.';
+
+  @override
+  String get noUrgentReminders => 'No urgent reminders';
+
+  @override
+  String get noUrgentRemindersMessage =>
+      'Due and overdue work will appear here when it needs attention.';
+
+  @override
+  String get notificationLeadAssignedTitle => 'New lead assigned to you';
+
+  @override
+  String get notificationLeadReassignedTitle => 'Lead reassigned to you';
+
+  @override
+  String get notificationLeadRemovedFromYouTitle =>
+      'Lead removed from your pipeline';
+
+  @override
+  String get notificationTaskAssignedTitle => 'New task assigned';
+
+  @override
+  String get notificationTaskReassignedTitle => 'Task reassigned to you';
+
+  @override
+  String get notificationTaskRemovedFromYouTitle =>
+      'Task removed from your work';
+
+  @override
+  String get notificationClientAssignedTitle => 'New client assigned to you';
+
+  @override
+  String get notificationClientReassignedTitle => 'Client reassigned to you';
+
+  @override
+  String get notificationClientRemovedFromYouTitle =>
+      'Client removed from your pipeline';
+
+  @override
+  String get notificationDealAssignedTitle => 'New deal assigned to you';
+
+  @override
+  String get notificationDealReassignedTitle => 'Deal reassigned to you';
+
+  @override
+  String get notificationDealRemovedFromYouTitle =>
+      'Deal removed from your pipeline';
+
+  @override
+  String get notificationLeadImportantStatusChangedTitle =>
+      'Important lead status changed';
+
+  @override
+  String get notificationDealStageChangedTitle => 'Deal stage changed';
+
+  @override
+  String get notificationDealImportantStatusChangedTitle =>
+      'Important deal status changed';
+
+  @override
+  String get notificationDealWonTitle => 'Deal won';
+
+  @override
+  String get notificationDealLostTitle => 'Deal lost';
+
+  @override
+  String get notificationTaskStatusChangedTitle => 'Task status changed';
+
+  @override
+  String get notificationTeamMemberAssignedTitle => 'Team assignment';
+
+  @override
+  String get notificationTeamMemberReassignedTitle => 'Team reassignment';
+
+  @override
+  String get notificationTeamMemberRemovedTitle => 'Team assignment removed';
+
+  @override
+  String get notificationTeamLeadStatusChangedTitle =>
+      'Team lead status changed';
+
+  @override
+  String get notificationTeamDealStageChangedTitle => 'Team deal stage changed';
+
+  @override
+  String get notificationTeamTaskStatusChangedTitle =>
+      'Team task status changed';
+
+  @override
+  String get notificationGenericStatusChangedTitle => 'Status changed';
+
+  @override
+  String get notificationFollowUpDueTodayTitle => 'Follow-up due today';
+
+  @override
+  String get notificationFollowUpOverdueTitle => 'Follow-up overdue';
+
+  @override
+  String get notificationTaskDueTodayTitle => 'Task due today';
+
+  @override
+  String get notificationTaskOverdueTitle => 'Task overdue';
+
+  @override
+  String get notificationSystemInfoTitle => 'System notification';
+
+  @override
+  String get notificationDataHealthIssueTitle => 'Data health needs attention';
+
+  @override
+  String get notificationGenericTitle => 'CRM notification';
+
+  @override
+  String get notificationUnassignedLeadTitle =>
+      'Unassigned lead needs attention';
+
+  @override
+  String get notificationRecordFallback => 'Record';
+
+  @override
+  String get notificationSystemModule => 'System';
+
+  @override
+  String notificationRecordBody(Object record) {
+    return '$record needs your attention.';
+  }
+
+  @override
+  String notificationRecordByActorBody(Object record, Object actor) {
+    return '$record was updated by $actor.';
+  }
+
+  @override
+  String notificationRecordNoLongerAssignedBody(Object record) {
+    return '$record is no longer assigned to you.';
+  }
+
+  @override
+  String notificationGenericBody(Object record) {
+    return 'Open $record to review the latest update.';
+  }
+
+  @override
+  String notificationReminderAssignedBody(Object record, Object assignee) {
+    return '$record is assigned to $assignee.';
+  }
+
+  @override
+  String notificationUnassignedLeadBody(Object record) {
+    return '$record is still unassigned.';
+  }
+
+  @override
+  String notificationStatusChangedBody(Object record, Object status) {
+    return '$record changed to $status.';
+  }
+
+  @override
+  String notificationStatusChangedByActorBody(
+    Object record,
+    Object status,
+    Object actor,
+  ) {
+    return '$record changed to $status by $actor.';
+  }
+
+  @override
+  String notificationTeamMemberAssignedBody(Object record, Object member) {
+    return '$member was assigned to $record.';
+  }
+
+  @override
+  String notificationTeamMemberAssignedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  ) {
+    return '$actor assigned $member to $record.';
+  }
+
+  @override
+  String notificationTeamMemberReassignedBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+  ) {
+    return '$record moved from $oldMember to $newMember.';
+  }
+
+  @override
+  String notificationTeamMemberReassignedByActorBody(
+    Object record,
+    Object oldMember,
+    Object newMember,
+    Object actor,
+  ) {
+    return '$actor moved $record from $oldMember to $newMember.';
+  }
+
+  @override
+  String notificationTeamMemberRemovedBody(Object record, Object member) {
+    return '$member was removed from $record.';
+  }
+
+  @override
+  String notificationTeamMemberRemovedByActorBody(
+    Object record,
+    Object member,
+    Object actor,
+  ) {
+    return '$actor removed $member from $record.';
+  }
+
+  @override
+  String get notificationRouteUnavailable =>
+      'This notification cannot be opened from your current access.';
+
+  @override
+  String get notificationsUnavailableInPlatform =>
+      'Tenant sales notifications are not available in platform mode.';
 }
