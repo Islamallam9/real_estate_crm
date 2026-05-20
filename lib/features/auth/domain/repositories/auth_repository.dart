@@ -12,6 +12,12 @@ abstract interface class AuthRepository {
     required String newPassword,
   });
 
+  Future<void> completeRequiredPasswordChange({
+    required String companyId,
+    required String currentPassword,
+    required String newPassword,
+  });
+
   Future<void> recordLoginActivity({
     String? companyId,
     required String locale,

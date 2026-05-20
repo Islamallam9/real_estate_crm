@@ -20,6 +20,12 @@ abstract interface class AuthRemoteDataSource {
     required String newPassword,
   });
 
+  Future<void> completeRequiredPasswordChange({
+    required String companyId,
+    required String currentPassword,
+    required String newPassword,
+  });
+
   Future<void> recordLoginActivity({
     String? companyId,
     required String locale,
@@ -108,6 +114,33 @@ class FirebaseAuthRemoteDataSource implements AuthRemoteDataSource {
       await user.updatePassword(newPassword);
     } on FirebaseAuthException catch (error) {
       throw _mapPasswordChangeError(error);
+    }
+  }
+
+  @override
+  Future<void> completeRequiredPasswordChange({
+    required String companyId,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+
+    try {
+      await _functions.httpsCallable('completeRequiredPasswordChange').call({
+        'companyId': companyId.trim(),
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw AuthException(
+        error.message ?? AuthErrorMessages.passwordChangeFailed,
+        code: AuthErrorCode.unknown,
+      );
+    } on FirebaseException catch (error) {
+      throw _mapFirebaseAuthError(
+        FirebaseAuthException(code: error.code, message: error.message),
+      );
     }
   }
 

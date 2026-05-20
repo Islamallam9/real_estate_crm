@@ -35,6 +35,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> completeRequiredPasswordChange({
+    required String companyId,
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _remoteDataSource.completeRequiredPasswordChange(
+      companyId: companyId,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
+  @override
   Future<void> recordLoginActivity({
     String? companyId,
     required String locale,
