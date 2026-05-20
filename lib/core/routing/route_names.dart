@@ -1,5 +1,8 @@
 abstract final class RouteNames {
+  static const onboarding = '/onboarding';
   static const login = '/login';
+  static const registerCompany = '/register-company';
+  static const forceChangePassword = '/force-change-password';
   static const dashboard = '/dashboard';
   static const leads = '/leads';
   static const properties = '/properties';
@@ -8,12 +11,16 @@ abstract final class RouteNames {
   static const appointments = '/appointments';
   static const deals = '/deals';
   static const reports = '/reports';
+  static const users = '/users';
   static const teams = '/teams';
   static const dataHealth = '/data-health';
+  static const support = '/support';
   static const notifications = '/notifications';
   static const profile = '/profile';
   static const settings = '/settings';
   static const platform = '/platform';
+  static const platformNotifications = '/platform/notifications';
+  static const platformSupport = '/platform/support';
   static const featureUnavailable = '/feature-unavailable';
   static const leadsCreate = '/leads/create';
   static const propertiesCreate = '/properties/create';

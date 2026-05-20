@@ -1,6 +1,12 @@
 abstract final class FirebasePaths {
   static String platformAdmins() => 'platform_admins';
 
+  static String platformNotifications() => 'platform_notifications';
+
+  static String supportTickets() => 'support_tickets';
+
+  static String supportTicket(String ticketId) => '${supportTickets()}/$ticketId';
+
   static String platformAdmin(String uid) => '${platformAdmins()}/$uid';
 
   static String globalUsers() => 'users';

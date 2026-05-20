@@ -1055,6 +1055,123 @@ service cloud.firestore {
         && isTimestampOrNull(request.resource.data.updatedAt);
     }
 
+    function validSupportTicketCreate(ticketId) {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'companyId',
+          'companyName',
+          'userId',
+          'userName',
+          'userEmail',
+          'userRole',
+          'type',
+          'category',
+          'priority',
+          'rating',
+          'title',
+          'message',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'resolvedAt',
+          'appVersion',
+          'appBuildNumber',
+          'platform',
+          'currentRoute',
+          'deviceInfo',
+          'attachments',
+          'lastReplyAt',
+          'lastReplyBy'
+        ])
+        && request.resource.data.id == ticketId
+        && request.resource.data.companyId is string
+        && isActiveCompanyUser(request.resource.data.companyId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userRole == role(request.resource.data.companyId)
+        && request.resource.data.userEmail == currentUserData(request.resource.data.companyId).email
+        && request.resource.data.userName == currentUserData(request.resource.data.companyId).fullName
+        && request.resource.data.type in ['support', 'feedback']
+        && request.resource.data.category is string
+        && request.resource.data.priority in ['low', 'normal', 'urgent']
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.appVersion is string
+        && request.resource.data.appBuildNumber is string
+        && request.resource.data.platform is string
+        && request.resource.data.currentRoute is string
+        && request.resource.data.deviceInfo is string
+        && request.resource.data.attachments is list
+        && request.resource.data.attachments.size() == 0
+        && request.resource.data.lastReplyAt == null
+        && request.resource.data.lastReplyBy == ''
+        && (
+          (request.resource.data.type == 'support'
+            && request.resource.data.category in [
+              'accountLogin',
+              'usersPermissions',
+              'leads',
+              'clients',
+              'properties',
+              'tasks',
+              'deals',
+              'notifications',
+              'appointments',
+              'billingSubscription',
+              'bug',
+              'other'
+            ]
+            && request.resource.data.rating == null)
+          || (request.resource.data.type == 'feedback'
+            && request.resource.data.category in [
+              'suggestion',
+              'uiImprovement',
+              'missingFeature',
+              'confusingBehavior',
+              'performance',
+              'generalFeedback'
+            ]
+            && request.resource.data.priority == 'normal'
+            && request.resource.data.rating is number
+            && request.resource.data.rating >= 1
+            && request.resource.data.rating <= 5)
+        );
+    }
+
+    function validSupportTicketStatusUpdate() {
+      return isActivePlatformAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedAt',
+          'resolvedAt'
+        ])
+        && request.resource.data.status in [
+          'open',
+          'inReview',
+          'waitingForUser',
+          'resolved',
+          'closed'
+        ]
+        && request.resource.data.updatedAt == request.time
+        && isTimestampOrNull(request.resource.data.resolvedAt);
+    }
+
+    function validPlatformNotificationReadUpdate() {
+      return isActivePlatformAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRead',
+          'readAt',
+          'updatedAt'
+        ])
+        && request.resource.data.isRead is bool
+        && isTimestampOrNull(request.resource.data.readAt)
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     match /platform_admins/{adminId} {
       allow get: if signedIn()
         && (request.auth.uid == adminId || isActivePlatformAdmin());
@@ -1080,6 +1197,29 @@ service cloud.firestore {
     match /platform_login_activity/{eventId} {
       allow get, list: if isActivePlatformAdmin();
       allow create, update, delete: if false;
+    }
+
+    match /platform_invitations/{invitationId} {
+      allow get, list: if isActivePlatformAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /platform_notifications/{notificationId} {
+      allow get, list: if isActivePlatformAdmin();
+      allow update: if validPlatformNotificationReadUpdate();
+      allow create, delete: if false;
+    }
+
+    match /support_tickets/{ticketId} {
+      allow get, list: if isActivePlatformAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if validSupportTicketCreate(ticketId);
+      allow update: if validSupportTicketStatusUpdate();
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read, write: if false;
+      }
     }
 
     match /users/{userId} {

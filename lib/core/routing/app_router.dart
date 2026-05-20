@@ -6,12 +6,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/onboarding_page.dart';
+import '../../features/auth/presentation/pages/force_change_password_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/clients/presentation/pages/create_client_page.dart';
 import '../../features/clients/presentation/pages/client_details_page.dart';
 import '../../features/clients/presentation/pages/edit_client_page.dart';
 import '../../features/clients/presentation/pages/clients_page.dart';
+import '../../features/company_registration/presentation/pages/register_company_page.dart';
+import '../../features/company_users/presentation/pages/company_users_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/data_health/presentation/pages/data_health_page.dart';
 import '../../features/deals/presentation/pages/create_deal_page.dart';
@@ -34,6 +38,7 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/platform/presentation/pages/platform_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/teams/presentation/pages/teams_page.dart';
 import '../../features/tasks/presentation/pages/create_task_page.dart';
 import '../../features/tasks/presentation/pages/edit_task_page.dart';
@@ -46,19 +51,25 @@ import 'route_names.dart';
 abstract final class AppRouter {
   static GoRouter createRouter(AuthBloc authBloc) {
     return GoRouter(
-      initialLocation: RouteNames.login,
+      initialLocation: RouteNames.onboarding,
       refreshListenable: GoRouterRefreshStream(authBloc.stream),
       redirect: (context, state) {
         final status = authBloc.state.status;
         final isAuthenticated = status == AuthStatus.authenticated;
         final isCheckingAuth =
             status == AuthStatus.initial || status == AuthStatus.loading;
+        final isOnboardingRoute = state.matchedLocation == RouteNames.onboarding;
         final isLoginRoute = state.matchedLocation == RouteNames.login;
+        final isRegisterCompanyRoute =
+            state.matchedLocation == RouteNames.registerCompany;
+        final isForceChangePasswordRoute =
+            state.matchedLocation == RouteNames.forceChangePassword;
         final isPlatformRoute = state.matchedLocation.startsWith(
           RouteNames.platform,
         );
         final isFeatureUnavailableRoute =
             state.matchedLocation == RouteNames.featureUnavailable;
+        final isUsersRoute = state.matchedLocation == RouteNames.users;
         final isAccountUtilityRoute = state.matchedLocation == RouteNames.profile ||
             state.matchedLocation == RouteNames.settings;
 
@@ -66,8 +77,11 @@ abstract final class AppRouter {
           return null;
         }
 
-        if (!isAuthenticated && !isLoginRoute) {
-          return RouteNames.login;
+        if (!isAuthenticated &&
+            !isOnboardingRoute &&
+            !isLoginRoute &&
+            !isRegisterCompanyRoute) {
+          return RouteNames.onboarding;
         }
 
         if (isAuthenticated &&
@@ -85,6 +99,26 @@ abstract final class AppRouter {
           return RouteNames.platform;
         }
 
+        final mustChangePassword = isAuthenticated &&
+            !authBloc.state.isPlatformAdmin &&
+            (authBloc.state.userProfile?.mustChangePassword ?? false);
+
+        if (mustChangePassword && !isForceChangePasswordRoute) {
+          return RouteNames.forceChangePassword;
+        }
+
+        if (isAuthenticated &&
+            isForceChangePasswordRoute &&
+            !mustChangePassword) {
+          return RouteNames.dashboard;
+        }
+
+        if (isAuthenticated &&
+            isUsersRoute &&
+            authBloc.state.userProfile?.role.name != 'admin') {
+          return RouteNames.dashboard;
+        }
+
         if (isAuthenticated &&
             !isPlatformRoute &&
             !isFeatureUnavailableRoute) {
@@ -95,7 +129,7 @@ abstract final class AppRouter {
           }
         }
 
-        if (isAuthenticated && isLoginRoute) {
+        if (isAuthenticated && (isOnboardingRoute || isLoginRoute || isRegisterCompanyRoute)) {
           if (authBloc.state.isPlatformAdmin &&
               authBloc.state.userProfile == null) {
             return RouteNames.platform;
@@ -107,8 +141,22 @@ abstract final class AppRouter {
       },
       routes: [
         GoRoute(
+          path: RouteNames.onboarding,
+          builder: (context, state) => const OnboardingPage(),
+        ),
+        GoRoute(
           path: RouteNames.login,
           builder: (context, state) => const LoginPage(),
+        ),
+        GoRoute(
+          path: RouteNames.registerCompany,
+          builder: (context, state) => RegisterCompanyPage.withDependencies(
+            initialCode: state.uri.queryParameters['code'],
+          ),
+        ),
+        GoRoute(
+          path: RouteNames.forceChangePassword,
+          builder: (context, state) => ForceChangePasswordPage.withDependencies(),
         ),
         GoRoute(
           path: RouteNames.dashboard,
@@ -143,6 +191,10 @@ abstract final class AppRouter {
           builder: (context, state) => const ReportsPage(),
         ),
         GoRoute(
+          path: RouteNames.users,
+          builder: (context, state) => CompanyUsersPage.withDependencies(),
+        ),
+        GoRoute(
           path: RouteNames.teams,
           builder: (context, state) => TeamsPage.withDependencies(),
         ),
@@ -163,8 +215,22 @@ abstract final class AppRouter {
           builder: (context, state) => const SettingsPage(),
         ),
         GoRoute(
+          path: RouteNames.support,
+          builder: (context, state) => SupportPage.withDependencies(),
+        ),
+        GoRoute(
           path: RouteNames.platform,
           builder: (context, state) => PlatformPage.withDependencies(),
+        ),
+        GoRoute(
+          path: RouteNames.platformNotifications,
+          builder: (context, state) =>
+              PlatformPage.withDependencies(initialNotifications: true),
+        ),
+        GoRoute(
+          path: RouteNames.platformSupport,
+          builder: (context, state) =>
+              PlatformPage.withDependencies(initialSupportInbox: true),
         ),
         GoRoute(
           path: RouteNames.featureUnavailable,
@@ -309,7 +375,7 @@ class _FeatureUnavailablePage extends StatelessWidget {
       title: l.featureUnavailable,
       child: AppErrorView(
         title: l.featureUnavailable,
-        message: l.featureUnavailableMessage,
+        message: l.featureNotEnabledForWorkspace,
         onRetry: () => context.go(RouteNames.dashboard),
       ),
     );

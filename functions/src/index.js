@@ -3,6 +3,7 @@ const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 admin.initializeApp();
 
@@ -12,6 +13,25 @@ const FieldValue = admin.firestore.FieldValue;
 
 const ROLES = new Set(['admin', 'manager', 'salesAgent', 'marketing', 'viewer']);
 const COMPANY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,48}[a-z0-9]$/;
+const INVITATION_CODE_PATTERN = /^MASAR-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const INVITATION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const INVITATION_STATUSES = new Set(['active', 'used', 'expired', 'revoked']);
+const REGISTRATION_ERROR_KEYS = new Set([
+  'invitation-invalid',
+  'invitation-expired',
+  'invitation-used',
+  'invitation-revoked',
+  'invitation-limit-reached',
+  'admin-email-already-exists',
+  'company-id-already-exists',
+  'invalid-admin-email',
+  'weak-password',
+  'email-password-auth-disabled',
+  'registration-conflict',
+  'unable-to-create-admin',
+  'unable-to-create-company',
+  'unable-to-complete-registration',
+]);
 const LOCALES = new Set(['en', 'ar']);
 const COMPANY_STATUSES = new Set(['active', 'inactive', 'trial']);
 const FEATURE_KEYS = new Set([
@@ -118,6 +138,37 @@ const NOTIFICATION_TYPES = new Set([
   'dataHealthIssue',
 ]);
 const NOTIFICATION_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
+const PLATFORM_NOTIFICATION_TYPES = new Set([
+  'companyRegistered',
+  'companyCreated',
+  'companyStatusChanged',
+  'companySettingsChanged',
+  'companyFeatureChanged',
+  'companyLimitChanged',
+  'companyUserCreated',
+  'companyUserStatusChanged',
+  'companyUserPasswordReset',
+  'invitationCreated',
+  'invitationAccepted',
+  'invitationRevoked',
+  'supportTicketCreated',
+  'feedbackSubmitted',
+  'urgentSupportTicketCreated',
+  'supportTicketStatusChanged',
+  'storageUsageRefreshed',
+  'storageNearLimit',
+  'platformFunctionFailed',
+]);
+const PLATFORM_NOTIFICATION_SEVERITIES = new Set(['info', 'success', 'warning', 'urgent']);
+const PLATFORM_NOTIFICATION_SOURCES = new Set([
+  'platform',
+  'support',
+  'invitation',
+  'company',
+  'user',
+  'storage',
+  'system',
+]);
 const IMPORTANT_LEAD_STATUSES = new Set([
   'hot',
   'qualified',
@@ -153,8 +204,463 @@ const MAJOR_DEAL_OUTCOMES = new Set([
   'closedLost',
 ]);
 
+exports.createCompanyInvitation = onCall(async (request) => {
+  const callerUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const planId = optionalString(data.planId);
+  const planName = optionalString(data.planName) || 'Masar CRM';
+  const userLimit = positiveInteger(data.userLimit, 'userLimit');
+  const storageLimitMb = positiveInteger(data.storageLimitMb, 'storageLimitMb');
+  const features = validateCompanyFeatures(requiredObject(data.features, 'features'));
+  const locale = optionalString(data.locale) || 'en';
+  const timezone = optionalString(data.timezone) || 'Africa/Cairo';
+  const notes = sanitizeShortString(data.notes, 500);
+  const expiresAt = parseFutureDate(data.expiresAt, 'expiresAt');
+
+  validateLocale(locale);
+  validateTimezone(timezone);
+  const invitationRef = db.collection('platform_invitations').doc();
+  const invitationCode = generateInvitationCode();
+  const codeHash = hashInvitationCode(invitationCode);
+  const codePreview = previewInvitationCode(invitationCode);
+  const now = FieldValue.serverTimestamp();
+
+  await invitationRef.set({
+    id: invitationRef.id,
+    codeHash,
+    codePreview,
+    type: 'companyAdmin',
+    status: 'active',
+    planId,
+    planName,
+    userLimit,
+    storageLimitMb,
+    features,
+    locale,
+    timezone,
+    notes,
+    expiresAt,
+    maxUses: 1,
+    usedCount: 0,
+    createdAt: now,
+    createdBy: callerUid,
+    updatedAt: now,
+    updatedBy: callerUid,
+  });
+  const actor = await platformActorSummary(callerUid);
+  await createPlatformNotificationSafely('create_company_invitation', {
+    id: `invitation_created_${invitationRef.id}`,
+    type: 'invitationCreated',
+    title: 'Invitation created',
+    message: `Invitation created for ${planName}.`,
+    severity: 'info',
+    source: 'invitation',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    metadata: {
+      invitationId: invitationRef.id,
+      planId,
+      planName,
+      userLimit,
+      storageLimitMb,
+      locale,
+      timezone,
+    },
+  });
+
+  return {
+    invitationId: invitationRef.id,
+    invitationCode,
+    invitationLink: invitationLink(invitationCode, data.origin),
+    expiresAt: expiresAt.getTime(),
+    codePreview,
+  };
+});
+
+exports.validateCompanyInvitation = onCall(async (request) => {
+  const invitationCode = requiredString(
+    (request.data || {}).invitationCode,
+    'invitationCode',
+  );
+  const invitation = await loadInvitationByCode(invitationCode);
+  let status = invitation ? invitationPublicStatus(invitation.data) : 'invalid';
+  if (invitation && status === 'active' && await invitationUseMarkerExists(invitation.id)) {
+    status = 'used';
+  }
+
+  if (!invitation || status !== 'active') {
+    return {
+      valid: false,
+      status,
+      message: invitationStatusMessage(status),
+    };
+  }
+
+  return {
+    valid: true,
+    status: 'active',
+    planName: invitation.data.planName || '',
+    userLimit: invitation.data.userLimit || 0,
+    storageLimitMb: invitation.data.storageLimitMb || 0,
+    features: publicFeatureSummary(invitation.data.features || {}),
+    locale: invitation.data.locale || 'en',
+    timezone: invitation.data.timezone || 'Africa/Cairo',
+    expiresAt: dateMillis(invitation.data.expiresAt),
+  };
+});
+
+exports.acceptCompanyInvitation = onCall(async (request) => {
+  let userRecord;
+  let createdAuthUser = false;
+  let currentStep = 'accept_invitation_start';
+  const logContext = {
+    companyId: '',
+    adminEmail: '',
+    invitationId: '',
+  };
+
+  logAcceptInvitationStep(currentStep, logContext);
+
+  try {
+    currentStep = 'validate_payload';
+    logAcceptInvitationStep(currentStep, logContext);
+
+    const data = request.data || {};
+    const invitationCode = normalizeInvitationCode(data.invitationCode);
+    const companyName = sanitizeCompanyText(data.companyName, 'companyName');
+    const companyId = sanitizeCompanyId(slugFromName(companyName));
+    const companyPhone = sanitizeShortString(data.companyPhone, 80);
+    const companyCity = sanitizeShortString(data.companyCity || data.companyLocation, 120);
+    const companyWebsite = sanitizeOptionalUrl(data.companyWebsite);
+    const adminFullName = sanitizeProfileName(data.adminFullName);
+    const adminPhone = sanitizeShortString(data.adminPhone, 80);
+    const adminEmail = normalizeEmail(requiredString(data.adminEmail, 'adminEmail'));
+    const password = requiredString(data.password, 'password');
+    const confirmPassword = optionalString(data.confirmPassword);
+    const locale = optionalString(data.locale) || 'en';
+    const timezone = optionalString(data.timezone) || 'Africa/Cairo';
+
+    logContext.companyId = companyId;
+    logContext.adminEmail = adminEmail;
+
+    validateCompanyId(companyId);
+    validateEmail(adminEmail);
+    validatePassword(password);
+    validateLocale(locale);
+    validateTimezone(timezone);
+    if (confirmPassword && confirmPassword !== password) {
+      throw registrationError(
+        'invalid-argument',
+        'unable-to-complete-registration',
+      );
+    }
+
+    currentStep = 'validate_invitation';
+    logAcceptInvitationStep(currentStep, logContext);
+    const invitation = await loadInvitationByCode(invitationCode);
+    logContext.invitationId = invitation ? invitation.id : '';
+    assertInvitationActiveForRegistration(invitation);
+
+    currentStep = 'check_company_id';
+    logAcceptInvitationStep(currentStep, logContext);
+    const companyRef = db.doc(`companies/${companyId}`);
+    if ((await companyRef.get()).exists) {
+      throw registrationError('already-exists', 'company-id-already-exists');
+    }
+
+    currentStep = 'check_admin_email_auth';
+    logAcceptInvitationStep(currentStep, logContext);
+    await assertAdminEmailNotUsedInAuth(adminEmail);
+
+    currentStep = 'check_admin_email_global_user';
+    logAcceptInvitationStep(currentStep, logContext);
+    await assertEmailNotUsedInGlobalProfiles(adminEmail);
+
+    currentStep = 'check_admin_email_company_users';
+    logAcceptInvitationStep(currentStep, logContext);
+    await assertEmailNotUsedInCompanyUserProfiles(adminEmail);
+
+    currentStep = 'check_invitation_usage_marker';
+    logAcceptInvitationStep(currentStep, logContext);
+    if (await invitationUseMarkerExists(invitation.id)) {
+      throw registrationError('failed-precondition', 'invitation-used');
+    }
+
+    currentStep = 'create_auth_user';
+    logAcceptInvitationStep(currentStep, logContext);
+    userRecord = await auth.createUser({
+      email: adminEmail,
+      password,
+      displayName: adminFullName,
+      emailVerified: false,
+      disabled: false,
+    }).catch((error) => {
+      throw mapAuthUserCreationError(error);
+    });
+    createdAuthUser = true;
+
+    await db.runTransaction(async (transaction) => {
+      currentStep = 'validate_invitation';
+      logAcceptInvitationStep(currentStep, logContext);
+      const freshInvitationSnapshot = await transaction.get(invitation.ref);
+      if (!freshInvitationSnapshot.exists) {
+        throw registrationError('invalid-argument', 'invitation-invalid');
+      }
+      const freshInvitation = freshInvitationSnapshot.data() || {};
+      const freshInvitationStatus = invitationPublicStatus(freshInvitation);
+      if (freshInvitationStatus !== 'active') {
+        throw registrationError(
+          'failed-precondition',
+          registrationKeyForInvitationStatus(freshInvitation, freshInvitationStatus),
+        );
+      }
+
+      currentStep = 'check_invitation_usage_marker';
+      logAcceptInvitationStep(currentStep, logContext);
+      const invitationUseRef = invitationUsageRef(invitation.id);
+      const invitationUseSnapshot = await transaction.get(invitationUseRef);
+      if (invitationUseSnapshot.exists) {
+        throw registrationError('failed-precondition', 'invitation-used');
+      }
+
+      currentStep = 'check_company_id';
+      logAcceptInvitationStep(currentStep, logContext);
+      const freshCompanySnapshot = await transaction.get(companyRef);
+      if (freshCompanySnapshot.exists) {
+        throw registrationError('aborted', 'registration-conflict');
+      }
+
+      const now = FieldValue.serverTimestamp();
+      const planName = freshInvitation.planName || 'Masar CRM';
+      const features = validateCompanyFeatures(freshInvitation.features || {});
+      const userLimit = positiveInteger(freshInvitation.userLimit || 25, 'userLimit');
+      const storageLimitMb = positiveInteger(
+        freshInvitation.storageLimitMb || 1024,
+        'storageLimitMb',
+      );
+
+      currentStep = 'create_company_docs';
+      logAcceptInvitationStep(currentStep, logContext);
+      transaction.set(companyRef, {
+        id: companyId,
+        name: companyName,
+        displayName: companyName,
+        status: 'active',
+        isActive: true,
+        phone: companyPhone,
+        city: companyCity,
+        location: companyCity,
+        website: companyWebsite,
+        planId: freshInvitation.planId || '',
+        planName,
+        createdAt: now,
+        createdBy: userRecord.uid,
+        updatedAt: now,
+        updatedBy: userRecord.uid,
+        settings: {
+          locale,
+          timezone,
+        },
+        limits: {
+          users: userLimit,
+          storageMb: storageLimitMb,
+        },
+        features,
+      });
+
+      currentStep = 'create_global_user';
+      logAcceptInvitationStep(currentStep, logContext);
+      transaction.set(db.doc(`users/${userRecord.uid}`), {
+        uid: userRecord.uid,
+        email: adminEmail,
+        fullName: adminFullName,
+        phone: adminPhone,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      }, { merge: true });
+
+      currentStep = 'create_company_admin_profile';
+      logAcceptInvitationStep(currentStep, logContext);
+      transaction.set(db.doc(`companies/${companyId}/users/${userRecord.uid}`), {
+        uid: userRecord.uid,
+        companyId,
+        fullName: adminFullName,
+        email: adminEmail,
+        phone: adminPhone,
+        role: 'admin',
+        isActive: true,
+        createdAt: now,
+        createdBy: userRecord.uid,
+        updatedAt: now,
+        updatedBy: userRecord.uid,
+        teamId: '',
+        teamName: '',
+        managerId: '',
+        managerName: '',
+      }, { merge: true });
+
+      currentStep = 'create_membership';
+      logAcceptInvitationStep(currentStep, logContext);
+      transaction.set(db.doc(`users/${userRecord.uid}/memberships/${companyId}`), {
+        companyId,
+        companyName,
+        role: 'admin',
+        isActive: true,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      }, { merge: true });
+
+      currentStep = 'mark_invitation_used';
+      logAcceptInvitationStep(currentStep, logContext);
+      transaction.set(invitationUsageRef(invitation.id), {
+        invitationId: invitation.id,
+        codeHash: freshInvitation.codeHash || '',
+        companyId,
+        adminUid: userRecord.uid,
+        adminEmail,
+        usedAt: now,
+        createdAt: now,
+      });
+      transaction.update(invitation.ref, {
+        status: 'used',
+        usedCount: FieldValue.increment(1),
+        acceptedAt: now,
+        acceptedBy: userRecord.uid,
+        acceptedAdminEmail: adminEmail,
+        companyId,
+        adminUid: userRecord.uid,
+        updatedAt: now,
+        updatedBy: userRecord.uid,
+      });
+    });
+
+    currentStep = 'accept_invitation_success';
+    logAcceptInvitationStep(currentStep, logContext);
+    await createPlatformNotificationSafely('accept_company_invitation_registered', {
+      id: `company_registered_${companyId}`,
+      type: 'companyRegistered',
+      title: 'Company registered',
+      message: `${companyName} registered through an invitation.`,
+      severity: 'success',
+      source: 'company',
+      route: '/platform',
+      actorId: userRecord.uid,
+      actorName: adminFullName,
+      actorEmail: adminEmail,
+      companyId,
+      companyName,
+      metadata: {
+        invitationId: invitation.id,
+        adminUid: userRecord.uid,
+        planName: invitation.data.planName || '',
+      },
+    });
+    await createPlatformNotificationSafely('accept_company_invitation', {
+      id: `invitation_accepted_${invitation.id}`,
+      type: 'invitationAccepted',
+      title: 'Invitation accepted',
+      message: `${companyName} accepted an invitation.`,
+      severity: 'success',
+      source: 'invitation',
+      route: '/platform',
+      actorId: userRecord.uid,
+      actorName: adminFullName,
+      actorEmail: adminEmail,
+      companyId,
+      companyName,
+      metadata: {
+        invitationId: invitation.id,
+        adminUid: userRecord.uid,
+      },
+    });
+    return {
+      success: true,
+      companyId,
+      adminUid: userRecord.uid,
+    };
+  } catch (error) {
+    const mappedError = mapAcceptRegistrationError(error, currentStep);
+    if (currentStep !== 'accept_invitation_failed') {
+      logAcceptInvitationStep(currentStep, logContext, mappedError);
+    }
+    if (createdAuthUser && userRecord) {
+      await cleanupInvitationAuthUser(userRecord, logContext);
+      createdAuthUser = false;
+    }
+    logAcceptInvitationStep('accept_invitation_failed', logContext, mappedError);
+    throw mappedError;
+  }
+});
+
+exports.revokeCompanyInvitation = onCall(async (request) => {
+  const callerUid = await requireActivePlatformAdmin(request);
+  const invitationId = requiredString((request.data || {}).invitationId, 'invitationId');
+  const invitationRef = db.doc(`platform_invitations/${invitationId}`);
+  const invitationSnapshot = await invitationRef.get();
+  if (!invitationSnapshot.exists) {
+    throw new HttpsError('not-found', 'Invitation was not found.');
+  }
+
+  const invitation = invitationSnapshot.data() || {};
+  if (invitation.status === 'used') {
+    throw new HttpsError('failed-precondition', 'Used invitations cannot be revoked.');
+  }
+
+  await invitationRef.update({
+    status: 'revoked',
+    revokedAt: FieldValue.serverTimestamp(),
+    revokedBy: callerUid,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: callerUid,
+  });
+  const actor = await platformActorSummary(callerUid);
+  await createPlatformNotificationSafely('revoke_company_invitation', {
+    id: `invitation_revoked_${invitationId}`,
+    type: 'invitationRevoked',
+    title: 'Invitation revoked',
+    message: 'A company invitation was revoked.',
+    severity: 'warning',
+    source: 'invitation',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    metadata: {
+      invitationId,
+      planName: invitation.planName || '',
+      status: 'revoked',
+    },
+  });
+
+  return { invitationId, status: 'revoked' };
+});
+
+exports.listCompanyInvitations = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const status = optionalString(data.status);
+  if (status && !INVITATION_STATUSES.has(status)) {
+    throw new HttpsError('invalid-argument', 'Invitation status is invalid.');
+  }
+
+  const snapshot = await db.collection('platform_invitations')
+    .orderBy('createdAt', 'desc')
+    .limit(100)
+    .get();
+  const invitations = snapshot.docs
+    .map((doc) => publicInvitationListItem(doc.id, doc.data() || {}))
+    .filter((invitation) => !status || invitation.status === status);
+  return {
+    invitations,
+  };
+});
+
 exports.createCompanyWithAdmin = onCall(async (request) => {
-  const callerUid = requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const companyName = requiredString(data.companyName, 'companyName');
@@ -167,7 +673,6 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
   validateCompanyId(companyId);
   validateLocale(locale);
   validateTimezone(timezone);
-  await callerUid;
 
   const companyRef = db.doc(`companies/${companyId}`);
   const companySnapshot = await companyRef.get();
@@ -225,7 +730,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
     phone: adminPhone,
     role: 'admin',
     isActive: true,
-    actorUid: request.auth.uid,
+    actorUid,
     now,
   });
   writeMembership(batch, userRecord.uid, companyId, {
@@ -235,21 +740,52 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
     now,
   });
   await batch.commit();
+  const actor = await platformActorSummary(actorUid);
+  await createPlatformNotificationSafely('create_company_with_admin', {
+    id: `company_created_${companyId}`,
+    type: 'companyCreated',
+    title: 'Company created',
+    message: `${companyName} was created by platform support.`,
+    severity: 'success',
+    source: 'company',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName,
+    metadata: {
+      adminUid: userRecord.uid,
+      adminEmail,
+    },
+  });
 
   return { uid: userRecord.uid, companyId, passwordResetLink };
 });
 
 exports.addUserToCompany = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
+  const actorUid = await requirePlatformOrCompanyAdmin(request, companyId);
   const fullName = requiredString(data.fullName, 'fullName');
   const email = normalizeEmail(requiredString(data.email, 'email'));
   const phone = optionalString(data.phone);
   const role = requiredString(data.role, 'role');
+  const temporaryPassword = optionalString(data.temporaryPassword);
+  const usesTemporaryPassword = temporaryPassword.length > 0;
 
   validateCompanyId(companyId);
   validateRole(role);
+  if (usesTemporaryPassword) {
+    validatePassword(temporaryPassword);
+  }
+  const isPlatformActor = await isActivePlatformAdminUid(request.auth.uid);
+  if (role === 'admin' && !isPlatformActor) {
+    throw new HttpsError(
+      'permission-denied',
+      'Only platform owner support can create additional company admins.',
+    );
+  }
 
   const companyRef = db.doc(`companies/${companyId}`);
   const companySnapshot = await companyRef.get();
@@ -263,44 +799,171 @@ exports.addUserToCompany = onCall(async (request) => {
 
   await enforceUserLimit(companyId, company);
 
-  const { userRecord, passwordResetLink } = await getOrCreateUserForInvitation({
-    email,
-    displayName: fullName,
-  });
+  let userRecord;
+  let passwordResetLink = '';
+  let createdAuthUser = false;
+  try {
+    const createdUserResult = await getOrCreateUserForInvitation({
+      email,
+      displayName: fullName,
+      temporaryPassword: usesTemporaryPassword ? temporaryPassword : '',
+    });
+    userRecord = createdUserResult.userRecord;
+    passwordResetLink = createdUserResult.passwordResetLink;
+    createdAuthUser = createdUserResult.created === true;
 
-  const companyUserRef = db.doc(`companies/${companyId}/users/${userRecord.uid}`);
-  const companyUserSnapshot = await companyUserRef.get();
-  if (companyUserSnapshot.exists) {
-    throw new HttpsError('already-exists', 'Company user already exists.');
+    const companyUserRef = db.doc(`companies/${companyId}/users/${userRecord.uid}`);
+    const companyUserSnapshot = await companyUserRef.get();
+    if (companyUserSnapshot.exists) {
+      throw new HttpsError('already-exists', 'Company user already exists.');
+    }
+
+    const now = FieldValue.serverTimestamp();
+    const batch = db.batch();
+    writeGlobalUser(batch, userRecord.uid, {
+      email,
+      fullName,
+      phone,
+      isActive: true,
+      mustChangePassword: usesTemporaryPassword,
+      passwordSetupMethod: usesTemporaryPassword ? 'temporaryPassword' : 'setupLink',
+      now,
+    });
+    writeCompanyUser(batch, companyId, userRecord.uid, {
+      fullName,
+      email,
+      phone,
+      role,
+      isActive: true,
+      mustChangePassword: usesTemporaryPassword,
+      passwordSetupMethod: usesTemporaryPassword ? 'temporaryPassword' : 'setupLink',
+      actorUid,
+      now,
+    });
+    writeMembership(batch, userRecord.uid, companyId, {
+      companyName: company.displayName || company.name || companyId,
+      role,
+      isActive: true,
+      now,
+    });
+    await batch.commit();
+  } catch (error) {
+    if (createdAuthUser && userRecord && userRecord.uid) {
+      await auth.deleteUser(userRecord.uid).catch((cleanupError) => {
+        console.error('add_user_cleanup_auth_failed', {
+          companyId,
+          email,
+          uid: userRecord.uid,
+          code: cleanupError && cleanupError.code ? cleanupError.code : '',
+          message: cleanupError && cleanupError.message ? cleanupError.message : '',
+        });
+      });
+    }
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    console.error('add_user_failed', {
+      companyId,
+      email,
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? error.message : '',
+    });
+    throw new HttpsError('internal', 'Unable to create company user.');
+  }
+  if (isPlatformActor) {
+    const actor = await platformActorSummary(actorUid);
+    await createPlatformNotificationSafely('add_user_to_company', {
+      id: `company_user_created_${companyId}_${userRecord.uid}`,
+      type: 'companyUserCreated',
+      title: 'Company user created',
+      message: `${fullName} was added to ${companyNotificationName(companyId, company)}.`,
+      severity: 'success',
+      source: 'user',
+      route: '/platform',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorEmail: actor.actorEmail,
+      companyId,
+      companyName: companyNotificationName(companyId, company),
+      metadata: {
+        targetUid: userRecord.uid,
+        targetEmail: email,
+        role,
+        passwordSetupMethod: usesTemporaryPassword ? 'temporaryPassword' : 'setupLink',
+      },
+    });
+  }
+
+  return {
+    uid: userRecord.uid,
+    companyId,
+    passwordResetLink,
+    usedTemporaryPassword: usesTemporaryPassword,
+  };
+});
+
+
+exports.completeRequiredPasswordChange = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const uid = request.auth.uid;
+  const companyUserRef = db.doc(`companies/${companyId}/users/${uid}`);
+  const globalUserRef = db.doc(`users/${uid}`);
+  const membershipRef = db.doc(`users/${uid}/memberships/${companyId}`);
+
+  const [companySnapshot, companyUserSnapshot, membershipSnapshot] =
+    await Promise.all([
+      db.doc(`companies/${companyId}`).get(),
+      companyUserRef.get(),
+      membershipRef.get(),
+    ]);
+
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  if (company.isActive !== true || company.status === 'inactive') {
+    throw new HttpsError('failed-precondition', 'Company is inactive.');
+  }
+  if (!companyUserSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Company user was not found.');
+  }
+  const companyUser = companyUserSnapshot.data() || {};
+  if (companyUser.companyId !== companyId || companyUser.isActive !== true) {
+    throw new HttpsError('permission-denied', 'Company user is inactive.');
+  }
+  if (!membershipSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Company membership was not found.');
+  }
+  const membership = membershipSnapshot.data() || {};
+  if (membership.isActive !== true || membership.status === 'inactive') {
+    throw new HttpsError('permission-denied', 'Company membership is inactive.');
   }
 
   const now = FieldValue.serverTimestamp();
+  const updates = {
+    mustChangePassword: false,
+    passwordSetupMethod: 'changed',
+    passwordChangedAt: now,
+    updatedAt: now,
+  };
+
   const batch = db.batch();
-  writeGlobalUser(batch, userRecord.uid, {
-    email,
-    fullName,
-    phone,
-    isActive: true,
-    now,
-  });
-  writeCompanyUser(batch, companyId, userRecord.uid, {
-    fullName,
-    email,
-    phone,
-    role,
-    isActive: true,
-    actorUid: request.auth.uid,
-    now,
-  });
-  writeMembership(batch, userRecord.uid, companyId, {
-    companyName: company.displayName || company.name || companyId,
-    role,
-    isActive: true,
-    now,
-  });
+  batch.set(companyUserRef, {
+    ...updates,
+    updatedBy: uid,
+  }, { merge: true });
+  batch.set(globalUserRef, updates, { merge: true });
+  batch.set(membershipRef, { updatedAt: now }, { merge: true });
   await batch.commit();
 
-  return { uid: userRecord.uid, companyId, passwordResetLink };
+  return { uid, companyId };
 });
 
 exports.assignUserToTeam = onCall(async (request) => {
@@ -473,7 +1136,7 @@ exports.getOperationalDataHealthReport = onCall(async (request) => {
     companyId,
     allowPlatform: false,
     allowCompanyAdmin: true,
-    allowManager: true,
+    allowManager: false,
   });
 
   const usersSnapshot = await db.collection(`companies/${companyId}/users`).get();
@@ -536,7 +1199,7 @@ exports.reassignDataHealthRecord = onCall(async (request) => {
     companyId,
     allowPlatform: false,
     allowCompanyAdmin: true,
-    allowManager: true,
+    allowManager: false,
   });
   const policy = dataHealthPolicyFor(module);
   const recordRef = db.doc(`companies/${companyId}/${module}/${recordId}`);
@@ -620,7 +1283,7 @@ exports.backfillAssignedRecordSnapshots = onCall(async (request) => {
     companyId,
     allowPlatform: true,
     allowCompanyAdmin: true,
-    allowManager: true,
+    allowManager: false,
   });
   const module = requiredString(data.module, 'module');
   const recordId = requiredString(data.recordId, 'recordId');
@@ -696,25 +1359,224 @@ exports.backfillAssignedRecordSnapshots = onCall(async (request) => {
   };
 });
 
+exports.notifyDataHealthManager = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const module = requiredString(data.module, 'module');
+  const recordId = requiredString(data.recordId, 'recordId');
+  const issueType = requiredString(data.issueType, 'issueType');
+  validateCompanyId(companyId);
+
+  const actor = await requireDataHealthActor({
+    request,
+    companyId,
+    allowPlatform: false,
+    allowCompanyAdmin: true,
+    allowManager: false,
+  });
+  const policy = dataHealthPolicyFor(module);
+  const recordSnapshot = await db.doc(`companies/${companyId}/${module}/${recordId}`).get();
+  if (!recordSnapshot.exists) {
+    throw new HttpsError('not-found', 'Record was not found.');
+  }
+
+  const record = recordSnapshot.data() || {};
+  if (!canActorRepairDataHealthRecord({ actor, record })) {
+    throw new HttpsError('permission-denied', 'You can only notify managers for records in your allowed scope.');
+  }
+
+  const assignedTo = optionalString(record.assignedTo);
+  const assignee = assignedTo ? await loadCompanyUserSafe(companyId, assignedTo) : null;
+  const managerId = optionalString(record.managerId) ||
+    optionalString(assignee && assignee.managerId);
+  if (!managerId) {
+    throw new HttpsError('failed-precondition', 'No responsible manager was found for this issue.');
+  }
+
+  const manager = await loadCompanyUserSafe(companyId, managerId);
+  if (!manager || manager.isActive !== true || optionalString(manager.role) !== 'manager') {
+    throw new HttpsError('failed-precondition', 'Responsible manager is not available.');
+  }
+
+  const recordTitle = assignedRecordTitle(record, policy, recordId);
+  const route = dataHealthManagerCanOpenRecord({ managerId, manager, record, assignee })
+    ? dataHealthRecordRoute(module, recordId)
+    : '/dashboard';
+  const issueLabel = dataHealthIssueNotificationLabel(issueType);
+  const actorName = optionalString(actor.user.fullName) ||
+    optionalString(actor.user.email) ||
+    'Admin';
+
+  const notificationId = await createCompanyNotification({
+    companyId,
+    recipientUid: managerId,
+    recipientRole: 'manager',
+    type: 'dataHealthIssue',
+    module,
+    recordId,
+    recordTitle,
+    recordSubtitle: issueLabel,
+    route,
+    actorUid: actor.uid,
+    actorName,
+    teamId: optionalString(record.teamId) || optionalString(assignee && assignee.teamId),
+    teamName: optionalString(record.teamName) || optionalString(assignee && assignee.teamName),
+    managerId,
+    priority: issueType === 'inactiveAssignee' || issueType === 'ineligibleAssignee'
+      ? 'high'
+      : 'normal',
+    metadata: {
+      issueType,
+      issueLabel,
+      assignedTo,
+      assignedToName: optionalString(record.assignedToName) ||
+        optionalString(assignee && assignee.fullName),
+      repairContext: 'assignmentSnapshotIssue',
+    },
+    fallbackTitle: 'Data health needs attention',
+    fallbackBody: `${recordTitle} has a ${issueLabel} data health issue.`,
+    dedupeKey: `data_health_manager_${companyId}_${module}_${recordId}_${issueType}_${managerId}`,
+  });
+
+  if (!notificationId) {
+    throw new HttpsError('failed-precondition', 'Manager notification could not be created.');
+  }
+
+  return { companyId, module, recordId, managerId, notificationId };
+});
+
 exports.setCompanyActiveStatus = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const isActive = requiredBoolean(data.isActive, 'isActive');
   validateCompanyId(companyId);
 
-  await db.doc(`companies/${companyId}`).update({
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnapshot = await companyRef.get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  await companyRef.update({
     isActive,
     status: isActive ? 'active' : 'inactive',
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: request.auth.uid,
   });
+  const actor = await platformActorSummary(actorUid);
+  await createPlatformNotificationSafely('set_company_active_status', {
+    type: 'companyStatusChanged',
+    title: 'Company status changed',
+    message: `${companyNotificationName(companyId, company)} is now ${isActive ? 'active' : 'inactive'}.`,
+    severity: isActive ? 'success' : 'warning',
+    source: 'company',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName: companyNotificationName(companyId, company),
+    metadata: {
+      isActive,
+      status: isActive ? 'active' : 'inactive',
+    },
+  });
 
   return { companyId, isActive };
 });
 
+exports.refreshCompanyStorageUsage = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnapshot = await companyRef.get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+
+  const bucket = admin.storage().bucket();
+  const prefix = `companies/${companyId}/`;
+  let pageToken;
+  let totalBytes = 0;
+
+  do {
+    const [files, nextQuery] = await bucket.getFiles({
+      prefix,
+      autoPaginate: false,
+      maxResults: 1000,
+      pageToken,
+    });
+    for (const file of files) {
+      const size = Number(file.metadata && file.metadata.size ? file.metadata.size : 0);
+      if (Number.isFinite(size) && size > 0) {
+        totalBytes += size;
+      }
+    }
+    pageToken = nextQuery && nextQuery.pageToken;
+  } while (pageToken);
+
+  await companyRef.update({
+    storageUsedBytes: totalBytes,
+    storageUsageUpdatedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: request.auth.uid,
+  });
+  const actor = await platformActorSummary(actorUid);
+  const companyName = companyNotificationName(companyId, company);
+  const limitBytes = storageLimitBytes(company);
+  const usagePercent = limitBytes > 0 ? Math.round((totalBytes / limitBytes) * 10000) / 100 : 0;
+  await createPlatformNotificationSafely('refresh_company_storage_usage', {
+    type: 'storageUsageRefreshed',
+    title: 'Storage usage refreshed',
+    message: `${companyName} storage usage was refreshed.`,
+    severity: 'info',
+    source: 'storage',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName,
+    metadata: {
+      storageUsedBytes: totalBytes,
+      storageLimitBytes: limitBytes,
+      usagePercent,
+    },
+  });
+  if (limitBytes > 0 && usagePercent >= 80) {
+    const level = usagePercent >= 95 ? 'urgent' : 'warning';
+    await createPlatformNotificationSafely('storage_near_limit', {
+      id: `storage_near_limit_${companyId}_${level}`,
+      type: 'storageNearLimit',
+      title: 'Storage near limit',
+      message: `${companyName} storage is at ${usagePercent}%.`,
+      severity: level,
+      source: 'storage',
+      route: '/platform',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorEmail: actor.actorEmail,
+      companyId,
+      companyName,
+      metadata: {
+        storageUsedBytes: totalBytes,
+        storageLimitBytes: limitBytes,
+        usagePercent,
+        threshold: usagePercent >= 95 ? 95 : 80,
+      },
+    });
+  }
+
+  return { companyId, storageUsedBytes: totalBytes };
+});
+
 exports.updateCompanyPlatformSettings = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   validateCompanyId(companyId);
@@ -788,6 +1650,45 @@ exports.updateCompanyPlatformSettings = onCall(async (request) => {
   if (nextCompanyName) {
     await updateMembershipCompanyNames(companyId, nextCompanyName);
   }
+  const actor = await platformActorSummary(actorUid);
+  const companyName = sanitizePlainString(
+    optionalString(nextCompanyName) || companyNotificationName(companyId, current),
+    240,
+  );
+  const changedFeatures = Object.keys(update).filter((key) => key.startsWith('features.'));
+  const changedLimits = Object.keys(update).filter((key) => key.startsWith('limits.'));
+  const changedSettings = Object.keys(update).filter((key) => key.startsWith('settings.'));
+  const changedStatus =
+    Object.prototype.hasOwnProperty.call(update, 'status') ||
+    Object.prototype.hasOwnProperty.call(update, 'isActive');
+  const notificationType = changedStatus
+    ? 'companyStatusChanged'
+    : changedLimits.length > 0
+      ? 'companyLimitChanged'
+      : changedFeatures.length > 0
+        ? 'companyFeatureChanged'
+        : 'companySettingsChanged';
+  const severity = changedStatus && update.isActive === false ? 'warning' : 'info';
+  await createPlatformNotificationSafely('update_company_platform_settings', {
+    type: notificationType,
+    title: 'Company settings changed',
+    message: `${companyName} platform settings were updated.`,
+    severity,
+    source: 'company',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName,
+    metadata: {
+      changedFeatures: changedFeatures.join(','),
+      changedLimits: changedLimits.join(','),
+      changedSettings: changedSettings.join(','),
+      status: update.status || '',
+      isActive: Object.prototype.hasOwnProperty.call(update, 'isActive') ? update.isActive : null,
+    },
+  });
 
   return { companyId };
 });
@@ -850,12 +1751,24 @@ exports.validateUploadedImageMagicBytes = onObjectFinalized(
 );
 
 exports.setCompanyUserActiveStatus = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const uid = requiredString(data.uid, 'uid');
   const isActive = requiredBoolean(data.isActive, 'isActive');
   validateCompanyId(companyId);
+  const [companySnapshot, targetUserSnapshot] = await Promise.all([
+    db.doc(`companies/${companyId}`).get(),
+    db.doc(`companies/${companyId}/users/${uid}`).get(),
+  ]);
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  if (!targetUserSnapshot.exists) {
+    throw new HttpsError('not-found', 'Company user was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  const targetUser = targetUserSnapshot.data() || {};
 
   const now = FieldValue.serverTimestamp();
   const status = isActive ? 'active' : 'inactive';
@@ -871,12 +1784,33 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
     updatedAt: now,
   });
   await batch.commit();
+  const actor = await platformActorSummary(actorUid);
+  await createPlatformNotificationSafely('set_company_user_active_status', {
+    type: 'companyUserStatusChanged',
+    title: 'Company user status changed',
+    message: `${optionalString(targetUser.fullName) || optionalString(targetUser.email) || uid} is now ${isActive ? 'active' : 'inactive'}.`,
+    severity: isActive ? 'success' : 'warning',
+    source: 'user',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName: companyNotificationName(companyId, company),
+    metadata: {
+      targetUid: uid,
+      targetEmail: targetUser.email || '',
+      role: targetUser.role || '',
+      isActive,
+      status,
+    },
+  });
 
   return { uid, companyId, isActive };
 });
 
 exports.setCompanyUserPassword = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const uid = requiredString(data.uid, 'uid');
@@ -889,6 +1823,8 @@ exports.setCompanyUserPassword = onCall(async (request) => {
     uid,
   });
   const companyUser = companyUserSnapshot.data() || {};
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  const company = companySnapshot.exists ? companySnapshot.data() || {} : {};
 
   await auth.updateUser(uid, { password: newPassword });
   await db.collection('platform_security_alerts').add({
@@ -898,6 +1834,25 @@ exports.setCompanyUserPassword = onCall(async (request) => {
     targetEmail: userRecord.email || companyUser.email || '',
     actorUid: request.auth.uid,
     createdAt: FieldValue.serverTimestamp(),
+  });
+  const actor = await platformActorSummary(actorUid);
+  await createPlatformNotificationSafely('set_company_user_password', {
+    type: 'companyUserPasswordReset',
+    title: 'Company user password action',
+    message: `A password action was completed for ${companyUser.fullName || userRecord.email || uid}.`,
+    severity: 'warning',
+    source: 'user',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName: companyNotificationName(companyId, company),
+    metadata: {
+      targetUid: uid,
+      targetEmail: userRecord.email || companyUser.email || '',
+      action: 'passwordChanged',
+    },
   });
 
   return { uid, companyId };
@@ -1621,11 +2576,11 @@ exports.createDealAssignmentNotification = onDocumentWritten(
 
 
 exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const uid = requiredString(data.uid, 'uid');
   validateCompanyId(companyId);
+  const actorUid = await requirePlatformOrCompanyAdmin(request, companyId);
 
   const { companyUserSnapshot, userRecord } = await loadCompanyUserAndAuthUser({
     companyId,
@@ -1643,12 +2598,170 @@ exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
     companyId,
     targetUid: uid,
     targetEmail: email,
-    actorUid: request.auth.uid,
+    actorUid,
     createdAt: FieldValue.serverTimestamp(),
   });
+  if (await isActivePlatformAdminUid(actorUid)) {
+    const [actor, companySnapshot] = await Promise.all([
+      platformActorSummary(actorUid),
+      db.doc(`companies/${companyId}`).get(),
+    ]);
+    const company = companySnapshot.exists ? companySnapshot.data() || {} : {};
+    await createPlatformNotificationSafely('generate_company_user_password_reset_link', {
+      type: 'companyUserPasswordReset',
+      title: 'Company user password action',
+      message: `A password reset link was generated for ${companyUser.fullName || email}.`,
+      severity: 'warning',
+      source: 'user',
+      route: '/platform',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorEmail: actor.actorEmail,
+      companyId,
+      companyName: companyNotificationName(companyId, company),
+      metadata: {
+        targetUid: uid,
+        targetEmail: email,
+        action: 'passwordResetLinkGenerated',
+      },
+    });
+  }
 
   return { uid, companyId, email, passwordResetLink };
 });
+
+exports.createPlatformSupportNotification = onDocumentWritten(
+  'support_tickets/{ticketId}',
+  async (event) => {
+    const before = event.data && event.data.before ? event.data.before : null;
+    const after = event.data && event.data.after ? event.data.after : null;
+    const ticketId = event.params.ticketId;
+    if (!after || !after.exists) {
+      return;
+    }
+    const ticket = after.data() || {};
+    const previousTicket = before && before.exists ? before.data() || {} : null;
+    const ticketType = optionalString(ticket.type);
+    const priority = optionalString(ticket.priority);
+    const status = optionalString(ticket.status);
+    const companyId = optionalString(ticket.companyId);
+    const companyName = sanitizePlainString(optionalString(ticket.companyName), 240);
+    const actorId = sanitizePlainString(optionalString(ticket.userId), 160);
+    const actorName = sanitizePlainString(optionalString(ticket.userName), 160);
+    const actorEmail = sanitizePlainString(optionalString(ticket.userEmail), 180);
+    const route = '/platform/support';
+
+    if (!previousTicket) {
+      if (ticketType === 'feedback') {
+        await createPlatformNotificationSafely('support_feedback_created', {
+          id: `feedback_${ticketId}`,
+          type: 'feedbackSubmitted',
+          title: 'Feedback submitted',
+          message: 'A customer submitted feedback.',
+          severity: 'info',
+          source: 'support',
+          route,
+          actorId,
+          actorName,
+          actorEmail,
+          companyId,
+          companyName,
+          metadata: {
+            ticketId,
+            category: ticket.category || '',
+            rating: Number(ticket.rating || 0),
+            type: ticketType,
+          },
+        });
+        return;
+      }
+
+      const isUrgent = priority === 'urgent';
+      await createPlatformNotificationSafely('support_ticket_created', {
+        id: isUrgent ? `urgent_support_${ticketId}` : `support_${ticketId}`,
+        type: isUrgent ? 'urgentSupportTicketCreated' : 'supportTicketCreated',
+        title: isUrgent ? 'Urgent support ticket created' : 'Support ticket created',
+        message: isUrgent ? 'An urgent support ticket was created.' : 'A support ticket was created.',
+        severity: isUrgent ? 'urgent' : 'info',
+        source: 'support',
+        route,
+        actorId,
+        actorName,
+        actorEmail,
+        companyId,
+        companyName,
+        metadata: {
+          ticketId,
+          category: ticket.category || '',
+          priority,
+          status,
+          type: ticketType || 'support',
+        },
+      });
+      return;
+    }
+
+    const previousStatus = optionalString(previousTicket.status);
+    if (previousStatus && status && previousStatus !== status) {
+      await createPlatformNotificationSafely('support_ticket_status_changed', {
+        type: 'supportTicketStatusChanged',
+        title: 'Support status changed',
+        message: `Support request status changed from ${previousStatus} to ${status}.`,
+        severity: status === 'resolved' || status === 'closed' ? 'success' : 'info',
+        source: 'support',
+        route,
+        actorId,
+        actorName,
+        actorEmail,
+        companyId,
+        companyName,
+        metadata: {
+          ticketId,
+          previousStatus,
+          status,
+          type: ticketType || 'support',
+        },
+      });
+
+      try {
+        const requestKind = ticketType === 'feedback' ? 'feedback' : 'support request';
+        await createCompanyNotification({
+          companyId,
+          recipientUid: actorId,
+          recipientRole: optionalString(ticket.userRole),
+          type: 'systemInfo',
+          module: 'support',
+          recordId: ticketId,
+          recordTitle: sanitizePlainString(
+            optionalString(ticket.title) || (ticketType === 'feedback' ? 'Feedback' : 'Support request'),
+            240,
+          ),
+          recordSubtitle: sanitizePlainString(status, 120),
+          route: '/support',
+          actorUid: '',
+          actorName: 'Masar Support',
+          priority: status === 'resolved' || status === 'closed' ? 'normal' : 'high',
+          metadata: {
+            ticketId,
+            previousStatus,
+            status,
+            type: ticketType || 'support',
+          },
+          fallbackTitle: 'Support request status updated',
+          fallbackBody: `Your ${requestKind} status changed from ${previousStatus} to ${status}.`,
+        });
+      } catch (error) {
+        console.error('support_status_user_notification_failed', {
+          ticketId,
+          companyId,
+          recipientUid: actorId,
+          code: error && error.code ? error.code : '',
+          message: error && error.message ? error.message : '',
+        });
+      }
+    }
+  },
+);
 
 exports.recordLoginActivity = onCall(async (request) => {
   if (!request.auth || !request.auth.uid) {
@@ -1742,14 +2855,33 @@ async function requireActivePlatformAdmin(request) {
     throw new HttpsError('unauthenticated', 'Sign in is required.');
   }
 
-  const snapshot = await db.doc(`platform_admins/${request.auth.uid}`).get();
-  if (!snapshot.exists || snapshot.get('isActive') !== true) {
+  if (!(await isActivePlatformAdminUid(request.auth.uid))) {
     throw new HttpsError('permission-denied', 'Platform admin access required.');
   }
 
   return request.auth.uid;
 }
 
+async function isActivePlatformAdminUid(uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return false;
+  }
+  const snapshot = await db.doc(`platform_admins/${cleanUid}`).get();
+  return snapshot.exists && snapshot.get('isActive') === true;
+}
+
+async function requirePlatformOrCompanyAdmin(request, companyId) {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  if (await isActivePlatformAdminUid(request.auth.uid)) {
+    return request.auth.uid;
+  }
+
+  return requireActiveCompanyAdmin(request, companyId);
+}
 
 async function requireActiveCompanyUser(request, companyId) {
   if (!request.auth || !request.auth.uid) {
@@ -1812,12 +2944,54 @@ async function requireActiveCompanyAdmin(request, companyId) {
   return request.auth.uid;
 }
 
-async function getOrCreateUserForInvitation({ email, displayName }) {
+async function assertAdminEmailNotUsedInAuth(email) {
+  try {
+    await auth.getUserByEmail(email);
+  } catch (error) {
+    const code = optionalString(error && error.code);
+    if (code === 'auth/user-not-found') {
+      return;
+    }
+    if (code === 'auth/invalid-email') {
+      throw registrationError('invalid-argument', 'invalid-admin-email');
+    }
+    throw registrationError('internal', 'unable-to-complete-registration');
+  }
+  throw registrationError('already-exists', 'admin-email-already-exists');
+}
+
+async function assertEmailNotUsedInGlobalProfiles(email) {
+  const normalized = normalizeEmail(email);
+  const globalUserSnapshot = await db.collection('users')
+    .where('email', '==', normalized)
+    .limit(1)
+    .get();
+  if (!globalUserSnapshot.empty) {
+    throw registrationError('already-exists', 'admin-email-already-exists');
+  }
+}
+
+async function assertEmailNotUsedInCompanyUserProfiles(email) {
+  // Firebase Auth and the global users collection are the source of truth for
+  // login-email uniqueness during registration. Avoid a broad collectionGroup
+  // scan here because it can require an index and fail with FAILED_PRECONDITION.
+  return;
+}
+
+async function getOrCreateUserForInvitation({ email, displayName, temporaryPassword = '' }) {
   let userRecord;
   let created = false;
+  const cleanTemporaryPassword = optionalString(temporaryPassword);
+  const usesTemporaryPassword = cleanTemporaryPassword.length > 0;
 
   try {
     userRecord = await auth.getUserByEmail(email);
+    if (usesTemporaryPassword) {
+      throw new HttpsError(
+        'already-exists',
+        'Company user already exists.',
+      );
+    }
     const update = {};
     if (!userRecord.displayName && displayName) {
       update.displayName = displayName;
@@ -1829,6 +3003,9 @@ async function getOrCreateUserForInvitation({ email, displayName }) {
       userRecord = await auth.updateUser(userRecord.uid, update);
     }
   } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     if (error.code !== 'auth/user-not-found') {
       throw error;
     }
@@ -1836,13 +3013,16 @@ async function getOrCreateUserForInvitation({ email, displayName }) {
     userRecord = await auth.createUser({
       email,
       displayName,
+      password: usesTemporaryPassword ? cleanTemporaryPassword : undefined,
       emailVerified: false,
       disabled: false,
     });
     created = true;
   }
 
-  const passwordResetLink = await auth.generatePasswordResetLink(email);
+  const passwordResetLink = usesTemporaryPassword
+    ? ''
+    : await auth.generatePasswordResetLink(email);
   return { userRecord, passwordResetLink, created };
 }
 
@@ -1855,6 +3035,12 @@ function writeGlobalUser(batch, uid, data) {
       fullName: data.fullName,
       phone: data.phone,
       isActive: data.isActive,
+      ...(typeof data.mustChangePassword === 'boolean'
+        ? { mustChangePassword: data.mustChangePassword }
+        : {}),
+      ...(data.passwordSetupMethod
+        ? { passwordSetupMethod: data.passwordSetupMethod }
+        : {}),
       createdAt: data.now,
       updatedAt: data.now,
     },
@@ -1873,6 +3059,12 @@ function writeCompanyUser(batch, companyId, uid, data) {
       phone: data.phone,
       role: data.role,
       isActive: data.isActive,
+      ...(typeof data.mustChangePassword === 'boolean'
+        ? { mustChangePassword: data.mustChangePassword }
+        : {}),
+      ...(data.passwordSetupMethod
+        ? { passwordSetupMethod: data.passwordSetupMethod }
+        : {}),
       createdAt: data.now,
       createdBy: data.actorUid,
       updatedAt: data.now,
@@ -2078,6 +3270,53 @@ function assignedRecordTitle(record, policy, fallbackId) {
     fallbackId;
 }
 
+function dataHealthRecordRoute(module, recordId) {
+  const cleanId = encodeURIComponent(recordId);
+  switch (module) {
+    case 'leads':
+      return `/leads/${cleanId}`;
+    case 'clients':
+      return `/clients/${cleanId}`;
+    case 'tasks':
+      return `/tasks/${cleanId}/edit`;
+    case 'deals':
+      return `/deals/${cleanId}`;
+    case 'properties':
+      return `/properties/${cleanId}`;
+    default:
+      return '/dashboard';
+  }
+}
+
+function dataHealthManagerCanOpenRecord({ managerId, manager, record, assignee }) {
+  const managerTeamId = optionalString(manager && manager.teamId);
+  if (optionalString(record.managerId) === managerId ||
+      optionalString(assignee && assignee.managerId) === managerId) {
+    return true;
+  }
+  return Boolean(managerTeamId) && (
+    optionalString(record.teamId) === managerTeamId ||
+    optionalString(assignee && assignee.teamId) === managerTeamId
+  );
+}
+
+function dataHealthIssueNotificationLabel(issueType) {
+  switch (issueType) {
+    case 'missingAssignee':
+      return 'missing assignee';
+    case 'missingSnapshots':
+      return 'missing assignment snapshots';
+    case 'inactiveAssignee':
+      return 'inactive assignee';
+    case 'ineligibleAssignee':
+      return 'ineligible assignee';
+    case 'staleSnapshots':
+      return 'stale assignment snapshots';
+    default:
+      return 'assignment snapshot';
+  }
+}
+
 function inspectAssignedRecord({
   companyId,
   modulePolicy,
@@ -2108,6 +3347,8 @@ function inspectAssignedRecord({
       title,
       assignedTo,
       assignedToName: optionalString(record.assignedToName),
+      managerId: optionalString(record.managerId),
+      managerName: optionalString(record.managerName),
       issueType: 'missingAssignee',
       suggestedAction: 'Reassign this record to an active eligible user.',
       canBackfill: false,
@@ -2127,6 +3368,9 @@ function inspectAssignedRecord({
       title,
       assignedTo,
       assignedToName: assignedToName || optionalString(assignee.fullName),
+      managerId: managerId || optionalString(assignee.managerId),
+      managerName: optionalString(record.managerName) ||
+        optionalString(assignee.managerName),
       issueType: 'missingSnapshots',
       suggestedAction: 'Backfill snapshots from current assignee profile.',
       canBackfill: true,
@@ -2142,6 +3386,9 @@ function inspectAssignedRecord({
       title,
       assignedTo,
       assignedToName: assignedToName || optionalString(assignee.fullName),
+      managerId: managerId || optionalString(assignee.managerId),
+      managerName: optionalString(record.managerName) ||
+        optionalString(assignee.managerName),
       issueType: 'inactiveAssignee',
       suggestedAction: 'Activate the user or reassign this record.',
       canBackfill: false,
@@ -2157,6 +3404,9 @@ function inspectAssignedRecord({
       title,
       assignedTo,
       assignedToName: assignedToName || optionalString(assignee.fullName),
+      managerId: managerId || optionalString(assignee.managerId),
+      managerName: optionalString(record.managerName) ||
+        optionalString(assignee.managerName),
       issueType: 'ineligibleAssignee',
       suggestedAction: 'Reassign this record to an eligible operational user.',
       canBackfill: false,
@@ -2179,6 +3429,9 @@ function inspectAssignedRecord({
       title,
       assignedTo,
       assignedToName: assignedToName || optionalString(assignee.fullName),
+      managerId: managerId || optionalString(assignee.managerId),
+      managerName: optionalString(record.managerName) ||
+        optionalString(assignee.managerName),
       issueType: 'staleSnapshots',
       suggestedAction: 'Backfill snapshots from current assignee profile.',
       canBackfill: true,
@@ -2193,6 +3446,8 @@ function addDataHealthIssue({
   title,
   assignedTo,
   assignedToName,
+  managerId,
+  managerName,
   issueType,
   suggestedAction,
   canBackfill,
@@ -2203,6 +3458,8 @@ function addDataHealthIssue({
     title,
     assignedTo,
     assignedToName,
+    managerId: optionalString(managerId),
+    managerName: optionalString(managerName),
     issueType,
     suggestedAction,
     canBackfill,
@@ -2239,10 +3496,14 @@ function requiredObject(value, field) {
 }
 
 function validatePassword(password) {
-  if (password.length < 8) {
+  if (
+    password.length < 8 ||
+    !/[A-Za-z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
     throw new HttpsError(
       'invalid-argument',
-      'Password must be at least 8 characters.',
+      'Password is too weak.',
     );
   }
 }
@@ -3712,6 +4973,489 @@ function safeNotificationMetadata(metadata) {
     } else if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
       clean[cleanKey] = value;
     }
+  }
+  return clean;
+}
+
+async function createPlatformNotification(payload) {
+  const sourcePayload = payload || {};
+  const type = optionalString(sourcePayload.type);
+  if (!PLATFORM_NOTIFICATION_TYPES.has(type)) {
+    return '';
+  }
+  const requestedSeverity = optionalString(sourcePayload.severity);
+  const severity = PLATFORM_NOTIFICATION_SEVERITIES.has(requestedSeverity)
+    ? requestedSeverity
+    : 'info';
+  const requestedSource = optionalString(sourcePayload.source);
+  const source = PLATFORM_NOTIFICATION_SOURCES.has(requestedSource)
+    ? requestedSource
+    : 'platform';
+  const requestedId = optionalString(sourcePayload.id);
+  const notificationRef = requestedId
+    ? db.collection('platform_notifications').doc(safeDocumentId(requestedId))
+    : db.collection('platform_notifications').doc();
+  const now = FieldValue.serverTimestamp();
+  const actorId = optionalString(sourcePayload.actorId);
+  const notification = {
+    id: notificationRef.id,
+    type,
+    title: sanitizePlainString(optionalString(sourcePayload.title), 240),
+    message: sanitizePlainString(optionalString(sourcePayload.message), 500),
+    severity,
+    isRead: false,
+    readAt: null,
+    createdAt: now,
+    updatedAt: now,
+    actorId: sanitizePlainString(actorId, 160),
+    actorName: sanitizePlainString(optionalString(sourcePayload.actorName), 160),
+    actorEmail: sanitizePlainString(optionalString(sourcePayload.actorEmail), 180),
+    companyId: sanitizePlainString(optionalString(sourcePayload.companyId), 160),
+    companyName: sanitizePlainString(optionalString(sourcePayload.companyName), 240),
+    route: sanitizePlainString(optionalString(sourcePayload.route), 240),
+    metadata: safeNotificationMetadata(sourcePayload.metadata || {}),
+    source,
+  };
+
+  if (requestedId) {
+    const snapshot = await notificationRef.get();
+    if (snapshot.exists) {
+      await notificationRef.set({
+        ...notification,
+        createdAt: snapshot.get('createdAt') || now,
+      }, { merge: true });
+      return notificationRef.id;
+    }
+  }
+  await notificationRef.set(notification);
+  return notificationRef.id;
+}
+
+async function createPlatformNotificationSafely(contextLabel, payload) {
+  try {
+    return await createPlatformNotification(payload);
+  } catch (error) {
+    console.error('platform_notification_create_failed', {
+      context: contextLabel,
+      type: payload && payload.type ? payload.type : '',
+      companyId: payload && payload.companyId ? payload.companyId : '',
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? error.message : '',
+    });
+    return '';
+  }
+}
+
+async function platformActorSummary(uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return { actorId: '', actorName: '', actorEmail: '' };
+  }
+  const [adminSnapshot, userRecord] = await Promise.all([
+    db.doc(`platform_admins/${cleanUid}`).get(),
+    auth.getUser(cleanUid).catch(() => null),
+  ]);
+  const adminData = adminSnapshot.exists ? adminSnapshot.data() || {} : {};
+  return {
+    actorId: cleanUid,
+    actorName: sanitizePlainString(
+      optionalString(adminData.fullName) ||
+        optionalString(userRecord && userRecord.displayName),
+      160,
+    ),
+    actorEmail: sanitizePlainString(
+      optionalString(adminData.email) ||
+        optionalString(userRecord && userRecord.email),
+      180,
+    ),
+  };
+}
+
+function companyNotificationName(companyId, company) {
+  return sanitizePlainString(
+    optionalString(company && company.displayName) ||
+      optionalString(company && company.name) ||
+      optionalString(companyId),
+    240,
+  );
+}
+
+function storageLimitBytes(company) {
+  const limits = company && company.limits && typeof company.limits === 'object'
+    ? company.limits
+    : {};
+  const storageMb = Number(limits.storageMb || 0);
+  if (!Number.isFinite(storageMb) || storageMb <= 0) {
+    return 0;
+  }
+  return storageMb * 1024 * 1024;
+}
+
+function generateInvitationCode() {
+  const part = (length) => {
+    const bytes = crypto.randomBytes(length);
+    let value = '';
+    for (let index = 0; index < length; index += 1) {
+      value += INVITATION_CODE_CHARS[bytes[index] % INVITATION_CODE_CHARS.length];
+    }
+    return value;
+  };
+  return `MASAR-${part(4)}-${part(4)}`;
+}
+
+function normalizeInvitationCode(code) {
+  const clean = requiredString(code, 'invitationCode').toUpperCase();
+  if (!INVITATION_CODE_PATTERN.test(clean)) {
+    throw new HttpsError('invalid-argument', 'Invitation code is invalid.');
+  }
+  return clean;
+}
+
+function hashInvitationCode(code) {
+  return crypto
+    .createHash('sha256')
+    .update(normalizeInvitationCode(code), 'utf8')
+    .digest('hex');
+}
+
+function previewInvitationCode(code) {
+  const clean = normalizeInvitationCode(code);
+  return `MASAR-****-${clean.split('-').pop()}`;
+}
+
+function invitationLink(code, origin) {
+  const cleanCode = encodeURIComponent(normalizeInvitationCode(code));
+  const cleanOrigin = optionalString(origin).replace(/\/+$/, '');
+  const hashRoute = `/#/register-company?code=${cleanCode}`;
+  if (!cleanOrigin || !/^https?:\/\/[^<>\s]+$/.test(cleanOrigin)) {
+    return hashRoute;
+  }
+  return `${cleanOrigin}${hashRoute}`;
+}
+
+function registrationError(code, key) {
+  return new HttpsError(code, key, { key });
+}
+
+function logAcceptInvitationStep(step, context, error) {
+  const payload = { step };
+  const companyId = optionalString(context && context.companyId);
+  const adminEmail = normalizeEmail(optionalString(context && context.adminEmail));
+  const invitationId = optionalString(context && context.invitationId);
+  if (companyId) {
+    payload.companyId = companyId;
+  }
+  if (adminEmail) {
+    payload.adminEmail = adminEmail;
+  }
+  if (invitationId) {
+    payload.invitationId = invitationId;
+  }
+  if (error) {
+    payload.errorCode = safeLogErrorCode(error);
+    payload.errorMessage = safeLogErrorMessage(error);
+    console.error(payload);
+    return;
+  }
+  console.info(payload);
+}
+
+async function cleanupInvitationAuthUser(userRecord, context) {
+  try {
+    await auth.deleteUser(userRecord.uid);
+    logAcceptInvitationStep('cleanup_auth_user', context);
+  } catch (error) {
+    logAcceptInvitationStep('cleanup_auth_user', context, {
+      code: safeLogErrorCode(error),
+      message: safeLogErrorMessage(error),
+    });
+  }
+}
+
+function safeLogErrorCode(error) {
+  return optionalString(error && error.code) || 'unknown';
+}
+
+function safeLogErrorMessage(error) {
+  if (isRegistrationError(error)) {
+    return optionalString(error.message);
+  }
+  const code = optionalString(error && error.code);
+  if (code.startsWith('auth/')) {
+    return code;
+  }
+  return 'unable-to-complete-registration';
+}
+
+function isRegistrationError(error) {
+  return error instanceof HttpsError &&
+    REGISTRATION_ERROR_KEYS.has(optionalString(error.message));
+}
+
+function registrationKeyForInvitationStatus(invitation, status) {
+  if (status === 'expired') {
+    return 'invitation-expired';
+  }
+  if (status === 'revoked') {
+    return 'invitation-revoked';
+  }
+  if (status === 'used') {
+    const storedStatus = optionalString(invitation.status);
+    return storedStatus === 'used'
+      ? 'invitation-used'
+      : 'invitation-limit-reached';
+  }
+  return 'invitation-invalid';
+}
+
+function assertInvitationActiveForRegistration(invitation) {
+  if (!invitation) {
+    throw registrationError('invalid-argument', 'invitation-invalid');
+  }
+  const status = invitationPublicStatus(invitation.data);
+  if (status !== 'active') {
+    throw registrationError(
+      'failed-precondition',
+      registrationKeyForInvitationStatus(invitation.data, status),
+    );
+  }
+}
+
+function mapAuthUserCreationError(error) {
+  const code = optionalString(error && error.code);
+  if (code === 'auth/email-already-exists') {
+    return registrationError('already-exists', 'admin-email-already-exists');
+  }
+  if (code === 'auth/invalid-email') {
+    return registrationError('invalid-argument', 'invalid-admin-email');
+  }
+  if (code === 'auth/invalid-password' || code === 'auth/weak-password') {
+    return registrationError('invalid-argument', 'weak-password');
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return registrationError('failed-precondition', 'email-password-auth-disabled');
+  }
+  if (code === 'auth/too-many-requests') {
+    return registrationError('resource-exhausted', 'unable-to-create-admin');
+  }
+  return registrationError('internal', 'unable-to-create-admin');
+}
+
+function mapAcceptRegistrationError(error, step) {
+  if (isRegistrationError(error)) {
+    return error;
+  }
+  if (error instanceof HttpsError) {
+    const message = optionalString(error.message).toLowerCase();
+    if (message.includes('invitation')) {
+      return registrationError('invalid-argument', 'invitation-invalid');
+    }
+    if (message.includes('email')) {
+      return registrationError('invalid-argument', 'invalid-admin-email');
+    }
+    if (message.includes('password')) {
+      return registrationError('invalid-argument', 'weak-password');
+    }
+    if (message.includes('company id') && error.code === 'already-exists') {
+      return registrationError('already-exists', 'company-id-already-exists');
+    }
+    if (error.code === 'already-exists') {
+      return registrationError('already-exists', 'registration-conflict');
+    }
+    if (error.code === 'aborted' || error.code === 'failed-precondition') {
+      return registrationError('failed-precondition', 'registration-conflict');
+    }
+    return registrationError('invalid-argument', 'unable-to-complete-registration');
+  }
+  const code = optionalString(error && error.code);
+  if (code.startsWith('auth/')) {
+    return mapAuthUserCreationError(error);
+  }
+  if (isAcceptInvitationFirestoreStep(step)) {
+    return registrationError('internal', 'unable-to-create-company');
+  }
+  return registrationError('internal', 'unable-to-complete-registration');
+}
+
+function isAcceptInvitationFirestoreStep(step) {
+  return step === 'create_company_docs' ||
+    step === 'create_global_user' ||
+    step === 'create_company_admin_profile' ||
+    step === 'create_membership' ||
+    step === 'mark_invitation_used';
+}
+
+function invitationUsageRef(invitationId) {
+  return db.doc(`platform_invitation_uses/${invitationId}`);
+}
+
+async function invitationUseMarkerExists(invitationId) {
+  const cleanId = optionalString(invitationId);
+  if (!cleanId) {
+    return false;
+  }
+  const snapshot = await invitationUsageRef(cleanId).get();
+  return snapshot.exists;
+}
+
+async function loadInvitationByCode(code) {
+  const codeHash = hashInvitationCode(code);
+  const snapshot = await db.collection('platform_invitations')
+    .where('codeHash', '==', codeHash)
+    .limit(1)
+    .get();
+  if (snapshot.empty) {
+    return null;
+  }
+  const doc = snapshot.docs[0];
+  return { ref: doc.ref, id: doc.id, data: doc.data() || {} };
+}
+
+function invitationPublicStatus(invitation) {
+  const status = optionalString(invitation.status) || 'active';
+  if (status === 'revoked' || status === 'used') {
+    return status;
+  }
+  const expiresAt = dateFromCallableValue(invitation.expiresAt);
+  if (expiresAt && expiresAt.getTime() <= Date.now()) {
+    return 'expired';
+  }
+  const usedCount = Number.isInteger(invitation.usedCount) ? invitation.usedCount : 0;
+  const maxUses = Number.isInteger(invitation.maxUses) ? invitation.maxUses : 1;
+  if (usedCount >= maxUses) {
+    return 'used';
+  }
+  return INVITATION_STATUSES.has(status) ? status : 'invalid';
+}
+
+function invitationStatusMessage(status) {
+  switch (status) {
+    case 'expired':
+      return 'invitation-expired';
+    case 'used':
+      return 'invitation-used';
+    case 'revoked':
+      return 'invitation-revoked';
+    default:
+      return 'invitation-invalid';
+  }
+}
+
+function publicFeatureSummary(features) {
+  const source = features && typeof features === 'object' ? features : {};
+  const summary = {};
+  for (const key of FEATURE_KEYS) {
+    summary[key] = source[key] === true;
+  }
+  return summary;
+}
+
+function emailHint(email) {
+  const clean = optionalString(email);
+  if (!clean) {
+    return '';
+  }
+  const [name, domain] = clean.split('@');
+  if (!name || !domain) {
+    return '';
+  }
+  return `${name.slice(0, 2)}***@${domain}`;
+}
+
+function publicInvitationListItem(id, invitation) {
+  const visibleStatus = invitationPublicStatus(invitation);
+  return {
+    id,
+    codePreview: invitation.codePreview || '',
+    type: invitation.type || 'companyAdmin',
+    status: visibleStatus,
+    planId: invitation.planId || '',
+    planName: invitation.planName || '',
+    userLimit: invitation.userLimit || 0,
+    storageLimitMb: invitation.storageLimitMb || 0,
+    features: publicFeatureSummary(invitation.features || {}),
+    locale: invitation.locale || 'en',
+    timezone: invitation.timezone || 'Africa/Cairo',
+    allowedAdminEmailHint: emailHint(invitation.allowedAdminEmail || ''),
+    expiresAt: dateMillis(invitation.expiresAt),
+    createdAt: dateMillis(invitation.createdAt),
+    createdBy: invitation.createdBy || '',
+    acceptedAt: dateMillis(invitation.acceptedAt),
+    acceptedBy: invitation.acceptedBy || '',
+    acceptedAdminEmail: invitation.acceptedAdminEmail || '',
+    companyId: invitation.companyId || '',
+    adminUid: invitation.adminUid || '',
+  };
+}
+
+function parseFutureDate(value, field) {
+  const date = dateFromCallableValue(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    throw new HttpsError('invalid-argument', `${field} is invalid.`);
+  }
+  if (date.getTime() <= Date.now()) {
+    throw new HttpsError('invalid-argument', `${field} must be in the future.`);
+  }
+  return date;
+}
+
+function dateFromCallableValue(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === 'object' && Number.isInteger(value.seconds)) {
+    return new Date(value.seconds * 1000);
+  }
+  return null;
+}
+
+function dateMillis(value) {
+  const date = dateFromCallableValue(value);
+  return date ? date.getTime() : null;
+}
+
+function sanitizeCompanyText(value, field) {
+  const clean = requiredString(value, field);
+  if (clean.length < 2 || clean.length > 160 || /[<>]/.test(clean)) {
+    throw new HttpsError('invalid-argument', `${field} is invalid.`);
+  }
+  return clean;
+}
+
+function sanitizeCompanyId(value) {
+  const clean = requiredString(value, 'companyId').toLowerCase();
+  validateCompanyId(clean);
+  return clean;
+}
+
+function slugFromName(name) {
+  return optionalString(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || `company-${Date.now()}`;
+}
+
+function sanitizeOptionalUrl(value) {
+  const clean = optionalString(value);
+  if (!clean) {
+    return '';
+  }
+  if (clean.length > 200 || /[<>\s]/.test(clean)) {
+    throw new HttpsError('invalid-argument', 'Website is invalid.');
+  }
+  if (!/^https?:\/\//i.test(clean)) {
+    return `https://${clean}`;
   }
   return clean;
 }
