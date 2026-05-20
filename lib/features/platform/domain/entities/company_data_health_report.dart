@@ -45,6 +45,8 @@ class DataHealthIssue extends Equatable {
     required this.title,
     required this.assignedTo,
     required this.assignedToName,
+    required this.managerId,
+    required this.managerName,
     required this.issueType,
     required this.suggestedAction,
     required this.canBackfill,
@@ -55,6 +57,8 @@ class DataHealthIssue extends Equatable {
   final String title;
   final String assignedTo;
   final String assignedToName;
+  final String managerId;
+  final String managerName;
   final String issueType;
   final String suggestedAction;
   final bool canBackfill;
@@ -66,6 +70,8 @@ class DataHealthIssue extends Equatable {
         title,
         assignedTo,
         assignedToName,
+        managerId,
+        managerName,
         issueType,
         suggestedAction,
         canBackfill,

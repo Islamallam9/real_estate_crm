@@ -84,6 +84,8 @@ abstract interface class PlatformRemoteDataSource {
     required String module,
     required String recordId,
   });
+
+  Future<void> refreshCompanyStorageUsage({required String companyId});
 }
 
 class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
@@ -272,6 +274,11 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       'module': module,
       'recordId': recordId,
     });
+  }
+
+  @override
+  Future<void> refreshCompanyStorageUsage({required String companyId}) async {
+    await _call('refreshCompanyStorageUsage', {'companyId': companyId});
   }
 
   Future<void> _call(String name, Map<String, Object?> data) async {

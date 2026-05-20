@@ -8,6 +8,7 @@ import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
+import '../../domain/usecases/refresh_company_storage_usage_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_email_usecase.dart';
@@ -35,6 +36,7 @@ class PlatformCubit extends Cubit<PlatformState> {
         getCompanyDataHealthReportUseCase,
     required BackfillAssignedRecordSnapshotsUseCase
         backfillAssignedRecordSnapshotsUseCase,
+    required RefreshCompanyStorageUsageUseCase refreshCompanyStorageUsageUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
        _watchCompanyUsersUseCase = watchCompanyUsersUseCase,
        _createCompanyWithAdminUseCase = createCompanyWithAdminUseCase,
@@ -50,6 +52,7 @@ class PlatformCubit extends Cubit<PlatformState> {
        _getCompanyDataHealthReportUseCase = getCompanyDataHealthReportUseCase,
        _backfillAssignedRecordSnapshotsUseCase =
            backfillAssignedRecordSnapshotsUseCase,
+       _refreshCompanyStorageUsageUseCase = refreshCompanyStorageUsageUseCase,
        super(const PlatformState.initial());
 
   final WatchPlatformCompaniesUseCase _watchCompaniesUseCase;
@@ -67,6 +70,7 @@ class PlatformCubit extends Cubit<PlatformState> {
   final GetCompanyDataHealthReportUseCase _getCompanyDataHealthReportUseCase;
   final BackfillAssignedRecordSnapshotsUseCase
       _backfillAssignedRecordSnapshotsUseCase;
+  final RefreshCompanyStorageUsageUseCase _refreshCompanyStorageUsageUseCase;
 
   StreamSubscription? _companiesSubscription;
   StreamSubscription? _companyUsersSubscription;
@@ -436,6 +440,36 @@ class PlatformCubit extends Cubit<PlatformState> {
           status: PlatformStatus.failure,
           message: error.toString(),
           clearActiveDataHealthAction: true,
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> refreshCompanyStorageUsage({required String companyId}) async {
+    emit(
+      state.copyWith(
+        status: PlatformStatus.saving,
+        activeStorageActionId: companyId,
+        clearMessage: true,
+      ),
+    );
+    try {
+      await _refreshCompanyStorageUsageUseCase(companyId: companyId);
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          clearActiveStorageAction: true,
+          clearMessage: true,
+        ),
+      );
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: error.toString(),
+          clearActiveStorageAction: true,
         ),
       );
       return false;

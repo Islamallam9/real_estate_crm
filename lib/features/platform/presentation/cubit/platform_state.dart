@@ -19,6 +19,7 @@ class PlatformState extends Equatable {
     this.activeCompanyActionId,
     this.activeUserActionId,
     this.activeSettingsActionId,
+    this.activeStorageActionId,
     this.dataHealthReport,
     this.dataHealthLoading = false,
     this.activeDataHealthActionId,
@@ -36,6 +37,7 @@ class PlatformState extends Equatable {
   final String? activeCompanyActionId;
   final String? activeUserActionId;
   final String? activeSettingsActionId;
+  final String? activeStorageActionId;
   final CompanyDataHealthReport? dataHealthReport;
   final bool dataHealthLoading;
   final String? activeDataHealthActionId;
@@ -86,6 +88,7 @@ class PlatformState extends Equatable {
     String? activeCompanyActionId,
     String? activeUserActionId,
     String? activeSettingsActionId,
+    String? activeStorageActionId,
     CompanyDataHealthReport? dataHealthReport,
     bool? dataHealthLoading,
     String? activeDataHealthActionId,
@@ -94,6 +97,7 @@ class PlatformState extends Equatable {
     bool clearActiveCompanyAction = false,
     bool clearActiveUserAction = false,
     bool clearActiveSettingsAction = false,
+    bool clearActiveStorageAction = false,
     bool clearDataHealthReport = false,
     bool clearActiveDataHealthAction = false,
   }) {
@@ -113,6 +117,9 @@ class PlatformState extends Equatable {
       activeSettingsActionId: clearActiveSettingsAction
           ? null
           : activeSettingsActionId ?? this.activeSettingsActionId,
+      activeStorageActionId: clearActiveStorageAction
+          ? null
+          : activeStorageActionId ?? this.activeStorageActionId,
       dataHealthReport:
           clearDataHealthReport ? null : dataHealthReport ?? this.dataHealthReport,
       dataHealthLoading: dataHealthLoading ?? this.dataHealthLoading,
@@ -134,6 +141,7 @@ class PlatformState extends Equatable {
     activeCompanyActionId,
     activeUserActionId,
     activeSettingsActionId,
+    activeStorageActionId,
     dataHealthReport,
     dataHealthLoading,
     activeDataHealthActionId,

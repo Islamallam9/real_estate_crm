@@ -165,4 +165,9 @@ class PlatformRepositoryImpl implements PlatformRepository {
       recordId: recordId,
     );
   }
+
+  @override
+  Future<void> refreshCompanyStorageUsage({required String companyId}) {
+    return _remoteDataSource.refreshCompanyStorageUsage(companyId: companyId);
+  }
 }

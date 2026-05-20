@@ -77,4 +77,6 @@ abstract interface class PlatformRepository {
     required String module,
     required String recordId,
   });
+
+  Future<void> refreshCompanyStorageUsage({required String companyId});
 }
