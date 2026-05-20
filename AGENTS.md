@@ -11,6 +11,14 @@ Primary goals:
 - Role-based access for platform owner, admin, manager, salesAgent, marketing, and viewer.
 - Clean, professional Masar CRM design system with warm premium styling.
 - Secure Firebase rules and server-side privileged operations through Cloud Functions where needed.
+- SaaS-ready onboarding where the platform owner controls invitations/subscription access and each company admin owns company setup and staff management.
+
+Brand identity:
+- Product name: Masar CRM.
+- Arabic name: مسار.
+- Meaning: path / journey / workflow, from real estate lead to client, appointment, property, deal, and follow-up.
+- New SVG logo/mark should be used consistently across splash, onboarding, app shell/sidebar, favicon, web icons, and mobile launcher icons where supported.
+- Avoid old/generic apartment icons after the logo migration.
 
 ## Current branch rule
 
@@ -28,6 +36,8 @@ Do not commit, push, deploy, or run migrations unless the user explicitly asks.
 - Be honest about uncertainty and risks.
 - Do not claim that analyze/build/deploy passed unless actually run or confirmed by the user.
 - Mention exact deploy requirements based on touched files.
+- The user often wants full updated context before moving chats.
+- The user prefers practical real-market CRM behavior over decorative-only features.
 
 ## Architecture rules
 
@@ -45,7 +55,7 @@ Rules:
 - Use BLoC/Cubit only.
 - Do not use Riverpod, Provider, GetX, MobX, or other state-management patterns.
 - Keep Firebase calls inside data sources only.
-- Do not call Firestore/Storage/Auth directly from widgets or Cubits except through existing repository/data source boundaries.
+- Do not call Firestore/Storage/Auth/Functions directly from widgets or Cubits except through existing repository/data source boundaries.
 - Keep business logic out of widgets when possible.
 - Keep changes scoped to the requested task.
 - Do not touch unrelated files.
@@ -95,6 +105,47 @@ Loading pattern:
 - Use circular progress indicators.
 - Prefer overlay loading when existing content can remain visible.
 - Keep networked buttons disabled while saving and show progress feedback.
+- Branded loading/splash can use the Masar mark and premium visual language, but button/network action loading should remain clear and compact.
+
+## Branding, splash, onboarding, and public entry rules
+
+Masar must feel premium at first launch.
+
+Splash:
+- Use the new Masar logo/mark from `assets/branding/`.
+- Full-screen splash with premium warm background.
+- No long text or paragraphs on splash.
+- Logo/mark should be large and professional, not tiny.
+- Use modern loading dots/progress and optional floating CRM/property mockups.
+- Splash should last roughly 3–5 seconds when configured that way.
+- If using `MasarSplashGate` in `app.dart`, make sure `lib/core/widgets/masar_splash_gate.dart` actually defines `class MasarSplashGate`.
+- If `MasarBrandMark` is inside `_LogoHalo`, pass an explicit size; do not rely on the default 48px size.
+- If the logo still appears small, inspect/crop `assets/branding/masar_mark.svg` because the SVG viewBox may contain too much empty space.
+
+Onboarding:
+- Onboarding should be shown once, then remembered as seen/skipped.
+- Mobile onboarding should support horizontal PageView, Next, Back, Skip, page dots, and smooth animation.
+- Onboarding must not start protected Firestore/company/platform streams while logged out.
+- Login/register/onboarding must support language switch and dark/light mode before authentication.
+
+Public routes:
+- `/onboarding`
+- `/login`
+- `/register-company`
+- `/register-company?code=...`
+- `/force-change-password`
+
+Public route rules:
+- Unauthenticated users must be able to access `/login`, `/onboarding`, and `/register-company`.
+- Public pages must not read protected company/platform data.
+- No permission-denied snackbar should appear after logout on public pages.
+
+Fonts:
+- Do not set `GoogleFonts.config.allowRuntimeFetching = false` unless the required fonts are bundled locally.
+- The app previously used Google Fonts (`PlusJakartaSans`, `IBMPlexSansArabic`). On emulator/offline, runtime Google Fonts may fail.
+- Immediate safe fallback is to remove direct GoogleFonts theme calls and use system font fallback (`Roboto`, `Tahoma`, `Noto Sans Arabic`, `Segoe UI`, etc.).
+- Long-term better fix is to bundle fonts locally under `assets/fonts/`, register them in `pubspec.yaml`, and then disable runtime fetching safely.
+- Never share font files with the user.
 
 ## Versioning rule
 
@@ -107,8 +158,10 @@ For every major user-facing, security, data, or platform phase:
 
 Do not bump version for tiny compile-only fixes unless the user asks.
 
-Current known version after Appointments + Calendar Foundation Phase 1:
-- Around `1.4.0+13`.
+Current known version after Phase B invitation onboarding:
+- Around `1.6.0+15`.
+
+If only doing branding/splash compile fixes, do not bump again unless the user explicitly asks.
 
 ## Firebase structure
 
@@ -133,6 +186,8 @@ Platform/global collections include:
 - users/{uid}
 - users/{uid}/memberships/{companyId}
 - companies/{companyId}
+- platform_invitations/{invitationId}
+- platform_invitation_uses/{invitationId}
 
 ## Security rules principles
 
@@ -155,7 +210,9 @@ Sensitive fields must be protected:
 - email when controlled by platform owner/admin function
 - login activity/IP fields
 - password/reset-link fields
+- mustChangePassword/passwordSetupMethod fields
 - platform admin fields
+- invitation hashes / secret invitation codes
 
 Privileged platform operations should go through Cloud Functions/Admin SDK.
 
@@ -173,6 +230,8 @@ Admin:
 - Sees all company teams and users.
 - Can assign/reassign records to eligible users across the company.
 - Sees company-wide dashboard, reports, and recent activity.
+- Can access Company User Management (`/users`).
+- Can create company users for manager, salesAgent, marketing, and viewer roles.
 
 Manager:
 - Sees own team records only.
@@ -180,6 +239,7 @@ Manager:
 - Dashboard and reports must be team-only.
 - Recent Activity must be team-only.
 - Must not see other managers’ teams/records/activity.
+- Must not access `/users` or Data Health.
 
 Sales Agent:
 - Sees only own assigned records.
@@ -187,16 +247,18 @@ Sales Agent:
 - Must not see unassigned leads.
 - Must not see other users’ records.
 - Can update own assigned records only where current policy allows.
+- Must not access `/users`.
 
 Marketing:
 - Sees only own assigned records unless an explicit policy changes this.
 - Must not see unassigned leads by default.
 - Must not access other users’ records through search, filters, reports, or direct routes.
+- Must not access `/users`.
 
 Viewer:
 - Restricted/read-only according to policy.
 - Must not appear as assignable.
-- Must not access team/platform management data unless explicitly allowed.
+- Must not access team/platform/user-management data unless explicitly allowed.
 
 ## Assignment policy
 
@@ -244,6 +306,90 @@ Old records:
 - Must still load safely.
 - Do not run destructive migration automatically.
 - When edited/reassigned, refresh snapshots safely from assignee profile.
+
+## Invitation onboarding rules
+
+Invitation-code onboarding is the preferred SaaS company onboarding flow.
+
+Platform owner creates invitation:
+- Owner creates only invitation package/settings.
+- Owner does not enter company name.
+- Owner does not enter company email.
+- Owner does not enter admin email.
+- Invitation settings include plan/package, user limit, storage limit, enabled features, locale, timezone, expiry, and optional notes.
+- Create Invitation should be shown as a polished modal bottom sheet, especially on mobile.
+- Generated links must use the public web URL and hash route:
+  `https://masarcrm.web.app/#/register-company?code=MASAR-XXXX-XXXX`
+- Never use `Uri.base.origin` blindly on mobile because mobile may use `file://` and crash.
+
+Company admin registration:
+- Public route: `/register-company`.
+- Link route: `/register-company?code=MASAR-XXXX-XXXX`.
+- Invitation code can be auto-filled from the link.
+- No company email field.
+- No editable company ID field.
+- Company ID/slug is generated automatically from company name and must be revalidated server-side.
+- Admin email is enough as initial contact email.
+- Admin enters his own password during company registration.
+- Backend creates Firebase Auth user, company doc, company admin profile, global user doc, and membership doc.
+- Registered admin must have full company admin powers.
+
+Invitation reuse protection:
+- A successfully accepted invitation must never be reusable.
+- Deleting the created company must not make the same invitation code valid again.
+- Use a permanent server-side usage marker outside the company doc, such as:
+  `platform_invitation_uses/{invitationId}`.
+- `validateCompanyInvitation` and `acceptCompanyInvitation` must check both invitation status and usage marker.
+
+Duplicate checks:
+- Use Firebase Auth `getUserByEmail` and global `users` email checks.
+- Avoid broad `collectionGroup('users')` duplicate scans during registration unless a proper index/registry strategy is in place.
+- Previous failure happened at `check_admin_email_company_users` due to a fragile collection-group query / `FAILED_PRECONDITION` style problem.
+
+## Password and user-creation rules
+
+First company admin:
+- The first company admin chooses his own password in the Register Company form.
+- Do not generate a setup link for the first admin.
+- Do not store the password in Firestore.
+- Do not log the password.
+- Password is sent once to Firebase Auth createUser.
+
+Normal company users created by company Admin:
+- Default flow: create user and return setup/reset link.
+- Admin sends setup/reset link to the user.
+- User sets his own password.
+- Admin should not know user passwords in the default flow.
+
+Optional temporary password flow:
+- Admin may optionally set a temporary password for a new user.
+- Do not store the temporary password in Firestore.
+- Backend creates Firebase Auth user with that temporary password.
+- Company user profile must get:
+  - `mustChangePassword: true`
+  - `passwordSetupMethod: temporaryPassword`
+- On login, the app must force `/force-change-password` before dashboard/CRM access.
+- The user enters current temporary password + new password + confirm.
+- `completeRequiredPasswordChange` clears `mustChangePassword` and updates safe password metadata.
+- Normal Settings password change must remain working.
+
+User management:
+- Company Admin User Management route is `/users`.
+- Sidebar item must appear only for Admin, above Team Management.
+- Manager/Sales/Marketing/Viewer must be blocked from `/users` even by direct route.
+- Create user dialog must access `CompanyUsersCubit` correctly, including when opened via `showDialog`/bottom sheet. Use `BlocProvider.value` when passing the existing Cubit into dialogs.
+
+## Notifications and feature flags
+
+Notifications + reminders are stable and must remain role/team scoped.
+
+When company feature `notifications` is disabled:
+- notification bell should hide or show disabled state according to design.
+- notification streams must not start.
+- `/notifications` must be blocked.
+- notification center/menu entries must be hidden/disabled.
+- no permission/error spam should appear.
+- existing notification docs must not be deleted just because the feature is disabled.
 
 ## Audit logs and recent activity
 
@@ -318,6 +464,8 @@ Platform owner/admin:
 - Accesses `/platform` without company membership.
 - Can manage companies and users through safe functions.
 - Can preview selected company read-only.
+- Can create invitation codes/links.
+- Still keeps manual company/admin/user creation powers as a support/manual fallback.
 
 Platform UI requirements:
 - Must not feel like a separate app.
@@ -325,6 +473,8 @@ Platform UI requirements:
 - Company users should not be duplicated in multiple sections.
 - User row actions should be compact action menus, not many wide buttons.
 - Platform avatar menu must match normal role menu.
+- Platform dashboard should stay organized like a SaaS control center: owner chip, company selector, KPI row, selected company operations, companies list, activity/login records, workspace summary.
+- Security tab should not come back as a redundant tab; useful security/login info belongs in Overview/Workspace/Activity.
 
 Platform account menu:
 - Profile
@@ -334,7 +484,7 @@ Platform account menu:
 Data Health:
 - Platform Data Health is SaaS monitoring mode plus safe snapshot backfill only.
 - Company Admin Data Health is operational action mode.
-- Company Admin can run health checks, backfill safe assignment snapshots, and reassign invalid/missing/inactive/ineligible assignee records.
+- Company Admin can run health checks, backfill safe assignment snapshots, reassign invalid/missing/inactive/ineligible assignee records, and notify the responsible manager through saved notifications.
 - Data Health is Admin-only inside normal CRM. Managers must not see Data Health navigation or access `/data-health`.
 - Platform owner must not manually reassign tenant business records.
 - Backfill/reassign actions must use Cloud Functions/Admin SDK, not direct client-side mass writes.
@@ -404,7 +554,7 @@ Scope:
 
 Do not introduce external search engines unless explicitly requested.
 
-## Performance rules
+## Performance and lifecycle rules
 
 Optimize for mobile scrolling and large app shell stability.
 
@@ -417,6 +567,7 @@ Avoid:
 - `shrinkWrap` on long lists unless justified
 - leaking controllers/listeners/focus nodes
 - noisy debug prints
+- async work launched repeatedly from `build()`
 
 Use:
 - ListView.builder/GridView.builder for long lists
@@ -425,6 +576,11 @@ Use:
 - const widgets where safe
 - local sorting only on small already-scoped result sets
 - circular progress indicators for loading states
+- mounted guards after async callbacks
+- dispose timers/controllers/subscriptions/focus nodes
+- unfocus before dialog/form submit on web/mobile when needed
+
+Flutter Web hot restart / AppInspector / EngineFlutterView logs can be tooling noise, but app-owned timers/controllers must still be cleaned up.
 
 ## Current Cloud Functions and privileged flows
 
@@ -434,12 +590,20 @@ Important callable functions include:
 - `getOperationalDataHealthReport` for company Admin Data Health.
 - `backfillAssignedRecordSnapshots` for safe assignment/team snapshot backfill.
 - `reassignDataHealthRecord` for company Admin operational reassignment repair.
-- Platform user/company tools such as `createCompanyWithAdmin`, `addUserToCompany`, `setCompanyUserEmail`, `setCompanyUserPassword`, `generateCompanyUserPasswordResetLink`, `updateCompanyPlatformSettings`, `assignUserToTeam`, and `removeUserFromTeam`.
+- `createCompanyInvitation` for platform invitation creation.
+- `validateCompanyInvitation` for public invite validation.
+- `acceptCompanyInvitation` for company/admin registration through invite.
+- `revokeCompanyInvitation` for platform invite revoke.
+- `listCompanyInvitations` for platform invite management.
+- `addUserToCompany` for platform owner/manual setup and company Admin user creation.
+- `completeRequiredPasswordChange` for clearing temporary-password enforcement after user changes password.
+- Platform user/company tools such as `createCompanyWithAdmin`, `setCompanyUserEmail`, `setCompanyUserPassword`, `generateCompanyUserPasswordResetLink`, `updateCompanyPlatformSettings`, `assignUserToTeam`, and `removeUserFromTeam`.
 
 Rules:
 - Keep privileged business-data repair/reassignment server-side.
 - Do not move these flows into direct Flutter Firestore writes.
 - When changing function names or adding new callables, report exact deploy commands.
+- Do not log passwords, full invite codes, reset links, tokens, or secrets.
 
 ## Deployment reporting rules
 
@@ -460,15 +624,18 @@ If Flutter UI changed:
 - `flutter build web --release --dart-define-from-file=config/firebase.local.json`
 - `firebase deploy --only hosting`
 
+If mobile assets/icons/native configuration changed:
+- rebuild/reinstall the mobile app.
+
 Do not claim deployment happened unless the user confirms it.
 
-## Current latest known stable fixes
+## Current latest known stable/in-progress fixes
 
 The latest confirmed good state includes:
-- Notifications + Reminders Foundation Phase 1.2 is stable.
+- Notifications + Reminders Foundation is stable.
 - Saved notifications persist after refresh and read/unread behavior is stable.
 - Manager/team notification routing works and notifications connect assigned users and managers.
-- Appointments + Calendar Foundation Phase 1 added a company-scoped appointments workspace.
+- Appointments + Calendar Foundation added a company-scoped appointments workspace.
 - Appointments support role-scoped schedules, related record snapshots, assignment/team snapshots, status actions, and appointment notifications.
 - Lead create/update/reassign is stabilized through the `saveLeadRecord` Cloud Function.
 - Admin can create/assign/reassign leads company-wide.
@@ -485,32 +652,35 @@ The latest confirmed good state includes:
 - Data Health reports persist after running until a new check is triggered.
 - Data Health hides raw missing-assignee UIDs and shows clean issue labels.
 - Data Health reassign/backfill repairs update the visible report without clearing it.
+- Data Health Notify Manager is implemented for Admin through saved notifications.
+- Phase A Admin/Owner Operations UI Cleanup is implemented: Admin Team Management is compact, Platform Security is merged into overview/workspace/activity, Platform login records are readable.
+- Platform Owner dashboard reference polish is implemented: premium SaaS control-center layout with owner chip, company selector, KPI row, selected company operations, companies list, activity/login records, and workspace summary.
+- Phase B invitation onboarding works after removing the fragile `check_admin_email_company_users` collectionGroup scan.
+- Invitation reuse after company deletion is fixed using `platform_invitation_uses/{invitationId}`.
+- Company Admin User Management exists and Admin can create company users.
+- Optional temporary password flow exists and must force `/force-change-password`.
+- Mobile onboarding/login/register/public route polish is mostly implemented.
+- Splash/branding/logo work is in progress and needs final compile/runtime stabilization.
 - Mobile More remains module navigation only; Profile/Settings/Logout belong to avatar menu.
+
+Known current issue to resolve first:
+- `MasarSplashGate` compile issue in `app.dart` even though `app.dart` imports `core/widgets/masar_splash_gate.dart`. Inspect actual `lib/core/widgets/masar_splash_gate.dart` and ensure the class is defined and file is saved correctly.
+- GoogleFonts runtime/offline issue should be resolved either by system fallback or local bundled fonts.
+- Splash logo still needs to be made larger and more premium.
 
 ## Recommended next phases
 
-Option A — Appointments Phase 1.1 polish:
-- Dashboard appointment cards.
-- Notification-center appointment attention reminders.
-- Global Search appointment results.
-- Appointment detail timeline/audit polish.
+Immediate next phase:
+- Phase B compile/runtime stabilization and release lock.
+- Fix splash/branding compile issue, GoogleFonts runtime issue, logo size, public onboarding final polish.
+- Run `flutter analyze` and `node --check functions/src/index.js` only if explicitly allowed.
+- Deploy required functions/rules/hosting only after validation.
+- Commit/push only after final confirmation.
 
-Option B — Calendar depth:
-- Calendar-style appointments/follow-ups.
-- More advanced appointment grouping.
-- Optional recurring appointments.
-- Later Google/Outlook sync.
-
-Option C — Data Health polish if needed:
-- Repair history.
-- Export health report.
-- Bulk safe snapshot backfill after manual confirmation.
-- Notify company admin/manager after Notifications foundation exists.
-
-Recommendation:
-Move to Appointments Phase 1.1 polish next unless Appointments Phase 1 testing reveals blocking issues.
-
-
-## Latest Data Health ownership rule
-
-Platform owner Data Health is SaaS monitoring plus safe snapshot backfill only. Company Admin Data Health is operational action mode and can reassign invalid records. Manager Data Health is currently removed/disabled; Managers should not see Data Health navigation or access `/data-health`. Notification buttons may remain disabled placeholders until the Notifications foundation is implemented.
+After Phase B is locked:
+1. Production Release QA + Deployment Stabilization.
+2. Reports + Export / Business Intelligence phase.
+3. Scheduled reminders engine Phase 2.
+4. Global Search upgrade.
+5. Final mobile/browser polish.
+6. Public launch preparation.
