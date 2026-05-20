@@ -44,6 +44,21 @@ class DataHealthRepositoryImpl implements DataHealthRepository {
   }
 
   @override
+  Future<void> notifyManager({
+    required String companyId,
+    required String module,
+    required String recordId,
+    required String issueType,
+  }) {
+    return _remoteDataSource.notifyManager(
+      companyId: companyId,
+      module: module,
+      recordId: recordId,
+      issueType: issueType,
+    );
+  }
+
+  @override
   Future<List<UserProfile>> getEligibleAssignees({
     required String companyId,
     required String module,

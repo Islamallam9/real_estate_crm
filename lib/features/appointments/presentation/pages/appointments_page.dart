@@ -1489,6 +1489,7 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
                   label: title,
                   isLoading: isSubmitting,
                   onPressed: () async {
+                    FocusScope.of(dialogContext).unfocus();
                     setDialogState(() => isSubmitting = true);
                     final success = await cubit.changeStatus(
                       companyId: widget.companyId,

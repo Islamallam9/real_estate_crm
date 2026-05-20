@@ -7,6 +7,7 @@ import '../../../../core/constants/role_constants.dart';
 import '../../domain/usecases/backfill_operational_record_snapshots_usecase.dart';
 import '../../domain/usecases/get_data_health_eligible_assignees_usecase.dart';
 import '../../domain/usecases/get_operational_data_health_report_usecase.dart';
+import '../../domain/usecases/notify_data_health_manager_usecase.dart';
 import '../../domain/usecases/reassign_data_health_record_usecase.dart';
 import '../../../platform/domain/entities/company_data_health_report.dart';
 import 'data_health_state.dart';
@@ -19,16 +20,19 @@ class DataHealthCubit extends Cubit<DataHealthState> {
     required BackfillOperationalRecordSnapshotsUseCase backfillUseCase,
     required ReassignDataHealthRecordUseCase reassignUseCase,
     required GetDataHealthEligibleAssigneesUseCase eligibleAssigneesUseCase,
+    required NotifyDataHealthManagerUseCase notifyManagerUseCase,
   })  : _getReportUseCase = getReportUseCase,
         _backfillUseCase = backfillUseCase,
         _reassignUseCase = reassignUseCase,
         _eligibleAssigneesUseCase = eligibleAssigneesUseCase,
+        _notifyManagerUseCase = notifyManagerUseCase,
         super(const DataHealthState.initial());
 
   final GetOperationalDataHealthReportUseCase _getReportUseCase;
   final BackfillOperationalRecordSnapshotsUseCase _backfillUseCase;
   final ReassignDataHealthRecordUseCase _reassignUseCase;
   final GetDataHealthEligibleAssigneesUseCase _eligibleAssigneesUseCase;
+  final NotifyDataHealthManagerUseCase _notifyManagerUseCase;
 
   Future<void> restoreCachedReport(String companyId) async {
     final cached = _cachedReportsByCompany[companyId];
@@ -148,6 +152,29 @@ class DataHealthCubit extends Cubit<DataHealthState> {
     }
   }
 
+  Future<bool> notifyManager({
+    required String companyId,
+    required String module,
+    required String recordId,
+    required String issueType,
+  }) async {
+    final actionId = '$module/$recordId/notifyManager';
+    emit(state.copyWith(status: DataHealthStatus.saving, activeActionId: actionId, clearMessage: true));
+    try {
+      await _notifyManagerUseCase(
+        companyId: companyId,
+        module: module,
+        recordId: recordId,
+        issueType: issueType,
+      );
+      emit(state.copyWith(status: DataHealthStatus.ready, clearActiveAction: true, clearMessage: true));
+      return true;
+    } catch (error) {
+      emit(state.copyWith(status: DataHealthStatus.failure, message: error.toString(), clearActiveAction: true));
+      return false;
+    }
+  }
+
   DataHealthState _stateAfterResolvedIssue(
     DataHealthState baseState, {
     required String companyId,
@@ -215,6 +242,8 @@ class DataHealthCubit extends Cubit<DataHealthState> {
             'title': issue.title,
             'assignedTo': issue.assignedTo,
             'assignedToName': issue.assignedToName,
+            'managerId': issue.managerId,
+            'managerName': issue.managerName,
             'issueType': issue.issueType,
             'suggestedAction': issue.suggestedAction,
             'canBackfill': issue.canBackfill,
@@ -235,6 +264,8 @@ class DataHealthCubit extends Cubit<DataHealthState> {
                 title: map['title'] as String? ?? '',
                 assignedTo: map['assignedTo'] as String? ?? '',
                 assignedToName: map['assignedToName'] as String? ?? '',
+                managerId: map['managerId'] as String? ?? '',
+                managerName: map['managerName'] as String? ?? '',
                 issueType: map['issueType'] as String? ?? '',
                 suggestedAction: map['suggestedAction'] as String? ?? '',
                 canBackfill: map['canBackfill'] as bool? ?? false,

@@ -20,6 +20,13 @@ abstract interface class DataHealthRepository {
     required String newAssigneeUid,
   });
 
+  Future<void> notifyManager({
+    required String companyId,
+    required String module,
+    required String recordId,
+    required String issueType,
+  });
+
   Future<List<UserProfile>> getEligibleAssignees({
     required String companyId,
     required String module,

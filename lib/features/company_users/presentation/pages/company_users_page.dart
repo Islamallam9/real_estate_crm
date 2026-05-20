@@ -1,0 +1,739 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/constants/role_constants.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/utils/external_link_opener.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dropdown.dart';
+import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../data/datasources/company_users_remote_data_source.dart';
+import '../../domain/entities/company_crm_user.dart';
+import '../cubit/company_users_cubit.dart';
+import '../cubit/company_users_state.dart';
+
+class CompanyUsersPage extends StatelessWidget {
+  const CompanyUsersPage({super.key});
+
+  static Widget withDependencies() {
+    return BlocProvider(
+      create: (_) => CompanyUsersCubit(
+        remoteDataSource: FirebaseCompanyUsersRemoteDataSource(),
+      ),
+      child: const CompanyUsersPage(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final authState = context.watch<AuthBloc>().state;
+    final profile = authState.userProfile;
+    if (profile == null || profile.role != UserRole.admin) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.users,
+        title: l.userManagement,
+        child: AppErrorView(
+          title: l.permissionDenied,
+          message: l.permissionDenied,
+        ),
+      );
+    }
+
+    return _CompanyUsersScope(companyId: profile.companyId);
+  }
+}
+
+class _CompanyUsersScope extends StatefulWidget {
+  const _CompanyUsersScope({required this.companyId});
+
+  final String companyId;
+
+  @override
+  State<_CompanyUsersScope> createState() => _CompanyUsersScopeState();
+}
+
+class _CompanyUsersScopeState extends State<_CompanyUsersScope> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<CompanyUsersCubit>().watch(widget.companyId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CompanyUsersScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId) {
+      context.read<CompanyUsersCubit>().watch(widget.companyId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return CrmAppShell(
+      selectedItem: CrmNavigationItem.users,
+      title: l.userManagement,
+      child: BlocBuilder<CompanyUsersCubit, CompanyUsersState>(
+        builder: (context, state) {
+          final saving = state.status == CompanyUsersStatus.saving;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _UsersHeader(companyId: widget.companyId, saving: saving),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: AppSearchField(
+                      hint: l.searchUsers,
+                      onChanged: context.read<CompanyUsersCubit>().updateQuery,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  AppButton(
+                    label: l.createUser,
+                    icon: Icons.person_add_alt_1_outlined,
+                    isLoading: saving,
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final result = await _showAddUserDialog(
+                              context,
+                              widget.companyId,
+                            );
+                            if (context.mounted && result != null) {
+                              if (result.usedTemporaryPassword) {
+                                _showTemporaryPasswordCreatedDialog(context);
+                              } else {
+                                _showSetupLinkDialog(context, result.resetLink);
+                              }
+                            }
+                          },
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (state.status == CompanyUsersStatus.loading)
+                const Expanded(child: Center(child: AppLoading()))
+              else if (state.status == CompanyUsersStatus.failure)
+                Expanded(
+                  child: AppErrorView(
+                    title: l.errorOccurred,
+                    message: _companyUserErrorMessage(l, state.message),
+                    onRetry: () => context
+                        .read<CompanyUsersCubit>()
+                        .watch(widget.companyId),
+                  ),
+                )
+              else if (state.filteredUsers.isEmpty)
+                Expanded(
+                  child: AppEmptyState(
+                    icon: Icons.people_outline,
+                    title: l.noCompanyUsers,
+                    message: l.companyUsersEmptyMessage,
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: state.filteredUsers.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.sm),
+                    itemBuilder: (context, index) {
+                      return _UserRow(
+                        companyId: widget.companyId,
+                        user: state.filteredUsers[index],
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UsersHeader extends StatelessWidget {
+  const _UsersHeader({required this.companyId, required this.saving});
+
+  final String companyId;
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.xLarge,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor(context).withValues(alpha: 0.12),
+              borderRadius: AppRadius.large,
+            ),
+            child: Icon(
+              Icons.manage_accounts_outlined,
+              color: AppColors.primaryColor(context),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.userManagement,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  l.userManagementSubtitle,
+                  style: TextStyle(
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserRow extends StatelessWidget {
+  const _UserRow({required this.companyId, required this.user});
+
+  final String companyId;
+  final CompanyCrmUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.15),
+            child: Text(
+              user.fullName.trim().isEmpty
+                  ? '?'
+                  : user.fullName.trim().characters.first.toUpperCase(),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                Text(_isolate(user.email)),
+                if (user.teamName.trim().isNotEmpty)
+                  Text(
+                    _isolate(user.teamName),
+                    style: TextStyle(color: AppColors.textSecondaryColor(context)),
+                  ),
+              ],
+            ),
+          ),
+          AppStatusBadge(
+            label: _roleLabel(l, user.role),
+            tone: AppStatusTone.info,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          AppStatusBadge(
+            label: user.isActive ? l.active : l.inactive,
+            tone: user.isActive ? AppStatusTone.success : AppStatusTone.error,
+          ),
+          if (user.mustChangePassword) ...[
+            const SizedBox(width: AppSpacing.sm),
+            AppStatusBadge(
+              label: l.mustChangePassword,
+              tone: AppStatusTone.warning,
+            ),
+          ],
+          const SizedBox(width: AppSpacing.xs),
+          IconButton(
+            tooltip: l.generateSetupLink,
+            onPressed: () => _showGenerateSetupLinkDialog(
+              context,
+              companyId: companyId,
+              user: user,
+            ),
+            icon: const Icon(Icons.link_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<CreatedCompanyUserResult?> _showAddUserDialog(BuildContext context, String companyId) {
+  final cubit = context.read<CompanyUsersCubit>();
+  return showDialog<CreatedCompanyUserResult?>(
+    context: context,
+    builder: (_) => BlocProvider<CompanyUsersCubit>.value(
+      value: cubit,
+      child: _AddUserDialog(companyId: companyId),
+    ),
+  );
+}
+
+class _AddUserDialog extends StatefulWidget {
+  const _AddUserDialog({required this.companyId});
+
+  final String companyId;
+
+  @override
+  State<_AddUserDialog> createState() => _AddUserDialogState();
+}
+
+class _AddUserDialogState extends State<_AddUserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _fullName = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _temporaryPassword = TextEditingController();
+  final _confirmTemporaryPassword = TextEditingController();
+  var _role = 'salesAgent';
+  var _useTemporaryPassword = false;
+  var _saving = false;
+
+  @override
+  void dispose() {
+    _fullName.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _temporaryPassword.dispose();
+    _confirmTemporaryPassword.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.createUser),
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppTextField(
+                  controller: _fullName,
+                  label: l.fullName,
+                  enabled: !_saving,
+                  validator: (value) => AppValidators.personName(value, l),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: _email,
+                  label: l.email,
+                  keyboardType: TextInputType.emailAddress,
+                  enabled: !_saving,
+                  validator: (value) => AppValidators.email(value, l),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: _phone,
+                  label: l.phone,
+                  keyboardType: TextInputType.phone,
+                  enabled: !_saving,
+                  validator: (value) => AppValidators.phone(value, l),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppDropdown<String>(
+                  label: l.role,
+                  value: _role,
+                  enabled: !_saving,
+                  items: const ['manager', 'salesAgent', 'marketing', 'viewer'],
+                  itemLabelBuilder: (role) => _roleLabel(l, role),
+                  onChanged: (value) => setState(() => _role = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.appBackground(context),
+                    border: Border.all(color: AppColors.borderColor(context)),
+                    borderRadius: AppRadius.large,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _useTemporaryPassword,
+                        onChanged: _saving
+                            ? null
+                            : (value) {
+                                setState(() => _useTemporaryPassword = value);
+                              },
+                        title: Text(
+                          l.setTemporaryPassword,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          l.temporaryPasswordHelp,
+                          style: TextStyle(
+                            color: AppColors.textSecondaryColor(context),
+                          ),
+                        ),
+                      ),
+                      if (_useTemporaryPassword) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        AppTextField(
+                          controller: _temporaryPassword,
+                          label: l.temporaryPassword,
+                          obscureText: true,
+                          enabled: !_saving,
+                          validator: (value) => AppValidators.password(value, l),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppTextField(
+                          controller: _confirmTemporaryPassword,
+                          label: l.confirmTemporaryPassword,
+                          obscureText: true,
+                          enabled: !_saving,
+                          validator: (value) => AppValidators.confirmPassword(
+                            value,
+                            _temporaryPassword.text,
+                            l,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.createUser,
+          isLoading: _saving,
+          onPressed: _saving ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final success = await context.read<CompanyUsersCubit>().addUser(
+          companyId: widget.companyId,
+          fullName: _fullName.text.trim(),
+          email: _email.text.trim(),
+          phone: _phone.text.trim(),
+          role: _role,
+          temporaryPassword: _useTemporaryPassword
+              ? _temporaryPassword.text.trim()
+              : null,
+        );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (success) {
+      final result = context.read<CompanyUsersCubit>().state.createdResult;
+      context.read<CompanyUsersCubit>().clearCreatedResult();
+      Navigator.of(context).pop(result);
+    }
+  }
+}
+
+Future<void> _showGenerateSetupLinkDialog(
+  BuildContext context, {
+  required String companyId,
+  required CompanyCrmUser user,
+}) {
+  final cubit = context.read<CompanyUsersCubit>();
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => _GenerateSetupLinkDialog(
+      companyId: companyId,
+      user: user,
+      cubit: cubit,
+    ),
+  );
+}
+
+class _GenerateSetupLinkDialog extends StatefulWidget {
+  const _GenerateSetupLinkDialog({
+    required this.companyId,
+    required this.user,
+    required this.cubit,
+  });
+
+  final String companyId;
+  final CompanyCrmUser user;
+  final CompanyUsersCubit cubit;
+
+  @override
+  State<_GenerateSetupLinkDialog> createState() =>
+      _GenerateSetupLinkDialogState();
+}
+
+class _GenerateSetupLinkDialogState extends State<_GenerateSetupLinkDialog> {
+  var _loading = true;
+  String _link = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final link = await widget.cubit.generateSetupLink(
+      companyId: widget.companyId,
+      uid: widget.user.uid,
+    );
+    if (!mounted) return;
+    setState(() {
+      _link = link ?? '';
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    if (_loading) {
+      return AlertDialog(
+        title: Text(l.generateSetupLink),
+        content: const SizedBox(
+          width: 420,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    return _SetupLinkDialogContent(
+      title: l.generateSetupLink,
+      resetLink: _link,
+    );
+  }
+}
+
+Future<void> _showTemporaryPasswordCreatedDialog(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  return showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(l.userCreatedSuccessfully),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(
+              Icons.lock_clock_outlined,
+              size: 42,
+              color: AppColors.primaryColor(context),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              l.temporaryPasswordCreatedMessage,
+              style: TextStyle(color: AppColors.textSecondaryColor(context)),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.done),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showSetupLinkDialog(BuildContext context, String resetLink) {
+  final l = AppLocalizations.of(context)!;
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _SetupLinkDialogContent(
+      title: l.userCreatedSuccessfully,
+      resetLink: resetLink,
+    ),
+  );
+}
+
+class _SetupLinkDialogContent extends StatelessWidget {
+  const _SetupLinkDialogContent({
+    required this.title,
+    required this.resetLink,
+  });
+
+  final String title;
+  final String resetLink;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cleanLink = resetLink.trim();
+    final hasLink = cleanLink.isNotEmpty;
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              hasLink ? l.sendSetupLinkToUser : l.userCreatedNoResetLinkMessage,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+            ),
+            if (hasLink) ...[
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.appBackground(context),
+                  border: Border.all(color: AppColors.borderColor(context)),
+                  borderRadius: AppRadius.large,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.link_outlined, size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        _shortSetupLink(cleanLink),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textDirection: TextDirection.ltr,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        if (hasLink) ...[
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: cleanLink));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l.linkCopied)),
+                );
+              }
+            },
+            icon: const Icon(Icons.copy),
+            label: Text(l.copySetupLink),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              final opened = await openExternalLink(cleanLink);
+              if (!opened && context.mounted) {
+                await Clipboard.setData(ClipboardData(text: cleanLink));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l.linkCopied)),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.open_in_new),
+            label: Text(l.openSetupLink),
+          ),
+        ],
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.done),
+        ),
+      ],
+    );
+  }
+}
+
+String _roleLabel(AppLocalizations l, String role) {
+  return switch (role) {
+    'admin' => l.admin,
+    'manager' => l.manager,
+    'salesAgent' => l.salesAgent,
+    'marketing' => l.marketing,
+    'viewer' => l.viewer,
+    _ => role,
+  };
+}
+
+String _shortSetupLink(String link) {
+  final uri = Uri.tryParse(link);
+  final host = uri?.host ?? '';
+  if (host.isEmpty) {
+    return 'masarcrm.web.app/.../reset';
+  }
+  return '$host/.../reset';
+}
+
+String _companyUserErrorMessage(AppLocalizations l, String? message) {
+  return switch (message) {
+    'company-user-already-exists' => l.companyUserAlreadyExists,
+    'company-user-limit-reached' => l.userLimitReached,
+    AppErrorMessages.unableToConnect => l.unableToConnect,
+    AppErrorMessages.permissionDenied => l.permissionDenied,
+    AppErrorMessages.unauthenticated => l.authErrorProfileMissing,
+    AppErrorMessages.notFound => l.noData,
+    AppErrorMessages.unknown => l.somethingWentWrong,
+    null => l.unableToConnect,
+    _ => localizeErrorMessage(l, message),
+  };
+}
+
+String _isolate(String value) {
+  final clean = value.trim();
+  return clean.isEmpty ? clean : '\u2068$clean\u2069';
+}

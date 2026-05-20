@@ -30,6 +30,8 @@ class UserProfileModel extends UserProfile {
     super.lastLoginDeviceType,
     super.lastLoginLocale,
     super.lastLoginTimezone,
+    super.mustChangePassword,
+    super.passwordSetupMethod,
   });
 
   factory UserProfileModel.fromFirestore(
@@ -66,6 +68,8 @@ class UserProfileModel extends UserProfile {
       lastLoginDeviceType: data['lastLoginDeviceType'] as String? ?? '',
       lastLoginLocale: data['lastLoginLocale'] as String? ?? '',
       lastLoginTimezone: data['lastLoginTimezone'] as String? ?? '',
+      mustChangePassword: data['mustChangePassword'] as bool? ?? false,
+      passwordSetupMethod: data['passwordSetupMethod'] as String? ?? '',
     );
   }
 
@@ -97,6 +101,8 @@ class UserProfileModel extends UserProfile {
       'lastLoginDeviceType': lastLoginDeviceType,
       'lastLoginLocale': lastLoginLocale,
       'lastLoginTimezone': lastLoginTimezone,
+      'mustChangePassword': mustChangePassword,
+      'passwordSetupMethod': passwordSetupMethod,
     };
   }
 }

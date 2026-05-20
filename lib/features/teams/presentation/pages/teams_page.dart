@@ -158,13 +158,9 @@ class _TeamsContent extends StatelessWidget {
         ? <_TeamTab>[
             _TeamTab(label: l.platformOverview, icon: Icons.insights_outlined),
             _TeamTab(label: l.teams, icon: Icons.groups_outlined),
-            _TeamTab(label: l.members, icon: Icons.badge_outlined),
-            _TeamTab(label: l.agentPerformance, icon: Icons.bar_chart_outlined),
           ]
         : <_TeamTab>[
             _TeamTab(label: l.myTeam, icon: Icons.groups_outlined),
-            _TeamTab(label: l.members, icon: Icons.badge_outlined),
-            _TeamTab(label: l.agentPerformance, icon: Icons.bar_chart_outlined),
           ];
 
     final toolbar = _TeamsToolbar(
@@ -212,14 +208,10 @@ class _TeamsContent extends StatelessWidget {
                         isAdmin: isAdmin,
                         actorUid: actorUid,
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      _MembersPanel(
-                        state: state,
-                        isAdmin: isAdmin,
-                        actorUid: actorUid,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _TeamPerformancePanel(state: state),
+                      if (isAdmin) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        _UnassignedUsersPanel(state: state),
+                      ],
                     ],
                   ),
                 ),
@@ -242,21 +234,17 @@ class _TeamsContent extends StatelessWidget {
                       ? [
                           _TeamTabScroll(child: _OverviewGrid(state: state)),
                           _TeamTabScroll(
-                            child: _TeamsMasterDetail(
-                              state: state,
-                              isAdmin: isAdmin,
-                              actorUid: actorUid,
+                            child: Column(
+                              children: [
+                                _TeamsMasterDetail(
+                                  state: state,
+                                  isAdmin: isAdmin,
+                                  actorUid: actorUid,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _UnassignedUsersPanel(state: state),
+                              ],
                             ),
-                          ),
-                          _TeamTabScroll(
-                            child: _MembersPanel(
-                              state: state,
-                              isAdmin: isAdmin,
-                              actorUid: actorUid,
-                            ),
-                          ),
-                          _TeamTabScroll(
-                            child: _TeamPerformancePanel(state: state),
                           ),
                         ]
                       : [
@@ -266,16 +254,6 @@ class _TeamsContent extends StatelessWidget {
                               isAdmin: isAdmin,
                               actorUid: actorUid,
                             ),
-                          ),
-                          _TeamTabScroll(
-                            child: _MembersPanel(
-                              state: state,
-                              isAdmin: isAdmin,
-                              actorUid: actorUid,
-                            ),
-                          ),
-                          _TeamTabScroll(
-                            child: _TeamPerformancePanel(state: state),
                           ),
                         ],
                 ),
@@ -372,6 +350,7 @@ class _TeamsMasterDetail extends StatelessWidget {
             users: state.users,
             managers: state.managers,
             isAdmin: isAdmin,
+            isSaving: state.status == TeamsStatus.saving,
             actorUid: actorUid,
           );
 
@@ -400,200 +379,53 @@ class _TeamsMasterDetail extends StatelessWidget {
   }
 }
 
-class _MembersPanel extends StatelessWidget {
-  const _MembersPanel({
-    required this.state,
-    required this.isAdmin,
-    required this.actorUid,
-  });
+class _UnassignedUsersPanel extends StatelessWidget {
+  const _UnassignedUsersPanel({required this.state});
 
   final TeamsState state;
-  final bool isAdmin;
-  final String actorUid;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final teams = state.filteredTeams;
     final unassigned = state.users.where((user) {
       return _isOperationalTeamMember(user) && user.teamId.trim().isEmpty;
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final team in teams) ...[
-          _Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        team.name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    if (isAdmin)
-                      AppButton(
-                        label: l.manageMembers,
-                        icon: Icons.group_add_outlined,
-                        variant: AppButtonVariant.secondary,
-                        onPressed: () => _showManageMembersDialog(
-                          context,
-                          team: team,
-                          users: state.users,
-                          members: state.membersFor(team.id),
-                          actorUid: actorUid,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    for (final member in state.membersFor(team.id))
-                      SizedBox(width: 300, child: _UserCard(user: member)),
-                  ],
-                ),
-                if (state.membersFor(team.id).isEmpty)
-                  AppEmptyState(
-                    icon: Icons.people_outline,
-                    title: l.noTeamMembersYet,
-                    message: l.noTeamMembersYetMessage,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        if (isAdmin)
-          _Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   l.usersWithoutTeam,
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                if (unassigned.isEmpty)
-                  AppEmptyState(
-                    icon: Icons.person_search_outlined,
-                    title: l.noUnassignedUsers,
-                    message: l.noUnassignedUsersMessage,
-                  )
-                else
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      for (final user in unassigned)
-                        SizedBox(width: 300, child: _UserCard(user: user)),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TeamPerformancePanel extends StatelessWidget {
-  const _TeamPerformancePanel({required this.state});
-
-  final TeamsState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            l.agentPerformance,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              AppStatusBadge(label: unassigned.length.toString()),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          for (final team in state.filteredTeams)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _TeamPerformanceRow(
-                team: team,
-                memberCount: state.membersFor(team.id).length,
-              ),
-            ),
-          if (state.filteredTeams.isEmpty)
+          if (unassigned.isEmpty)
             AppEmptyState(
-              icon: Icons.bar_chart_outlined,
-              title: l.noTeamsYet,
-              message: l.noTeamsYetMessage,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TeamPerformanceRow extends StatelessWidget {
-  const _TeamPerformanceRow({
-    required this.team,
-    required this.memberCount,
-  });
-
-  final Team team;
-  final int memberCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.inputSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: AppRadius.large,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              icon: Icons.person_search_outlined,
+              title: l.noUnassignedUsers,
+              message: l.noUnassignedUsersMessage,
+            )
+          else
+            Column(
               children: [
-                Text(
-                  team.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  team.managerName.trim().isEmpty
-                      ? l.notAvailable
-                      : team.managerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                      ),
-                ),
+                for (final user in unassigned) ...[
+                  _CompactUserRow(user: user, showTeam: false),
+                  if (user != unassigned.last)
+                    const SizedBox(height: AppSpacing.xs),
+                ],
               ],
             ),
-          ),
-          AppStatusBadge(label: l.teamMembersCount(memberCount)),
         ],
       ),
     );
@@ -847,7 +679,7 @@ class _TeamListTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: AppRadius.large,
           child: Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               border: Border.all(
                 color: selected
@@ -856,13 +688,13 @@ class _TeamListTile extends StatelessWidget {
               ),
               borderRadius: AppRadius.large,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         team.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -871,33 +703,39 @@ class _TeamListTile extends StatelessWidget {
                             .titleSmall
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        team.managerName.trim().isEmpty
+                            ? l.notAvailable
+                            : team.managerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     AppStatusBadge(
                       label: team.isActive ? l.active : l.inactive,
                       tone: team.isActive
                           ? AppStatusTone.success
                           : AppStatusTone.neutral,
                     ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      l.teamMembersCount(memberCount),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  team.managerName.trim().isEmpty
-                      ? l.notAvailable
-                      : team.managerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  l.teamMembersCount(memberCount),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondaryColor(context),
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
               ],
             ),
@@ -915,6 +753,7 @@ class _TeamDetailsPanel extends StatelessWidget {
     required this.users,
     required this.managers,
     required this.isAdmin,
+    required this.isSaving,
     required this.actorUid,
   });
 
@@ -923,6 +762,7 @@ class _TeamDetailsPanel extends StatelessWidget {
   final List<UserProfile> users;
   final List<UserProfile> managers;
   final bool isAdmin;
+  final bool isSaving;
   final String actorUid;
 
   @override
@@ -970,53 +810,15 @@ class _TeamDetailsPanel extends StatelessWidget {
                     ? AppStatusTone.success
                     : AppStatusTone.neutral,
               ),
-              if (isAdmin) ...[
-                AppButton(
-                  label: l.editTeam,
-                  icon: Icons.edit_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () => _showTeamFormDialog(
-                    context,
-                    companyId: team.companyId,
-                    managers: managers,
-                    actorUid: actorUid,
-                    team: team,
-                  ),
+              if (isAdmin)
+                _TeamActionsMenu(
+                  team: team,
+                  users: users,
+                  managers: managers,
+                  members: members,
+                  actorUid: actorUid,
+                  isSaving: isSaving,
                 ),
-                AppButton(
-                  label: l.manageMembers,
-                  icon: Icons.group_add_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () => _showManageMembersDialog(
-                    context,
-                    team: team,
-                    users: users,
-                    members: members,
-                    actorUid: actorUid,
-                  ),
-                ),
-                AppButton(
-                  label: team.isActive ? l.deactivateTeam : l.activateTeam,
-                  icon: team.isActive
-                      ? Icons.block_outlined
-                      : Icons.check_circle_outline,
-                  variant: team.isActive
-                      ? AppButtonVariant.danger
-                      : AppButtonVariant.secondary,
-                  onPressed: () async {
-                    final success = await context
-                        .read<TeamsCubit>()
-                        .setTeamActiveStatus(
-                          team: team,
-                          isActive: !team.isActive,
-                          actorUid: actorUid,
-                        );
-                    if (context.mounted && success) {
-                      AppFeedback.success(context, l.teamSavedSuccessfully);
-                    }
-                  },
-                ),
-              ],
             ],
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1046,15 +848,22 @@ class _TeamDetailsPanel extends StatelessWidget {
               message: l.noTeamMembersYetMessage,
             )
           else
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
+            Column(
               children: [
-                for (final member in members)
-                  SizedBox(
-                    width: 300,
-                    child: _UserCard(user: member),
+                for (final member in members) ...[
+                  _CompactUserRow(
+                    user: member,
+                    trailing: isAdmin
+                        ? _MemberActionsMenu(
+                            user: member,
+                            actorUid: actorUid,
+                            isSaving: isSaving,
+                          )
+                        : null,
                   ),
+                  if (member != members.last)
+                    const SizedBox(height: AppSpacing.xs),
+                ],
               ],
             ),
         ],
@@ -1076,6 +885,261 @@ class _NoTeamPanel extends StatelessWidget {
         icon: Icons.groups_outlined,
         title: isAdmin ? l.noTeamsYet : l.noTeamAssigned,
         message: isAdmin ? l.noTeamsYetMessage : l.noTeamAssignedMessage,
+      ),
+    );
+  }
+}
+
+enum _TeamAction { edit, members, toggleActive }
+
+class _TeamActionsMenu extends StatelessWidget {
+  const _TeamActionsMenu({
+    required this.team,
+    required this.users,
+    required this.managers,
+    required this.members,
+    required this.actorUid,
+    required this.isSaving,
+  });
+
+  final Team team;
+  final List<UserProfile> users;
+  final List<UserProfile> managers;
+  final List<UserProfile> members;
+  final String actorUid;
+  final bool isSaving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return PopupMenuButton<_TeamAction>(
+      tooltip: l.actions,
+      enabled: !isSaving,
+      icon: isSaving
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.more_horiz),
+      onSelected: (action) => _handleAction(context, action),
+      itemBuilder: (context) => [
+        PopupMenuItem<_TeamAction>(
+          value: _TeamAction.edit,
+          child: _PopupMenuRow(icon: Icons.edit_outlined, label: l.editTeam),
+        ),
+        PopupMenuItem<_TeamAction>(
+          value: _TeamAction.members,
+          child: _PopupMenuRow(
+            icon: Icons.group_add_outlined,
+            label: l.manageMembers,
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<_TeamAction>(
+          value: _TeamAction.toggleActive,
+          child: _PopupMenuRow(
+            icon: team.isActive
+                ? Icons.block_outlined
+                : Icons.check_circle_outline,
+            label: team.isActive ? l.deactivateTeam : l.activateTeam,
+            danger: team.isActive,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleAction(BuildContext context, _TeamAction action) async {
+    switch (action) {
+      case _TeamAction.edit:
+        return _showTeamFormDialog(
+          context,
+          companyId: team.companyId,
+          managers: managers,
+          actorUid: actorUid,
+          team: team,
+        );
+      case _TeamAction.members:
+        return _showManageMembersDialog(
+          context,
+          team: team,
+          users: users,
+          members: members,
+          actorUid: actorUid,
+        );
+      case _TeamAction.toggleActive:
+        final success = await context.read<TeamsCubit>().setTeamActiveStatus(
+              team: team,
+              isActive: !team.isActive,
+              actorUid: actorUid,
+            );
+        if (context.mounted && success) {
+          AppFeedback.success(context, AppLocalizations.of(context)!.teamSavedSuccessfully);
+        }
+        return;
+    }
+  }
+}
+
+class _MemberActionsMenu extends StatelessWidget {
+  const _MemberActionsMenu({
+    required this.user,
+    required this.actorUid,
+    required this.isSaving,
+  });
+
+  final UserProfile user;
+  final String actorUid;
+  final bool isSaving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return PopupMenuButton<_MemberAction>(
+      tooltip: l.actions,
+      enabled: !isSaving,
+      icon: isSaving
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.more_horiz),
+      onSelected: (_) => _removeMember(context),
+      itemBuilder: (context) => [
+        PopupMenuItem<_MemberAction>(
+          value: _MemberAction.remove,
+          child: _PopupMenuRow(
+            icon: Icons.person_remove_outlined,
+            label: l.removeMember,
+            danger: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _removeMember(BuildContext context) async {
+    final success = await context.read<TeamsCubit>().removeUserFromTeam(
+          user: user,
+          actorUid: actorUid,
+        );
+    if (context.mounted && success) {
+      AppFeedback.success(context, AppLocalizations.of(context)!.userRemovedFromTeam);
+    }
+  }
+}
+
+enum _MemberAction { remove }
+
+class _PopupMenuRow extends StatelessWidget {
+  const _PopupMenuRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? AppColors.errorColor(context)
+        : AppColors.textPrimaryColor(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactUserRow extends StatelessWidget {
+  const _CompactUserRow({
+    required this.user,
+    this.trailing,
+    this.showTeam = true,
+  });
+
+  final UserProfile user;
+  final Widget? trailing;
+  final bool showTeam;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          _TeamUserAvatar(name: user.fullName, photoUrl: user.photoUrl),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                Text(
+                  user.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          if (showTeam && user.teamName.trim().isNotEmpty)
+            Expanded(
+              child: Text(
+                user.teamName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          AppStatusBadge(label: _roleLabel(l, user.role), tone: AppStatusTone.info),
+          const SizedBox(width: AppSpacing.xs),
+          AppStatusBadge(
+            label: user.isActive ? l.active : l.inactive,
+            tone: user.isActive ? AppStatusTone.success : AppStatusTone.neutral,
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            trailing!,
+          ],
+        ],
       ),
     );
   }

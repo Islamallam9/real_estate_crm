@@ -24,6 +24,7 @@ import '../../data/repositories/data_health_repository_impl.dart';
 import '../../domain/usecases/backfill_operational_record_snapshots_usecase.dart';
 import '../../domain/usecases/get_data_health_eligible_assignees_usecase.dart';
 import '../../domain/usecases/get_operational_data_health_report_usecase.dart';
+import '../../domain/usecases/notify_data_health_manager_usecase.dart';
 import '../../domain/usecases/reassign_data_health_record_usecase.dart';
 import '../cubit/data_health_cubit.dart';
 import '../cubit/data_health_state.dart';
@@ -50,6 +51,7 @@ class _DataHealthPageState extends State<DataHealthPage> {
       backfillUseCase: BackfillOperationalRecordSnapshotsUseCase(repository),
       reassignUseCase: ReassignDataHealthRecordUseCase(repository),
       eligibleAssigneesUseCase: GetDataHealthEligibleAssigneesUseCase(repository),
+      notifyManagerUseCase: NotifyDataHealthManagerUseCase(repository),
     );
   }
 
@@ -377,10 +379,13 @@ class _IssueTile extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final backfillActionId = '${issue.module}/${issue.recordId}/backfill';
     final reassignActionId = '${issue.module}/${issue.recordId}/reassign';
+    final notifyActionId = '${issue.module}/${issue.recordId}/notifyManager';
     final isBackfilling = state.activeActionId == backfillActionId;
     final isReassigning = state.activeActionId == reassignActionId;
+    final isNotifying = state.activeActionId == notifyActionId;
     final assigneeLabel = _assigneeLabel(l, issue);
     final needsReassign = !issue.canBackfill;
+    final canNotifyManager = issue.managerId.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
@@ -458,7 +463,33 @@ class _IssueTile extends StatelessWidget {
                       ? null
                       : () => _showReassignDialog(context, issue, currentUser!),
                 ),
-
+              Tooltip(
+                message: canNotifyManager
+                    ? l.notifyManager
+                    : l.noManagerForDataHealthIssue,
+                child: AppButton(
+                  label: l.notifyManager,
+                  icon: Icons.notifications_active_outlined,
+                  variant: AppButtonVariant.secondary,
+                  isLoading: isNotifying,
+                  onPressed: !canNotifyManager || isNotifying
+                      ? null
+                      : () async {
+                          final success = await cubit.notifyManager(
+                            companyId: companyId,
+                            module: issue.module,
+                            recordId: issue.recordId,
+                            issueType: issue.issueType,
+                          );
+                          if (context.mounted && success) {
+                            AppFeedback.success(
+                              context,
+                              l.managerNotificationSent,
+                            );
+                          }
+                        },
+                ),
+              ),
             ],
           );
           if (narrow) {

@@ -24,6 +24,13 @@ abstract interface class DataHealthRemoteDataSource {
     required String newAssigneeUid,
   });
 
+  Future<void> notifyManager({
+    required String companyId,
+    required String module,
+    required String recordId,
+    required String issueType,
+  });
+
   Future<List<UserProfileModel>> getEligibleAssignees({
     required String companyId,
     required String module,
@@ -83,6 +90,23 @@ class FirebaseDataHealthRemoteDataSource implements DataHealthRemoteDataSource {
         'module': module,
         'recordId': recordId,
         'newAssigneeUid': newAssigneeUid,
+      },
+    );
+  }
+
+  @override
+  Future<void> notifyManager({
+    required String companyId,
+    required String module,
+    required String recordId,
+    required String issueType,
+  }) async {
+    await _functions.httpsCallable('notifyDataHealthManager').call(
+      <String, Object?>{
+        'companyId': companyId,
+        'module': module,
+        'recordId': recordId,
+        'issueType': issueType,
       },
     );
   }

@@ -16,6 +16,8 @@ class CompanyMetadataModel extends CompanyMetadata {
     required super.settings,
     required super.limits,
     required super.features,
+    super.storageUsedBytes,
+    super.storageUsageUpdatedAt,
   });
 
   factory CompanyMetadataModel.fromFirestore(
@@ -39,8 +41,32 @@ class CompanyMetadataModel extends CompanyMetadata {
       settings: _mapFromValue(data['settings']),
       limits: _mapFromValue(data['limits']),
       features: _mapFromValue(data['features']),
+      storageUsedBytes: _intFromValue(data['storageUsedBytes']),
+      storageUsageUpdatedAt: _nullableDateTimeFromValue(
+        data['storageUsageUpdatedAt'],
+      ),
     );
   }
+}
+
+int? _intFromValue(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
+}
+
+DateTime? _nullableDateTimeFromValue(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  return _dateTimeFromValue(value);
 }
 
 Map<String, Object?> _mapFromValue(Object? value) {

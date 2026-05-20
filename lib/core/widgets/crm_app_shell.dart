@@ -27,6 +27,7 @@ import '../theme/theme_cubit.dart';
 import '../../l10n/app_localizations.dart';
 import '../routing/route_names.dart';
 import 'app_feedback.dart';
+import 'masar_brand.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem {
@@ -38,8 +39,10 @@ enum CrmNavigationItem {
   appointments,
   deals,
   reports,
+  users,
   teams,
   dataHealth,
+  support,
   more,
 }
 
@@ -99,6 +102,11 @@ class CrmAppShell extends StatelessWidget {
       selectedIcon: Icons.bar_chart,
     ),
     _CrmShellItem(
+      item: CrmNavigationItem.users,
+      icon: Icons.manage_accounts_outlined,
+      selectedIcon: Icons.manage_accounts,
+    ),
+    _CrmShellItem(
       item: CrmNavigationItem.teams,
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups,
@@ -107,6 +115,11 @@ class CrmAppShell extends StatelessWidget {
       item: CrmNavigationItem.dataHealth,
       icon: Icons.health_and_safety_outlined,
       selectedIcon: Icons.health_and_safety,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.support,
+      icon: Icons.support_agent_outlined,
+      selectedIcon: Icons.support_agent,
     ),
   ];
 
@@ -194,7 +207,9 @@ class _CrmNotificationsScope extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = authState.userProfile;
     final authUid = authState.user?.uid ?? '';
-    if (profile == null || authUid.isEmpty) {
+    if (profile == null ||
+        authUid.isEmpty ||
+        !authState.companyMetadata.isFeatureEnabled(CompanyFeature.notifications)) {
       return child;
     }
 
@@ -283,8 +298,10 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.appointments => CompanyFeature.appointments,
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
+    CrmNavigationItem.users => null,
     CrmNavigationItem.teams => null,
     CrmNavigationItem.dataHealth => null,
+    CrmNavigationItem.support => null,
     CrmNavigationItem.more => null,
   };
 }
@@ -294,7 +311,7 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
   if (!_isNavigationItemEnabled(authState.companyMetadata, item)) {
     AppFeedback.error(
       context,
-      AppLocalizations.of(context)!.featureUnavailableMessage,
+      AppLocalizations.of(context)!.featureNotEnabledForWorkspace,
     );
     return;
   }
@@ -316,10 +333,14 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.deals);
     case CrmNavigationItem.reports:
       context.go(RouteNames.reports);
+    case CrmNavigationItem.users:
+      context.go(RouteNames.users);
     case CrmNavigationItem.teams:
       context.go(RouteNames.teams);
     case CrmNavigationItem.dataHealth:
       context.go(RouteNames.dataHealth);
+    case CrmNavigationItem.support:
+      context.go(RouteNames.support);
     case CrmNavigationItem.more:
       break;
   }
@@ -330,6 +351,9 @@ List<_CrmShellItem> _visibleItemsForRole(
   UserRole? role,
 ) {
   return items.where((item) {
+    if (item.item == CrmNavigationItem.users) {
+      return role == UserRole.admin;
+    }
     if (item.item == CrmNavigationItem.teams) {
       return role == UserRole.admin || role == UserRole.manager;
     }
@@ -844,8 +868,10 @@ class _MobileBottomNavigation extends StatelessWidget {
             selectedItem == CrmNavigationItem.appointments ||
             selectedItem == CrmNavigationItem.deals ||
             selectedItem == CrmNavigationItem.reports ||
+            selectedItem == CrmNavigationItem.users ||
             selectedItem == CrmNavigationItem.teams ||
-            selectedItem == CrmNavigationItem.dataHealth);
+            selectedItem == CrmNavigationItem.dataHealth ||
+            selectedItem == CrmNavigationItem.support);
   }
 }
 
@@ -1013,6 +1039,15 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                     context.go(RouteNames.reports);
                   },
                 ),
+                if (role == UserRole.admin)
+                  _MoreSheetTile(
+                    icon: Icons.manage_accounts_outlined,
+                    label: localizations.userManagement,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.go(RouteNames.users);
+                    },
+                  ),
                 if (role == UserRole.admin || role == UserRole.manager)
                   _MoreSheetTile(
                     icon: Icons.groups_outlined,
@@ -1031,6 +1066,14 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                       context.go(RouteNames.dataHealth);
                     },
                   ),
+                _MoreSheetTile(
+                  icon: Icons.support_agent_outlined,
+                  label: localizations.supportCenter,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go(RouteNames.support);
+                  },
+                ),
 
               ],
             ),
@@ -1315,11 +1358,7 @@ class _BrandHeader extends StatelessWidget {
               : AppColors.primaryBorder.withValues(alpha: 0.7),
         ),
       ),
-      child: Icon(
-        Icons.apartment,
-        color: isDark ? AppColors.darkPrimary : AppColors.primaryDeep,
-        size: 22,
-      ),
+      child: const MasarBrandMark(size: 30),
     );
 
     if (isCollapsed) {
@@ -2115,6 +2154,10 @@ class _NotificationIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    if (!authState.companyMetadata.isFeatureEnabled(CompanyFeature.notifications)) {
+      return const SizedBox.shrink();
+    }
     return NotificationBellButton(compact: compact);
   }
 }
@@ -2494,10 +2537,14 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.deals;
     case CrmNavigationItem.reports:
       return localizations.reports;
+    case CrmNavigationItem.users:
+      return localizations.userManagement;
     case CrmNavigationItem.teams:
       return localizations.teamManagement;
     case CrmNavigationItem.dataHealth:
       return localizations.dataHealth;
+    case CrmNavigationItem.support:
+      return localizations.supportCenter;
     case CrmNavigationItem.more:
       return localizations.more;
   }

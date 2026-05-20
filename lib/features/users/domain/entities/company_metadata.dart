@@ -14,6 +14,8 @@ class CompanyMetadata extends Equatable {
     required this.settings,
     required this.limits,
     required this.features,
+    this.storageUsedBytes,
+    this.storageUsageUpdatedAt,
   });
 
   final String id;
@@ -28,6 +30,8 @@ class CompanyMetadata extends Equatable {
   final Map<String, Object?> settings;
   final Map<String, Object?> limits;
   final Map<String, Object?> features;
+  final int? storageUsedBytes;
+  final DateTime? storageUsageUpdatedAt;
 
   bool get isUsable => isActive && status == 'active';
 
@@ -45,5 +49,7 @@ class CompanyMetadata extends Equatable {
     settings,
     limits,
     features,
+    storageUsedBytes,
+    storageUsageUpdatedAt,
   ];
 }

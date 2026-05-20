@@ -66,6 +66,9 @@ CompanyFeature? companyFeatureForLocation(String location) {
   if (location.startsWith(RouteNames.reports)) {
     return CompanyFeature.reports;
   }
+  if (location.startsWith(RouteNames.notifications)) {
+    return CompanyFeature.notifications;
+  }
 
   return null;
 }

@@ -29,6 +29,8 @@ class UserProfile extends Equatable {
     this.lastLoginDeviceType = '',
     this.lastLoginLocale = '',
     this.lastLoginTimezone = '',
+    this.mustChangePassword = false,
+    this.passwordSetupMethod = '',
   });
 
   final String uid;
@@ -56,6 +58,68 @@ class UserProfile extends Equatable {
   final String lastLoginDeviceType;
   final String lastLoginLocale;
   final String lastLoginTimezone;
+  final bool mustChangePassword;
+  final String passwordSetupMethod;
+
+  UserProfile copyWith({
+    String? uid,
+    String? companyId,
+    String? fullName,
+    String? email,
+    String? phone,
+    UserRole? role,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? createdBy,
+    String? updatedBy,
+    String? teamId,
+    String? teamName,
+    String? managerId,
+    String? managerName,
+    String? photoUrl,
+    String? photoStoragePath,
+    DateTime? lastLoginAt,
+    String? lastLoginIp,
+    String? lastLoginUserAgent,
+    String? lastLoginPlatform,
+    String? lastLoginBrowser,
+    String? lastLoginDeviceType,
+    String? lastLoginLocale,
+    String? lastLoginTimezone,
+    bool? mustChangePassword,
+    String? passwordSetupMethod,
+  }) {
+    return UserProfile(
+      uid: uid ?? this.uid,
+      companyId: companyId ?? this.companyId,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
+      teamId: teamId ?? this.teamId,
+      teamName: teamName ?? this.teamName,
+      managerId: managerId ?? this.managerId,
+      managerName: managerName ?? this.managerName,
+      photoUrl: photoUrl ?? this.photoUrl,
+      photoStoragePath: photoStoragePath ?? this.photoStoragePath,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      lastLoginIp: lastLoginIp ?? this.lastLoginIp,
+      lastLoginUserAgent: lastLoginUserAgent ?? this.lastLoginUserAgent,
+      lastLoginPlatform: lastLoginPlatform ?? this.lastLoginPlatform,
+      lastLoginBrowser: lastLoginBrowser ?? this.lastLoginBrowser,
+      lastLoginDeviceType: lastLoginDeviceType ?? this.lastLoginDeviceType,
+      lastLoginLocale: lastLoginLocale ?? this.lastLoginLocale,
+      lastLoginTimezone: lastLoginTimezone ?? this.lastLoginTimezone,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      passwordSetupMethod: passwordSetupMethod ?? this.passwordSetupMethod,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -84,5 +148,7 @@ class UserProfile extends Equatable {
     lastLoginDeviceType,
     lastLoginLocale,
     lastLoginTimezone,
+    mustChangePassword,
+    passwordSetupMethod,
   ];
 }
