@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../core/routing/route_names.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/errors/auth_exception.dart';
 import '../bloc/auth_bloc.dart';
@@ -51,7 +54,7 @@ class _LoginFormState extends State<LoginForm> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 enabled: !isLoading,
-                validator: (value) => _validateEmail(value, localizations),
+                validator: (value) => AppValidators.email(value, localizations),
               ),
               const SizedBox(height: AppSpacing.md),
               AppTextField(
@@ -92,6 +95,12 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: isLoading || isLocked ? null : () => _submit(context),
                 isLoading: isLoading,
               ),
+              const SizedBox(height: AppSpacing.sm),
+              TextButton.icon(
+                onPressed: isLoading ? null : () => context.go(RouteNames.registerCompany),
+                icon: const Icon(Icons.add_circle_outline),
+                label: Text(localizations.registerYourCompany),
+              ),
             ],
           ),
         );
@@ -99,21 +108,8 @@ class _LoginFormState extends State<LoginForm> {
     );
   }
 
-  String? _validateEmail(String? value, AppLocalizations localizations) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) {
-      return localizations.emailRequired;
-    }
-
-    final isValid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-    if (!isValid) {
-      return localizations.invalidEmail;
-    }
-
-    return null;
-  }
-
   void _submit(BuildContext context) {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) {
       return;
     }

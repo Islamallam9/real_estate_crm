@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'core/localization/locale_cubit.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -129,39 +127,100 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
 }
 
 ThemeData _localizedTheme(ThemeData theme, Locale? locale) {
-  final englishFamily = GoogleFonts.plusJakartaSans().fontFamily;
-  final arabicFamily = GoogleFonts.ibmPlexSansArabic().fontFamily;
+  final isArabic = locale?.languageCode == 'ar';
 
-  final fallback = <String>[
-    ?arabicFamily,
-    ?englishFamily,
-    'Noto Sans Arabic',
-    'Segoe UI',
-    'Tahoma',
-    'Arial',
-    'Roboto',
-    'sans-serif',
-  ];
+  final fontFamily = isArabic ? 'IBM Plex Sans Arabic' : 'Plus Jakarta Sans';
+  final fallback = isArabic
+      ? <String>['Tahoma', 'Arial', 'sans-serif']
+      : <String>['Roboto', 'Segoe UI', 'Arial', 'sans-serif'];
 
-  final themeWithFallback = theme.copyWith(
-    textTheme: GoogleFonts.plusJakartaSansTextTheme(
-      theme.textTheme,
-    ).apply(fontFamilyFallback: fallback),
-    primaryTextTheme: theme.primaryTextTheme.apply(
+  TextTheme localizeTextTheme(TextTheme textTheme) {
+    return textTheme.apply(
+      fontFamily: fontFamily,
       fontFamilyFallback: fallback,
-    ),
-  );
-
-  if (locale?.languageCode != 'ar') {
-    return themeWithFallback;
+    );
   }
 
-  return themeWithFallback.copyWith(
-    textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(
-      themeWithFallback.textTheme,
+  TextStyle? localizeTextStyle(TextStyle? style) {
+    if (style == null) return null;
+
+    return style.copyWith(
+      fontFamily: fontFamily,
+      fontFamilyFallback: fallback,
+    );
+  }
+
+  WidgetStateProperty<TextStyle?>? localizeStateTextStyle(
+    WidgetStateProperty<TextStyle?>? property,
+  ) {
+    final style = property?.resolve(<WidgetState>{});
+    if (style == null) return property;
+    return WidgetStatePropertyAll<TextStyle?>(localizeTextStyle(style));
+  }
+
+  return theme.copyWith(
+    textTheme: localizeTextTheme(theme.textTheme),
+    primaryTextTheme: localizeTextTheme(theme.primaryTextTheme),
+    appBarTheme: theme.appBarTheme.copyWith(
+      titleTextStyle: localizeTextStyle(theme.appBarTheme.titleTextStyle),
     ),
-    primaryTextTheme: GoogleFonts.ibmPlexSansArabicTextTheme(
-      themeWithFallback.primaryTextTheme,
+    snackBarTheme: theme.snackBarTheme.copyWith(
+      contentTextStyle: localizeTextStyle(
+        theme.snackBarTheme.contentTextStyle,
+      ),
+    ),
+    popupMenuTheme: theme.popupMenuTheme.copyWith(
+      textStyle: localizeTextStyle(theme.popupMenuTheme.textStyle),
+    ),
+    inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+      labelStyle: localizeTextStyle(theme.inputDecorationTheme.labelStyle),
+      hintStyle: localizeTextStyle(theme.inputDecorationTheme.hintStyle),
+      errorStyle: localizeTextStyle(theme.inputDecorationTheme.errorStyle),
+      helperStyle: localizeTextStyle(theme.inputDecorationTheme.helperStyle),
+      prefixStyle: localizeTextStyle(theme.inputDecorationTheme.prefixStyle),
+      suffixStyle: localizeTextStyle(theme.inputDecorationTheme.suffixStyle),
+      counterStyle: localizeTextStyle(theme.inputDecorationTheme.counterStyle),
+      floatingLabelStyle: localizeTextStyle(
+        theme.inputDecorationTheme.floatingLabelStyle,
+      ),
+    ),
+    navigationBarTheme: theme.navigationBarTheme.copyWith(
+      labelTextStyle: localizeStateTextStyle(
+        theme.navigationBarTheme.labelTextStyle,
+      ),
+    ),
+    dataTableTheme: theme.dataTableTheme.copyWith(
+      headingTextStyle: localizeTextStyle(
+        theme.dataTableTheme.headingTextStyle,
+      ),
+      dataTextStyle: localizeTextStyle(theme.dataTableTheme.dataTextStyle),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: theme.filledButtonTheme.style?.copyWith(
+        textStyle: localizeStateTextStyle(
+          theme.filledButtonTheme.style?.textStyle,
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: theme.outlinedButtonTheme.style?.copyWith(
+        textStyle: localizeStateTextStyle(
+          theme.outlinedButtonTheme.style?.textStyle,
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: theme.textButtonTheme.style?.copyWith(
+        textStyle: localizeStateTextStyle(
+          theme.textButtonTheme.style?.textStyle,
+        ),
+      ),
+    ),
+    tabBarTheme: theme.tabBarTheme.copyWith(
+      labelStyle: localizeTextStyle(theme.tabBarTheme.labelStyle),
+      unselectedLabelStyle: localizeTextStyle(
+        theme.tabBarTheme.unselectedLabelStyle,
+      ),
     ),
   );
 }
