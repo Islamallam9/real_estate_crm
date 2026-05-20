@@ -1747,6 +1747,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addUser => 'Add user';
 
   @override
+  String get platformSupportAddUser => 'Support add user';
+
+  @override
+  String get platformCurrentCompany => 'Current company';
+
+  @override
+  String get platformDashboardHeroSubtitle =>
+      'Complete overview of platform performance, companies, and users.';
+
+  @override
+  String get platformSearchHint => 'Search platform...';
+
+  @override
+  String get platformCompanySelector => 'Company selector';
+
+  @override
+  String get platformSelectedCompany => 'Selected company';
+
+  @override
+  String get platformCompanyFeatures => 'Enabled features';
+
+  @override
+  String get platformStorageUsage => 'Storage usage';
+
+  @override
+  String get platformRecentActivity => 'Recent activity';
+
+  @override
+  String get platformWorkspaceSummary => 'Workspace summary';
+
+  @override
+  String get platformViewAllLogs => 'View all logs';
+
+  @override
+  String get platformViewAllCompanies => 'View all companies';
+
+  @override
+  String get platformNoRecentActivity => 'No recent activity yet';
+
+  @override
+  String get platformTotalUsers => 'Total users';
+
+  @override
+  String get platformAdminsManagers => 'Admins / Managers';
+
+  @override
+  String get platformActiveUsers => 'Active users';
+
+  @override
+  String platformOwnerGreeting(Object name) {
+    return 'Good evening, $name';
+  }
+
+  @override
   String get activateCompany => 'Activate company';
 
   @override
@@ -2255,6 +2309,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifyManager => 'Notify manager';
 
   @override
+  String get noManagerForDataHealthIssue =>
+      'No responsible manager is available for this issue.';
+
+  @override
+  String get managerNotificationSent => 'Manager notified successfully.';
+
+  @override
   String get notificationsComingSoon => 'Notifications are not available yet.';
 
   @override
@@ -2438,6 +2499,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationDataHealthIssueTitle => 'Data health needs attention';
+
+  @override
+  String notificationDataHealthIssueBody(Object record, Object issue) {
+    return '$record needs review: $issue.';
+  }
 
   @override
   String get notificationGenericTitle => 'CRM notification';
@@ -2809,4 +2875,661 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationTeamAppointmentMissedTitle =>
       'Team appointment missed';
+
+  @override
+  String get invitations => 'Invitations';
+
+  @override
+  String get createInvitation => 'Create invitation';
+
+  @override
+  String get invitationCode => 'Invitation code';
+
+  @override
+  String get invitationLink => 'Invitation link';
+
+  @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get copyLink => 'Copy link';
+
+  @override
+  String get revokeInvitation => 'Revoke invitation';
+
+  @override
+  String get invitationActive => 'Invitation active';
+
+  @override
+  String get invitationUsed => 'Invitation used';
+
+  @override
+  String get invitationExpired => 'Invitation expired';
+
+  @override
+  String get invitationRevoked => 'Invitation revoked';
+
+  @override
+  String get expiresAt => 'Expires at';
+
+  @override
+  String get plan => 'Plan';
+
+  @override
+  String get planId => 'Plan ID';
+
+  @override
+  String get features => 'Features';
+
+  @override
+  String get allowedAdminEmail => 'Allowed admin email';
+
+  @override
+  String get manualSupportSetup => 'Manual support setup';
+
+  @override
+  String get invitationOnboarding => 'Invitation onboarding';
+
+  @override
+  String get companyAdminInvitation => 'Company admin invitation';
+
+  @override
+  String get invitationOnboardingNote =>
+      'Invitation onboarding lets a company admin register their own company workspace. Manual setup remains available for support cases.';
+
+  @override
+  String get noInvitationsYet => 'No invitations yet';
+
+  @override
+  String get noInvitationsYetMessage =>
+      'Create an invitation code for the next subscribing company admin.';
+
+  @override
+  String get invitationCreated =>
+      'Invitation created. Copy the code or link now; the full code is shown only once.';
+
+  @override
+  String get invitationCodeCopied => 'Invitation code copied.';
+
+  @override
+  String get invitationLinkCopied => 'Invitation link copied.';
+
+  @override
+  String get expiresInDays => 'Expires in days';
+
+  @override
+  String get registerYourCompany => 'Register your company';
+
+  @override
+  String get enterInvitationCode => 'Enter invitation code';
+
+  @override
+  String get validateInvitation => 'Validate invitation';
+
+  @override
+  String get invitationValid => 'Invitation valid';
+
+  @override
+  String get invitationInvalid => 'Invitation invalid';
+
+  @override
+  String get adminAccount => 'Admin account';
+
+  @override
+  String get reviewAndCreate => 'Review and create';
+
+  @override
+  String get createWorkspace => 'Create workspace';
+
+  @override
+  String get companyEmail => 'Company email';
+
+  @override
+  String get companyPhone => 'Company phone';
+
+  @override
+  String get cityLocation => 'City/location';
+
+  @override
+  String get preferredLanguage => 'Preferred language';
+
+  @override
+  String get adminFullName => 'Admin full name';
+
+  @override
+  String get adminEmail => 'Admin email';
+
+  @override
+  String get adminPhone => 'Admin phone';
+
+  @override
+  String get companyRegistrationCompleted => 'Company registration completed.';
+
+  @override
+  String get invitationAlreadyUsed => 'Invitation already used';
+
+  @override
+  String get companyIdAlreadyExists => 'Company ID already exists';
+
+  @override
+  String get companyIdInvalid =>
+      'Company ID must use lowercase letters, numbers, hyphens, or underscores.';
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get onboardingTitle =>
+      'From lead to deal, run your real estate sales workspace in one place.';
+
+  @override
+  String get onboardingSubtitle =>
+      'Masar connects teams, leads, properties, appointments, notifications, and reports in a secure company workspace.';
+
+  @override
+  String get onboardingOperationsTitle => 'Operational CRM workspace';
+
+  @override
+  String get onboardingOperationsMessage =>
+      'Manage leads, clients, properties, tasks, deals, and appointments with role-scoped access.';
+
+  @override
+  String get onboardingInvitationTitle => 'Invitation-based company setup';
+
+  @override
+  String get onboardingInvitationMessage =>
+      'Use your invitation code to create the company workspace and start as the first company admin.';
+
+  @override
+  String get onboardingAnalyticsTitle => 'Live dashboards and reports';
+
+  @override
+  String get onboardingAnalyticsMessage =>
+      'Track team performance, due work, appointments, and sales activity from polished dashboards.';
+
+  @override
+  String get signInExistingAccount => 'Sign in to existing account';
+
+  @override
+  String get createAdminWorkspace => 'Create company workspace';
+
+  @override
+  String get companyIdGeneratedAutomatically =>
+      'Company ID is generated automatically';
+
+  @override
+  String get companyIdGeneratedMessage =>
+      'It will be generated from the company name.';
+
+  @override
+  String get invalidPhone => 'Enter a valid phone number.';
+
+  @override
+  String get invalidUrl =>
+      'Enter a valid website URL starting with http:// or https://.';
+
+  @override
+  String get invalidName => 'Enter a valid name.';
+
+  @override
+  String get userManagement => 'User Management';
+
+  @override
+  String get userManagementSubtitle =>
+      'Create managers, sales agents, marketing users, and viewers for this company.';
+
+  @override
+  String get createUser => 'Create user';
+
+  @override
+  String get searchUsers => 'Search users';
+
+  @override
+  String get companyUsersEmptyMessage =>
+      'Create the first company user or manager from this page.';
+
+  @override
+  String get userCreatedResetLinkTitle => 'User created';
+
+  @override
+  String get userCreatedSuccessfully => 'User created successfully';
+
+  @override
+  String get sendSetupLinkToUser =>
+      'Send this setup link to the user so they can set their password.';
+
+  @override
+  String get copySetupLink => 'Copy setup link';
+
+  @override
+  String get openSetupLink => 'Open setup link';
+
+  @override
+  String get linkCopied => 'Link copied.';
+
+  @override
+  String get generateSetupLink => 'Generate setup link';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get userCreatedNoResetLinkMessage =>
+      'The user was created, but no password reset link was returned.';
+
+  @override
+  String get companyUserAlreadyExists =>
+      'This user already belongs to the company.';
+
+  @override
+  String get registrationInvitationInvalid =>
+      'This invitation is no longer valid.';
+
+  @override
+  String get registrationInvitationExpired => 'This invitation has expired.';
+
+  @override
+  String get registrationInvitationUsed =>
+      'This invitation has already been used.';
+
+  @override
+  String get registrationInvitationRevoked =>
+      'This invitation has been revoked.';
+
+  @override
+  String get registrationInvitationLimitReached =>
+      'This invitation has reached its usage limit.';
+
+  @override
+  String get adminEmailAlreadyExists => 'This admin email is already used.';
+
+  @override
+  String get companyNameAlreadyRegistered =>
+      'This company name is already registered. Try another name.';
+
+  @override
+  String get weakPassword => 'The password is too weak.';
+
+  @override
+  String get emailPasswordAuthDisabled =>
+      'Email and password sign-in is not enabled. Contact the platform owner.';
+
+  @override
+  String get unableToCreateAdminUser =>
+      'Unable to create the admin user. Please check the data and try again.';
+
+  @override
+  String get unableToCreateWorkspace =>
+      'Unable to create the workspace. Please check the data and try again.';
+
+  @override
+  String get unableToCompleteRegistration =>
+      'Unable to complete registration. Please try again later.';
+
+  @override
+  String get registrationConflict =>
+      'Registration is already in progress or the workspace was just created. Please try again.';
+
+  @override
+  String get createYourAdminPassword => 'Create your admin password';
+
+  @override
+  String get adminPasswordHelp =>
+      'This password will be used to log in as company admin.';
+
+  @override
+  String get companyAdminPassword => 'Company admin password';
+
+  @override
+  String get confirmCompanyAdminPassword => 'Confirm company admin password';
+
+  @override
+  String get notificationsDisabledForCompany =>
+      'Notifications are disabled for this company.';
+
+  @override
+  String get featureNotEnabledForWorkspace =>
+      'This feature is not enabled for your workspace.';
+
+  @override
+  String get errorOccurred => 'Something went wrong';
+
+  @override
+  String get skip => 'Skip';
+
+  @override
+  String get setTemporaryPassword => 'Set temporary password';
+
+  @override
+  String get confirmTemporaryPassword => 'Confirm temporary password';
+
+  @override
+  String get temporaryPasswordHelp =>
+      'Optional. The user can sign in with this temporary password and should change it from Settings after first login.';
+
+  @override
+  String get temporaryPasswordCreatedMessage =>
+      'The user was created with a temporary password. Share the temporary password securely and ask the user to change it after first login.';
+
+  @override
+  String get mustChangePassword => 'Must change password';
+
+  @override
+  String get temporaryPasswordChangeRequiredTitle => 'Create a new password';
+
+  @override
+  String get temporaryPasswordChangeRequiredMessage =>
+      'You are using a temporary password. Please create a new password before continuing to Masar CRM.';
+
+  @override
+  String get updatePasswordAndContinue => 'Update password and continue';
+
+  @override
+  String get supportCenter => 'Support Center';
+
+  @override
+  String get supportCenterSubtitle =>
+      'Send support requests or lightweight product feedback from inside your workspace.';
+
+  @override
+  String get contactSupport => 'Contact Support';
+
+  @override
+  String get contactSupportSubtitle =>
+      'Create a support request with the page, version, and workspace context attached automatically.';
+
+  @override
+  String get sendFeedback => 'Send Feedback';
+
+  @override
+  String get sendFeedbackSubtitle =>
+      'Share a quick product note without opening a full support ticket.';
+
+  @override
+  String get myRequests => 'My Requests';
+
+  @override
+  String get supportTitle => 'Title';
+
+  @override
+  String get supportMessage => 'Message';
+
+  @override
+  String get supportCategory => 'Category';
+
+  @override
+  String get supportPriority => 'Priority';
+
+  @override
+  String get feedbackRating => 'Rating';
+
+  @override
+  String get feedbackCategory => 'Feedback category';
+
+  @override
+  String get feedbackMessage => 'Feedback message';
+
+  @override
+  String get submitSupportRequest => 'Submit request';
+
+  @override
+  String get submitFeedback => 'Submit feedback';
+
+  @override
+  String get supportTicketCreated => 'Support request submitted.';
+
+  @override
+  String get feedbackSubmitted => 'Feedback submitted.';
+
+  @override
+  String get supportNoRequestsTitle => 'No requests yet';
+
+  @override
+  String get supportNoRequestsMessage =>
+      'Submitted support requests and feedback will appear here.';
+
+  @override
+  String get supportCategoryAccountLogin => 'Account and login';
+
+  @override
+  String get supportCategoryUsersPermissions => 'Users and permissions';
+
+  @override
+  String get supportCategoryBillingSubscription => 'Billing and subscription';
+
+  @override
+  String get supportCategoryBug => 'Bug';
+
+  @override
+  String get feedbackCategorySuggestion => 'Suggestion';
+
+  @override
+  String get feedbackCategoryUiImprovement => 'UI improvement';
+
+  @override
+  String get feedbackCategoryMissingFeature => 'Missing feature';
+
+  @override
+  String get feedbackCategoryConfusingBehavior => 'Confusing behavior';
+
+  @override
+  String get feedbackCategoryPerformance => 'Performance';
+
+  @override
+  String get feedbackCategoryGeneralFeedback => 'General feedback';
+
+  @override
+  String get supportPriorityLow => 'Low';
+
+  @override
+  String get supportPriorityNormal => 'Normal';
+
+  @override
+  String get supportPriorityUrgent => 'Urgent';
+
+  @override
+  String get supportStatusOpen => 'Open';
+
+  @override
+  String get supportStatusInReview => 'In review';
+
+  @override
+  String get supportStatusWaitingForUser => 'Waiting for user';
+
+  @override
+  String get supportStatusResolved => 'Resolved';
+
+  @override
+  String get supportStatusClosed => 'Closed';
+
+  @override
+  String get platformSupportInbox => 'Support Inbox';
+
+  @override
+  String get supportOpenTickets => 'Open tickets';
+
+  @override
+  String get supportUrgentTickets => 'Urgent tickets';
+
+  @override
+  String get supportFeedbackCount => 'Feedback';
+
+  @override
+  String get supportResolvedThisMonth => 'Resolved this month';
+
+  @override
+  String get searchSupportRequests => 'Search support';
+
+  @override
+  String get requestType => 'Type';
+
+  @override
+  String get allTypes => 'All types';
+
+  @override
+  String get requestTypeSupport => 'Support';
+
+  @override
+  String get requestTypeFeedback => 'Feedback';
+
+  @override
+  String get allCategories => 'All categories';
+
+  @override
+  String get supportDetails => 'Request details';
+
+  @override
+  String get updateStatus => 'Update status';
+
+  @override
+  String get supportStatusUpdated => 'Status updated.';
+
+  @override
+  String get company => 'Company';
+
+  @override
+  String get user => 'User';
+
+  @override
+  String get currentRoute => 'Current route';
+
+  @override
+  String get deviceInfo => 'Device info';
+
+  @override
+  String get platformNotifications => 'Platform Notifications';
+
+  @override
+  String get platformNotificationsSubtitle =>
+      'Track important owner actions and SaaS events across Masar CRM.';
+
+  @override
+  String get noPlatformNotifications => 'No platform notifications yet';
+
+  @override
+  String get noPlatformNotificationsMessage =>
+      'Important platform actions and SaaS events will appear here.';
+
+  @override
+  String get markUnread => 'Mark unread';
+
+  @override
+  String get platformNotificationStorageLabel => 'Storage';
+
+  @override
+  String get platformNotificationSeverityInfo => 'Info';
+
+  @override
+  String get platformNotificationSeveritySuccess => 'Success';
+
+  @override
+  String get platformNotificationSeverityWarning => 'Warning';
+
+  @override
+  String get platformNotificationSeverityUrgent => 'Urgent';
+
+  @override
+  String daysAgo(int count) {
+    return '$count days ago';
+  }
+
+  @override
+  String get platformNotificationCompanyRegistered => 'Company registered';
+
+  @override
+  String get platformNotificationCompanyCreated => 'Company created';
+
+  @override
+  String get platformNotificationCompanyStatusChanged =>
+      'Company status changed';
+
+  @override
+  String get platformNotificationCompanySettingsChanged =>
+      'Company settings changed';
+
+  @override
+  String get platformNotificationCompanyFeatureChanged =>
+      'Company features changed';
+
+  @override
+  String get platformNotificationCompanyLimitChanged =>
+      'Company limits changed';
+
+  @override
+  String get platformNotificationCompanyUserCreated => 'Company user created';
+
+  @override
+  String get platformNotificationCompanyUserStatusChanged =>
+      'Company user status changed';
+
+  @override
+  String get platformNotificationCompanyUserPasswordReset =>
+      'Company user password action';
+
+  @override
+  String get platformNotificationInvitationCreated => 'Invitation created';
+
+  @override
+  String get platformNotificationInvitationAccepted => 'Invitation accepted';
+
+  @override
+  String get platformNotificationInvitationRevoked => 'Invitation revoked';
+
+  @override
+  String get platformNotificationSupportTicketCreated =>
+      'Support ticket created';
+
+  @override
+  String get platformNotificationFeedbackSubmitted => 'Feedback submitted';
+
+  @override
+  String get platformNotificationSupportTicketStatusChanged =>
+      'Support status changed';
+
+  @override
+  String get platformNotificationStorageUsageRefreshed =>
+      'Storage usage refreshed';
+
+  @override
+  String get platformNotificationStorageNearLimit => 'Storage near limit';
+
+  @override
+  String get platformNotificationFunctionFailed => 'Platform function failed';
+
+  @override
+  String get platformNotificationUnknown => 'Platform event';
+
+  @override
+  String platformNotificationCompanyActorMessage(Object company, Object actor) {
+    return '$company was updated by $actor.';
+  }
+
+  @override
+  String platformNotificationCompanyMessage(Object company) {
+    return '$company has a new platform event.';
+  }
+
+  @override
+  String platformNotificationActorMessage(Object actor) {
+    return '$actor created a platform event.';
+  }
+
+  @override
+  String get platformNotificationGenericMessage =>
+      'A platform event needs your attention.';
+
+  @override
+  String get storageUsageUnavailable => 'Usage unavailable';
+
+  @override
+  String get storageNotTrackedYet => 'Storage usage is not tracked yet.';
+
+  @override
+  String get storageLastUpdated => 'Last updated';
+
+  @override
+  String get refreshStorageUsage => 'Refresh usage';
+
+  @override
+  String get storageUsageUpdated => 'Storage usage updated.';
 }

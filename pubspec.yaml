@@ -1,7 +1,7 @@
 name: real_estate_crm
 description: Real estate CRM built with Flutter and Firebase.
 publish_to: 'none'
-version: 1.4.0+13
+version: 1.8.0+18
 
 environment:
   sdk: ^3.10.7
@@ -12,8 +12,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   shared_preferences: ^2.2.3
-  google_fonts: ^6.2.1
   fl_chart: ^1.2.0
+  flutter_svg: ^2.2.3
   flutter_bloc: ^9.1.1
   bloc: ^9.0.0
   equatable: ^2.0.7
@@ -33,6 +33,7 @@ dependencies:
   cached_network_image: ^3.4.1
   file_picker: ^11.0.2
   image: ^4.8.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +44,28 @@ flutter:
   generate: true
 
   uses-material-design: true
+
+  assets:
+    - assets/branding/
+
+  fonts:
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-Bold.ttf
+          weight: 700
+    - family: IBM Plex Sans Arabic
+      fonts:
+        - asset: assets/fonts/ibm_plex_sans_arabic/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ibm_plex_sans_arabic/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ibm_plex_sans_arabic/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/ibm_plex_sans_arabic/IBMPlexSansArabic-Bold.ttf
+          weight: 700

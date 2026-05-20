@@ -3410,6 +3410,108 @@ abstract class AppLocalizations {
   /// **'Add user'**
   String get addUser;
 
+  /// No description provided for @platformSupportAddUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Support add user'**
+  String get platformSupportAddUser;
+
+  /// No description provided for @platformCurrentCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Current company'**
+  String get platformCurrentCompany;
+
+  /// No description provided for @platformDashboardHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete overview of platform performance, companies, and users.'**
+  String get platformDashboardHeroSubtitle;
+
+  /// No description provided for @platformSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search platform...'**
+  String get platformSearchHint;
+
+  /// No description provided for @platformCompanySelector.
+  ///
+  /// In en, this message translates to:
+  /// **'Company selector'**
+  String get platformCompanySelector;
+
+  /// No description provided for @platformSelectedCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected company'**
+  String get platformSelectedCompany;
+
+  /// No description provided for @platformCompanyFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled features'**
+  String get platformCompanyFeatures;
+
+  /// No description provided for @platformStorageUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage usage'**
+  String get platformStorageUsage;
+
+  /// No description provided for @platformRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get platformRecentActivity;
+
+  /// No description provided for @platformWorkspaceSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace summary'**
+  String get platformWorkspaceSummary;
+
+  /// No description provided for @platformViewAllLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'View all logs'**
+  String get platformViewAllLogs;
+
+  /// No description provided for @platformViewAllCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'View all companies'**
+  String get platformViewAllCompanies;
+
+  /// No description provided for @platformNoRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent activity yet'**
+  String get platformNoRecentActivity;
+
+  /// No description provided for @platformTotalUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Total users'**
+  String get platformTotalUsers;
+
+  /// No description provided for @platformAdminsManagers.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins / Managers'**
+  String get platformAdminsManagers;
+
+  /// No description provided for @platformActiveUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active users'**
+  String get platformActiveUsers;
+
+  /// No description provided for @platformOwnerGreeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening, {name}'**
+  String platformOwnerGreeting(Object name);
+
   /// No description provided for @activateCompany.
   ///
   /// In en, this message translates to:
@@ -4340,6 +4442,18 @@ abstract class AppLocalizations {
   /// **'Notify manager'**
   String get notifyManager;
 
+  /// No description provided for @noManagerForDataHealthIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'No responsible manager is available for this issue.'**
+  String get noManagerForDataHealthIssue;
+
+  /// No description provided for @managerNotificationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Manager notified successfully.'**
+  String get managerNotificationSent;
+
   /// No description provided for @notificationsComingSoon.
   ///
   /// In en, this message translates to:
@@ -4663,6 +4777,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Data health needs attention'**
   String get notificationDataHealthIssueTitle;
+
+  /// No description provided for @notificationDataHealthIssueBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{record} needs review: {issue}.'**
+  String notificationDataHealthIssueBody(Object record, Object issue);
 
   /// No description provided for @notificationGenericTitle.
   ///
@@ -5284,6 +5404,1206 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Team appointment missed'**
   String get notificationTeamAppointmentMissedTitle;
+
+  /// No description provided for @invitations.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitations'**
+  String get invitations;
+
+  /// No description provided for @createInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Create invitation'**
+  String get createInvitation;
+
+  /// No description provided for @invitationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation code'**
+  String get invitationCode;
+
+  /// No description provided for @invitationLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation link'**
+  String get invitationLink;
+
+  /// No description provided for @copyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get copyCode;
+
+  /// No description provided for @copyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get copyLink;
+
+  /// No description provided for @revokeInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke invitation'**
+  String get revokeInvitation;
+
+  /// No description provided for @invitationActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation active'**
+  String get invitationActive;
+
+  /// No description provided for @invitationUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation used'**
+  String get invitationUsed;
+
+  /// No description provided for @invitationExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation expired'**
+  String get invitationExpired;
+
+  /// No description provided for @invitationRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation revoked'**
+  String get invitationRevoked;
+
+  /// No description provided for @expiresAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires at'**
+  String get expiresAt;
+
+  /// No description provided for @plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan'**
+  String get plan;
+
+  /// No description provided for @planId.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan ID'**
+  String get planId;
+
+  /// No description provided for @features.
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get features;
+
+  /// No description provided for @allowedAdminEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed admin email'**
+  String get allowedAdminEmail;
+
+  /// No description provided for @manualSupportSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual support setup'**
+  String get manualSupportSetup;
+
+  /// No description provided for @invitationOnboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation onboarding'**
+  String get invitationOnboarding;
+
+  /// No description provided for @companyAdminInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Company admin invitation'**
+  String get companyAdminInvitation;
+
+  /// No description provided for @invitationOnboardingNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation onboarding lets a company admin register their own company workspace. Manual setup remains available for support cases.'**
+  String get invitationOnboardingNote;
+
+  /// No description provided for @noInvitationsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No invitations yet'**
+  String get noInvitationsYet;
+
+  /// No description provided for @noInvitationsYetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an invitation code for the next subscribing company admin.'**
+  String get noInvitationsYetMessage;
+
+  /// No description provided for @invitationCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation created. Copy the code or link now; the full code is shown only once.'**
+  String get invitationCreated;
+
+  /// No description provided for @invitationCodeCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation code copied.'**
+  String get invitationCodeCopied;
+
+  /// No description provided for @invitationLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation link copied.'**
+  String get invitationLinkCopied;
+
+  /// No description provided for @expiresInDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in days'**
+  String get expiresInDays;
+
+  /// No description provided for @registerYourCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Register your company'**
+  String get registerYourCompany;
+
+  /// No description provided for @enterInvitationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter invitation code'**
+  String get enterInvitationCode;
+
+  /// No description provided for @validateInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Validate invitation'**
+  String get validateInvitation;
+
+  /// No description provided for @invitationValid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation valid'**
+  String get invitationValid;
+
+  /// No description provided for @invitationInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation invalid'**
+  String get invitationInvalid;
+
+  /// No description provided for @adminAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin account'**
+  String get adminAccount;
+
+  /// No description provided for @reviewAndCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Review and create'**
+  String get reviewAndCreate;
+
+  /// No description provided for @createWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Create workspace'**
+  String get createWorkspace;
+
+  /// No description provided for @companyEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Company email'**
+  String get companyEmail;
+
+  /// No description provided for @companyPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Company phone'**
+  String get companyPhone;
+
+  /// No description provided for @cityLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'City/location'**
+  String get cityLocation;
+
+  /// No description provided for @preferredLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred language'**
+  String get preferredLanguage;
+
+  /// No description provided for @adminFullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin full name'**
+  String get adminFullName;
+
+  /// No description provided for @adminEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin email'**
+  String get adminEmail;
+
+  /// No description provided for @adminPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin phone'**
+  String get adminPhone;
+
+  /// No description provided for @companyRegistrationCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Company registration completed.'**
+  String get companyRegistrationCompleted;
+
+  /// No description provided for @invitationAlreadyUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation already used'**
+  String get invitationAlreadyUsed;
+
+  /// No description provided for @companyIdAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID already exists'**
+  String get companyIdAlreadyExists;
+
+  /// No description provided for @companyIdInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID must use lowercase letters, numbers, hyphens, or underscores.'**
+  String get companyIdInvalid;
+
+  /// No description provided for @next.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get next;
+
+  /// No description provided for @onboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'From lead to deal, run your real estate sales workspace in one place.'**
+  String get onboardingTitle;
+
+  /// No description provided for @onboardingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Masar connects teams, leads, properties, appointments, notifications, and reports in a secure company workspace.'**
+  String get onboardingSubtitle;
+
+  /// No description provided for @onboardingOperationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Operational CRM workspace'**
+  String get onboardingOperationsTitle;
+
+  /// No description provided for @onboardingOperationsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage leads, clients, properties, tasks, deals, and appointments with role-scoped access.'**
+  String get onboardingOperationsMessage;
+
+  /// No description provided for @onboardingInvitationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation-based company setup'**
+  String get onboardingInvitationTitle;
+
+  /// No description provided for @onboardingInvitationMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your invitation code to create the company workspace and start as the first company admin.'**
+  String get onboardingInvitationMessage;
+
+  /// No description provided for @onboardingAnalyticsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live dashboards and reports'**
+  String get onboardingAnalyticsTitle;
+
+  /// No description provided for @onboardingAnalyticsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Track team performance, due work, appointments, and sales activity from polished dashboards.'**
+  String get onboardingAnalyticsMessage;
+
+  /// No description provided for @signInExistingAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to existing account'**
+  String get signInExistingAccount;
+
+  /// No description provided for @createAdminWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Create company workspace'**
+  String get createAdminWorkspace;
+
+  /// No description provided for @companyIdGeneratedAutomatically.
+  ///
+  /// In en, this message translates to:
+  /// **'Company ID is generated automatically'**
+  String get companyIdGeneratedAutomatically;
+
+  /// No description provided for @companyIdGeneratedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be generated from the company name.'**
+  String get companyIdGeneratedMessage;
+
+  /// No description provided for @invalidPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid phone number.'**
+  String get invalidPhone;
+
+  /// No description provided for @invalidUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid website URL starting with http:// or https://.'**
+  String get invalidUrl;
+
+  /// No description provided for @invalidName.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid name.'**
+  String get invalidName;
+
+  /// No description provided for @userManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'User Management'**
+  String get userManagement;
+
+  /// No description provided for @userManagementSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create managers, sales agents, marketing users, and viewers for this company.'**
+  String get userManagementSubtitle;
+
+  /// No description provided for @createUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Create user'**
+  String get createUser;
+
+  /// No description provided for @searchUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search users'**
+  String get searchUsers;
+
+  /// No description provided for @companyUsersEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the first company user or manager from this page.'**
+  String get companyUsersEmptyMessage;
+
+  /// No description provided for @userCreatedResetLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'User created'**
+  String get userCreatedResetLinkTitle;
+
+  /// No description provided for @userCreatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'User created successfully'**
+  String get userCreatedSuccessfully;
+
+  /// No description provided for @sendSetupLinkToUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this setup link to the user so they can set their password.'**
+  String get sendSetupLinkToUser;
+
+  /// No description provided for @copySetupLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy setup link'**
+  String get copySetupLink;
+
+  /// No description provided for @openSetupLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Open setup link'**
+  String get openSetupLink;
+
+  /// No description provided for @linkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied.'**
+  String get linkCopied;
+
+  /// No description provided for @generateSetupLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate setup link'**
+  String get generateSetupLink;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @userCreatedNoResetLinkMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The user was created, but no password reset link was returned.'**
+  String get userCreatedNoResetLinkMessage;
+
+  /// No description provided for @companyUserAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This user already belongs to the company.'**
+  String get companyUserAlreadyExists;
+
+  /// No description provided for @registrationInvitationInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation is no longer valid.'**
+  String get registrationInvitationInvalid;
+
+  /// No description provided for @registrationInvitationExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation has expired.'**
+  String get registrationInvitationExpired;
+
+  /// No description provided for @registrationInvitationUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation has already been used.'**
+  String get registrationInvitationUsed;
+
+  /// No description provided for @registrationInvitationRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation has been revoked.'**
+  String get registrationInvitationRevoked;
+
+  /// No description provided for @registrationInvitationLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'This invitation has reached its usage limit.'**
+  String get registrationInvitationLimitReached;
+
+  /// No description provided for @adminEmailAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This admin email is already used.'**
+  String get adminEmailAlreadyExists;
+
+  /// No description provided for @companyNameAlreadyRegistered.
+  ///
+  /// In en, this message translates to:
+  /// **'This company name is already registered. Try another name.'**
+  String get companyNameAlreadyRegistered;
+
+  /// No description provided for @weakPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'The password is too weak.'**
+  String get weakPassword;
+
+  /// No description provided for @emailPasswordAuthDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Email and password sign-in is not enabled. Contact the platform owner.'**
+  String get emailPasswordAuthDisabled;
+
+  /// No description provided for @unableToCreateAdminUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to create the admin user. Please check the data and try again.'**
+  String get unableToCreateAdminUser;
+
+  /// No description provided for @unableToCreateWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to create the workspace. Please check the data and try again.'**
+  String get unableToCreateWorkspace;
+
+  /// No description provided for @unableToCompleteRegistration.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to complete registration. Please try again later.'**
+  String get unableToCompleteRegistration;
+
+  /// No description provided for @registrationConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration is already in progress or the workspace was just created. Please try again.'**
+  String get registrationConflict;
+
+  /// No description provided for @createYourAdminPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your admin password'**
+  String get createYourAdminPassword;
+
+  /// No description provided for @adminPasswordHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'This password will be used to log in as company admin.'**
+  String get adminPasswordHelp;
+
+  /// No description provided for @companyAdminPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Company admin password'**
+  String get companyAdminPassword;
+
+  /// No description provided for @confirmCompanyAdminPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm company admin password'**
+  String get confirmCompanyAdminPassword;
+
+  /// No description provided for @notificationsDisabledForCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are disabled for this company.'**
+  String get notificationsDisabledForCompany;
+
+  /// No description provided for @featureNotEnabledForWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'This feature is not enabled for your workspace.'**
+  String get featureNotEnabledForWorkspace;
+
+  /// No description provided for @errorOccurred.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get errorOccurred;
+
+  /// No description provided for @skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skip;
+
+  /// No description provided for @setTemporaryPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Set temporary password'**
+  String get setTemporaryPassword;
+
+  /// No description provided for @confirmTemporaryPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm temporary password'**
+  String get confirmTemporaryPassword;
+
+  /// No description provided for @temporaryPasswordHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. The user can sign in with this temporary password and should change it from Settings after first login.'**
+  String get temporaryPasswordHelp;
+
+  /// No description provided for @temporaryPasswordCreatedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The user was created with a temporary password. Share the temporary password securely and ask the user to change it after first login.'**
+  String get temporaryPasswordCreatedMessage;
+
+  /// No description provided for @mustChangePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Must change password'**
+  String get mustChangePassword;
+
+  /// No description provided for @temporaryPasswordChangeRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new password'**
+  String get temporaryPasswordChangeRequiredTitle;
+
+  /// No description provided for @temporaryPasswordChangeRequiredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You are using a temporary password. Please create a new password before continuing to Masar CRM.'**
+  String get temporaryPasswordChangeRequiredMessage;
+
+  /// No description provided for @updatePasswordAndContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Update password and continue'**
+  String get updatePasswordAndContinue;
+
+  /// No description provided for @supportCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Center'**
+  String get supportCenter;
+
+  /// No description provided for @supportCenterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send support requests or lightweight product feedback from inside your workspace.'**
+  String get supportCenterSubtitle;
+
+  /// No description provided for @contactSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Support'**
+  String get contactSupport;
+
+  /// No description provided for @contactSupportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a support request with the page, version, and workspace context attached automatically.'**
+  String get contactSupportSubtitle;
+
+  /// No description provided for @sendFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Feedback'**
+  String get sendFeedback;
+
+  /// No description provided for @sendFeedbackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a quick product note without opening a full support ticket.'**
+  String get sendFeedbackSubtitle;
+
+  /// No description provided for @myRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'My Requests'**
+  String get myRequests;
+
+  /// No description provided for @supportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get supportTitle;
+
+  /// No description provided for @supportMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get supportMessage;
+
+  /// No description provided for @supportCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get supportCategory;
+
+  /// No description provided for @supportPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get supportPriority;
+
+  /// No description provided for @feedbackRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get feedbackRating;
+
+  /// No description provided for @feedbackCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback category'**
+  String get feedbackCategory;
+
+  /// No description provided for @feedbackMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback message'**
+  String get feedbackMessage;
+
+  /// No description provided for @submitSupportRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit request'**
+  String get submitSupportRequest;
+
+  /// No description provided for @submitFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit feedback'**
+  String get submitFeedback;
+
+  /// No description provided for @supportTicketCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Support request submitted.'**
+  String get supportTicketCreated;
+
+  /// No description provided for @feedbackSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback submitted.'**
+  String get feedbackSubmitted;
+
+  /// No description provided for @supportNoRequestsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests yet'**
+  String get supportNoRequestsTitle;
+
+  /// No description provided for @supportNoRequestsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted support requests and feedback will appear here.'**
+  String get supportNoRequestsMessage;
+
+  /// No description provided for @supportCategoryAccountLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Account and login'**
+  String get supportCategoryAccountLogin;
+
+  /// No description provided for @supportCategoryUsersPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Users and permissions'**
+  String get supportCategoryUsersPermissions;
+
+  /// No description provided for @supportCategoryBillingSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing and subscription'**
+  String get supportCategoryBillingSubscription;
+
+  /// No description provided for @supportCategoryBug.
+  ///
+  /// In en, this message translates to:
+  /// **'Bug'**
+  String get supportCategoryBug;
+
+  /// No description provided for @feedbackCategorySuggestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestion'**
+  String get feedbackCategorySuggestion;
+
+  /// No description provided for @feedbackCategoryUiImprovement.
+  ///
+  /// In en, this message translates to:
+  /// **'UI improvement'**
+  String get feedbackCategoryUiImprovement;
+
+  /// No description provided for @feedbackCategoryMissingFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing feature'**
+  String get feedbackCategoryMissingFeature;
+
+  /// No description provided for @feedbackCategoryConfusingBehavior.
+  ///
+  /// In en, this message translates to:
+  /// **'Confusing behavior'**
+  String get feedbackCategoryConfusingBehavior;
+
+  /// No description provided for @feedbackCategoryPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance'**
+  String get feedbackCategoryPerformance;
+
+  /// No description provided for @feedbackCategoryGeneralFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'General feedback'**
+  String get feedbackCategoryGeneralFeedback;
+
+  /// No description provided for @supportPriorityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get supportPriorityLow;
+
+  /// No description provided for @supportPriorityNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get supportPriorityNormal;
+
+  /// No description provided for @supportPriorityUrgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent'**
+  String get supportPriorityUrgent;
+
+  /// No description provided for @supportStatusOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get supportStatusOpen;
+
+  /// No description provided for @supportStatusInReview.
+  ///
+  /// In en, this message translates to:
+  /// **'In review'**
+  String get supportStatusInReview;
+
+  /// No description provided for @supportStatusWaitingForUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for user'**
+  String get supportStatusWaitingForUser;
+
+  /// No description provided for @supportStatusResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get supportStatusResolved;
+
+  /// No description provided for @supportStatusClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get supportStatusClosed;
+
+  /// No description provided for @platformSupportInbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Inbox'**
+  String get platformSupportInbox;
+
+  /// No description provided for @supportOpenTickets.
+  ///
+  /// In en, this message translates to:
+  /// **'Open tickets'**
+  String get supportOpenTickets;
+
+  /// No description provided for @supportUrgentTickets.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent tickets'**
+  String get supportUrgentTickets;
+
+  /// No description provided for @supportFeedbackCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get supportFeedbackCount;
+
+  /// No description provided for @supportResolvedThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved this month'**
+  String get supportResolvedThisMonth;
+
+  /// No description provided for @searchSupportRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Search support'**
+  String get searchSupportRequests;
+
+  /// No description provided for @requestType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get requestType;
+
+  /// No description provided for @allTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All types'**
+  String get allTypes;
+
+  /// No description provided for @requestTypeSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get requestTypeSupport;
+
+  /// No description provided for @requestTypeFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get requestTypeFeedback;
+
+  /// No description provided for @allCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'All categories'**
+  String get allCategories;
+
+  /// No description provided for @supportDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Request details'**
+  String get supportDetails;
+
+  /// No description provided for @updateStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Update status'**
+  String get updateStatus;
+
+  /// No description provided for @supportStatusUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Status updated.'**
+  String get supportStatusUpdated;
+
+  /// No description provided for @company.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get company;
+
+  /// No description provided for @user.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get user;
+
+  /// No description provided for @currentRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Current route'**
+  String get currentRoute;
+
+  /// No description provided for @deviceInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Device info'**
+  String get deviceInfo;
+
+  /// No description provided for @platformNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform Notifications'**
+  String get platformNotifications;
+
+  /// No description provided for @platformNotificationsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track important owner actions and SaaS events across Masar CRM.'**
+  String get platformNotificationsSubtitle;
+
+  /// No description provided for @noPlatformNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'No platform notifications yet'**
+  String get noPlatformNotifications;
+
+  /// No description provided for @noPlatformNotificationsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Important platform actions and SaaS events will appear here.'**
+  String get noPlatformNotificationsMessage;
+
+  /// No description provided for @markUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark unread'**
+  String get markUnread;
+
+  /// No description provided for @platformNotificationStorageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get platformNotificationStorageLabel;
+
+  /// No description provided for @platformNotificationSeverityInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get platformNotificationSeverityInfo;
+
+  /// No description provided for @platformNotificationSeveritySuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Success'**
+  String get platformNotificationSeveritySuccess;
+
+  /// No description provided for @platformNotificationSeverityWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get platformNotificationSeverityWarning;
+
+  /// No description provided for @platformNotificationSeverityUrgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent'**
+  String get platformNotificationSeverityUrgent;
+
+  /// No description provided for @daysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days ago'**
+  String daysAgo(int count);
+
+  /// No description provided for @platformNotificationCompanyRegistered.
+  ///
+  /// In en, this message translates to:
+  /// **'Company registered'**
+  String get platformNotificationCompanyRegistered;
+
+  /// No description provided for @platformNotificationCompanyCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Company created'**
+  String get platformNotificationCompanyCreated;
+
+  /// No description provided for @platformNotificationCompanyStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Company status changed'**
+  String get platformNotificationCompanyStatusChanged;
+
+  /// No description provided for @platformNotificationCompanySettingsChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Company settings changed'**
+  String get platformNotificationCompanySettingsChanged;
+
+  /// No description provided for @platformNotificationCompanyFeatureChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Company features changed'**
+  String get platformNotificationCompanyFeatureChanged;
+
+  /// No description provided for @platformNotificationCompanyLimitChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Company limits changed'**
+  String get platformNotificationCompanyLimitChanged;
+
+  /// No description provided for @platformNotificationCompanyUserCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Company user created'**
+  String get platformNotificationCompanyUserCreated;
+
+  /// No description provided for @platformNotificationCompanyUserStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Company user status changed'**
+  String get platformNotificationCompanyUserStatusChanged;
+
+  /// No description provided for @platformNotificationCompanyUserPasswordReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Company user password action'**
+  String get platformNotificationCompanyUserPasswordReset;
+
+  /// No description provided for @platformNotificationInvitationCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation created'**
+  String get platformNotificationInvitationCreated;
+
+  /// No description provided for @platformNotificationInvitationAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation accepted'**
+  String get platformNotificationInvitationAccepted;
+
+  /// No description provided for @platformNotificationInvitationRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation revoked'**
+  String get platformNotificationInvitationRevoked;
+
+  /// No description provided for @platformNotificationSupportTicketCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Support ticket created'**
+  String get platformNotificationSupportTicketCreated;
+
+  /// No description provided for @platformNotificationFeedbackSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback submitted'**
+  String get platformNotificationFeedbackSubmitted;
+
+  /// No description provided for @platformNotificationSupportTicketStatusChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Support status changed'**
+  String get platformNotificationSupportTicketStatusChanged;
+
+  /// No description provided for @platformNotificationStorageUsageRefreshed.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage usage refreshed'**
+  String get platformNotificationStorageUsageRefreshed;
+
+  /// No description provided for @platformNotificationStorageNearLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage near limit'**
+  String get platformNotificationStorageNearLimit;
+
+  /// No description provided for @platformNotificationFunctionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform function failed'**
+  String get platformNotificationFunctionFailed;
+
+  /// No description provided for @platformNotificationUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform event'**
+  String get platformNotificationUnknown;
+
+  /// No description provided for @platformNotificationCompanyActorMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} was updated by {actor}.'**
+  String platformNotificationCompanyActorMessage(Object company, Object actor);
+
+  /// No description provided for @platformNotificationCompanyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{company} has a new platform event.'**
+  String platformNotificationCompanyMessage(Object company);
+
+  /// No description provided for @platformNotificationActorMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} created a platform event.'**
+  String platformNotificationActorMessage(Object actor);
+
+  /// No description provided for @platformNotificationGenericMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A platform event needs your attention.'**
+  String get platformNotificationGenericMessage;
+
+  /// No description provided for @storageUsageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage unavailable'**
+  String get storageUsageUnavailable;
+
+  /// No description provided for @storageNotTrackedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage usage is not tracked yet.'**
+  String get storageNotTrackedYet;
+
+  /// No description provided for @storageLastUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated'**
+  String get storageLastUpdated;
+
+  /// No description provided for @refreshStorageUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh usage'**
+  String get refreshStorageUsage;
+
+  /// No description provided for @storageUsageUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage usage updated.'**
+  String get storageUsageUpdated;
 }
 
 class _AppLocalizationsDelegate

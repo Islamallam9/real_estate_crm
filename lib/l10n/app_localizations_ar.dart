@@ -1742,6 +1742,60 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addUser => 'إضافة مستخدم';
 
   @override
+  String get platformSupportAddUser => 'إضافة مستخدم للدعم';
+
+  @override
+  String get platformCurrentCompany => 'الشركة الحالية';
+
+  @override
+  String get platformDashboardHeroSubtitle =>
+      'نظرة شاملة على أداء المنصة وإدارة الشركات والمستخدمين.';
+
+  @override
+  String get platformSearchHint => 'بحث في المنصة...';
+
+  @override
+  String get platformCompanySelector => 'اختيار الشركة';
+
+  @override
+  String get platformSelectedCompany => 'الشركة المحددة';
+
+  @override
+  String get platformCompanyFeatures => 'الميزات المفعلة';
+
+  @override
+  String get platformStorageUsage => 'استخدام التخزين';
+
+  @override
+  String get platformRecentActivity => 'النشاط الأخير';
+
+  @override
+  String get platformWorkspaceSummary => 'ملخص مساحة العمل';
+
+  @override
+  String get platformViewAllLogs => 'عرض جميع السجلات';
+
+  @override
+  String get platformViewAllCompanies => 'عرض جميع الشركات';
+
+  @override
+  String get platformNoRecentActivity => 'لا يوجد نشاط حديث بعد';
+
+  @override
+  String get platformTotalUsers => 'إجمالي المستخدمين';
+
+  @override
+  String get platformAdminsManagers => 'المسؤولون / المديرون';
+
+  @override
+  String get platformActiveUsers => 'المستخدمون النشطون';
+
+  @override
+  String platformOwnerGreeting(Object name) {
+    return 'مساء الخير، $name';
+  }
+
+  @override
   String get activateCompany => 'تفعيل الشركة';
 
   @override
@@ -1982,10 +2036,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetLinkGenerated => 'تم إنشاء رابط إعادة التعيين.';
 
   @override
-  String get copyResetLink => 'نسخ رابط إعادة التعيين';
+  String get copyResetLink => 'نسخ رابط التعيين';
 
   @override
-  String get resetLinkCopied => 'تم نسخ رابط إعادة التعيين.';
+  String get resetLinkCopied => 'تم نسخ رابط التعيين.';
 
   @override
   String get sendThisLinkManuallyToTheUser =>
@@ -2248,6 +2302,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notifyManager => 'إشعار المدير';
 
   @override
+  String get noManagerForDataHealthIssue =>
+      'لا يوجد مدير مسؤول متاح لهذه المشكلة.';
+
+  @override
+  String get managerNotificationSent => 'تم إشعار المدير بنجاح.';
+
+  @override
   String get notificationsComingSoon => 'الإشعارات غير متاحة حالياً.';
 
   @override
@@ -2431,6 +2492,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get notificationDataHealthIssueTitle =>
       'صحة البيانات تحتاج إلى انتباه';
+
+  @override
+  String notificationDataHealthIssueBody(Object record, Object issue) {
+    return '$record يحتاج إلى مراجعة: $issue.';
+  }
 
   @override
   String get notificationGenericTitle => 'إشعار من نظام CRM';
@@ -2796,4 +2862,651 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get notificationTeamAppointmentMissedTitle => 'موعد فائت في الفريق';
+
+  @override
+  String get invitations => 'الدعوات';
+
+  @override
+  String get createInvitation => 'إنشاء دعوة';
+
+  @override
+  String get invitationCode => 'رمز الدعوة';
+
+  @override
+  String get invitationLink => 'رابط الدعوة';
+
+  @override
+  String get copyCode => 'نسخ الرمز';
+
+  @override
+  String get copyLink => 'نسخ الرابط';
+
+  @override
+  String get revokeInvitation => 'إلغاء الدعوة';
+
+  @override
+  String get invitationActive => 'دعوة نشطة';
+
+  @override
+  String get invitationUsed => 'دعوة مستخدمة';
+
+  @override
+  String get invitationExpired => 'دعوة منتهية';
+
+  @override
+  String get invitationRevoked => 'دعوة ملغاة';
+
+  @override
+  String get expiresAt => 'تنتهي في';
+
+  @override
+  String get plan => 'الخطة';
+
+  @override
+  String get planId => 'معرف الخطة';
+
+  @override
+  String get features => 'الميزات';
+
+  @override
+  String get allowedAdminEmail => 'بريد المسؤول المسموح';
+
+  @override
+  String get manualSupportSetup => 'إعداد يدوي للدعم';
+
+  @override
+  String get invitationOnboarding => 'التسجيل بالدعوة';
+
+  @override
+  String get companyAdminInvitation => 'دعوة مسؤول الشركة';
+
+  @override
+  String get invitationOnboardingNote =>
+      'يتيح التسجيل بالدعوة لمسؤول الشركة إنشاء مساحة شركته بنفسه. يظل الإعداد اليدوي متاحاً لحالات الدعم.';
+
+  @override
+  String get noInvitationsYet => 'لا توجد دعوات بعد';
+
+  @override
+  String get noInvitationsYetMessage =>
+      'أنشئ رمز دعوة لمسؤول الشركة المشتركة التالية.';
+
+  @override
+  String get invitationCreated =>
+      'تم إنشاء الدعوة. انسخ الرمز أو الرابط الآن؛ يظهر الرمز الكامل مرة واحدة فقط.';
+
+  @override
+  String get invitationCodeCopied => 'تم نسخ رمز الدعوة.';
+
+  @override
+  String get invitationLinkCopied => 'تم نسخ رابط الدعوة.';
+
+  @override
+  String get expiresInDays => 'تنتهي بعد أيام';
+
+  @override
+  String get registerYourCompany => 'سجّل شركتك';
+
+  @override
+  String get enterInvitationCode => 'أدخل رمز الدعوة';
+
+  @override
+  String get validateInvitation => 'تحقق من الدعوة';
+
+  @override
+  String get invitationValid => 'الدعوة صالحة';
+
+  @override
+  String get invitationInvalid => 'الدعوة غير صالحة';
+
+  @override
+  String get adminAccount => 'حساب المسؤول';
+
+  @override
+  String get reviewAndCreate => 'مراجعة وإنشاء';
+
+  @override
+  String get createWorkspace => 'إنشاء مساحة العمل';
+
+  @override
+  String get companyEmail => 'بريد الشركة';
+
+  @override
+  String get companyPhone => 'هاتف الشركة';
+
+  @override
+  String get cityLocation => 'المدينة/الموقع';
+
+  @override
+  String get preferredLanguage => 'اللغة المفضلة';
+
+  @override
+  String get adminFullName => 'اسم المسؤول الكامل';
+
+  @override
+  String get adminEmail => 'بريد المسؤول';
+
+  @override
+  String get adminPhone => 'هاتف المسؤول';
+
+  @override
+  String get companyRegistrationCompleted => 'اكتمل تسجيل الشركة.';
+
+  @override
+  String get invitationAlreadyUsed => 'الدعوة مستخدمة بالفعل';
+
+  @override
+  String get companyIdAlreadyExists => 'معرف الشركة موجود بالفعل';
+
+  @override
+  String get companyIdInvalid =>
+      'يجب أن يستخدم معرف الشركة حروفاً إنجليزية صغيرة وأرقاماً وشرطات أو شرطات سفلية.';
+
+  @override
+  String get next => 'التالي';
+
+  @override
+  String get onboardingTitle =>
+      'من العميل المحتمل إلى الصفقة، أدِر مساحة مبيعاتك العقارية من مكان واحد.';
+
+  @override
+  String get onboardingSubtitle =>
+      'يربط مسار الفرق والعملاء المحتملين والعقارات والمواعيد والإشعارات والتقارير داخل مساحة شركة آمنة.';
+
+  @override
+  String get onboardingOperationsTitle => 'مساحة تشغيل CRM عملية';
+
+  @override
+  String get onboardingOperationsMessage =>
+      'أدر العملاء المحتملين والعملاء والعقارات والمهام والصفقات والمواعيد بصلاحيات دقيقة حسب الدور.';
+
+  @override
+  String get onboardingInvitationTitle => 'تأسيس الشركة برمز دعوة';
+
+  @override
+  String get onboardingInvitationMessage =>
+      'استخدم رمز الدعوة لإنشاء مساحة الشركة والبدء كأول مسؤول للشركة.';
+
+  @override
+  String get onboardingAnalyticsTitle => 'لوحات وتقارير مباشرة';
+
+  @override
+  String get onboardingAnalyticsMessage =>
+      'تابع أداء الفرق والعمل المستحق والمواعيد ونشاط المبيعات من لوحات احترافية.';
+
+  @override
+  String get signInExistingAccount => 'تسجيل الدخول لحساب موجود';
+
+  @override
+  String get createAdminWorkspace => 'إنشاء مساحة شركة';
+
+  @override
+  String get companyIdGeneratedAutomatically =>
+      'يتم إنشاء معرف الشركة تلقائياً';
+
+  @override
+  String get companyIdGeneratedMessage => 'سيتم إنشاؤه من اسم الشركة.';
+
+  @override
+  String get invalidPhone => 'أدخل رقم هاتف صحيحاً.';
+
+  @override
+  String get invalidUrl => 'أدخل رابط موقع صحيح يبدأ بـ http:// أو https://.';
+
+  @override
+  String get invalidName => 'أدخل اسماً صحيحاً.';
+
+  @override
+  String get userManagement => 'إدارة المستخدمين';
+
+  @override
+  String get userManagementSubtitle =>
+      'أنشئ المديرين وموظفي المبيعات والتسويق والمشاهدين لهذه الشركة.';
+
+  @override
+  String get createUser => 'إنشاء مستخدم';
+
+  @override
+  String get searchUsers => 'البحث في المستخدمين';
+
+  @override
+  String get companyUsersEmptyMessage =>
+      'أنشئ أول مستخدم أو مدير في الشركة من هذه الصفحة.';
+
+  @override
+  String get userCreatedResetLinkTitle => 'تم إنشاء المستخدم';
+
+  @override
+  String get userCreatedSuccessfully => 'تم إنشاء المستخدم بنجاح';
+
+  @override
+  String get sendSetupLinkToUser =>
+      'أرسل هذا الرابط للمستخدم ليقوم بتعيين كلمة المرور.';
+
+  @override
+  String get copySetupLink => 'نسخ الرابط';
+
+  @override
+  String get openSetupLink => 'فتح الرابط';
+
+  @override
+  String get linkCopied => 'تم نسخ الرابط.';
+
+  @override
+  String get generateSetupLink => 'إنشاء رابط تعيين كلمة المرور';
+
+  @override
+  String get done => 'تم';
+
+  @override
+  String get userCreatedNoResetLinkMessage =>
+      'تم إنشاء المستخدم، لكن لم يتم إرجاع رابط تعيين كلمة المرور.';
+
+  @override
+  String get companyUserAlreadyExists => 'هذا المستخدم موجود بالفعل في الشركة.';
+
+  @override
+  String get registrationInvitationInvalid => 'هذه الدعوة لم تعد صالحة.';
+
+  @override
+  String get registrationInvitationExpired => 'انتهت صلاحية هذه الدعوة.';
+
+  @override
+  String get registrationInvitationUsed => 'تم استخدام هذه الدعوة بالفعل.';
+
+  @override
+  String get registrationInvitationRevoked => 'تم إلغاء هذه الدعوة.';
+
+  @override
+  String get registrationInvitationLimitReached =>
+      'وصلت هذه الدعوة إلى حد الاستخدام.';
+
+  @override
+  String get adminEmailAlreadyExists => 'بريد المسؤول مستخدم بالفعل.';
+
+  @override
+  String get companyNameAlreadyRegistered =>
+      'اسم الشركة مستخدم بالفعل. جرّب اسماً آخر.';
+
+  @override
+  String get weakPassword => 'كلمة المرور ضعيفة.';
+
+  @override
+  String get emailPasswordAuthDisabled =>
+      'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل. تواصل مع مالك المنصة.';
+
+  @override
+  String get unableToCreateAdminUser =>
+      'تعذر إنشاء مستخدم المسؤول. راجع البيانات وحاول مرة أخرى.';
+
+  @override
+  String get unableToCreateWorkspace =>
+      'تعذر إنشاء مساحة العمل. راجع البيانات وحاول مرة أخرى.';
+
+  @override
+  String get unableToCompleteRegistration =>
+      'تعذر إكمال التسجيل. حاول مرة أخرى لاحقاً.';
+
+  @override
+  String get registrationConflict =>
+      'التسجيل قيد التنفيذ بالفعل أو تم إنشاء المساحة للتو. حاول مرة أخرى.';
+
+  @override
+  String get createYourAdminPassword => 'أنشئ كلمة مرور المسؤول';
+
+  @override
+  String get adminPasswordHelp =>
+      'سيتم استخدام كلمة المرور هذه لتسجيل الدخول كمسؤول للشركة.';
+
+  @override
+  String get companyAdminPassword => 'كلمة مرور مسؤول الشركة';
+
+  @override
+  String get confirmCompanyAdminPassword => 'تأكيد كلمة مرور مسؤول الشركة';
+
+  @override
+  String get notificationsDisabledForCompany =>
+      'تم تعطيل الإشعارات لهذه الشركة.';
+
+  @override
+  String get featureNotEnabledForWorkspace =>
+      'هذه الميزة غير مفعّلة لمساحة عملك.';
+
+  @override
+  String get errorOccurred => 'حدث خطأ';
+
+  @override
+  String get skip => 'تخطي';
+
+  @override
+  String get setTemporaryPassword => 'تعيين كلمة مرور مؤقتة';
+
+  @override
+  String get confirmTemporaryPassword => 'تأكيد كلمة المرور المؤقتة';
+
+  @override
+  String get temporaryPasswordHelp =>
+      'اختياري. يمكن للمستخدم تسجيل الدخول بكلمة المرور المؤقتة ويجب عليه تغييرها من الإعدادات بعد أول دخول.';
+
+  @override
+  String get temporaryPasswordCreatedMessage =>
+      'تم إنشاء المستخدم بكلمة مرور مؤقتة. أرسل كلمة المرور المؤقتة بشكل آمن واطلب من المستخدم تغييرها بعد أول دخول.';
+
+  @override
+  String get mustChangePassword => 'يجب تغيير كلمة المرور';
+
+  @override
+  String get temporaryPasswordChangeRequiredTitle => 'أنشئ كلمة مرور جديدة';
+
+  @override
+  String get temporaryPasswordChangeRequiredMessage =>
+      'أنت تستخدم كلمة مرور مؤقتة. أنشئ كلمة مرور جديدة قبل المتابعة إلى مسار CRM.';
+
+  @override
+  String get updatePasswordAndContinue => 'تحديث كلمة المرور والمتابعة';
+
+  @override
+  String get supportCenter => 'مركز الدعم';
+
+  @override
+  String get supportCenterSubtitle =>
+      'أرسل طلبات الدعم أو ملاحظات المنتج من داخل مساحة العمل.';
+
+  @override
+  String get contactSupport => 'التواصل مع الدعم';
+
+  @override
+  String get contactSupportSubtitle =>
+      'أنشئ طلب دعم مع إرفاق الصفحة والإصدار وسياق مساحة العمل تلقائياً.';
+
+  @override
+  String get sendFeedback => 'إرسال ملاحظة';
+
+  @override
+  String get sendFeedbackSubtitle =>
+      'شارك ملاحظة سريعة عن المنتج بدون فتح طلب دعم كامل.';
+
+  @override
+  String get myRequests => 'طلباتي';
+
+  @override
+  String get supportTitle => 'العنوان';
+
+  @override
+  String get supportMessage => 'الرسالة';
+
+  @override
+  String get supportCategory => 'الفئة';
+
+  @override
+  String get supportPriority => 'الأولوية';
+
+  @override
+  String get feedbackRating => 'التقييم';
+
+  @override
+  String get feedbackCategory => 'فئة الملاحظة';
+
+  @override
+  String get feedbackMessage => 'نص الملاحظة';
+
+  @override
+  String get submitSupportRequest => 'إرسال الطلب';
+
+  @override
+  String get submitFeedback => 'إرسال الملاحظة';
+
+  @override
+  String get supportTicketCreated => 'تم إرسال طلب الدعم.';
+
+  @override
+  String get feedbackSubmitted => 'تم إرسال الملاحظة.';
+
+  @override
+  String get supportNoRequestsTitle => 'لا توجد طلبات بعد';
+
+  @override
+  String get supportNoRequestsMessage =>
+      'ستظهر طلبات الدعم والملاحظات المرسلة هنا.';
+
+  @override
+  String get supportCategoryAccountLogin => 'الحساب وتسجيل الدخول';
+
+  @override
+  String get supportCategoryUsersPermissions => 'المستخدمون والصلاحيات';
+
+  @override
+  String get supportCategoryBillingSubscription => 'الفوترة والاشتراك';
+
+  @override
+  String get supportCategoryBug => 'خلل';
+
+  @override
+  String get feedbackCategorySuggestion => 'اقتراح';
+
+  @override
+  String get feedbackCategoryUiImprovement => 'تحسين الواجهة';
+
+  @override
+  String get feedbackCategoryMissingFeature => 'ميزة ناقصة';
+
+  @override
+  String get feedbackCategoryConfusingBehavior => 'سلوك غير واضح';
+
+  @override
+  String get feedbackCategoryPerformance => 'الأداء';
+
+  @override
+  String get feedbackCategoryGeneralFeedback => 'ملاحظة عامة';
+
+  @override
+  String get supportPriorityLow => 'منخفضة';
+
+  @override
+  String get supportPriorityNormal => 'عادية';
+
+  @override
+  String get supportPriorityUrgent => 'عاجلة';
+
+  @override
+  String get supportStatusOpen => 'مفتوح';
+
+  @override
+  String get supportStatusInReview => 'قيد المراجعة';
+
+  @override
+  String get supportStatusWaitingForUser => 'بانتظار المستخدم';
+
+  @override
+  String get supportStatusResolved => 'تم الحل';
+
+  @override
+  String get supportStatusClosed => 'مغلق';
+
+  @override
+  String get platformSupportInbox => 'صندوق الدعم';
+
+  @override
+  String get supportOpenTickets => 'طلبات مفتوحة';
+
+  @override
+  String get supportUrgentTickets => 'طلبات عاجلة';
+
+  @override
+  String get supportFeedbackCount => 'الملاحظات';
+
+  @override
+  String get supportResolvedThisMonth => 'تم حلها هذا الشهر';
+
+  @override
+  String get searchSupportRequests => 'البحث في الدعم';
+
+  @override
+  String get requestType => 'النوع';
+
+  @override
+  String get allTypes => 'كل الأنواع';
+
+  @override
+  String get requestTypeSupport => 'دعم';
+
+  @override
+  String get requestTypeFeedback => 'ملاحظة';
+
+  @override
+  String get allCategories => 'كل الفئات';
+
+  @override
+  String get supportDetails => 'تفاصيل الطلب';
+
+  @override
+  String get updateStatus => 'تحديث الحالة';
+
+  @override
+  String get supportStatusUpdated => 'تم تحديث الحالة.';
+
+  @override
+  String get company => 'الشركة';
+
+  @override
+  String get user => 'المستخدم';
+
+  @override
+  String get currentRoute => 'المسار الحالي';
+
+  @override
+  String get deviceInfo => 'معلومات الجهاز';
+
+  @override
+  String get platformNotifications => 'إشعارات المنصة';
+
+  @override
+  String get platformNotificationsSubtitle =>
+      'تابع إجراءات المالك المهمة وأحداث الاشتراك عبر مسار CRM.';
+
+  @override
+  String get noPlatformNotifications => 'لا توجد إشعارات منصة حتى الآن';
+
+  @override
+  String get noPlatformNotificationsMessage =>
+      'ستظهر هنا إجراءات المنصة المهمة وأحداث الاشتراك.';
+
+  @override
+  String get markUnread => 'تحديد كغير مقروء';
+
+  @override
+  String get platformNotificationStorageLabel => 'التخزين';
+
+  @override
+  String get platformNotificationSeverityInfo => 'معلومة';
+
+  @override
+  String get platformNotificationSeveritySuccess => 'نجاح';
+
+  @override
+  String get platformNotificationSeverityWarning => 'تحذير';
+
+  @override
+  String get platformNotificationSeverityUrgent => 'عاجل';
+
+  @override
+  String daysAgo(int count) {
+    return 'منذ $count يوم';
+  }
+
+  @override
+  String get platformNotificationCompanyRegistered => 'تم تسجيل شركة';
+
+  @override
+  String get platformNotificationCompanyCreated => 'تم إنشاء شركة';
+
+  @override
+  String get platformNotificationCompanyStatusChanged => 'تغيرت حالة الشركة';
+
+  @override
+  String get platformNotificationCompanySettingsChanged =>
+      'تغيرت إعدادات الشركة';
+
+  @override
+  String get platformNotificationCompanyFeatureChanged => 'تغيرت ميزات الشركة';
+
+  @override
+  String get platformNotificationCompanyLimitChanged => 'تغيرت حدود الشركة';
+
+  @override
+  String get platformNotificationCompanyUserCreated => 'تم إنشاء مستخدم للشركة';
+
+  @override
+  String get platformNotificationCompanyUserStatusChanged =>
+      'تغيرت حالة مستخدم الشركة';
+
+  @override
+  String get platformNotificationCompanyUserPasswordReset =>
+      'إجراء كلمة مرور لمستخدم الشركة';
+
+  @override
+  String get platformNotificationInvitationCreated => 'تم إنشاء دعوة';
+
+  @override
+  String get platformNotificationInvitationAccepted => 'تم قبول دعوة';
+
+  @override
+  String get platformNotificationInvitationRevoked => 'تم إلغاء دعوة';
+
+  @override
+  String get platformNotificationSupportTicketCreated => 'تم إنشاء تذكرة دعم';
+
+  @override
+  String get platformNotificationFeedbackSubmitted => 'تم إرسال ملاحظات';
+
+  @override
+  String get platformNotificationSupportTicketStatusChanged =>
+      'تغيرت حالة الدعم';
+
+  @override
+  String get platformNotificationStorageUsageRefreshed =>
+      'تم تحديث استخدام التخزين';
+
+  @override
+  String get platformNotificationStorageNearLimit => 'التخزين قريب من الحد';
+
+  @override
+  String get platformNotificationFunctionFailed => 'فشلت وظيفة منصة';
+
+  @override
+  String get platformNotificationUnknown => 'حدث منصة';
+
+  @override
+  String platformNotificationCompanyActorMessage(Object company, Object actor) {
+    return 'تم تحديث $company بواسطة $actor.';
+  }
+
+  @override
+  String platformNotificationCompanyMessage(Object company) {
+    return 'يوجد حدث منصة جديد في $company.';
+  }
+
+  @override
+  String platformNotificationActorMessage(Object actor) {
+    return 'أنشأ $actor حدث منصة.';
+  }
+
+  @override
+  String get platformNotificationGenericMessage =>
+      'يوجد حدث منصة يحتاج إلى انتباهك.';
+
+  @override
+  String get storageUsageUnavailable => 'الاستخدام غير متاح';
+
+  @override
+  String get storageNotTrackedYet => 'لم يتم تتبع استخدام التخزين بعد.';
+
+  @override
+  String get storageLastUpdated => 'آخر تحديث';
+
+  @override
+  String get refreshStorageUsage => 'تحديث الاستخدام';
+
+  @override
+  String get storageUsageUpdated => 'تم تحديث استخدام التخزين.';
 }
