@@ -189,6 +189,15 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
         ? l.notificationGenericBody(record)
         : notification.fallbackBody.trim();
   }
+  if (notification.type == CrmNotificationType.dataHealthIssue) {
+    final issueType = (notification.metadata['issueType'] ?? '')
+        .toString()
+        .trim();
+    return l.notificationDataHealthIssueBody(
+      record,
+      _dataHealthIssueLabel(l, issueType),
+    );
+  }
   if (actor.isNotEmpty) {
     return l.notificationRecordByActorBody(record, actor);
   }
@@ -233,6 +242,7 @@ String moduleLabel(AppLocalizations l, String module) {
     'deals' => l.deals,
     'clients' => l.clients,
     'properties' => l.properties,
+    'support' => l.supportCenter,
     'dataHealth' => l.dataHealth,
     _ => l.notificationSystemModule,
   };
@@ -295,5 +305,16 @@ String _statusLabel(AppLocalizations l, String value) {
     'closed' => value,
     'contract' => value,
     _ => value,
+  };
+}
+
+String _dataHealthIssueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'missingAssignee' => l.missingAssignee,
+    'missingSnapshots' => l.missingSnapshots,
+    'inactiveAssignee' => l.inactiveAssignees,
+    'ineligibleAssignee' => l.invalidAssignees,
+    'staleSnapshots' => l.staleTeamSnapshots,
+    _ => l.dataHealth,
   };
 }
