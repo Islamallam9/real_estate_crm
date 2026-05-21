@@ -22,7 +22,7 @@ import '../../domain/usecases/sign_out_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
-const _profileLoadTimeout = Duration(seconds: 10);
+const _profileLoadTimeout = Duration(seconds: 25);
 const _initialInvalidCredentialsBackoffSeconds = 2;
 const _maxInvalidCredentialsBackoffSeconds = 60;
 

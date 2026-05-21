@@ -168,6 +168,9 @@ class _NotificationsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final panelHeight = (MediaQuery.sizeOf(context).height - 88)
+        .clamp(280.0, 520.0)
+        .toDouble();
     return SafeArea(
       child: Align(
         alignment: AlignmentDirectional.topEnd,
@@ -179,7 +182,7 @@ class _NotificationsPanel extends StatelessWidget {
             elevation: 12,
             child: Container(
               width: 360,
-              constraints: const BoxConstraints(maxHeight: 520),
+              height: panelHeight,
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 border: Border.all(color: AppColors.borderColor(context)),
@@ -188,7 +191,7 @@ class _NotificationsPanel extends StatelessWidget {
               child: BlocBuilder<NotificationsCubit, NotificationsState>(
                 builder: (context, state) {
                   return Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -223,36 +226,48 @@ class _NotificationsPanel extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (state.reminders.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          l.attentionNeeded,
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        for (final reminder in _latestPanelReminders(
-                          state.reminders,
-                        ).take(3))
-                          AttentionReminderCard(
-                            reminder: reminder,
-                            onOpen: () => _openRoute(context, reminder.route),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.xs,
                           ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        l.notifications,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Flexible(
-                        child: _PanelNotificationList(
-                          companyId: companyId,
-                          state: state,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (state.reminders.isNotEmpty) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  l.attentionNeeded,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                                for (final reminder in _latestPanelReminders(
+                                  state.reminders,
+                                ))
+                                  AttentionReminderCard(
+                                    reminder: reminder,
+                                    onOpen: () =>
+                                        _openRoute(context, reminder.route),
+                                  ),
+                              ],
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                l.notifications,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelLarge
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              _PanelNotificationList(
+                                companyId: companyId,
+                                state: state,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -342,10 +357,14 @@ class _PanelNotificationList extends StatelessWidget {
         icon: Icons.notifications_none,
       );
     }
+    final visibleNotifications =
+        state.notifications.take(notificationDropdownLimit).toList();
     return ListView.builder(
-      itemCount: state.notifications.take(notificationDropdownLimit).length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: visibleNotifications.length,
       itemBuilder: (context, index) {
-        final notification = state.notifications[index];
+        final notification = visibleNotifications[index];
         return NotificationCard(
           notification: notification,
           isMarking: state.markingNotificationId == notification.id,

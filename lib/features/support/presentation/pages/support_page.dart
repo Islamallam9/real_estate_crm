@@ -11,6 +11,8 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
+import '../../../../core/utils/external_link_opener.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -19,6 +21,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -154,6 +157,7 @@ class _SupportBodyState extends State<_SupportBody> {
                 builder: (context, state) {
                   final contextData = _contextData();
                   return TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
                       _SupportTabScroll(
                         child: _SupportTicketForm(
@@ -252,39 +256,15 @@ class _SupportTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: AppRadius.large,
-      ),
-      child: TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        labelColor: AppColors.primaryColor(context),
-        unselectedLabelColor: AppColors.textSecondaryColor(context),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        indicator: BoxDecoration(
-          color: AppColors.selectedSurface(context),
-          borderRadius: AppRadius.medium,
-        ),
-        padding: const EdgeInsets.all(4),
-        labelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
-        unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-        ),
-        tabs: [
-          Tab(icon: const Icon(Icons.support_agent_outlined), text: l.requestTypeSupport),
-          Tab(icon: const Icon(Icons.rate_review_outlined), text: l.requestTypeFeedback),
-          Tab(icon: const Icon(Icons.inbox_outlined), text: l.myRequests),
-          Tab(icon: const Icon(Icons.alternate_email_outlined), text: l.contactSupport),
-        ],
-      ),
+    return MasarTabBar(
+      compact: true,
+      fullWidth: true,
+      tabs: [
+        MasarTabItem(label: l.requestTypeSupport, icon: Icons.support_agent_outlined),
+        MasarTabItem(label: l.requestTypeFeedback, icon: Icons.rate_review_outlined),
+        MasarTabItem(label: l.myRequests, icon: Icons.inbox_outlined),
+        MasarTabItem(label: l.contactSupport, icon: Icons.alternate_email_outlined),
+      ],
     );
   }
 }
@@ -297,6 +277,7 @@ class _SupportTabScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.only(
         bottom: AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
@@ -715,21 +696,21 @@ class _ContactActionsPanel extends StatelessWidget {
 
   static const String _supportMessage =
       'Hello Masar Support, I need help with my CRM workspace.';
-  static final Uri _whatsAppUri = Uri.https(
+  static final String _whatsAppUrl = Uri.https(
     'wa.me',
     '/201208090241',
     {
       'text': _supportMessage,
     },
-  );
-  static final Uri _emailUri = Uri(
+  ).toString();
+  static final String _emailUrl = Uri(
     scheme: 'mailto',
     path: 'islamallam9@outlook.com',
     queryParameters: {
       'subject': 'Masar CRM support request',
       'body': _supportMessage,
     },
-  );
+  ).toString();
 
   @override
   Widget build(BuildContext context) {
@@ -746,14 +727,14 @@ class _ContactActionsPanel extends StatelessWidget {
             assetIconPath: 'assets/branding/whatsapp_icon.svg',
             title: l.whatsapp,
             value: '',
-            onTap: () => _launchContactUrl(context, _whatsAppUri),
+            onTap: () => _launchContactUrl(context, _whatsAppUrl),
           ),
           const SizedBox(height: AppSpacing.sm),
           _ContactActionCard(
             icon: Icons.email_outlined,
             title: l.email,
             value: '',
-            onTap: () => _launchContactUrl(context, _emailUri),
+            onTap: () => _launchContactUrl(context, _emailUrl),
           ),
         ],
       ),
@@ -931,15 +912,15 @@ String _formatDate(BuildContext context, DateTime? value) {
       .format(value.toLocal());
 }
 
-Future<void> _launchContactUrl(BuildContext context, Uri uri) async {
+Future<void> _launchContactUrl(BuildContext context, String url) async {
   final l = AppLocalizations.of(context)!;
   try {
-    final launched = await launchUrl(
-      uri,
-      mode: kIsWeb
-          ? LaunchMode.platformDefault
-          : LaunchMode.externalApplication,
-    );
+    final launched = kIsWeb
+        ? await openExternalLink(url)
+        : await launchUrl(
+            Uri.parse(url),
+            mode: LaunchMode.externalApplication,
+          );
     if (!launched && context.mounted) {
       AppFeedback.error(context, l.actionFailed);
     }

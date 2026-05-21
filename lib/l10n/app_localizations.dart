@@ -2588,6 +2588,18 @@ abstract class AppLocalizations {
   /// **'Available properties'**
   String get dashboardAvailableProperties;
 
+  /// No description provided for @dashboardVsLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'vs last month'**
+  String get dashboardVsLastMonth;
+
+  /// No description provided for @dashboardOfCurrentTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'of current total'**
+  String get dashboardOfCurrentTotal;
+
   /// No description provided for @dashboardVisualAnalytics.
   ///
   /// In en, this message translates to:

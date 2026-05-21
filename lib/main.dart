@@ -46,7 +46,7 @@ class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
 
   Future<Locale?> _startAppWithTimeout() async {
     try {
-      return await _startApp().timeout(const Duration(seconds: 18));
+      return await _startApp().timeout(const Duration(seconds: 60));
     } catch (error, stackTrace) {
       _startupError = error;
       _startupStackTrace = stackTrace;

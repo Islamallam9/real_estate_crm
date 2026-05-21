@@ -388,36 +388,38 @@ service cloud.firestore {
           || request.resource.data.archivedBy == '');
     }
 
+    function archiveBoolUnchanged(field, defaultValue) {
+      return (field in resource.data.keys())
+        ? request.resource.data[field] == resource.data[field]
+        : (!(field in request.resource.data.keys())
+          || request.resource.data[field] == defaultValue
+          || request.resource.data[field] == null);
+    }
+
+    function archiveStringUnchanged(field) {
+      return (field in resource.data.keys())
+        ? request.resource.data[field] == resource.data[field]
+        : (!(field in request.resource.data.keys())
+          || request.resource.data[field] == ''
+          || request.resource.data[field] == null);
+    }
+
+    function archiveTimestampUnchanged(field) {
+      return (field in resource.data.keys())
+        ? request.resource.data[field] == resource.data[field]
+        : (!(field in request.resource.data.keys())
+          || request.resource.data[field] == null);
+    }
+
     function archiveFieldsUnchanged() {
-      return (request.resource.data.isArchived == resource.data.isArchived
-          || (!('isArchived' in resource.data.keys())
-            && request.resource.data.isArchived == false))
-        && (request.resource.data.archivedAt == resource.data.archivedAt
-          || (!('archivedAt' in resource.data.keys())
-            && request.resource.data.archivedAt == null))
-        && (request.resource.data.archivedBy == resource.data.archivedBy
-          || (!('archivedBy' in resource.data.keys())
-            && (request.resource.data.archivedBy == null
-              || request.resource.data.archivedBy == '')))
-        && (request.resource.data.archivedByName == resource.data.archivedByName
-          || (!('archivedByName' in resource.data.keys())
-            && (request.resource.data.archivedByName == null
-              || request.resource.data.archivedByName == '')))
-        && (request.resource.data.archiveReason == resource.data.archiveReason
-          || (!('archiveReason' in resource.data.keys())
-            && (request.resource.data.archiveReason == null
-              || request.resource.data.archiveReason == '')))
-        && (request.resource.data.restoredAt == resource.data.restoredAt
-          || (!('restoredAt' in resource.data.keys())
-            && request.resource.data.restoredAt == null))
-        && (request.resource.data.restoredBy == resource.data.restoredBy
-          || (!('restoredBy' in resource.data.keys())
-            && (request.resource.data.restoredBy == null
-              || request.resource.data.restoredBy == '')))
-        && (request.resource.data.restoredByName == resource.data.restoredByName
-          || (!('restoredByName' in resource.data.keys())
-            && (request.resource.data.restoredByName == null
-              || request.resource.data.restoredByName == '')));
+      return archiveBoolUnchanged('isArchived', false)
+        && archiveTimestampUnchanged('archivedAt')
+        && archiveStringUnchanged('archivedBy')
+        && archiveStringUnchanged('archivedByName')
+        && archiveStringUnchanged('archiveReason')
+        && archiveTimestampUnchanged('restoredAt')
+        && archiveStringUnchanged('restoredBy')
+        && archiveStringUnchanged('restoredByName');
     }
 
     function canUpdateLead(companyId) {

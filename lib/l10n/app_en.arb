@@ -498,6 +498,8 @@
   "dashboardOverdueFollowUps": "Overdue follow-ups",
   "dashboardUpcomingFollowUps": "Upcoming follow-ups",
   "dashboardAvailableProperties": "Available properties",
+  "dashboardVsLastMonth": "vs last month",
+  "dashboardOfCurrentTotal": "of current total",
   "dashboardVisualAnalytics": "Workspace analytics",
   "dashboardLeadStatusDistribution": "Lead status distribution",
   "dashboardTasksDueBreakdown": "Tasks due breakdown",

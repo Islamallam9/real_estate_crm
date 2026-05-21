@@ -21,6 +21,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -2433,23 +2434,17 @@ class _WorkspaceTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _WorkspaceTab.values.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
-        itemBuilder: (context, index) {
-          final tab = _WorkspaceTab.values[index];
-          return ChoiceChip(
-            avatar: Icon(_workspaceTabIcon(tab), size: 18),
-            label: Text(_workspaceTabLabel(l, tab)),
-            selected: selected == tab,
-            onSelected: (_) => onSelected(tab),
-          );
-        },
-      ),
+    return MasarSwitchTabBar(
+      selectedIndex: _WorkspaceTab.values.indexOf(selected),
+      onChanged: (index) => onSelected(_WorkspaceTab.values[index]),
+      compact: true,
+      tabs: [
+        for (final tab in _WorkspaceTab.values)
+          MasarSwitchTabItem(
+            label: _workspaceTabLabel(l, tab),
+            icon: _workspaceTabIcon(tab),
+          ),
+      ],
     );
   }
 }

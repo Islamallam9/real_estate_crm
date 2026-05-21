@@ -64,16 +64,30 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       canvasColor: background,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _MasarCalmPageTransitionsBuilder(),
+          TargetPlatform.iOS: _MasarCalmPageTransitionsBuilder(),
+          TargetPlatform.macOS: _MasarCalmPageTransitionsBuilder(),
+          TargetPlatform.windows: _MasarCalmPageTransitionsBuilder(),
+          TargetPlatform.linux: _MasarCalmPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: _MasarCalmPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? AppColors.darkSurface : surface,
+        backgroundColor: isDark ? AppColors.darkBackground : surface,
         foregroundColor: textPrimary,
+        surfaceTintColor: isDark ? AppColors.darkBackground : surface,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: AppTextStyles.title.copyWith(color: textPrimary),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: isDark ? AppColors.darkSurfaceAlt : AppColors.shell,
-        contentTextStyle: AppTextStyles.body.copyWith(color: Colors.white),
+        backgroundColor: isDark ? AppColors.darkCardSurface : AppColors.shell,
+        contentTextStyle: AppTextStyles.body.copyWith(
+          color: isDark ? AppColors.darkTextPrimary : Colors.white,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.medium),
       ),
@@ -97,6 +111,9 @@ abstract final class AppTheme {
           side: BorderSide(color: border),
         ),
       ),
+      splashColor: isDark ? Colors.white.withValues(alpha: 0.05) : null,
+      highlightColor: isDark ? Colors.white.withValues(alpha: 0.04) : null,
+      hoverColor: isDark ? Colors.white.withValues(alpha: 0.05) : null,
       iconTheme: IconThemeData(color: isDark ? textSecondary : null),
       textTheme: TextTheme(
         displayMedium: AppTextStyles.display.copyWith(color: textPrimary),
@@ -160,10 +177,10 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: surface,
+        backgroundColor: isDark ? AppColors.darkSurface : surface,
+        surfaceTintColor: isDark ? AppColors.darkSurface : surface,
         indicatorColor: isDark
-            ? AppColors.darkSelectedSurface
+            ? AppColors.darkPrimary.withValues(alpha: 0.16)
             : AppColors.primaryLight,
         labelTextStyle: WidgetStatePropertyAll(
           AppTextStyles.label.copyWith(color: textPrimary),
@@ -178,7 +195,7 @@ abstract final class AppTheme {
         ),
         dataTextStyle: AppTextStyles.body.copyWith(color: textPrimary),
         headingRowColor: WidgetStatePropertyAll(
-          isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceMuted,
+          isDark ? AppColors.darkSurface : AppColors.surfaceMuted,
         ),
         dataRowColor: WidgetStateProperty.resolveWith((states) {
           if (!isDark) {
@@ -244,17 +261,44 @@ abstract final class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: surface,
+        backgroundColor: isDark ? AppColors.darkCardSurface : surface,
+        surfaceTintColor: isDark ? AppColors.darkCardSurface : surface,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.xLarge),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: surface,
-        modalBackgroundColor: surface,
+        backgroundColor: isDark ? AppColors.darkCardSurface : surface,
+        surfaceTintColor: isDark ? AppColors.darkCardSurface : surface,
+        modalBackgroundColor: isDark ? AppColors.darkCardSurface : surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
+      ),
+    );
+  }
+}
+
+
+class _MasarCalmPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _MasarCalmPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.992, end: 1).animate(curved),
+        child: child,
       ),
     );
   }

@@ -49,6 +49,26 @@ import '../widgets/crm_app_shell.dart';
 import 'route_names.dart';
 
 abstract final class AppRouter {
+  static Page<void> _calmPage(GoRouterState state, Widget child) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 180),
+      reverseTransitionDuration: const Duration(milliseconds: 120),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: child,
+        );
+      },
+    );
+  }
+
   static GoRouter createRouter(AuthBloc authBloc) {
     return GoRouter(
       initialLocation: RouteNames.onboarding,
@@ -142,206 +162,247 @@ abstract final class AppRouter {
       routes: [
         GoRoute(
           path: RouteNames.onboarding,
-          builder: (context, state) => const OnboardingPage(),
+          pageBuilder: (context, state) => _calmPage(state, const OnboardingPage()),
         ),
         GoRoute(
           path: RouteNames.login,
-          builder: (context, state) => const LoginPage(),
+          pageBuilder: (context, state) => _calmPage(state, const LoginPage()),
         ),
         GoRoute(
           path: RouteNames.registerCompany,
-          builder: (context, state) => RegisterCompanyPage.withDependencies(
-            initialCode: state.uri.queryParameters['code'],
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            RegisterCompanyPage.withDependencies(
+              initialCode: state.uri.queryParameters['code'],
+            ),
           ),
         ),
         GoRoute(
           path: RouteNames.forceChangePassword,
-          builder: (context, state) => ForceChangePasswordPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            ForceChangePasswordPage.withDependencies(),
+          ),
         ),
         GoRoute(
           path: RouteNames.dashboard,
-          builder: (context, state) => const DashboardPage(),
+          pageBuilder: (context, state) => _calmPage(state, const DashboardPage()),
         ),
         GoRoute(
           path: RouteNames.leads,
-          builder: (context, state) => const LeadsListPage(),
+          pageBuilder: (context, state) => _calmPage(state, const LeadsListPage()),
         ),
         GoRoute(
           path: RouteNames.properties,
-          builder: (context, state) => const PropertiesPage(),
+          pageBuilder: (context, state) => _calmPage(state, const PropertiesPage()),
         ),
         GoRoute(
           path: RouteNames.clients,
-          builder: (context, state) => const ClientsPage(),
+          pageBuilder: (context, state) => _calmPage(state, const ClientsPage()),
         ),
         GoRoute(
           path: RouteNames.tasks,
-          builder: (context, state) => const TasksPage(),
+          pageBuilder: (context, state) => _calmPage(state, const TasksPage()),
         ),
         GoRoute(
           path: RouteNames.appointments,
-          builder: (context, state) => const AppointmentsPage(),
+          pageBuilder: (context, state) => _calmPage(state, const AppointmentsPage()),
         ),
         GoRoute(
           path: RouteNames.deals,
-          builder: (context, state) => const DealsPage(),
+          pageBuilder: (context, state) => _calmPage(state, const DealsPage()),
         ),
         GoRoute(
           path: RouteNames.reports,
-          builder: (context, state) => const ReportsPage(),
+          pageBuilder: (context, state) => _calmPage(state, const ReportsPage()),
         ),
         GoRoute(
           path: RouteNames.users,
-          builder: (context, state) => CompanyUsersPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            CompanyUsersPage.withDependencies(),
+          ),
         ),
         GoRoute(
           path: RouteNames.teams,
-          builder: (context, state) => TeamsPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(state, TeamsPage.withDependencies()),
         ),
         GoRoute(
           path: RouteNames.dataHealth,
-          builder: (context, state) => DataHealthPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            DataHealthPage.withDependencies(),
+          ),
         ),
         GoRoute(
           path: RouteNames.notifications,
-          builder: (context, state) => NotificationsPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            NotificationsPage.withDependencies(),
+          ),
         ),
         GoRoute(
           path: RouteNames.profile,
-          builder: (context, state) => const ProfilePage(),
+          pageBuilder: (context, state) => _calmPage(state, const ProfilePage()),
         ),
         GoRoute(
           path: RouteNames.settings,
-          builder: (context, state) => const SettingsPage(),
+          pageBuilder: (context, state) => _calmPage(state, const SettingsPage()),
         ),
         GoRoute(
           path: RouteNames.support,
-          builder: (context, state) => SupportPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(state, SupportPage.withDependencies()),
         ),
         GoRoute(
           path: RouteNames.platform,
-          builder: (context, state) => PlatformPage.withDependencies(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PlatformPage.withDependencies(),
+          ),
         ),
         GoRoute(
           path: RouteNames.platformNotifications,
-          builder: (context, state) =>
-              PlatformPage.withDependencies(initialNotifications: true),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PlatformPage.withDependencies(initialNotifications: true),
+          ),
         ),
         GoRoute(
           path: RouteNames.platformSupport,
-          builder: (context, state) =>
-              PlatformPage.withDependencies(initialSupportInbox: true),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PlatformPage.withDependencies(initialSupportInbox: true),
+          ),
         ),
         GoRoute(
           path: RouteNames.featureUnavailable,
-          builder: (context, state) => const _FeatureUnavailablePage(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            const _FeatureUnavailablePage(),
+          ),
         ),
         GoRoute(
           path: '/platform/companies/:companyId/dashboard',
-          builder: (context, state) {
-            return DashboardPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            DashboardPage(
               platformPreviewCompanyId:
                   state.pathParameters['companyId'] ?? '',
-              platformPreviewCompanyName:
-                  state.uri.queryParameters['name'],
-            );
-          },
+              platformPreviewCompanyName: state.uri.queryParameters['name'],
+            ),
+          ),
         ),
         GoRoute(
           path: RouteNames.dealsCreate,
-          builder: (context, state) => const CreateDealPage(),
+          pageBuilder: (context, state) => _calmPage(state, const CreateDealPage()),
         ),
         GoRoute(
           path: '/deals/:dealId/edit',
-          builder: (context, state) {
-            return EditDealPage(dealId: state.pathParameters['dealId'] ?? '');
-          },
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditDealPage(dealId: state.pathParameters['dealId'] ?? ''),
+          ),
         ),
         GoRoute(
           path: '/deals/:dealId',
-          builder: (context, state) {
-            return DealDetailsPage(dealId: state.pathParameters['dealId'] ?? '');
-          },
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            DealDetailsPage(dealId: state.pathParameters['dealId'] ?? ''),
+          ),
         ),
         GoRoute(
           path: RouteNames.tasksCreate,
-          builder: (context, state) => const CreateTaskPage(),
+          pageBuilder: (context, state) => _calmPage(state, const CreateTaskPage()),
         ),
         GoRoute(
           path: RouteNames.appointmentsCreate,
-          builder: (context, state) => const CreateAppointmentPage(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            const CreateAppointmentPage(),
+          ),
         ),
         GoRoute(
           path: '/appointments/:appointmentId/edit',
-          builder: (context, state) {
-            return EditAppointmentPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditAppointmentPage(
               appointmentId: state.pathParameters['appointmentId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
         GoRoute(
           path: '/tasks/:taskId/edit',
-          builder: (context, state) {
-            return EditTaskPage(taskId: state.pathParameters['taskId'] ?? '');
-          },
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditTaskPage(taskId: state.pathParameters['taskId'] ?? ''),
+          ),
         ),
         GoRoute(
           path: RouteNames.clientsCreate,
-          builder: (context, state) => const CreateClientPage(),
+          pageBuilder: (context, state) => _calmPage(state, const CreateClientPage()),
         ),
         GoRoute(
           path: '/clients/:clientId/edit',
-          builder: (context, state) {
-            return EditClientPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditClientPage(
               clientId: state.pathParameters['clientId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
         GoRoute(
           path: '/clients/:clientId',
-          builder: (context, state) {
-            return ClientDetailsPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            ClientDetailsPage(
               clientId: state.pathParameters['clientId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
         GoRoute(
           path: RouteNames.propertiesCreate,
-          builder: (context, state) => const CreatePropertyPage(),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            const CreatePropertyPage(),
+          ),
         ),
         GoRoute(
           path: '/properties/:propertyId/edit',
-          builder: (context, state) {
-            return EditPropertyPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditPropertyPage(
               propertyId: state.pathParameters['propertyId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
         GoRoute(
           path: '/properties/:propertyId',
-          builder: (context, state) {
-            return PropertyDetailsPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PropertyDetailsPage(
               propertyId: state.pathParameters['propertyId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
         GoRoute(
           path: RouteNames.leadsCreate,
-          builder: (context, state) => const CreateLeadPage(),
+          pageBuilder: (context, state) => _calmPage(state, const CreateLeadPage()),
         ),
         GoRoute(
           path: '/leads/:leadId/edit',
-          builder: (context, state) {
-            return EditLeadPage(leadId: state.pathParameters['leadId'] ?? '');
-          },
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            EditLeadPage(leadId: state.pathParameters['leadId'] ?? ''),
+          ),
         ),
         GoRoute(
           path: '/leads/:leadId',
-          builder: (context, state) {
-            return LeadDetailsPage(
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            LeadDetailsPage(
               leadId: state.pathParameters['leadId'] ?? '',
-            );
-          },
+            ),
+          ),
         ),
       ],
     );

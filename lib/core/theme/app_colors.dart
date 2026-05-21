@@ -39,23 +39,25 @@ class AppColors {
   static const shellIconMuted = Color(0xFF8A8173);
   static const shellBorder = Color(0xFFE0D1B8);
 
-  static const darkPrimary = Color(0xFFF59E0B);
-  static const darkPrimaryHover = Color(0xFFFBBF24);
-  static const darkBackground = Color(0xFF151A1F);
-  static const darkSurface = Color(0xFF1E252C);
-  static const darkCardSurface = Color(0xFF242C35);
-  static const darkSurfaceAlt = Color(0xFF2B3542);
-  static const darkShell = Color(0xFF1F2933);
-  static const darkShellRaised = Color(0xFF2B3542);
-  static const darkSelectedSurface = Color(0xFF3A2D17);
-  static const darkBorder = Color(0xFF3A4553);
-  static const darkTextPrimary = Color(0xFFF8F3EA);
-  static const darkTextSecondary = Color(0xFFB8AE9E);
-  static const darkTextMuted = Color(0xFF948A7C);
-  static const darkSuccess = Color(0xFF4ADE80);
-  static const darkWarning = Color(0xFFF59E0B);
-  static const darkError = Color(0xFFF87171);
-  static const darkInfo = Color(0xFF93C5FD);
+  // X-style dark mode: true black workspace, near-black surfaces,
+  // subtle borders, and Masar's warm gold kept only for focus/accent states.
+  static const darkPrimary = Color(0xFFD6A756);
+  static const darkPrimaryHover = Color(0xFFE7BE72);
+  static const darkBackground = Color(0xFF000000);
+  static const darkSurface = Color(0xFF050505);
+  static const darkCardSurface = Color(0xFF0F1419);
+  static const darkSurfaceAlt = Color(0xFF16181C);
+  static const darkShell = Color(0xFF000000);
+  static const darkShellRaised = Color(0xFF0B0F13);
+  static const darkSelectedSurface = Color(0xFF241B0D);
+  static const darkBorder = Color(0xFF2F3336);
+  static const darkTextPrimary = Color(0xFFE7E9EA);
+  static const darkTextSecondary = Color(0xFF8B98A5);
+  static const darkTextMuted = Color(0xFF71767B);
+  static const darkSuccess = Color(0xFF2FBF71);
+  static const darkWarning = Color(0xFFD9A441);
+  static const darkError = Color(0xFFF05D5E);
+  static const darkInfo = Color(0xFF4C9EFF);
 
   static bool isDark(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark;

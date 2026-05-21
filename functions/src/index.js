@@ -2304,6 +2304,148 @@ exports.saveLeadRecord = onCall(async (request) => {
   return { companyId, leadId };
 });
 
+exports.assignClientRecord = onCall(async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in is required.');
+    }
+
+    const actorUid = request.auth.uid;
+    const data = request.data || {};
+    const companyId = requiredString(data.companyId, 'companyId');
+    const clientId = requiredString(data.clientId, 'clientId');
+    const assignedTo = optionalString(data.assignedTo);
+    validateCompanyId(companyId);
+
+    const actor = await requireActiveCompanyUser(request, companyId);
+    const actorRole = optionalString(actor.role);
+    if (!['admin', 'manager'].includes(actorRole)) {
+      throw new HttpsError('permission-denied', 'You do not have permission to assign clients.');
+    }
+
+    const clientRef = db.doc(`companies/${companyId}/clients/${clientId}`);
+    const clientSnapshot = await clientRef.get();
+    if (!clientSnapshot.exists) {
+      throw new HttpsError('not-found', 'Client was not found.');
+    }
+    const client = clientSnapshot.data() || {};
+    if (optionalString(client.companyId) && optionalString(client.companyId) !== companyId) {
+      throw new HttpsError('permission-denied', 'Client does not belong to this company.');
+    }
+    if (client.isArchived === true || client.isActive === false) {
+      throw new HttpsError('failed-precondition', 'Archived or inactive clients cannot be assigned.');
+    }
+
+    const actorTeamId = optionalString(actor.teamId);
+    if (actorRole === 'manager') {
+      const existingAssignedTo = optionalString(client.assignedTo);
+      let existingAssignee = null;
+      if (existingAssignedTo) {
+        const existingAssigneeSnapshot = await db
+          .doc(`companies/${companyId}/users/${existingAssignedTo}`)
+          .get();
+        existingAssignee = existingAssigneeSnapshot.exists
+          ? (existingAssigneeSnapshot.data() || {})
+          : null;
+      }
+      const canManageExisting =
+        optionalString(client.assignedTo) === actorUid ||
+        optionalString(client.managerId) === actorUid ||
+        (actorTeamId && optionalString(client.teamId) === actorTeamId) ||
+        (existingAssignee && optionalString(existingAssignee.managerId) === actorUid) ||
+        (existingAssignee && actorTeamId && optionalString(existingAssignee.teamId) === actorTeamId);
+      if (!canManageExisting) {
+        throw new HttpsError('permission-denied', 'You can assign only clients in your team.');
+      }
+      if (!assignedTo) {
+        throw new HttpsError('permission-denied', 'Managers cannot leave clients unassigned.');
+      }
+    }
+
+    let assignmentUpdate = {
+      assignedTo: '',
+      assignedToName: '',
+      assignedToEmail: '',
+      teamId: '',
+      teamName: '',
+      managerId: '',
+      managerName: '',
+    };
+
+    if (assignedTo) {
+      const assigneeSnapshot = await db
+        .doc(`companies/${companyId}/users/${assignedTo}`)
+        .get();
+      if (!assigneeSnapshot.exists) {
+        throw new HttpsError('failed-precondition', 'Selected assignee was not found.');
+      }
+      const assignee = assigneeSnapshot.data() || {};
+      if (assignee.companyId && assignee.companyId !== companyId) {
+        throw new HttpsError('permission-denied', 'Selected assignee does not belong to this company.');
+      }
+      if (assignee.isActive !== true) {
+        throw new HttpsError('failed-precondition', 'Selected assignee is inactive.');
+      }
+      if (optionalString(assignee.role) !== 'salesAgent') {
+        throw new HttpsError('failed-precondition', 'Clients can only be assigned to sales agents.');
+      }
+      if (actorRole === 'manager') {
+        const canAssignToUser =
+          optionalString(assignee.managerId) === actorUid ||
+          (actorTeamId && optionalString(assignee.teamId) === actorTeamId);
+        if (!canAssignToUser) {
+          throw new HttpsError('permission-denied', 'You can assign clients only to your team.');
+        }
+      }
+      assignmentUpdate = assignmentSnapshotFromAssignee(assignedTo, assignee);
+    }
+
+    const update = {
+      ...assignmentUpdate,
+      id: optionalString(client.id) || clientId,
+      companyId,
+      isActive: typeof client.isActive === 'boolean' ? client.isActive : true,
+      isArchived: typeof client.isArchived === 'boolean' ? client.isArchived : false,
+      archivedAt: client.archivedAt || null,
+      archivedBy: optionalString(client.archivedBy),
+      archivedByName: optionalString(client.archivedByName),
+      archiveReason: optionalString(client.archiveReason),
+      restoredAt: client.restoredAt || null,
+      restoredBy: optionalString(client.restoredBy),
+      restoredByName: optionalString(client.restoredByName),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actorUid,
+    };
+
+    if (typeof client.fullName !== 'string') {
+      update.fullName = '';
+    }
+    if (typeof client.phone !== 'string') {
+      update.phone = '';
+    }
+    if (typeof client.email !== 'string') {
+      update.email = '';
+    }
+    if (typeof client.preferredLocation !== 'string') {
+      update.preferredLocation = '';
+    }
+    if (typeof client.preferredPropertyType !== 'string') {
+      update.preferredPropertyType = '';
+    }
+    if (typeof client.notes !== 'string') {
+      update.notes = '';
+    }
+    if (!client.createdAt) {
+      update.createdAt = FieldValue.serverTimestamp();
+    }
+    if (typeof client.createdBy !== 'string') {
+      update.createdBy = actorUid;
+    }
+
+    await clientRef.update(update);
+    return { companyId, clientId, assignedTo };
+});
+
+
 exports.saveAppointmentRecord = onCall(async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'Sign in is required.');

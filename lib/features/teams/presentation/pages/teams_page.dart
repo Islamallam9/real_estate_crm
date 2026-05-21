@@ -6,6 +6,7 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -16,6 +17,7 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -207,6 +209,7 @@ class _TeamsContent extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: SingleChildScrollView(
+                  physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -232,6 +235,7 @@ class _TeamsContent extends StatelessWidget {
         }
 
         return SingleChildScrollView(
+          physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,33 +278,12 @@ class _TeamTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      padding: const EdgeInsets.all(AppSpacing.xs),
-      child: TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        labelColor: AppColors.primaryColor(context),
-        unselectedLabelColor: AppColors.textSecondaryColor(context),
-        indicator: BoxDecoration(
-          color: AppColors.selectedSurface(context),
-          borderRadius: AppRadius.large,
-        ),
-        dividerColor: Colors.transparent,
-        tabs: [
-          for (final tab in tabs)
-            Tab(
-              height: 40,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(tab.icon, size: 18),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(tab.label),
-                ],
-              ),
-            ),
-        ],
-      ),
+    return MasarTabBar(
+      compact: true,
+      fullWidth: true,
+      tabs: [
+        for (final tab in tabs) MasarTabItem(label: tab.label, icon: tab.icon),
+      ],
     );
   }
 }

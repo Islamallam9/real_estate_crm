@@ -498,6 +498,8 @@
   "dashboardOverdueFollowUps": "متابعات متأخرة",
   "dashboardUpcomingFollowUps": "متابعات قادمة",
   "dashboardAvailableProperties": "عقارات متاحة",
+  "dashboardVsLastMonth": "مقارنة بالشهر الماضي",
+  "dashboardOfCurrentTotal": "من الإجمالي الحالي",
   "dashboardVisualAnalytics": "تحليلات العمل",
   "dashboardLeadStatusDistribution": "توزيع حالات العملاء المحتملين",
   "dashboardTasksDueBreakdown": "توزيع مواعيد المهام",

@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -131,6 +132,17 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
         );
   }
 
+  Future<void> _refresh() async {
+    context.read<NotificationsCubit>().refresh(
+          companyId: widget.companyId,
+          currentUserId: widget.currentUserId,
+          role: widget.role,
+          managerTeamId: widget.managerTeamId,
+          notificationsLimit: notificationHistoryPageLimit,
+        );
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -163,10 +175,11 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
 
             if (narrow) {
               return SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.only(bottom: 96),
-                child: Column(
+                physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.only(bottom: 96),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     header,
@@ -179,9 +192,9 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                       reminders: reminders,
                       companyId: widget.companyId,
                     ),
-                  ],
-                ),
-              );
+                    ],
+                  ),
+                );
             }
 
             return Column(
@@ -193,8 +206,9 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: Row(
+                    physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
@@ -216,8 +230,8 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                           ),
                         ),
                       ],
+                      ),
                     ),
-                  ),
                 ),
               ],
             );

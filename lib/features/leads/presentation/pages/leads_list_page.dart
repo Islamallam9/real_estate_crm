@@ -11,6 +11,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -268,6 +269,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 
                 if (isMobile) {
                   return SingleChildScrollView(
+                    physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

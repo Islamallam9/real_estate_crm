@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -285,6 +286,7 @@ class _ClientsListContentState extends State<_ClientsListContent> {
 
                   if (isMobile) {
                     return SingleChildScrollView(
+                      physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       child: Column(
@@ -1399,6 +1401,7 @@ Future<void> _showAssignClientSheet(
                   ClientAssignmentField(
                     users: users,
                     value: selectedUserId,
+                    enabled: !isSubmitting,
                     onChanged: (uid) {
                       setSheetState(() => selectedUserId = uid);
                     },
@@ -1422,15 +1425,8 @@ Future<void> _showAssignClientSheet(
                         managerName: selectedUser?.managerName ?? '',
                         updatedBy: updatedBy,
                       );
-                      final completed =
-                          cubit.state.status == ClientsStatus.saved &&
-                          cubit.state.lastAction == ClientsAction.assignClient;
-                      if (completed && sheetContext.mounted) {
-                        Navigator.of(sheetContext).pop();
-                        return;
-                      }
                       if (sheetContext.mounted) {
-                        setSheetState(() => isSubmitting = false);
+                        Navigator.of(sheetContext).pop();
                       }
                     },
                   ),

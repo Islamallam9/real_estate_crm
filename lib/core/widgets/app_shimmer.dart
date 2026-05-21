@@ -114,54 +114,231 @@ class AppShimmerLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = message?.trim();
-    return AppShimmer(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const AppShimmerBlock(width: 52, height: 52),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: const [
-                          AppShimmerBlock(height: 16),
-                          SizedBox(height: AppSpacing.xs),
-                          AppShimmerBlock(height: 12),
-                        ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 720.0;
+        final columns = width >= 980
+            ? 4
+            : width >= 620
+                ? 2
+                : 1;
+        final cardWidth = columns == 1
+            ? double.infinity
+            : (width - ((columns - 1) * AppSpacing.sm)) / columns;
+
+        return SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1180),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const _ShimmerObject(
+                        width: 52,
+                        height: 52,
+                        radius: AppRadius.large,
                       ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: const [
+                            _ShimmerObject(height: 18, width: 220),
+                            SizedBox(height: AppSpacing.xs),
+                            _ShimmerObject(height: 12, width: 150),
+                          ],
+                        ),
+                      ),
+                      if (width > 520) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        const _ShimmerObject(width: 120, height: 38),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      for (var index = 0; index < (columns == 1 ? 4 : 6); index++)
+                        SizedBox(
+                          width: cardWidth,
+                          child: const _MetricSkeletonCard(),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      SizedBox(
+                        width: columns == 1 ? double.infinity : (width - AppSpacing.sm) * 0.58,
+                        child: const _ChartSkeletonCard(),
+                      ),
+                      SizedBox(
+                        width: columns == 1 ? double.infinity : (width - AppSpacing.sm) * 0.42,
+                        child: const _ListSkeletonCard(),
+                      ),
+                    ],
+                  ),
+                  if (text != null && text.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      text,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                const AppShimmerBlock(height: 72),
-                const SizedBox(height: AppSpacing.sm),
-                const AppShimmerBlock(height: 72),
-                const SizedBox(height: AppSpacing.sm),
-                const AppShimmerBlock(height: 72),
-                if (text != null && text.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    text,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _ShimmerObject extends StatelessWidget {
+  const _ShimmerObject({
+    this.width,
+    required this.height,
+    this.radius,
+  });
+
+  final double? width;
+  final double height;
+  final BorderRadiusGeometry? radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShimmer(
+      child: AppShimmerBlock(
+        width: width,
+        height: height,
+        borderRadius: radius ?? AppRadius.medium,
       ),
+    );
+  }
+}
+
+class _MetricSkeletonCard extends StatelessWidget {
+  const _MetricSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: AppRadius.xLarge,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _ShimmerObject(width: 42, height: 42, radius: AppRadius.large),
+              Spacer(),
+              _ShimmerObject(width: 58, height: 22, radius: AppRadius.large),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          _ShimmerObject(width: 86, height: 26),
+          SizedBox(height: AppSpacing.xs),
+          _ShimmerObject(width: 140, height: 12),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartSkeletonCard extends StatelessWidget {
+  const _ChartSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 220,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: AppRadius.xLarge,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ShimmerObject(width: 180, height: 18),
+          SizedBox(height: AppSpacing.lg),
+          Expanded(
+            child: Center(
+              child: _ShimmerObject(width: 136, height: 136, radius: AppRadius.xLarge),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ListSkeletonCard extends StatelessWidget {
+  const _ListSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: AppRadius.xLarge,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          _ShimmerObject(width: 170, height: 18),
+          SizedBox(height: AppSpacing.md),
+          _SkeletonRow(),
+          SizedBox(height: AppSpacing.sm),
+          _SkeletonRow(),
+          SizedBox(height: AppSpacing.sm),
+          _SkeletonRow(),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonRow extends StatelessWidget {
+  const _SkeletonRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        _ShimmerObject(width: 38, height: 38, radius: AppRadius.large),
+        SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ShimmerObject(height: 13),
+              SizedBox(height: AppSpacing.xs),
+              _ShimmerObject(width: 130, height: 10),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

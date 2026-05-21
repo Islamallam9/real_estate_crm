@@ -1328,6 +1328,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardAvailableProperties => 'Available properties';
 
   @override
+  String get dashboardVsLastMonth => 'vs last month';
+
+  @override
+  String get dashboardOfCurrentTotal => 'of current total';
+
+  @override
   String get dashboardVisualAnalytics => 'Workspace analytics';
 
   @override

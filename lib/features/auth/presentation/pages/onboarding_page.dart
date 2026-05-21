@@ -346,46 +346,50 @@ class _MobileOnboardingCard extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxHeight < 470;
+          final compact = constraints.maxHeight < 500;
 
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: _OnboardingIconBadge(icon: data.icon),
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _OnboardingIconBadge(icon: data.icon),
+                  ),
+                  SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),
+                  SizedBox(
+                    height: compact ? 96 : 146,
+                    child: _OnboardingVisual(type: data.visualType),
+                  ),
+                  SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
+                  Text(
+                    data.title,
+                    textAlign: TextAlign.center,
+                    softWrap: true,
+                    textWidthBasis: TextWidthBasis.parent,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          height: 1.24,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    data.message,
+                    textAlign: TextAlign.center,
+                    softWrap: true,
+                    textWidthBasis: TextWidthBasis.parent,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                          height: 1.6,
+                        ),
+                  ),
+                ],
               ),
-              SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
-              Flexible(
-                flex: compact ? 4 : 5,
-                child: _OnboardingVisual(type: data.visualType),
-              ),
-              SizedBox(height: compact ? AppSpacing.lg : AppSpacing.xl),
-              Text(
-                data.title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      height: 1.12,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Flexible(
-                child: Text(
-                  data.message,
-                  textAlign: TextAlign.center,
-                  maxLines: compact ? 3 : 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                        height: 1.45,
-                      ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -440,8 +444,8 @@ class _OnboardingFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 172,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 172),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
@@ -459,7 +463,7 @@ class _OnboardingFeatureCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: visualWidth,
-                  height: double.infinity,
+                  height: 140,
                   child: _OnboardingVisual(type: data.visualType, compact: true),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -475,8 +479,7 @@ class _OnboardingFeatureCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               data.title,
-                              maxLines: narrow ? 2 : 1,
-                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w900,
                                     height: 1.15,
@@ -486,16 +489,14 @@ class _OnboardingFeatureCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Flexible(
-                        child: Text(
-                          data.message,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondaryColor(context),
-                                height: 1.3,
-                              ),
-                        ),
+                      Text(
+                        data.message,
+                        softWrap: true,
+                        textWidthBasis: TextWidthBasis.parent,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                              height: 1.38,
+                            ),
                       ),
                     ],
                   ),

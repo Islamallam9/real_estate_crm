@@ -109,6 +109,8 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
       return clientToSave;
     } on ClientException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw ClientException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw ClientException(_mapFirestoreError(error));
     } catch (_) {
@@ -175,31 +177,16 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String updatedBy,
   }) async {
     try {
-      final document = _clientsCollection(companyId).doc(clientId);
-      final snapshot = await document.get();
-      if (!snapshot.exists) {
-        throw const ClientException(AppErrorMessages.notFound);
-      }
-
-      final existingClient = ClientModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, client: existingClient);
-      await document.update({
+      final callable = _functions.httpsCallable('assignClientRecord');
+      await callable.call(<String, Object?>{
+        'companyId': companyId,
+        'clientId': clientId,
         'assignedTo': assignedTo.trim(),
-        'assignedToName': assignedTo.trim().isEmpty
-            ? ''
-            : assignedToName.trim(),
-        'assignedToEmail': assignedTo.trim().isEmpty
-            ? ''
-            : assignedToEmail.trim(),
-        'teamId': assignedTo.trim().isEmpty ? '' : teamId.trim(),
-        'teamName': assignedTo.trim().isEmpty ? '' : teamName.trim(),
-        'managerId': assignedTo.trim().isEmpty ? '' : managerId.trim(),
-        'managerName': assignedTo.trim().isEmpty ? '' : managerName.trim(),
-        'updatedAt': Timestamp.now(),
-        'updatedBy': updatedBy,
       });
     } on ClientException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw ClientException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw ClientException(_mapFirestoreError(error));
     } catch (_) {

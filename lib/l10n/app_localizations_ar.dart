@@ -1323,6 +1323,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardAvailableProperties => 'عقارات متاحة';
 
   @override
+  String get dashboardVsLastMonth => 'مقارنة بالشهر الماضي';
+
+  @override
+  String get dashboardOfCurrentTotal => 'من الإجمالي الحالي';
+
+  @override
   String get dashboardVisualAnalytics => 'تحليلات العمل';
 
   @override

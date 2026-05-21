@@ -2,7 +2,7 @@ import 'dart:async';
 
 class InitialLoadTimeout {
   InitialLoadTimeout({
-    this.duration = const Duration(seconds: 18),
+    this.duration = const Duration(seconds: 30),
   });
 
   final Duration duration;

@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -233,6 +234,7 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
 
                 if (isMobile) {
                   return SingleChildScrollView(
+                    physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     child: Column(
@@ -269,6 +271,7 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                     if (showAttentionTab)
                       Expanded(
                         child: SingleChildScrollView(
+                          physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                           padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                           child: attention,
                         ),
@@ -303,95 +306,136 @@ class _AppointmentsTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(18),
+    final isDark = AppColors.isDark(context);
+    final primary = AppColors.primaryColor(context);
+    final border = AppColors.borderColor(context);
+    final surface = AppColors.cardSurface(context);
+    final selectedText = isDark ? const Color(0xFF050505) : AppColors.textStrong;
+    final items = [
+      _AppointmentTabData(
+        label: l.appointments,
+        icon: Icons.event_available_outlined,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            Expanded(
-              child: _AppointmentsTabButton(
-                label: l.appointments,
-                icon: Icons.event_available_outlined,
-                selected: selectedIndex == 0,
-                onTap: () => onChanged(0),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: _AppointmentsTabButton(
-                label: l.attentionNeeded,
-                icon: Icons.notifications_active_outlined,
-                selected: selectedIndex == 1,
-                badge: attentionCount > 0 ? attentionCount.toString() : null,
-                onTap: () => onChanged(1),
-              ),
-            ),
-          ],
+      _AppointmentTabData(
+        label: l.attentionNeeded,
+        icon: Icons.notifications_active_outlined,
+        badge: attentionCount > 0 ? attentionCount.toString() : null,
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkSurfaceAlt.withValues(alpha: 0.86)
+            : surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : border,
         ),
+      ),
+      child: Row(
+        children: [
+          for (var index = 0; index < items.length; index++)
+            Expanded(
+              child: _AppointmentSegmentButton(
+                data: items[index],
+                selected: selectedIndex == index,
+                primary: primary,
+                selectedText: selectedText,
+                onTap: () => onChanged(index),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _AppointmentsTabButton extends StatelessWidget {
-  const _AppointmentsTabButton({
+class _AppointmentTabData {
+  const _AppointmentTabData({
     required this.label,
     required this.icon,
-    required this.selected,
-    required this.onTap,
     this.badge,
   });
 
   final String label;
   final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
   final String? badge;
+}
+
+class _AppointmentSegmentButton extends StatelessWidget {
+  const _AppointmentSegmentButton({
+    required this.data,
+    required this.selected,
+    required this.primary,
+    required this.selectedText,
+    required this.onTap,
+  });
+
+  final _AppointmentTabData data;
+  final bool selected;
+  final Color primary;
+  final Color selectedText;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? AppColors.primaryColor(context)
+    final textColor = selected
+        ? selectedText
         : AppColors.textSecondaryColor(context);
-    return Material(
-      color: selected ? AppColors.selectedSurface(context) : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: selected ? primary : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: 9,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: color),
-              const SizedBox(width: AppSpacing.xs),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: color,
-                        fontWeight:
-                            selected ? FontWeight.w900 : FontWeight.w700,
-                      ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(data.icon, size: 18, color: textColor),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: textColor,
+                          fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                        ),
+                  ),
                 ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: AppSpacing.xs),
-                AppStatusBadge(label: badge!, tone: AppStatusTone.warning),
+                if (data.badge != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Colors.black.withValues(alpha: 0.10)
+                          : AppColors.errorColor(context).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      data.badge!,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: selected ? selectedText : AppColors.errorColor(context),
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

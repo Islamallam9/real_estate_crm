@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,6 +23,8 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/presentation/cubit/appointments_cubit.dart';
@@ -577,8 +580,9 @@ class _RecentActivityPanel extends StatelessWidget {
                 );
               }
 
+              final limit = MediaQuery.sizeOf(context).width >= 900 ? 3 : 4;
               final items = state.logs
-                  .take(5)
+                  .take(limit)
                   .map(
                     (log) => _auditLogActivityItem(
                       context,
@@ -597,7 +601,7 @@ class _RecentActivityPanel extends StatelessWidget {
               }
 
               return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 140),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 child: Column(
@@ -890,7 +894,7 @@ class _RecentActivityTile extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       key: ValueKey(item.id),
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 160),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Opacity(
@@ -988,6 +992,11 @@ class _DashboardView extends StatelessWidget {
   final String? failureMessage;
   final VoidCallback onRetry;
 
+  Future<void> _handleRefresh() async {
+    onRetry();
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -1045,16 +1054,18 @@ class _DashboardView extends StatelessWidget {
             analyticsEnabled: analyticsEnabled,
             canViewUnassignedLeads: canViewUnassignedLeads,
             quickAddActions: quickAddActions,
+            onRefresh: _handleRefresh,
           );
         }
 
         return Stack(
           children: [
             SingleChildScrollView(
-              padding: EdgeInsets.only(
-                bottom: mobile && quickAddActions.isNotEmpty ? 88 : 0,
-              ),
-              child: Column(
+              physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+                padding: EdgeInsets.only(
+                  bottom: mobile && quickAddActions.isNotEmpty ? 88 : 0,
+                ),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _DashboardReveal(
@@ -1299,8 +1310,8 @@ class _DashboardView extends StatelessWidget {
                     ),
                   ),
                 ],
+                ),
               ),
-            ),
             if (mobile && quickAddActions.isNotEmpty)
               Positioned.fill(
                 child: _MobileQuickAddFab(actions: quickAddActions),
@@ -1374,6 +1385,7 @@ class _MobileDashboardTabs extends StatelessWidget {
     required this.analyticsEnabled,
     required this.canViewUnassignedLeads,
     required this.quickAddActions,
+    required this.onRefresh,
     this.previewCompanyName,
   });
 
@@ -1389,6 +1401,7 @@ class _MobileDashboardTabs extends StatelessWidget {
   final bool analyticsEnabled;
   final bool canViewUnassignedLeads;
   final List<_QuickAddAction> quickAddActions;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -1400,6 +1413,7 @@ class _MobileDashboardTabs extends StatelessWidget {
         icon: Icons.space_dashboard_outlined,
         child: _MobileDashboardTabBody(
           hasQuickActions: quickAddActions.isNotEmpty,
+          onRefresh: onRefresh,
           children: _withDashboardGaps([
             _DashboardReveal(
               id: 'mobile-welcome',
@@ -1415,6 +1429,16 @@ class _MobileDashboardTabs extends StatelessWidget {
               delay: const Duration(milliseconds: 60),
               child: _SummaryGrid(data: data, authState: authState),
             ),
+            if (auditLogsEnabled &&
+                _canViewRecentActivity(authState, platformPreview: platformPreview))
+              _DashboardReveal(
+                id: 'mobile-dashboard-recent-activity',
+                delay: const Duration(milliseconds: 100),
+                child: _RecentActivityPanel(
+                  authState: authState,
+                  platformPreview: platformPreview,
+                ),
+              ),
           ], gap: AppSpacing.sm),
         ),
       ),
@@ -1424,6 +1448,7 @@ class _MobileDashboardTabs extends StatelessWidget {
           icon: Icons.donut_large_outlined,
           child: _MobileDashboardTabBody(
             hasQuickActions: quickAddActions.isNotEmpty,
+            onRefresh: onRefresh,
             children: _withDashboardGaps([
               _DashboardReveal(
                 id: 'mobile-analytics',
@@ -1439,6 +1464,7 @@ class _MobileDashboardTabs extends StatelessWidget {
           icon: Icons.handshake_outlined,
           child: _MobileDashboardTabBody(
             hasQuickActions: quickAddActions.isNotEmpty,
+            onRefresh: onRefresh,
             children: _withDashboardGaps([
               _DashboardReveal(
                 id: 'mobile-deals',
@@ -1457,6 +1483,7 @@ class _MobileDashboardTabs extends StatelessWidget {
           icon: Icons.event_note_outlined,
           child: _MobileDashboardTabBody(
             hasQuickActions: quickAddActions.isNotEmpty,
+            onRefresh: onRefresh,
             children: _withDashboardGaps([
               _DashboardReveal(
                 id: 'mobile-tasks',
@@ -1475,6 +1502,7 @@ class _MobileDashboardTabs extends StatelessWidget {
           icon: Icons.event_available_outlined,
           child: _MobileDashboardTabBody(
             hasQuickActions: quickAddActions.isNotEmpty,
+            onRefresh: onRefresh,
             children: _withDashboardGaps([
               _DashboardReveal(
                 id: 'mobile-appointments',
@@ -1490,6 +1518,7 @@ class _MobileDashboardTabs extends StatelessWidget {
           icon: Icons.event_available_outlined,
           child: _MobileDashboardTabBody(
             hasQuickActions: quickAddActions.isNotEmpty,
+            onRefresh: onRefresh,
             children: _withDashboardGaps([
               _DashboardReveal(
                 id: 'mobile-today-followups',
@@ -1525,25 +1554,6 @@ class _MobileDashboardTabs extends StatelessWidget {
             ], gap: AppSpacing.sm),
           ),
         ),
-      if (auditLogsEnabled &&
-          _canViewRecentActivity(authState, platformPreview: platformPreview))
-        _MobileDashboardTab(
-          label: l.dashboardRecentActivity,
-          icon: Icons.history_outlined,
-          child: _MobileDashboardTabBody(
-            hasQuickActions: quickAddActions.isNotEmpty,
-            children: _withDashboardGaps([
-              _DashboardReveal(
-                id: 'mobile-recent-activity',
-                delay: const Duration(milliseconds: 300),
-                child: _RecentActivityPanel(
-                  authState: authState,
-                  platformPreview: platformPreview,
-                ),
-              ),
-            ], gap: AppSpacing.sm),
-          ),
-        ),
     ];
 
     return Stack(
@@ -1557,7 +1567,7 @@ class _MobileDashboardTabs extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               Expanded(
                 child: TabBarView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [for (final tab in tabs) tab.child],
                 ),
               ),
@@ -1592,39 +1602,12 @@ class _MobileDashboardTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.isDark(context)
-        ? AppColors.darkSurfaceAlt
-        : AppColors.cardSurface(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: colors,
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicator: BoxDecoration(
-          color: AppColors.selectedSurface(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        labelColor: AppColors.primaryColor(context),
-        unselectedLabelColor: AppColors.textSecondaryColor(context),
-        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-        padding: const EdgeInsets.all(4),
-        tabs: [
-          for (final tab in tabs)
-            Tab(
-              iconMargin: const EdgeInsets.only(bottom: 2),
-              icon: Icon(tab.icon, size: 18),
-              text: tab.label,
-            ),
-        ],
-      ),
+    return MasarTabBar(
+      tabs: [
+        for (final tab in tabs)
+          MasarTabItem(label: tab.label, icon: tab.icon),
+      ],
+      fullWidth: true,
     );
   }
 }
@@ -1633,15 +1616,17 @@ class _MobileDashboardTabBody extends StatelessWidget {
   const _MobileDashboardTabBody({
     required this.children,
     required this.hasQuickActions,
+    required this.onRefresh,
   });
 
   final List<Widget> children;
   final bool hasQuickActions;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
+      physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
       padding: EdgeInsets.only(
         bottom: hasQuickActions ? 88 : AppSpacing.sm,
       ),
@@ -1713,8 +1698,8 @@ class _MobileQuickAddFabState extends State<_MobileQuickAddFab>
           end: AppSpacing.md,
           bottom: AppSpacing.md,
           child: SizedBox(
-            width: 238,
-            height: 88.0 + (widget.actions.length * 56.0),
+            width: 248,
+            height: 248,
             child: Stack(
               clipBehavior: Clip.none,
               alignment: AlignmentDirectional.bottomEnd,
@@ -1723,6 +1708,7 @@ class _MobileQuickAddFabState extends State<_MobileQuickAddFab>
                   _QuickAddMenuItem(
                     action: widget.actions[index],
                     index: index,
+                    total: widget.actions.length,
                     animation: _animation,
                     onTap: () {
                       _close();
@@ -1770,24 +1756,37 @@ class _QuickAddMenuItem extends StatelessWidget {
   const _QuickAddMenuItem({
     required this.action,
     required this.index,
+    required this.total,
     required this.animation,
     required this.onTap,
   });
 
   final _QuickAddAction action;
   final int index;
+  final int total;
   final Animation<double> animation;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final offset = Offset(0, -72.0 - (index * 54.0));
+    final textDirection = Directionality.of(context);
+    final total = math.max(1, this.total);
+    final isRtl = textDirection == TextDirection.rtl;
+    final startAngle = isRtl ? -85.0 : -95.0;
+    final endAngle = isRtl ? -5.0 : -175.0;
+    final denominator = math.max(1, total - 1);
+    final angleDegrees = total == 1
+        ? (isRtl ? -45.0 : -135.0)
+        : startAngle + ((endAngle - startAngle) * index / denominator);
+    final angle = angleDegrees * math.pi / 180;
+    final radius = 88.0 + (math.min(index, 2) * 10.0);
+    final offset = Offset(math.cos(angle) * radius, math.sin(angle) * radius);
 
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
         return PositionedDirectional(
-          end: offset.dx.abs() < 1 ? 0 : null,
+          end: 0,
           bottom: 0,
           child: Transform.translate(
             offset: Offset(
@@ -1869,6 +1868,11 @@ class _DashboardRevealState extends State<_DashboardReveal> {
 
   @override
   Widget build(BuildContext context) {
+    final disableReveal = kIsWeb && MediaQuery.sizeOf(context).width < 720;
+    if (disableReveal) {
+      return widget.child;
+    }
+
     return VisibilityDetector(
       key: ValueKey('dashboard-reveal-${widget.id}'),
       onVisibilityChanged: (info) {
@@ -1878,12 +1882,12 @@ class _DashboardRevealState extends State<_DashboardReveal> {
       },
       child: AnimatedOpacity(
         opacity: _visible ? 1 : 0,
-        duration: const Duration(milliseconds: 480),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         child: AnimatedSlide(
-          offset: _visible ? Offset.zero : const Offset(0, 0.045),
-          duration: const Duration(milliseconds: 620),
-          curve: Curves.easeOutCubic,
+          offset: _visible ? Offset.zero : const Offset(0, 0.018),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
           child: widget.child,
         ),
       ),
@@ -2179,12 +2183,17 @@ class _SummaryGrid extends StatelessWidget {
           data.leads.length,
           AppStatusTone.info,
           Icons.people_alt_outlined,
-          percentageLabel: _metricPercentLabel(
+          percentageLabel: _metricTrendLabel(
             context,
-            _createdToday(data.leads.map((lead) => lead.createdAt)),
-            data.leads.length,
+            _countThisMonth(data.leads.map((lead) => lead.createdAt)),
+            _countPreviousMonth(data.leads.map((lead) => lead.createdAt)),
           ),
-          percentageTone: AppStatusTone.success,
+          percentageCaption: l.dashboardVsLastMonth,
+          percentageTone: _metricTrendTone(
+            _countThisMonth(data.leads.map((lead) => lead.createdAt)),
+            _countPreviousMonth(data.leads.map((lead) => lead.createdAt)),
+          ),
+          percentageIsTrend: true,
         ),
       if (leadsEnabled)
         _MetricItem(
@@ -2197,6 +2206,7 @@ class _SummaryGrid extends StatelessWidget {
             data.newLeads.length,
             data.leads.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
           percentageTone: AppStatusTone.success,
         ),
       if (tasksEnabled || leadsEnabled)
@@ -2210,6 +2220,7 @@ class _SummaryGrid extends StatelessWidget {
             data.upcomingFollowUps.length,
             data.leads.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
         ),
       if (tasksEnabled || leadsEnabled)
         _MetricItem(
@@ -2222,6 +2233,7 @@ class _SummaryGrid extends StatelessWidget {
             data.overdueFollowUps.length,
             data.leads.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
           percentageTone: AppStatusTone.error,
         ),
       if (appointmentsEnabled)
@@ -2235,6 +2247,7 @@ class _SummaryGrid extends StatelessWidget {
             data.upcomingAppointments.length,
             data.appointments.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
         ),
       if (appointmentsEnabled)
         _MetricItem(
@@ -2247,6 +2260,7 @@ class _SummaryGrid extends StatelessWidget {
             data.missedAppointments.length,
             data.appointments.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
           percentageTone: AppStatusTone.error,
         ),
       if (dealsEnabled)
@@ -2260,6 +2274,7 @@ class _SummaryGrid extends StatelessWidget {
             data.openDeals.length,
             data.deals.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
         ),
       if (dealsEnabled)
         _MetricItem(
@@ -2267,12 +2282,17 @@ class _SummaryGrid extends StatelessWidget {
           data.wonDeals.length,
           AppStatusTone.success,
           Icons.emoji_events_outlined,
-          percentageLabel: _metricPercentLabel(
+          percentageLabel: _metricTrendLabel(
             context,
-            data.wonDeals.length,
-            data.deals.length,
+            _countThisMonth(data.wonDeals.map((deal) => deal.updatedAt ?? deal.createdAt)),
+            _countPreviousMonth(data.wonDeals.map((deal) => deal.updatedAt ?? deal.createdAt)),
           ),
-          percentageTone: AppStatusTone.success,
+          percentageCaption: l.dashboardVsLastMonth,
+          percentageTone: _metricTrendTone(
+            _countThisMonth(data.wonDeals.map((deal) => deal.updatedAt ?? deal.createdAt)),
+            _countPreviousMonth(data.wonDeals.map((deal) => deal.updatedAt ?? deal.createdAt)),
+          ),
+          percentageIsTrend: true,
         ),
       if (propertiesEnabled)
         _MetricItem(
@@ -2285,6 +2305,7 @@ class _SummaryGrid extends StatelessWidget {
             data.availableProperties.length,
             data.properties.length,
           ),
+          percentageCaption: l.dashboardOfCurrentTotal,
           percentageTone: AppStatusTone.success,
         ),
       if (clientsEnabled)
@@ -2293,11 +2314,17 @@ class _SummaryGrid extends StatelessWidget {
           data.clients.length,
           AppStatusTone.neutral,
           Icons.group_outlined,
-          percentageLabel: _metricPercentLabel(
+          percentageLabel: _metricTrendLabel(
             context,
-            data.clients.length,
-            math.max(data.leads.length, data.clients.length),
+            _countThisMonth(data.clients.map((client) => client.createdAt)),
+            _countPreviousMonth(data.clients.map((client) => client.createdAt)),
           ),
+          percentageCaption: l.dashboardVsLastMonth,
+          percentageTone: _metricTrendTone(
+            _countThisMonth(data.clients.map((client) => client.createdAt)),
+            _countPreviousMonth(data.clients.map((client) => client.createdAt)),
+          ),
+          percentageIsTrend: true,
         ),
     ];
 
@@ -2339,11 +2366,57 @@ String _metricPercentLabel(BuildContext context, int value, int total) {
   ).format(value / total);
 }
 
-int _createdToday(Iterable<DateTime> dates) {
-  final today = _dateOnly(DateTime.now());
-  return dates.where((date) => _dateOnly(date.toLocal()) == today).length;
+String _metricTrendLabel(BuildContext context, int current, int previous) {
+  final localeName = Localizations.localeOf(context).toLanguageTag();
+  if (current == 0 && previous == 0) {
+    return '0%';
+  }
+  final ratio = previous <= 0 ? 1.0 : (current - previous) / previous;
+  final formatted = intl.NumberFormat.decimalPercentPattern(
+    locale: localeName,
+    decimalDigits: 0,
+  ).format(ratio.abs());
+  if (ratio > 0) {
+    return '+$formatted';
+  }
+  if (ratio < 0) {
+    return '-$formatted';
+  }
+  return '0%';
 }
 
+AppStatusTone _metricTrendTone(int current, int previous) {
+  if (current < previous) {
+    return AppStatusTone.error;
+  }
+  if (current > previous) {
+    return AppStatusTone.success;
+  }
+  return AppStatusTone.neutral;
+}
+
+int _countThisMonth(Iterable<DateTime?> dates) {
+  final now = DateTime.now();
+  return dates.where((date) {
+    if (date == null) {
+      return false;
+    }
+    final local = date.toLocal();
+    return local.year == now.year && local.month == now.month;
+  }).length;
+}
+
+int _countPreviousMonth(Iterable<DateTime?> dates) {
+  final now = DateTime.now();
+  final previous = DateTime(now.year, now.month - 1);
+  return dates.where((date) {
+    if (date == null) {
+      return false;
+    }
+    final local = date.toLocal();
+    return local.year == previous.year && local.month == previous.month;
+  }).length;
+}
 class _MetricCard extends StatelessWidget {
   const _MetricCard({required this.item});
 
@@ -2393,7 +2466,7 @@ class _MetricCard extends StatelessWidget {
                 Expanded(
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: item.value.toDouble()),
-                    duration: const Duration(milliseconds: 480),
+                    duration: const Duration(milliseconds: 140),
                     curve: Curves.easeOutCubic,
                     builder: (context, value, _) {
                       return Text(
@@ -2425,9 +2498,11 @@ class _MetricCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          item.percentageTone == AppStatusTone.error
-                              ? Icons.trending_down_rounded
-                              : Icons.trending_up_rounded,
+                          item.percentageIsTrend
+                              ? (item.percentageTone == AppStatusTone.error
+                                  ? Icons.trending_down_rounded
+                                  : Icons.trending_up_rounded)
+                              : Icons.pie_chart_outline_rounded,
                           size: 14,
                           color: percentageColor,
                         ),
@@ -2445,6 +2520,21 @@ class _MetricCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (item.percentageLabel != null &&
+                item.percentageLabel!.trim().isNotEmpty &&
+                item.percentageCaption != null &&
+                item.percentageCaption!.trim().isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                item.percentageCaption!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
           ],
         ),
       ),
@@ -2622,7 +2712,7 @@ class _DonutChartCardState extends State<_DonutChartCard>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1050),
+      duration: const Duration(milliseconds: 420),
     );
 
     _setupAnimations();
@@ -2797,7 +2887,7 @@ class _ModernDonutChart extends StatelessWidget {
           TweenAnimationBuilder<double>(
             key: ValueKey(valueKey),
             tween: Tween(begin: 0.0, end: total.toDouble()),
-            duration: const Duration(milliseconds: 760),
+            duration: const Duration(milliseconds: 340),
             curve: Curves.easeOutCubic,
             builder: (context, value, _) {
               return Text(
@@ -3327,7 +3417,7 @@ class _ProgressRow extends StatelessWidget {
         Expanded(
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: clamped),
-            duration: const Duration(milliseconds: 850),
+            duration: const Duration(milliseconds: 360),
             curve: Curves.easeOutCubic,
             builder: (context, animatedValue, _) {
               return ClipRRect(
@@ -3758,7 +3848,9 @@ class _MetricItem {
     this.tone,
     this.icon, {
     this.percentageLabel,
+    this.percentageCaption,
     this.percentageTone,
+    this.percentageIsTrend = false,
   });
 
   final String label;
@@ -3766,7 +3858,9 @@ class _MetricItem {
   final AppStatusTone tone;
   final IconData icon;
   final String? percentageLabel;
+  final String? percentageCaption;
   final AppStatusTone? percentageTone;
+  final bool percentageIsTrend;
 }
 
 class _ChartSegment {

@@ -14,6 +14,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -21,6 +22,7 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -370,6 +372,7 @@ class _ReportsView extends StatelessWidget {
     }
 
     return SingleChildScrollView(
+      physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -802,6 +805,7 @@ class _MobileReportsView extends StatelessWidget {
             builder: (context, _) {
               final index = controller.index.clamp(0, tabs.length - 1);
               return SingleChildScrollView(
+                physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -856,36 +860,12 @@ class _MobileReportsTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicator: BoxDecoration(
-          color: AppColors.selectedSurface(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        labelColor: AppColors.primaryColor(context),
-        unselectedLabelColor: AppColors.textSecondaryColor(context),
-        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-        padding: const EdgeInsets.all(4),
-        tabs: [
-          for (final tab in tabs)
-            Tab(
-              iconMargin: const EdgeInsets.only(bottom: 2),
-              icon: Icon(tab.icon, size: 18),
-              text: tab.label,
-            ),
-        ],
-      ),
+    return MasarTabBar(
+      compact: true,
+      fullWidth: true,
+      tabs: [
+        for (final tab in tabs) MasarTabItem(label: tab.label, icon: tab.icon),
+      ],
     );
   }
 }

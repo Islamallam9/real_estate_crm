@@ -17,6 +17,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
@@ -332,7 +333,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(
                   child: TabBarView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
                       ListView(
                         children: _mainContent(l),
@@ -806,35 +807,12 @@ class _LeadDetailsTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: TabBar(
-        isScrollable: false,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicator: BoxDecoration(
-          color: AppColors.selectedSurface(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        labelColor: AppColors.primaryColor(context),
-        unselectedLabelColor: AppColors.textSecondaryColor(context),
-        labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-        padding: const EdgeInsets.all(4),
-        tabs: [
-          for (final tab in tabs)
-            Tab(
-              iconMargin: const EdgeInsets.only(bottom: 2),
-              icon: Icon(tab.icon, size: 18),
-              text: tab.label,
-            ),
-        ],
-      ),
+    return MasarTabBar(
+      compact: true,
+      fullWidth: true,
+      tabs: [
+        for (final tab in tabs) MasarTabItem(label: tab.label, icon: tab.icon),
+      ],
     );
   }
 }

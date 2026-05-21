@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
@@ -12,9 +15,12 @@ import '../../features/global_search/domain/entities/global_search_result.dart';
 import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
 import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
 import '../../features/global_search/presentation/cubit/global_search_state.dart';
+import '../../features/notifications/domain/entities/crm_notification.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
+import '../../features/notifications/presentation/cubit/notifications_state.dart';
 import '../../features/notifications/presentation/widgets/notification_bell_button.dart';
 import '../../features/notifications/presentation/widgets/notifications_scope.dart';
+import '../../features/notifications/presentation/widgets/notification_text.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
 import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
@@ -28,6 +34,8 @@ import '../../l10n/app_localizations.dart';
 import '../routing/route_names.dart';
 import 'app_feedback.dart';
 import 'masar_brand.dart';
+import 'masar_page_entrance.dart';
+import 'masar_refresh_indicator.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem {
@@ -194,6 +202,37 @@ class CrmAppShell extends StatelessWidget {
   }
 }
 
+class _ShellRefreshWrapper extends StatefulWidget {
+  const _ShellRefreshWrapper({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ShellRefreshWrapper> createState() => _ShellRefreshWrapperState();
+}
+
+class _ShellRefreshWrapperState extends State<_ShellRefreshWrapper> {
+  int _refreshSeed = 0;
+
+  Future<void> _handleRefresh() async {
+    if (mounted) {
+      setState(() => _refreshSeed++);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MasarRefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: MasarPageEntrance(
+        key: ValueKey('shell-refresh-$_refreshSeed'),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _CrmNotificationsScope extends StatelessWidget {
   const _CrmNotificationsScope({
     required this.authState,
@@ -278,9 +317,240 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        _NotificationFloatingToast(
+          companyId: widget.companyId,
+        ),
+      ],
+    );
+  }
 }
 
+class _NotificationFloatingToast extends StatefulWidget {
+  const _NotificationFloatingToast({required this.companyId});
+
+  final String companyId;
+
+  @override
+  State<_NotificationFloatingToast> createState() =>
+      _NotificationFloatingToastState();
+}
+
+class _NotificationFloatingToastState
+    extends State<_NotificationFloatingToast> {
+  final Set<String> _knownNotificationIds = <String>{};
+  CrmNotification? _visibleNotification;
+  Timer? _hideTimer;
+  bool _primed = false;
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleNotifications(NotificationsState state) {
+    final currentIds = state.notifications.map((item) => item.id).toSet();
+    if (!_primed) {
+      _knownNotificationIds
+        ..clear()
+        ..addAll(currentIds);
+      _primed = true;
+      return;
+    }
+
+    final newNotifications = state.notifications
+        .where((item) => !_knownNotificationIds.contains(item.id))
+        .toList();
+    _knownNotificationIds
+      ..clear()
+      ..addAll(currentIds);
+
+    if (newNotifications.isEmpty) {
+      return;
+    }
+
+    newNotifications.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+    _show(newNotifications.first);
+  }
+
+  void _show(CrmNotification notification) {
+    _hideTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _visibleNotification = notification);
+    _hideTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() => _visibleNotification = null);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 720;
+    return PositionedDirectional(
+      top: 0,
+      end: isMobile ? AppSpacing.sm : AppSpacing.xl,
+      start: isMobile ? AppSpacing.sm : null,
+      child: SafeArea(
+        minimum: EdgeInsets.only(
+          top: isMobile ? AppSpacing.sm : AppSpacing.xl,
+        ),
+        child: BlocListener<NotificationsCubit, NotificationsState>(
+        listenWhen: (previous, current) =>
+            previous.notifications != current.notifications,
+        listener: (context, state) => _handleNotifications(state),
+        child: IgnorePointer(
+          ignoring: _visibleNotification == null,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final direction = Directionality.of(context) == TextDirection.rtl
+                  ? -1.0
+                  : 1.0;
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(0.16 * direction, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: _visibleNotification == null
+                ? const SizedBox.shrink(key: ValueKey('notification-toast-empty'))
+                : _NotificationToastCard(
+                    key: ValueKey(_visibleNotification!.id),
+                    companyId: widget.companyId,
+                    notification: _visibleNotification!,
+                    onClose: () {
+                      _hideTimer?.cancel();
+                      setState(() => _visibleNotification = null);
+                    },
+                  ),
+          ),
+        ),
+      ),
+    ),
+  );
+  }
+}
+
+class _NotificationToastCard extends StatelessWidget {
+  const _NotificationToastCard({
+    super.key,
+    required this.companyId,
+    required this.notification,
+    required this.onClose,
+  });
+
+  final String companyId;
+  final CrmNotification notification;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = _CrmShellColors.of(context);
+    final isMobile = MediaQuery.sizeOf(context).width < 720;
+    return Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? MediaQuery.sizeOf(context).width - 32 : 360,
+        ),
+        child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: () async {
+              await context.read<NotificationsCubit>().markAsRead(
+                    companyId: companyId,
+                    notification: notification,
+                  );
+              onClose();
+              if (context.mounted && notification.route.trim().isNotEmpty) {
+                context.go(notification.route.trim());
+              }
+            },
+            child: Container(
+              padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
+              decoration: BoxDecoration(
+                color: colors.chromeSurface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: colors.border),
+                boxShadow: AppShadows.shell,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.notifications_active_outlined,
+                      color: colors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          notificationTitle(l, notification),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: colors.textPrimary,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          notificationBody(l, notification),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                                height: 1.25,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l.close,
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+    );
+  }
+}
 
 bool _isNavigationItemEnabled(
   CompanyMetadata? companyMetadata,
@@ -426,23 +696,25 @@ class _DesktopShellState extends State<_DesktopShell> {
                     const SizedBox(height: AppSpacing.md),
                     Expanded(
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
+                        duration: const Duration(milliseconds: 300),
+                        reverseDuration: const Duration(milliseconds: 180),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
                         transitionBuilder: (incoming, animation) {
-                          final direction =
-                              Directionality.of(context) == TextDirection.rtl
-                                  ? -1.0
-                                  : 1.0;
-                          final offset = Tween<Offset>(
-                            begin: Offset(0.018 * direction, 0),
-                            end: Offset.zero,
-                          ).animate(animation);
+                          final curved = CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                            reverseCurve: Curves.easeInCubic,
+                          );
                           return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: offset,
+                            opacity: curved,
+                            child: AnimatedBuilder(
+                              animation: curved,
                               child: incoming,
+                              builder: (context, child) => Transform.translate(
+                                offset: Offset(0, (1 - curved.value) * 14),
+                                child: child,
+                              ),
                             ),
                           );
                         },
@@ -454,7 +726,7 @@ class _DesktopShellState extends State<_DesktopShell> {
                             AppSpacing.sm,
                             AppSpacing.sm,
                           ),
-                          child: widget.child,
+                          child: _ShellRefreshWrapper(child: widget.child),
                         ),
                       ),
                     ),
@@ -479,7 +751,11 @@ class _WorkspaceBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = AppColors.appBackground(context);
-    final warmTint = isDark ? AppColors.darkShellRaised : AppColors.backgroundSoft;
+    final isMobileWeb = kIsWeb && MediaQuery.sizeOf(context).width < 720;
+    if (isMobileWeb) {
+      return ColoredBox(color: base, child: child);
+    }
+    final warmTint = isDark ? AppColors.darkCardSurface : AppColors.backgroundSoft;
     final highlight = isDark ? AppColors.darkPrimary : AppColors.backgroundHighlight;
 
     return DecoratedBox(
@@ -487,20 +763,20 @@ class _WorkspaceBackground extends StatelessWidget {
         color: base,
         gradient: RadialGradient(
           center: AlignmentDirectional.topEnd.resolve(Directionality.of(context)),
-          radius: intense ? 1.2 : 0.75,
+          radius: intense ? 1.18 : 0.82,
           colors: [
-            highlight.withValues(alpha: isDark ? 0.12 : 0.88),
-            warmTint.withValues(alpha: isDark ? 0.16 : 0.62),
+            highlight.withValues(alpha: isDark ? 0.065 : 0.88),
+            warmTint.withValues(alpha: isDark ? 0.10 : 0.62),
             base,
           ],
-          stops: const [0, 0.42, 1],
+          stops: const [0, 0.46, 1],
         ),
       ),
       child: CustomPaint(
         painter: _WorkspacePatternPainter(
           color: isDark
               ? AppColors.darkTextPrimary.withValues(
-                  alpha: intense ? 0.022 : 0.012,
+                  alpha: intense ? 0.018 : 0.010,
                 )
               : AppColors.shellBorder.withValues(
                   alpha: intense ? 0.22 : 0.12,
@@ -577,7 +853,7 @@ class _MobileShell extends StatefulWidget {
 }
 
 class _MobileShellState extends State<_MobileShell> {
-  static const _scrollThreshold = 18.0;
+  static const _scrollThreshold = 72.0;
 
   bool _showBottomNavigation = true;
   bool _modalOpen = false;
@@ -681,17 +957,44 @@ class _MobileShellState extends State<_MobileShell> {
                 AppSpacing.md,
                 AppSpacing.lg,
               ),
-              child: widget.child,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (incoming, animation) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: AnimatedBuilder(
+                      animation: curved,
+                      child: incoming,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(0, (1 - curved.value) * 14),
+                        child: child,
+                      ),
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey('mobile-page-${widget.selectedItem.name}'),
+                  child: _ShellRefreshWrapper(child: widget.child),
+                ),
+              ),
             ),
           ),
         ),
       ),
       bottomNavigationBar: AnimatedSlide(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         offset: effectiveShowBottomNavigation ? Offset.zero : const Offset(0, 1),
         child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 160),
+          duration: const Duration(milliseconds: 180),
           opacity: effectiveShowBottomNavigation ? 1 : 0,
           child: IgnorePointer(
             ignoring: !effectiveShowBottomNavigation,
@@ -710,6 +1013,24 @@ class _MobileShellState extends State<_MobileShell> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _OptionalShellBlur extends StatelessWidget {
+  const _OptionalShellBlur({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) {
+      return child;
+    }
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: child,
     );
   }
 }
@@ -803,7 +1124,7 @@ class _MobileHeaderCard extends StatelessWidget {
   }
 }
 
-class _MobileBottomNavigation extends StatelessWidget {
+class _MobileBottomNavigation extends StatefulWidget {
   const _MobileBottomNavigation({
     required this.selectedItem,
     required this.items,
@@ -817,8 +1138,38 @@ class _MobileBottomNavigation extends StatelessWidget {
   final ValueChanged<CrmNavigationItem> onItemSelected;
 
   @override
+  State<_MobileBottomNavigation> createState() =>
+      _MobileBottomNavigationState();
+}
+
+class _MobileBottomNavigationState extends State<_MobileBottomNavigation> {
+  late CrmNavigationItem _optimisticSelectedItem;
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticSelectedItem = widget.selectedItem;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MobileBottomNavigation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedItem != widget.selectedItem ||
+        oldWidget.items != widget.items) {
+      _optimisticSelectedItem = widget.selectedItem;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = _CrmShellColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = AppColors.primaryColor(context);
+    final selectedForeground = isDark ? const Color(0xFF050505) : AppColors.textStrong;
+    final navSurface = isDark
+        ? AppColors.darkSurface.withValues(alpha: 0.94)
+        : colors.chromeSurface.withValues(alpha: 0.98);
+    final isMobileWeb = kIsWeb && MediaQuery.sizeOf(context).width < 720;
 
     return SafeArea(
       top: false,
@@ -829,34 +1180,66 @@ class _MobileBottomNavigation extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.sm,
         ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.chromeSurface,
-            border: Border.all(color: colors.border),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(
-              AppSpacing.sm,
-              AppSpacing.xs,
-              AppSpacing.sm,
-              AppSpacing.xs,
-            ),
-            child: Row(
-              children: [
-                for (final item in items)
-                  Expanded(
-                    child: _MobileNavItemButton(
-                      item: item,
-                      selected: _isMobileItemSelected(item.item),
-                      enabled: _isNavigationItemEnabled(
-                        companyMetadata,
-                        item.item,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: _OptionalShellBlur(
+            enabled: !isMobileWeb,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: 64,
+                maxHeight: 72,
+              ),
+              width: double.infinity,
+              padding: const EdgeInsetsDirectional.fromSTEB(7, 7, 7, 7),
+              decoration: BoxDecoration(
+                color: navSurface,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : colors.border,
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: isMobileWeb
+                    ? null
+                    : isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.32),
+                              blurRadius: 18,
+                              offset: const Offset(0, 10),
+                            ),
+                          ]
+                        : AppShadows.shell,
+              ),
+              child: Row(
+                children: [
+                  for (final item in widget.items)
+                    Expanded(
+                      flex: _isMobileItemSelected(item.item) ? 3 : 1,
+                      child: _PremiumMobileNavItem(
+                        item: item,
+                        selected: _isMobileItemSelected(item.item),
+                        enabled: _isNavigationItemEnabled(
+                          widget.companyMetadata,
+                          item.item,
+                        ),
+                        primary: primary,
+                        selectedForeground: selectedForeground,
+                        colors: colors,
+                        onTap: () {
+                          if (!_isNavigationItemEnabled(
+                            widget.companyMetadata,
+                            item.item,
+                          )) {
+                            return;
+                          }
+                          setState(() => _optimisticSelectedItem = item.item);
+                          widget.onItemSelected(item.item);
+                        },
                       ),
-                      onTap: () => onItemSelected(item.item),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -865,18 +1248,105 @@ class _MobileBottomNavigation extends StatelessWidget {
   }
 
   bool _isMobileItemSelected(CrmNavigationItem item) {
-    if (item == selectedItem) {
+    if (item == _optimisticSelectedItem) {
       return true;
     }
     return item == CrmNavigationItem.more &&
-        (selectedItem == CrmNavigationItem.tasks ||
-            selectedItem == CrmNavigationItem.appointments ||
-            selectedItem == CrmNavigationItem.deals ||
-            selectedItem == CrmNavigationItem.reports ||
-            selectedItem == CrmNavigationItem.users ||
-            selectedItem == CrmNavigationItem.teams ||
-            selectedItem == CrmNavigationItem.dataHealth ||
-            selectedItem == CrmNavigationItem.support);
+        (_optimisticSelectedItem == CrmNavigationItem.tasks ||
+            _optimisticSelectedItem == CrmNavigationItem.appointments ||
+            _optimisticSelectedItem == CrmNavigationItem.deals ||
+            _optimisticSelectedItem == CrmNavigationItem.reports ||
+            _optimisticSelectedItem == CrmNavigationItem.users ||
+            _optimisticSelectedItem == CrmNavigationItem.teams ||
+            _optimisticSelectedItem == CrmNavigationItem.dataHealth ||
+            _optimisticSelectedItem == CrmNavigationItem.support);
+  }
+}
+
+class _PremiumMobileNavItem extends StatelessWidget {
+  const _PremiumMobileNavItem({
+    required this.item,
+    required this.selected,
+    required this.enabled,
+    required this.primary,
+    required this.selectedForeground,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final _CrmShellItem item;
+  final bool selected;
+  final bool enabled;
+  final Color primary;
+  final Color selectedForeground;
+  final _CrmShellColors colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = item.label(context);
+    final icon = enabled
+        ? (selected ? item.selectedIcon : item.icon)
+        : Icons.lock_outline;
+    final foreground = !enabled
+        ? colors.textSecondary.withValues(alpha: 0.42)
+        : selected
+            ? selectedForeground
+            : colors.textSecondary;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      label: label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: enabled ? onTap : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              height: 44,
+              padding: EdgeInsetsDirectional.only(
+                start: selected ? 10 : 0,
+                end: selected ? 10 : 0,
+              ),
+              decoration: BoxDecoration(
+                color: selected ? primary.withValues(alpha: 0.96) : Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Center(
+                child: selected
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(icon, size: 20, color: foreground),
+                          const SizedBox(width: 7),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: foreground,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 11.5,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Icon(icon, size: 20, color: foreground),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -897,56 +1367,82 @@ class _MobileNavItemButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colors = _CrmShellColors.of(context);
-    final color = !enabled
-        ? colors.textSecondary.withValues(alpha: 0.45)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = !enabled
+        ? colors.textSecondary.withValues(alpha: 0.42)
         : selected
-            ? colors.primary
+            ? (isDark ? Colors.black : AppColors.textStrong)
             : colors.textSecondary;
 
     return Semantics(
       button: true,
       selected: selected,
       enabled: enabled,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: selected
-                ? colors.selectedSurface
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            scale: selected ? 1.03 : 1,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  enabled
-                      ? (selected ? item.selectedIcon : item.icon)
-                      : Icons.lock_outline,
-                  size: 21,
-                  color: color,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(22),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: selected ? colors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                border: selected
+                    ? Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : colors.primary.withValues(alpha: 0.34),
+                      )
+                    : null,
+                boxShadow: selected && isDark
+                    ? [
+                        BoxShadow(
+                          color: colors.primary.withValues(alpha: 0.16),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                scale: selected ? 1 : 0.96,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      enabled
+                          ? (selected ? item.selectedIcon : item.icon)
+                          : Icons.lock_outline,
+                      size: selected ? 21 : 22,
+                      color: foreground,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.label(context),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: foreground,
+                        fontSize: selected ? 10.5 : 10,
+                        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                        height: 1,
+                        letterSpacing: -0.15,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  item.label(context),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -1254,8 +1750,9 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 190),
+      duration: const Duration(milliseconds: 120),
       curve: Curves.easeOutCubic,
       width: isCollapsed ? 76 : 262,
       decoration: BoxDecoration(
@@ -1265,7 +1762,12 @@ class _Sidebar extends StatelessWidget {
           colors: [_sidebarColor(context), _sidebarRaisedColor(context)],
         ),
         borderRadius: _sidebarRadius(context),
-        boxShadow: AppShadows.shell,
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppColors.shellBorder,
+        ),
+        boxShadow: isDark ? null : AppShadows.shell,
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -1432,7 +1934,7 @@ class _SidebarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedTextColor = isDark ? AppColors.shellText : AppColors.shellText;
+    final selectedTextColor = isDark ? Colors.black : AppColors.shellText;
     final inactiveTextColor =
     isDark ? AppColors.darkTextSecondary : AppColors.shellTextMuted;
     final color = !enabled

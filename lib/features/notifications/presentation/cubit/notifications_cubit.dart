@@ -40,6 +40,25 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   StreamSubscription<List<AttentionReminder>>? _remindersSubscription;
   String _watchKey = '';
 
+  void refresh({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    int notificationsLimit = notificationDropdownLimit,
+    int remindersLimit = 60,
+  }) {
+    _watchKey = '';
+    watch(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      notificationsLimit: notificationsLimit,
+      remindersLimit: remindersLimit,
+    );
+  }
+
   void watch({
     required String companyId,
     required String currentUserId,
