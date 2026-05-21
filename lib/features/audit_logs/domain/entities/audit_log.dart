@@ -4,6 +4,7 @@ enum AuditLogAction {
   create,
   update,
   archive,
+  restore,
   deactivate,
   assign,
   statusChange,

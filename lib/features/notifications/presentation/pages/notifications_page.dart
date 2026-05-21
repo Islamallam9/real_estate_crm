@@ -69,6 +69,9 @@ class NotificationsPage extends StatelessWidget {
               icon: Icons.notifications_none,
             );
           }
+          if (profile.uid != authUid) {
+            return const AppLoading();
+          }
           return _NotificationsWorkspace(
             companyId: profile.companyId,
             currentUserId: authUid,
@@ -143,58 +146,77 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final narrow = constraints.maxWidth < 760;
+            final header = _PageHeader(
+              unreadCount: state.effectiveBadgeCount,
+              isMarkingAllRead: state.markingAllRead,
+              onMarkAllRead: !state.hasUnreadNotifications
+                  ? null
+                  : () => context.read<NotificationsCubit>().markAllRead(
+                        companyId: widget.companyId,
+                        currentUserId: widget.currentUserId,
+                      ),
+            );
+            final filters = _FilterChips(
+              selected: _filter,
+              onSelected: (filter) => setState(() => _filter = filter),
+            );
+
+            if (narrow) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.only(bottom: 96),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: 8),
+                    filters,
+                    const SizedBox(height: AppSpacing.sm),
+                    _MobileNotificationSections(
+                      state: state,
+                      notifications: notifications,
+                      reminders: reminders,
+                      companyId: widget.companyId,
+                    ),
+                  ],
+                ),
+              );
+            }
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _PageHeader(
-                  unreadCount: state.unreadCount,
-                  isMarkingAllRead: state.markingAllRead,
-                  onMarkAllRead: state.unreadCount == 0
-                      ? null
-                      : () => context.read<NotificationsCubit>().markAllRead(
-                            companyId: widget.companyId,
-                            currentUserId: widget.currentUserId,
-                          ),
-                ),
+                header,
                 const SizedBox(height: 8),
-                _FilterChips(
-                  selected: _filter,
-                  onSelected: (filter) => setState(() => _filter = filter),
-                ),
+                filters,
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: narrow
-                        ? _MobileNotificationSections(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _NotificationsList(
                             state: state,
                             notifications: notifications,
-                            reminders: reminders,
                             companyId: widget.companyId,
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _NotificationsList(
-                                  state: state,
-                                  notifications: notifications,
-                                  companyId: widget.companyId,
-                                  shrinkWrap: true,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              SizedBox(
-                                width: 330,
-                                child: _AttentionList(
-                                  state: state,
-                                  reminders: reminders,
-                                  shrinkWrap: true,
-                                ),
-                              ),
-                            ],
+                            shrinkWrap: true,
                           ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        SizedBox(
+                          width: 330,
+                          child: _AttentionList(
+                            state: state,
+                            reminders: reminders,
+                            shrinkWrap: true,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -425,7 +447,7 @@ class _NotificationsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final Widget content;
-    final hasHiddenUnreadHistory = state.unreadCount > 0 &&
+    final hasHiddenUnreadHistory = state.effectiveUnreadCount > 0 &&
         notifications.isEmpty &&
         state.status == NotificationsStatus.loaded;
     if (state.status == NotificationsStatus.failure && notifications.isEmpty) {
@@ -482,7 +504,7 @@ class _NotificationsList extends StatelessWidget {
   }
 }
 
-class _AttentionList extends StatelessWidget {
+class _AttentionList extends StatefulWidget {
   const _AttentionList({
     required this.state,
     required this.reminders,
@@ -494,14 +516,33 @@ class _AttentionList extends StatelessWidget {
   final bool shrinkWrap;
 
   @override
+  State<_AttentionList> createState() => _AttentionListState();
+}
+
+class _AttentionListState extends State<_AttentionList> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _AttentionList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reminders.length <= 3 && _expanded) {
+      _expanded = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final canToggle = widget.reminders.length > 3;
+    final visibleReminders = canToggle && !_expanded
+        ? widget.reminders.take(3).toList()
+        : widget.reminders;
     Widget content;
-    if (state.reminderMessage != null) {
+    if (widget.state.reminderMessage != null) {
       content = _InlineErrorMessage(
-        message: localizeErrorMessage(l, state.reminderMessage),
+        message: localizeErrorMessage(l, widget.state.reminderMessage),
       );
-    } else if (reminders.isEmpty) {
+    } else if (widget.reminders.isEmpty) {
       content = AppEmptyState(
         title: l.noUrgentReminders,
         message: l.noUrgentRemindersMessage,
@@ -509,11 +550,13 @@ class _AttentionList extends StatelessWidget {
       );
     } else {
       content = ListView.builder(
-        shrinkWrap: shrinkWrap,
-        physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
-        itemCount: reminders.length,
+        shrinkWrap: true,
+        physics: widget.shrinkWrap || !_expanded
+            ? const NeverScrollableScrollPhysics()
+            : null,
+        itemCount: visibleReminders.length,
         itemBuilder: (context, index) {
-          final reminder = reminders[index];
+          final reminder = visibleReminders[index];
           return AttentionReminderCard(
             reminder: reminder,
             onOpen: () => _openRoute(context, reminder.route),
@@ -523,8 +566,55 @@ class _AttentionList extends StatelessWidget {
     }
     return _SectionCard(
       title: l.attentionNeeded,
-      expandChild: !shrinkWrap && reminders.isNotEmpty,
+      expandChild: !widget.shrinkWrap && widget.reminders.isNotEmpty,
+      trailing: canToggle
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _CountBadge(value: widget.reminders.length),
+                const SizedBox(width: 4),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded),
+                  ),
+                ),
+              ],
+            )
+          : widget.reminders.isNotEmpty
+              ? _CountBadge(value: widget.reminders.length)
+              : null,
       child: content,
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.warningColor(context).withValues(alpha: 0.10),
+        border: Border.all(
+          color: AppColors.warningColor(context).withValues(alpha: 0.28),
+        ),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        value.toString(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.warningColor(context),
+              fontWeight: FontWeight.w900,
+            ),
+      ),
     );
   }
 }
@@ -534,11 +624,13 @@ class _SectionCard extends StatelessWidget {
     required this.title,
     required this.child,
     required this.expandChild,
+    this.trailing,
   });
 
   final String title;
   final Widget child;
   final bool expandChild;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -553,12 +645,21 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
             ),
             const SizedBox(height: AppSpacing.sm),
             if (expandChild) Expanded(child: child) else child,
@@ -614,7 +715,11 @@ void _openRoute(BuildContext context, String route) {
     AppFeedback.warning(context, l.notificationRouteUnavailable);
     return;
   }
-  context.go(cleanRoute);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (context.mounted) {
+      context.go(cleanRoute);
+    }
+  });
 }
 
 bool _isAllowedNotificationRoute(String route) {

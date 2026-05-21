@@ -71,23 +71,36 @@ class ReportsPage extends StatelessWidget {
             return const AppLoading();
           }
 
-          final companyId =
-              authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
-          final role = authState.userProfile?.role ?? authState.user?.role;
-          final uid = authState.user?.uid ?? '';
-          if (companyId.isEmpty || role == null || uid.isEmpty) {
+          final user = authState.user;
+          final profile = authState.userProfile;
+          if (user == null || profile == null || profile.uid != user.uid) {
+            return const AppLoading();
+          }
+
+          final companyId = profile.companyId;
+          final role = profile.role;
+          final uid = profile.uid;
+          if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
           if (!PermissionService.can(role, AppPermission.viewReports)) {
             return AppErrorView(message: l.permissionDenied);
           }
 
+          final scopeKey = '$companyId:$uid:${role.name}';
+
           return LeadsScope(
+            key: ValueKey('reports-leads-scope:$scopeKey'),
             child: PropertiesScope(
+              key: ValueKey('reports-properties-scope:$scopeKey'),
               child: ClientsScope(
+                key: ValueKey('reports-clients-scope:$scopeKey'),
                 child: TasksScope(
+                  key: ValueKey('reports-tasks-scope:$scopeKey'),
                   child: DealsScope(
+                    key: ValueKey('reports-deals-scope:$scopeKey'),
                     child: _ReportsContent(
+                      key: ValueKey('reports-content:$scopeKey'),
                       companyId: companyId,
                       role: role,
                       currentUserId: uid,
@@ -105,6 +118,7 @@ class ReportsPage extends StatelessWidget {
 
 class _ReportsContent extends StatefulWidget {
   const _ReportsContent({
+    super.key,
     required this.companyId,
     required this.role,
     required this.currentUserId,
@@ -780,34 +794,44 @@ class _MobileReportsView extends StatelessWidget {
 
     return DefaultTabController(
       length: tabs.length,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _ReportHeader(),
-          const SizedBox(height: AppSpacing.sm),
-          _ReportsSearchFilterRow(
-            users: users,
-            canFilterAssignee: canFilterAssignee,
-            period: period,
-            assignedTo: assignedTo,
-            hasFilters: hasFilters,
-            searchController: searchController,
-            searchQuery: searchQuery,
-            onSearchChanged: onSearchChanged,
-            onPeriodChanged: onPeriodChanged,
-            onAssignedToChanged: onAssignedToChanged,
-            onClearFilters: onClearFilters,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _MobileReportsTabBar(tabs: tabs),
-          const SizedBox(height: AppSpacing.sm),
-          Expanded(
-            child: TabBarView(
-              physics: const BouncingScrollPhysics(),
-              children: [for (final tab in tabs) tab.child],
-            ),
-          ),
-        ],
+      child: Builder(
+        builder: (context) {
+          final controller = DefaultTabController.of(context);
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              final index = controller.index.clamp(0, tabs.length - 1);
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _ReportHeader(),
+                    const SizedBox(height: AppSpacing.sm),
+                    _ReportsSearchFilterRow(
+                      users: users,
+                      canFilterAssignee: canFilterAssignee,
+                      period: period,
+                      assignedTo: assignedTo,
+                      hasFilters: hasFilters,
+                      searchController: searchController,
+                      searchQuery: searchQuery,
+                      onSearchChanged: onSearchChanged,
+                      onPeriodChanged: onPeriodChanged,
+                      onAssignedToChanged: onAssignedToChanged,
+                      onClearFilters: onClearFilters,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _MobileReportsTabBar(tabs: tabs),
+                    const SizedBox(height: AppSpacing.sm),
+                    tabs[index].child,
+                    const SizedBox(height: 96),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -873,8 +897,7 @@ class _MobileReportTabBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
+    return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

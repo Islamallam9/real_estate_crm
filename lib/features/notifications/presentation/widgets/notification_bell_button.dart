@@ -40,7 +40,7 @@ class NotificationBellButton extends StatelessWidget {
     }
 
     final authUid = authState.user?.uid ?? '';
-    if (authUid.isEmpty) {
+    if (authUid.isEmpty || profile.uid != authUid) {
       return _BellIconButton(
         compact: compact,
         unreadCount: 0,
@@ -54,11 +54,11 @@ class NotificationBellButton extends StatelessWidget {
     }
     return BlocBuilder<NotificationsCubit, NotificationsState>(
       buildWhen: (previous, current) =>
-          previous.unreadCount != current.unreadCount ||
+          previous.effectiveBadgeCount != current.effectiveBadgeCount ||
+          previous.notifications != current.notifications ||
           previous.reminders != current.reminders,
       builder: (context, state) {
-        final badgeCount = state.unreadCount +
-            _criticalAttentionBadgeCount(state.reminders);
+        final badgeCount = state.effectiveBadgeCount;
         return _BellIconButton(
           compact: compact,
           unreadCount: badgeCount,
@@ -79,13 +79,6 @@ class NotificationBellButton extends StatelessWidget {
       },
     );
   }
-}
-
-int _criticalAttentionBadgeCount(List<AttentionReminder> reminders) {
-  return reminders.where((reminder) {
-    return reminder.type == AttentionReminderType.appointmentDueNow ||
-        reminder.type == AttentionReminderType.appointmentMissed;
-  }).length;
 }
 
 class _BellIconButton extends StatelessWidget {
@@ -210,7 +203,7 @@ class _NotificationsPanel extends StatelessWidget {
                             ),
                           ),
                           TextButton(
-                            onPressed: state.unreadCount == 0 ||
+                            onPressed: !state.hasUnreadNotifications ||
                                     state.markingAllRead
                                 ? null
                                 : () => context
@@ -240,7 +233,9 @@ class _NotificationsPanel extends StatelessWidget {
                                   ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        for (final reminder in state.reminders.take(2))
+                        for (final reminder in _latestPanelReminders(
+                          state.reminders,
+                        ).take(3))
                           AttentionReminderCard(
                             reminder: reminder,
                             onOpen: () => _openRoute(context, reminder.route),
@@ -284,6 +279,22 @@ class _NotificationsPanel extends StatelessWidget {
   }
 }
 
+
+List<AttentionReminder> _latestPanelReminders(
+  List<AttentionReminder> reminders,
+) {
+  final sorted = [...reminders]..sort((a, b) {
+      final aDate = a.dueAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.dueAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final dateCompare = bDate.compareTo(aDate);
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+      return b.id.compareTo(a.id);
+    });
+  return sorted;
+}
+
 class _PanelNotificationList extends StatelessWidget {
   const _PanelNotificationList({
     required this.companyId,
@@ -313,6 +324,7 @@ class _PanelNotificationList extends StatelessWidget {
       );
     }
     if (state.unreadCount > 0 &&
+        state.visibleUnreadCount == 0 &&
         state.notifications.isEmpty &&
         state.status == NotificationsStatus.loaded) {
       return Padding(
@@ -404,8 +416,11 @@ void _openRoute(BuildContext context, String route) {
     AppFeedback.warning(context, l.notificationRouteUnavailable);
     return;
   }
+  final router = GoRouter.of(context);
   Navigator.of(context, rootNavigator: true).maybePop();
-  context.go(cleanRoute);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    router.go(cleanRoute);
+  });
 }
 
 bool _isAllowedNotificationRoute(String route) {

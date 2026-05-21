@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
+import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_status_badge.dart';
@@ -53,14 +54,21 @@ class CompanyUsersPage extends StatelessWidget {
       );
     }
 
-    return _CompanyUsersScope(companyId: profile.companyId);
+    return _CompanyUsersScope(
+      companyId: profile.companyId,
+      currentUserId: authState.user?.uid ?? '',
+    );
   }
 }
 
 class _CompanyUsersScope extends StatefulWidget {
-  const _CompanyUsersScope({required this.companyId});
+  const _CompanyUsersScope({
+    required this.companyId,
+    required this.currentUserId,
+  });
 
   final String companyId;
+  final String currentUserId;
 
   @override
   State<_CompanyUsersScope> createState() => _CompanyUsersScopeState();
@@ -90,81 +98,179 @@ class _CompanyUsersScopeState extends State<_CompanyUsersScope> {
       child: BlocBuilder<CompanyUsersCubit, CompanyUsersState>(
         builder: (context, state) {
           final saving = state.status == CompanyUsersStatus.saving;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _UsersHeader(companyId: widget.companyId, saving: saving),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppSearchField(
-                      hint: l.searchUsers,
-                      onChanged: context.read<CompanyUsersCubit>().updateQuery,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  AppButton(
-                    label: l.createUser,
-                    icon: Icons.person_add_alt_1_outlined,
-                    isLoading: saving,
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            final result = await _showAddUserDialog(
-                              context,
-                              widget.companyId,
-                            );
-                            if (context.mounted && result != null) {
-                              if (result.usedTemporaryPassword) {
-                                _showTemporaryPasswordCreatedDialog(context);
-                              } else {
-                                _showSetupLinkDialog(context, result.resetLink);
-                              }
-                            }
-                          },
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (state.status == CompanyUsersStatus.loading)
-                const Expanded(child: Center(child: AppLoading()))
-              else if (state.status == CompanyUsersStatus.failure)
-                Expanded(
-                  child: AppErrorView(
-                    title: l.errorOccurred,
-                    message: _companyUserErrorMessage(l, state.message),
-                    onRetry: () => context
-                        .read<CompanyUsersCubit>()
-                        .watch(widget.companyId),
-                  ),
-                )
-              else if (state.filteredUsers.isEmpty)
-                Expanded(
-                  child: AppEmptyState(
-                    icon: Icons.people_outline,
-                    title: l.noCompanyUsers,
-                    message: l.companyUsersEmptyMessage,
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: state.filteredUsers.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      return _UserRow(
+          final controls = _UsersControls(
+            companyId: widget.companyId,
+            saving: saving,
+          );
+          final content = _UsersListContent(
+            companyId: widget.companyId,
+            currentUserId: widget.currentUserId,
+            state: state,
+            saving: saving,
+          );
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 720;
+              if (isNarrow) {
+                return SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _UsersHeader(
                         companyId: widget.companyId,
-                        user: state.filteredUsers[index],
-                      );
-                    },
+                        saving: saving,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      controls,
+                      const SizedBox(height: AppSpacing.sm),
+                      content,
+                      const SizedBox(height: 96),
+                    ],
                   ),
-                ),
-            ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _UsersHeader(companyId: widget.companyId, saving: saving),
+                  const SizedBox(height: AppSpacing.md),
+                  controls,
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(child: content),
+                ],
+              );
+            },
           );
         },
       ),
+    );
+  }
+}
+
+class _UsersControls extends StatelessWidget {
+  const _UsersControls({required this.companyId, required this.saving});
+
+  final String companyId;
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.sizeOf(context).width < 720;
+    final search = AppSearchField(
+      hint: l.searchUsers,
+      onChanged: context.read<CompanyUsersCubit>().updateQuery,
+    );
+    final createButton = AppButton(
+      label: l.createUser,
+      icon: Icons.person_add_alt_1_outlined,
+      isLoading: saving,
+      isExpanded: isNarrow,
+      onPressed: saving
+          ? null
+          : () async {
+              final result = await _showAddUserDialog(context, companyId);
+              if (context.mounted && result != null) {
+                if (result.usedTemporaryPassword) {
+                  _showTemporaryPasswordCreatedDialog(context);
+                } else {
+                  _showSetupLinkDialog(context, result.resetLink);
+                }
+              }
+            },
+    );
+
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          search,
+          const SizedBox(height: AppSpacing.sm),
+          createButton,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: search),
+        const SizedBox(width: AppSpacing.sm),
+        createButton,
+      ],
+    );
+  }
+}
+
+class _UsersListContent extends StatelessWidget {
+  const _UsersListContent({
+    required this.companyId,
+    required this.currentUserId,
+    required this.state,
+    required this.saving,
+  });
+
+  final String companyId;
+  final String currentUserId;
+  final CompanyUsersState state;
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    if (state.status == CompanyUsersStatus.loading) {
+      return const Center(child: AppLoading());
+    }
+
+    if (state.status == CompanyUsersStatus.failure) {
+      return AppErrorView(
+        title: l.errorOccurred,
+        message: _companyUserErrorMessage(l, state.message),
+        onRetry: () => context.read<CompanyUsersCubit>().watch(companyId),
+      );
+    }
+
+    if (state.filteredUsers.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.people_outline,
+        title: l.noCompanyUsers,
+        message: l.companyUsersEmptyMessage,
+      );
+    }
+
+    final isNarrow = MediaQuery.sizeOf(context).width < 720;
+    if (isNarrow) {
+      return Column(
+        children: [
+          for (var index = 0; index < state.filteredUsers.length; index++) ...[
+            _UserRow(
+              companyId: companyId,
+              user: state.filteredUsers[index],
+              currentUserId: currentUserId,
+              saving: saving,
+            ),
+            if (index != state.filteredUsers.length - 1)
+              const SizedBox(height: AppSpacing.sm),
+          ],
+        ],
+      );
+    }
+
+    return ListView.separated(
+      itemCount: state.filteredUsers.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        return _UserRow(
+          companyId: companyId,
+          user: state.filteredUsers[index],
+          currentUserId: currentUserId,
+          saving: saving,
+        );
+      },
     );
   }
 }
@@ -227,78 +333,223 @@ class _UsersHeader extends StatelessWidget {
 }
 
 class _UserRow extends StatelessWidget {
-  const _UserRow({required this.companyId, required this.user});
+  const _UserRow({
+    required this.companyId,
+    required this.user,
+    required this.currentUserId,
+    required this.saving,
+  });
 
   final String companyId;
   final CompanyCrmUser user;
+  final String currentUserId;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.sizeOf(context).width < 720;
+    final avatar = CircleAvatar(
+      radius: isNarrow ? 18 : 20,
+      backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.15),
+      child: Text(
+        user.fullName.trim().isEmpty
+            ? '?'
+            : user.fullName.trim().characters.first.toUpperCase(),
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          user.fullName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        Text(
+          _isolate(user.email),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (user.teamName.trim().isNotEmpty)
+          Text(
+            _isolate(user.teamName),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: AppColors.textSecondaryColor(context)),
+          ),
+      ],
+    );
+    final badges = Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        AppStatusBadge(label: _roleLabel(l, user.role), tone: AppStatusTone.info),
+        AppStatusBadge(
+          label: user.isActive ? l.active : l.inactive,
+          tone: user.isActive ? AppStatusTone.success : AppStatusTone.error,
+        ),
+        if (user.mustChangePassword)
+          AppStatusBadge(label: l.mustChangePassword, tone: AppStatusTone.warning),
+      ],
+    );
+    final actions = PopupMenuButton<_CompanyUserAction>(
+      enabled: !saving,
+      tooltip: l.actions,
+      onSelected: (action) => _handleUserAction(
+        context,
+        action: action,
+        companyId: companyId,
+        user: user,
+        currentUserId: currentUserId,
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _CompanyUserAction.generateSetupLink,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.link_outlined),
+            title: Text(l.generateSetupLink),
+          ),
+        ),
+        if (user.role != 'admin' && user.uid != currentUserId)
+          PopupMenuItem(
+            value: user.isActive
+                ? _CompanyUserAction.deactivate
+                : _CompanyUserAction.activate,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                user.isActive
+                    ? Icons.person_off_outlined
+                    : Icons.person_add_alt_1_outlined,
+              ),
+              title: Text(user.isActive ? l.deactivateUser : l.activateUser),
+            ),
+          ),
+      ],
+      icon: const Icon(Icons.more_vert),
+    );
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.all(isNarrow ? AppSpacing.sm : AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.large,
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.15),
-            child: Text(
-              user.fullName.trim().isEmpty
-                  ? '?'
-                  : user.fullName.trim().characters.first.toUpperCase(),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: isNarrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  user.fullName,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                Row(
+                  children: [
+                    avatar,
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: details),
+                    actions,
+                  ],
                 ),
-                Text(_isolate(user.email)),
-                if (user.teamName.trim().isNotEmpty)
-                  Text(
-                    _isolate(user.teamName),
-                    style: TextStyle(color: AppColors.textSecondaryColor(context)),
-                  ),
+                const SizedBox(height: AppSpacing.sm),
+                badges,
+              ],
+            )
+          : Row(
+              children: [
+                avatar,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: details),
+                badges,
+                const SizedBox(width: AppSpacing.xs),
+                actions,
               ],
             ),
-          ),
-          AppStatusBadge(
-            label: _roleLabel(l, user.role),
-            tone: AppStatusTone.info,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          AppStatusBadge(
-            label: user.isActive ? l.active : l.inactive,
-            tone: user.isActive ? AppStatusTone.success : AppStatusTone.error,
-          ),
-          if (user.mustChangePassword) ...[
-            const SizedBox(width: AppSpacing.sm),
-            AppStatusBadge(
-              label: l.mustChangePassword,
-              tone: AppStatusTone.warning,
-            ),
-          ],
-          const SizedBox(width: AppSpacing.xs),
-          IconButton(
-            tooltip: l.generateSetupLink,
-            onPressed: () => _showGenerateSetupLinkDialog(
-              context,
-              companyId: companyId,
-              user: user,
-            ),
-            icon: const Icon(Icons.link_outlined),
-          ),
-        ],
-      ),
     );
+  }
+}
+
+
+enum _CompanyUserAction { generateSetupLink, activate, deactivate }
+
+Future<void> _handleUserAction(
+  BuildContext context, {
+  required _CompanyUserAction action,
+  required String companyId,
+  required CompanyCrmUser user,
+  required String currentUserId,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  switch (action) {
+    case _CompanyUserAction.generateSetupLink:
+      await _showGenerateSetupLinkDialog(
+        context,
+        companyId: companyId,
+        user: user,
+      );
+      return;
+    case _CompanyUserAction.activate:
+      await _confirmAndSetUserActiveStatus(
+        context,
+        companyId: companyId,
+        user: user,
+        isActive: true,
+      );
+      return;
+    case _CompanyUserAction.deactivate:
+      if (user.uid == currentUserId) {
+        AppFeedback.error(context, l.permissionDenied);
+        return;
+      }
+      await _confirmAndSetUserActiveStatus(
+        context,
+        companyId: companyId,
+        user: user,
+        isActive: false,
+      );
+  }
+}
+
+Future<void> _confirmAndSetUserActiveStatus(
+  BuildContext context, {
+  required String companyId,
+  required CompanyCrmUser user,
+  required bool isActive,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(isActive ? l.activateUser : l.deactivateUser),
+      content: Text(
+        isActive
+            ? l.activateUserConfirmation
+            : l.deactivateUserConfirmation,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(l.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(isActive ? l.activateUser : l.deactivateUser),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+  final success = await context.read<CompanyUsersCubit>().setUserActiveStatus(
+        companyId: companyId,
+        uid: user.uid,
+        isActive: isActive,
+      );
+  if (context.mounted && success) {
+    AppFeedback.success(context, l.settingsSaved);
   }
 }
 
@@ -728,6 +979,7 @@ String _companyUserErrorMessage(AppLocalizations l, String? message) {
     AppErrorMessages.unauthenticated => l.authErrorProfileMissing,
     AppErrorMessages.notFound => l.noData,
     AppErrorMessages.unknown => l.somethingWentWrong,
+    'user-management-disabled' => l.featureNotEnabledForWorkspace,
     null => l.unableToConnect,
     _ => localizeErrorMessage(l, message),
   };

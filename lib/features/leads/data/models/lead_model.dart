@@ -33,6 +33,11 @@ class LeadModel extends Lead {
     super.isArchived,
     super.archivedAt,
     super.archivedBy,
+    super.archivedByName,
+    super.archiveReason,
+    super.restoredAt,
+    super.restoredBy,
+    super.restoredByName,
   });
 
   factory LeadModel.fromEntity(Lead lead) {
@@ -66,6 +71,11 @@ class LeadModel extends Lead {
       isArchived: lead.isArchived,
       archivedAt: lead.archivedAt,
       archivedBy: lead.archivedBy,
+      archivedByName: lead.archivedByName,
+      archiveReason: lead.archiveReason,
+      restoredAt: lead.restoredAt,
+      restoredBy: lead.restoredBy,
+      restoredByName: lead.restoredByName,
     );
   }
 
@@ -107,6 +117,11 @@ class LeadModel extends Lead {
       isArchived: data['isArchived'] as bool? ?? false,
       archivedAt: _nullableDateTimeFromValue(data['archivedAt']),
       archivedBy: data['archivedBy'] as String?,
+      archivedByName: data['archivedByName'] as String? ?? '',
+      archiveReason: data['archiveReason'] as String? ?? '',
+      restoredAt: _nullableDateTimeFromValue(data['restoredAt']),
+      restoredBy: data['restoredBy'] as String?,
+      restoredByName: data['restoredByName'] as String? ?? '',
     );
   }
 
@@ -141,6 +156,11 @@ class LeadModel extends Lead {
       'isArchived': isArchived,
       'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
       'archivedBy': archivedBy,
+      'archivedByName': archivedByName,
+      'archiveReason': archiveReason,
+      'restoredAt': restoredAt == null ? null : Timestamp.fromDate(restoredAt!),
+      'restoredBy': restoredBy,
+      'restoredByName': restoredByName,
     };
   }
 }

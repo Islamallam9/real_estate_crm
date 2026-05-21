@@ -1,3 +1,4 @@
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/client.dart';
 import '../../domain/repositories/client_repository.dart';
 import '../datasources/clients_remote_data_source.dart';
@@ -63,8 +64,23 @@ class ClientRepositoryImpl implements ClientRepository {
     required String companyId,
     required String clientId,
     required String updatedBy,
+    String reason = '',
   }) {
     return _remoteDataSource.archiveClient(
+      companyId: companyId,
+      clientId: clientId,
+      updatedBy: updatedBy,
+      reason: reason,
+    );
+  }
+
+  @override
+  Future<void> restoreClient({
+    required String companyId,
+    required String clientId,
+    required String updatedBy,
+  }) {
+    return _remoteDataSource.restoreClient(
       companyId: companyId,
       clientId: clientId,
       updatedBy: updatedBy,
@@ -87,12 +103,14 @@ class ClientRepositoryImpl implements ClientRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
     return _remoteDataSource.watchClients(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      archiveFilter: archiveFilter,
       limit: limit,
     );
   }

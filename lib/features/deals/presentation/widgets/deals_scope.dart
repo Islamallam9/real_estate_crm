@@ -8,6 +8,7 @@ import '../../data/datasources/deals_remote_data_source.dart';
 import '../../data/repositories/deal_repository_impl.dart';
 import '../../domain/usecases/archive_deal_usecase.dart';
 import '../../domain/usecases/create_deal_usecase.dart';
+import '../../domain/usecases/restore_deal_usecase.dart';
 import '../../domain/usecases/update_deal_stage_usecase.dart';
 import '../../domain/usecases/update_deal_usecase.dart';
 import '../../domain/usecases/watch_deals_usecase.dart';
@@ -34,6 +35,7 @@ class DealsScope extends StatelessWidget {
         updateDealUseCase: UpdateDealUseCase(repository),
         updateDealStageUseCase: UpdateDealStageUseCase(repository),
         archiveDealUseCase: ArchiveDealUseCase(repository),
+        restoreDealUseCase: RestoreDealUseCase(repository),
         createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,

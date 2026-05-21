@@ -150,7 +150,16 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         notificationId: notification.id,
       );
       if (!isClosed) {
-        emit(state.copyWith(clearMarkingNotificationId: true));
+        emit(
+          state.copyWith(
+            notifications: _markNotificationReadInList(
+              state.notifications,
+              notification.id,
+            ),
+            unreadCount: _decrementUnreadCount(state.unreadCount),
+            clearMarkingNotificationId: true,
+          ),
+        );
       }
     } on NotificationException catch (error) {
       if (!isClosed) {
@@ -177,7 +186,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     required String companyId,
     required String currentUserId,
   }) async {
-    if (state.markingAllRead || state.unreadCount == 0) {
+    if (state.markingAllRead || !state.hasUnreadNotifications) {
       return;
     }
     emit(state.copyWith(markingAllRead: true, clearMessage: true));
@@ -187,7 +196,15 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         recipientUid: currentUserId,
       );
       if (!isClosed) {
-        emit(state.copyWith(markingAllRead: false));
+        emit(
+          state.copyWith(
+            notifications: _markAllNotificationsReadInList(
+              state.notifications,
+            ),
+            unreadCount: 0,
+            markingAllRead: false,
+          ),
+        );
       }
     } on NotificationException catch (error) {
       if (!isClosed) {
@@ -215,6 +232,33 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       return error.message;
     }
     return AppErrorMessages.unknown;
+  }
+
+  List<CrmNotification> _markNotificationReadInList(
+    List<CrmNotification> notifications,
+    String notificationId,
+  ) {
+    final now = DateTime.now();
+    return notifications
+        .map(
+          (notification) => notification.id == notificationId
+              ? notification.copyWith(isRead: true, readAt: now)
+              : notification,
+        )
+        .toList();
+  }
+
+  List<CrmNotification> _markAllNotificationsReadInList(
+    List<CrmNotification> notifications,
+  ) {
+    final now = DateTime.now();
+    return notifications
+        .map((notification) => notification.copyWith(isRead: true, readAt: now))
+        .toList();
+  }
+
+  int _decrementUnreadCount(int unreadCount) {
+    return unreadCount <= 0 ? 0 : unreadCount - 1;
   }
 
   @override

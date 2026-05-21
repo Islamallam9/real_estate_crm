@@ -133,3 +133,20 @@ class RemoveUserFromTeamUseCase {
     return _repository.removeUserFromTeam(user: user, actorUid: actorUid);
   }
 }
+
+
+class BackfillTeamAssignedRecordSnapshotsUseCase {
+  const BackfillTeamAssignedRecordSnapshotsUseCase(this._repository);
+
+  final TeamRepository _repository;
+
+  Future<void> call({
+    required Team team,
+    required String actorUid,
+  }) {
+    return _repository.backfillTeamAssignedRecordSnapshots(
+      team: team,
+      actorUid: actorUid,
+    );
+  }
+}

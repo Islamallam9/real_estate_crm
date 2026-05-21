@@ -360,8 +360,8 @@ int _appointmentGroup(Appointment appointment, DateTime now) {
   if (appointment.status == AppointmentStatus.missed) {
     return 0;
   }
-  if (appointment.status == AppointmentStatus.scheduled &&
-      (appointment.endAt ?? appointment.scheduledAt ?? now).isBefore(now)) {
+  if (_isOpenScheduledStatus(appointment.status) &&
+      _isAppointmentPastStart(appointment, now)) {
     return 0;
   }
   if (appointment.status == AppointmentStatus.scheduled ||
@@ -369,6 +369,17 @@ int _appointmentGroup(Appointment appointment, DateTime now) {
     return 1;
   }
   return 2;
+}
+
+bool _isOpenScheduledStatus(AppointmentStatus status) {
+  return status == AppointmentStatus.scheduled ||
+      status == AppointmentStatus.rescheduled;
+}
+
+bool _isAppointmentPastStart(Appointment appointment, DateTime now) {
+  final scheduledAt = appointment.scheduledAt;
+  return scheduledAt != null &&
+      now.difference(scheduledAt.toLocal()).inSeconds >= 60;
 }
 
 String _mapError(Object error) {

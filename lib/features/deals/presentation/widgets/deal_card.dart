@@ -17,6 +17,8 @@ class DealCard extends StatelessWidget {
     this.onEdit,
     this.onUpdateStage,
     this.onArchive,
+    this.onRestore,
+    this.isArchivedView = false,
   });
 
   final Deal deal;
@@ -24,6 +26,8 @@ class DealCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onUpdateStage;
   final VoidCallback? onArchive;
+  final VoidCallback? onRestore;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +65,13 @@ class DealCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
+                  if (isArchivedView || deal.isArchived) ...[
+                    AppStatusBadge(
+                      label: l.archived,
+                      tone: AppStatusTone.neutral,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                  ],
                   AppStatusBadge(
                     label: dealStageLabel(l, deal.stage),
                     tone: dealStageTone(deal.stage),
@@ -86,7 +97,10 @@ class DealCard extends StatelessWidget {
                   _MetaChip(label: l.assignedAgent, value: _fallback(deal.assignedToName, l.unassigned)),
                 ],
               ),
-              if (onEdit != null || onUpdateStage != null || onArchive != null) ...[
+              if (onEdit != null ||
+                  onUpdateStage != null ||
+                  onArchive != null ||
+                  onRestore != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Wrap(
                   spacing: AppSpacing.xs,
@@ -108,6 +122,12 @@ class DealCard extends StatelessWidget {
                         onPressed: onArchive,
                         icon: const Icon(Icons.archive_outlined, size: 18),
                         label: Text(l.archive),
+                      ),
+                    if (onRestore != null)
+                      TextButton.icon(
+                        onPressed: onRestore,
+                        icon: const Icon(Icons.unarchive_outlined, size: 18),
+                        label: Text(l.restore),
                       ),
                   ],
                 ),

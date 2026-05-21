@@ -18,6 +18,8 @@ class DealListTable extends StatelessWidget {
     this.onEdit,
     this.onUpdateStage,
     this.onArchive,
+    this.onRestore,
+    this.isArchivedView = false,
   });
 
   final List<Deal> deals;
@@ -25,6 +27,8 @@ class DealListTable extends StatelessWidget {
   final ValueChanged<Deal>? onEdit;
   final ValueChanged<Deal>? onUpdateStage;
   final ValueChanged<Deal>? onArchive;
+  final ValueChanged<Deal>? onRestore;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -103,9 +107,20 @@ class DealListTable extends StatelessWidget {
                                     flex: 2,
                                     child: Align(
                                       alignment: AlignmentDirectional.centerStart,
-                                      child: AppStatusBadge(
-                                        label: dealStageLabel(l, deal.stage),
-                                        tone: dealStageTone(deal.stage),
+                                      child: Wrap(
+                                        spacing: AppSpacing.xs,
+                                        runSpacing: AppSpacing.xs,
+                                        children: [
+                                          if (isArchivedView || deal.isArchived)
+                                            AppStatusBadge(
+                                              label: l.archived,
+                                              tone: AppStatusTone.neutral,
+                                            ),
+                                          AppStatusBadge(
+                                            label: dealStageLabel(l, deal.stage),
+                                            tone: dealStageTone(deal.stage),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -150,6 +165,12 @@ class DealListTable extends StatelessWidget {
                                               tooltip: l.archiveDeal,
                                               icon: Icons.archive_outlined,
                                               onPressed: () => onArchive!(deal),
+                                            ),
+                                          if (onRestore != null)
+                                            _ActionIcon(
+                                              tooltip: l.restore,
+                                              icon: Icons.unarchive_outlined,
+                                              onPressed: () => onRestore!(deal),
                                             ),
                                         ],
                                       ),

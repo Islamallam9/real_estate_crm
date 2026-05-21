@@ -23,6 +23,6 @@ abstract interface class PropertyRepository {
 
   Stream<List<Property>> watchProperties({
     required String companyId,
-    int limit,
+    int limit = 50,
   });
 }

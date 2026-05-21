@@ -1,3 +1,4 @@
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../entities/deal.dart';
 import '../repositories/deal_repository.dart';
@@ -11,12 +12,14 @@ class WatchDealsUseCase {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
     return _repository.watchDeals(
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      archiveFilter: archiveFilter,
       limit: limit,
     );
   }

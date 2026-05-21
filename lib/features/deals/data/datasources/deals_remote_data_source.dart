@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -17,7 +19,8 @@ abstract interface class DealsRemoteDataSource {
     required String companyId,
     required UserRole role,
     required String currentUserId,
-    int limit,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int limit = 40,
   });
 
   Future<DealModel> createDeal({
@@ -42,26 +45,42 @@ abstract interface class DealsRemoteDataSource {
     required String companyId,
     required String dealId,
     required String updatedBy,
+    String reason = '',
+  });
+
+  Future<void> restoreDeal({
+    required String companyId,
+    required String dealId,
+    required String updatedBy,
   });
 }
 
 class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
-  FirestoreDealsRemoteDataSource({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreDealsRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   @override
   Stream<List<DealModel>> watchDeals({
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
-    Query<Map<String, dynamic>> query = _dealsCollection(companyId).where(
-      'isActive',
-      isEqualTo: true,
-    );
+    Query<Map<String, dynamic>> query = _dealsCollection(companyId);
+    if (archiveFilter == ArchiveFilter.archived) {
+      query = query.where('isArchived', isEqualTo: true);
+    } else if (archiveFilter == ArchiveFilter.active) {
+      query = query
+          .where('isActive', isEqualTo: true)
+          .where('isArchived', isEqualTo: false);
+    }
 
     if (role == UserRole.manager) {
       query = query.where('managerId', isEqualTo: currentUserId);
@@ -76,6 +95,14 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         final deal = DealModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, deal: deal);
         return deal;
+      }).where((deal) {
+        if (archiveFilter == ArchiveFilter.archived) {
+          return deal.isArchived || !deal.isActive;
+        }
+        if (archiveFilter == ArchiveFilter.active) {
+          return !deal.isArchived && deal.isActive;
+        }
+        return true;
       }).toList();
 
       deals.sort((a, b) {
@@ -134,6 +161,7 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         updatedAt: now,
         createdBy: deal.createdBy,
         updatedBy: deal.updatedBy,
+        isArchived: false,
       );
       await document.set(dealToSave.toFirestore());
       return dealToSave;
@@ -238,20 +266,17 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     required String companyId,
     required String dealId,
     required String updatedBy,
+    String reason = '',
   }) async {
     try {
-      final document = _dealsCollection(companyId).doc(dealId);
-      final snapshot = await document.get();
-      if (!snapshot.exists) {
-        throw const DealException(AppErrorMessages.notFound);
-      }
-      final existingDeal = DealModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, deal: existingDeal);
-      await document.update({
-        'isActive': false,
-        'updatedAt': Timestamp.now(),
-        'updatedBy': updatedBy,
+      await _functions.httpsCallable('archiveCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'deals',
+        'recordId': dealId,
+        'reason': reason,
       });
+    } on FirebaseFunctionsException catch (error) {
+      throw DealException(_mapFunctionsError(error));
     } on DealException {
       rethrow;
     } on FirebaseException catch (error) {
@@ -261,8 +286,45 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     }
   }
 
+  @override
+  Future<void> restoreDeal({
+    required String companyId,
+    required String dealId,
+    required String updatedBy,
+  }) async {
+    try {
+      await _functions.httpsCallable('restoreCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'deals',
+        'recordId': dealId,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw DealException(_mapFunctionsError(error));
+    } on FirebaseException catch (error) {
+      throw DealException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const DealException(AppErrorMessages.unknown);
+    }
+  }
+
   CollectionReference<Map<String, dynamic>> _dealsCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyDeals(companyId));
+  }
+}
+
+String _mapFunctionsError(FirebaseFunctionsException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    default:
+      return error.message ?? AppErrorMessages.unknown;
   }
 }
 

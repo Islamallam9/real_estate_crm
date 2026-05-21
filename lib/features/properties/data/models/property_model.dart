@@ -27,6 +27,14 @@ class PropertyModel extends Property {
     required super.updatedAt,
     required super.createdBy,
     required super.updatedBy,
+    super.isArchived,
+    super.archivedAt,
+    super.archivedBy,
+    super.archivedByName,
+    super.archiveReason,
+    super.restoredAt,
+    super.restoredBy,
+    super.restoredByName,
   });
 
   factory PropertyModel.fromEntity(Property property) {
@@ -54,6 +62,14 @@ class PropertyModel extends Property {
       updatedAt: property.updatedAt,
       createdBy: property.createdBy,
       updatedBy: property.updatedBy,
+      isArchived: property.isArchived,
+      archivedAt: property.archivedAt,
+      archivedBy: property.archivedBy,
+      archivedByName: property.archivedByName,
+      archiveReason: property.archiveReason,
+      restoredAt: property.restoredAt,
+      restoredBy: property.restoredBy,
+      restoredByName: property.restoredByName,
     );
   }
 
@@ -96,6 +112,14 @@ class PropertyModel extends Property {
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       createdBy: data['createdBy'] as String? ?? '',
       updatedBy: data['updatedBy'] as String? ?? '',
+      isArchived: data['isArchived'] as bool? ?? false,
+      archivedAt: _nullableDateTimeFromValue(data['archivedAt']),
+      archivedBy: data['archivedBy'] as String? ?? '',
+      archivedByName: data['archivedByName'] as String? ?? '',
+      archiveReason: data['archiveReason'] as String? ?? '',
+      restoredAt: _nullableDateTimeFromValue(data['restoredAt']),
+      restoredBy: data['restoredBy'] as String? ?? '',
+      restoredByName: data['restoredByName'] as String? ?? '',
     );
   }
 
@@ -124,6 +148,14 @@ class PropertyModel extends Property {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'createdBy': createdBy,
       'updatedBy': updatedBy,
+      'isArchived': isArchived,
+      'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
+      'archivedBy': archivedBy,
+      'archivedByName': archivedByName,
+      'archiveReason': archiveReason,
+      'restoredAt': restoredAt == null ? null : Timestamp.fromDate(restoredAt!),
+      'restoredBy': restoredBy,
+      'restoredByName': restoredByName,
     };
   }
 }
@@ -234,6 +266,13 @@ DateTime _dateTimeFromValue(Object? value) {
   }
 
   return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+DateTime? _nullableDateTimeFromValue(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  return _dateTimeFromValue(value);
 }
 
 List<String> _stringListFromValue(Object? value) {

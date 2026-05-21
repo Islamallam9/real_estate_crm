@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
@@ -12,6 +13,7 @@ import '../../data/models/deal_model.dart';
 import '../../domain/entities/deal.dart';
 import '../../domain/usecases/archive_deal_usecase.dart';
 import '../../domain/usecases/create_deal_usecase.dart';
+import '../../domain/usecases/restore_deal_usecase.dart';
 import '../../domain/usecases/update_deal_stage_usecase.dart';
 import '../../domain/usecases/update_deal_usecase.dart';
 import '../../domain/usecases/watch_deals_usecase.dart';
@@ -24,12 +26,14 @@ class DealsCubit extends Cubit<DealsState> {
     required UpdateDealUseCase updateDealUseCase,
     required UpdateDealStageUseCase updateDealStageUseCase,
     required ArchiveDealUseCase archiveDealUseCase,
+    required RestoreDealUseCase restoreDealUseCase,
     required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchDealsUseCase = watchDealsUseCase,
        _createDealUseCase = createDealUseCase,
        _updateDealUseCase = updateDealUseCase,
        _updateDealStageUseCase = updateDealStageUseCase,
        _archiveDealUseCase = archiveDealUseCase,
+       _restoreDealUseCase = restoreDealUseCase,
        _createAuditLogUseCase = createAuditLogUseCase,
        super(const DealsState.initial());
 
@@ -38,6 +42,7 @@ class DealsCubit extends Cubit<DealsState> {
   final UpdateDealUseCase _updateDealUseCase;
   final UpdateDealStageUseCase _updateDealStageUseCase;
   final ArchiveDealUseCase _archiveDealUseCase;
+  final RestoreDealUseCase _restoreDealUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Deal>>? _dealsSubscription;
@@ -47,6 +52,7 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(
       state.copyWith(
@@ -73,6 +79,7 @@ class DealsCubit extends Cubit<DealsState> {
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      archiveFilter: archiveFilter,
     ).listen(
       (deals) {
         if (isClosed) {
@@ -84,6 +91,7 @@ class DealsCubit extends Cubit<DealsState> {
             status: deals.isEmpty ? DealsStatus.empty : DealsStatus.loaded,
             deals: deals,
             filteredDeals: _applyFilters(deals),
+            archiveFilter: archiveFilter,
             clearMessage: true,
           ),
         );
@@ -100,6 +108,21 @@ class DealsCubit extends Cubit<DealsState> {
           ),
         );
       },
+    );
+  }
+
+  void setArchiveFilter(
+    ArchiveFilter archiveFilter, {
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+  }) {
+    emit(state.copyWith(archiveFilter: archiveFilter));
+    watchDeals(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      archiveFilter: archiveFilter,
     );
   }
 
@@ -292,11 +315,51 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required String dealId,
     required String updatedBy,
+    String reason = '',
   }) {
     final deal = dealById(dealId);
     return _save(
       action: DealsAction.archiveDeal,
       operation: () => _archiveDealUseCase(
+        companyId: companyId,
+        dealId: dealId,
+        updatedBy: updatedBy,
+        reason: reason,
+      ),
+      afterSuccess: (_) {
+        unawaited(
+          _writeAuditLog(
+            companyId: companyId,
+            actorId: updatedBy,
+            action: AuditLogAction.archive,
+            recordId: dealId,
+            recordTitle: deal == null ? 'Deal' : _dealTitle(deal),
+            recordSubtitle: deal == null ? '' : _dealSubtitle(deal),
+            metadata: {
+              if (deal != null) ...{
+                'assignedTo': deal.assignedTo,
+                'assignedToName': deal.assignedToName,
+                'teamId': deal.teamId,
+                'teamName': deal.teamName,
+                'managerId': deal.managerId,
+                'managerName': deal.managerName,
+              },
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> restoreDeal({
+    required String companyId,
+    required String dealId,
+    required String updatedBy,
+  }) {
+    final deal = dealById(dealId);
+    return _save(
+      action: DealsAction.restoreDeal,
+      operation: () => _restoreDealUseCase(
         companyId: companyId,
         dealId: dealId,
         updatedBy: updatedBy,
@@ -306,7 +369,7 @@ class DealsCubit extends Cubit<DealsState> {
           _writeAuditLog(
             companyId: companyId,
             actorId: updatedBy,
-            action: AuditLogAction.archive,
+            action: AuditLogAction.restore,
             recordId: dealId,
             recordTitle: deal == null ? 'Deal' : _dealTitle(deal),
             recordSubtitle: deal == null ? '' : _dealSubtitle(deal),

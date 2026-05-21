@@ -1,7 +1,7 @@
 import '../repositories/client_repository.dart';
 
-class ArchiveClientUseCase {
-  const ArchiveClientUseCase(this._repository);
+class RestoreClientUseCase {
+  const RestoreClientUseCase(this._repository);
 
   final ClientRepository _repository;
 
@@ -9,13 +9,12 @@ class ArchiveClientUseCase {
     required String companyId,
     required String clientId,
     required String updatedBy,
-    String reason = '',
   }) {
-    return _repository.archiveClient(
+    return _repository.restoreClient(
       companyId: companyId,
       clientId: clientId,
       updatedBy: updatedBy,
-      reason: reason,
     );
   }
 }
+

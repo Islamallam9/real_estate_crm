@@ -9,6 +9,8 @@ enum _AppFeedbackTone { success, error, warning, info }
 class AppFeedback {
   const AppFeedback._();
 
+  static final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   static void success(BuildContext context, String message) {
     _show(context, message, _AppFeedbackTone.success);
   }
@@ -30,66 +32,77 @@ class AppFeedback {
     String message,
     _AppFeedbackTone tone,
   ) {
-    final messenger = ScaffoldMessenger.of(context);
-    final colors = _FeedbackColors.of(context, tone);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    if (scaffoldMessengerKey.currentState == null) {
+      return;
+    }
 
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          padding: EdgeInsets.zero,
-          margin: EdgeInsetsDirectional.fromSTEB(
-            AppSpacing.md,
-            0,
-            AppSpacing.md,
-            AppSpacing.md + bottomInset,
-          ),
-          duration: const Duration(seconds: 3),
-          content: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.background,
-              border: Border.all(color: colors.border),
-              borderRadius: AppRadius.large,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final messenger = scaffoldMessengerKey.currentState;
+      final safeContext = scaffoldMessengerKey.currentContext ?? context;
+      if (messenger == null || !messenger.mounted) {
+        return;
+      }
+
+      final colors = _FeedbackColors.of(safeContext, tone);
+      final bottomInset = MediaQuery.maybeOf(safeContext)?.padding.bottom ?? 0;
+
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            padding: EdgeInsets.zero,
+            margin: EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md + bottomInset,
             ),
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                AppSpacing.sm,
-                10,
-                AppSpacing.md,
-                10,
-              ),
-              child: Row(
-                children: [
-                  Icon(_iconFor(tone), color: colors.foreground, size: 20),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      message,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.text,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+            duration: const Duration(seconds: 3),
+            content: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.background,
+                border: Border.all(color: colors.border),
+                borderRadius: AppRadius.large,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.sm,
+                  10,
+                  AppSpacing.md,
+                  10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(_iconFor(tone), color: colors.foreground, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        message,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(safeContext).textTheme.bodyMedium?.copyWith(
+                              color: colors.text,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      );
+        );
+    });
   }
 
   static IconData _iconFor(_AppFeedbackTone tone) {

@@ -36,6 +36,18 @@ class NotificationsState extends Equatable {
   final String markingNotificationId;
   final bool markingAllRead;
 
+  int get visibleUnreadCount {
+    return notifications.where((notification) => !notification.isRead).length;
+  }
+
+  int get effectiveUnreadCount {
+    return unreadCount > visibleUnreadCount ? unreadCount : visibleUnreadCount;
+  }
+
+  int get effectiveBadgeCount => effectiveUnreadCount;
+
+  bool get hasUnreadNotifications => effectiveUnreadCount > 0;
+
   NotificationsState copyWith({
     NotificationsStatus? status,
     List<CrmNotification>? notifications,

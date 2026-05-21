@@ -209,11 +209,16 @@ class _CrmNotificationsScope extends StatelessWidget {
     final authUid = authState.user?.uid ?? '';
     if (profile == null ||
         authUid.isEmpty ||
+        profile.uid != authUid ||
+        profile.companyId.trim().isEmpty ||
         !authState.companyMetadata.isFeatureEnabled(CompanyFeature.notifications)) {
       return child;
     }
 
     return NotificationsScope(
+      key: ValueKey(
+        'notifications-scope:${profile.companyId}:$authUid:${profile.role.name}',
+      ),
       child: _CrmNotificationsStarter(
         companyId: profile.companyId,
         currentUserId: authUid,
@@ -298,7 +303,7 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.appointments => CompanyFeature.appointments,
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
-    CrmNavigationItem.users => null,
+    CrmNavigationItem.users => CompanyFeature.userManagement,
     CrmNavigationItem.teams => null,
     CrmNavigationItem.dataHealth => null,
     CrmNavigationItem.support => null,
@@ -1043,6 +1048,10 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                   _MoreSheetTile(
                     icon: Icons.manage_accounts_outlined,
                     label: localizations.userManagement,
+                    enabled: companyMetadata.isFeatureEnabled(
+                      CompanyFeature.userManagement,
+                    ),
+                    disabledSubtitle: localizations.moduleDisabled,
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       context.go(RouteNames.users);

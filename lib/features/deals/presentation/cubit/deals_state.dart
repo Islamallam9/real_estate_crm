@@ -1,10 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/deal.dart';
 
 enum DealsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
-enum DealsAction { none, createDeal, updateDeal, updateStage, archiveDeal }
+enum DealsAction { none, createDeal, updateDeal, updateStage, archiveDeal, restoreDeal }
 
 enum DealClosingDateFilter { past, thisWeek, thisMonth }
 
@@ -17,6 +18,7 @@ class DealsState extends Equatable {
     this.stageFilter,
     this.assignedToFilter = '',
     this.closingDateFilter,
+    this.archiveFilter = ArchiveFilter.active,
     this.message,
     this.lastAction = DealsAction.none,
   });
@@ -29,6 +31,7 @@ class DealsState extends Equatable {
       stageFilter = null,
       assignedToFilter = '',
       closingDateFilter = null,
+      archiveFilter = ArchiveFilter.active,
       message = null,
       lastAction = DealsAction.none;
 
@@ -39,6 +42,7 @@ class DealsState extends Equatable {
   final DealStage? stageFilter;
   final String assignedToFilter;
   final DealClosingDateFilter? closingDateFilter;
+  final ArchiveFilter archiveFilter;
   final String? message;
   final DealsAction lastAction;
 
@@ -50,6 +54,7 @@ class DealsState extends Equatable {
     DealStage? stageFilter,
     String? assignedToFilter,
     DealClosingDateFilter? closingDateFilter,
+    ArchiveFilter? archiveFilter,
     String? message,
     DealsAction? lastAction,
     bool clearStageFilter = false,
@@ -67,6 +72,7 @@ class DealsState extends Equatable {
       closingDateFilter: clearClosingDateFilter
           ? null
           : closingDateFilter ?? this.closingDateFilter,
+      archiveFilter: archiveFilter ?? this.archiveFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? DealsAction.none : lastAction ?? this.lastAction,
     );
@@ -81,6 +87,7 @@ class DealsState extends Equatable {
     stageFilter,
     assignedToFilter,
     closingDateFilter,
+    archiveFilter,
     message,
     lastAction,
   ];

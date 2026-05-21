@@ -26,6 +26,14 @@ class ClientModel extends Client {
     required super.updatedAt,
     required super.createdBy,
     required super.updatedBy,
+    super.isArchived,
+    super.archivedAt,
+    super.archivedBy,
+    super.archivedByName,
+    super.archiveReason,
+    super.restoredAt,
+    super.restoredBy,
+    super.restoredByName,
   });
 
   factory ClientModel.fromEntity(Client client) {
@@ -52,6 +60,14 @@ class ClientModel extends Client {
       updatedAt: client.updatedAt,
       createdBy: client.createdBy,
       updatedBy: client.updatedBy,
+      isArchived: client.isArchived,
+      archivedAt: client.archivedAt,
+      archivedBy: client.archivedBy,
+      archivedByName: client.archivedByName,
+      archiveReason: client.archiveReason,
+      restoredAt: client.restoredAt,
+      restoredBy: client.restoredBy,
+      restoredByName: client.restoredByName,
     );
   }
 
@@ -86,6 +102,14 @@ class ClientModel extends Client {
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       createdBy: data['createdBy'] as String? ?? '',
       updatedBy: data['updatedBy'] as String? ?? '',
+      isArchived: data['isArchived'] as bool? ?? false,
+      archivedAt: _dateTimeFromValue(data['archivedAt']),
+      archivedBy: data['archivedBy'] as String? ?? '',
+      archivedByName: data['archivedByName'] as String? ?? '',
+      archiveReason: data['archiveReason'] as String? ?? '',
+      restoredAt: _dateTimeFromValue(data['restoredAt']),
+      restoredBy: data['restoredBy'] as String? ?? '',
+      restoredByName: data['restoredByName'] as String? ?? '',
     );
   }
 
@@ -113,6 +137,14 @@ class ClientModel extends Client {
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
       'createdBy': createdBy,
       'updatedBy': updatedBy,
+      'isArchived': isArchived,
+      'archivedAt': archivedAt == null ? null : Timestamp.fromDate(archivedAt!),
+      'archivedBy': archivedBy,
+      'archivedByName': archivedByName,
+      'archiveReason': archiveReason,
+      'restoredAt': restoredAt == null ? null : Timestamp.fromDate(restoredAt!),
+      'restoredBy': restoredBy,
+      'restoredByName': restoredByName,
     };
   }
 }

@@ -228,6 +228,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardAuditImageRemoved => 'Image removed';
 
   @override
+  String get dashboardAuditRestored => 'Restored';
+
+  @override
   String get dashboardAuditLead => 'Lead';
 
   @override
@@ -536,6 +539,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clientArchivedSuccessfully => 'Client archived successfully.';
+
+  @override
+  String get archived => 'Archived';
+
+  @override
+  String get restore => 'Restore';
+
+  @override
+  String get restoreRecord => 'Restore record';
+
+  @override
+  String get restoreRecordConfirmation =>
+      'This record will return to active lists.';
+
+  @override
+  String get archiveReason => 'Archive reason';
+
+  @override
+  String get noArchivedRecords => 'No archived records';
+
+  @override
+  String get archivedRecordsHiddenFromActiveLists =>
+      'Archived records stay hidden from active lists.';
+
+  @override
+  String get recordRestoredSuccessfully => 'Record restored successfully.';
 
   @override
   String get clientNotFoundMessage =>
@@ -1813,6 +1842,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deactivateUser => 'Deactivate user';
 
   @override
+  String get activateUserConfirmation =>
+      'This user will be allowed to access the company workspace again.';
+
+  @override
+  String get deactivateUserConfirmation =>
+      'This user will lose access to this company workspace. Existing records remain unchanged.';
+
+  @override
   String get noCompanies => 'No companies yet';
 
   @override
@@ -2845,6 +2882,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationAppointmentDueNowTitle => 'Appointment due now';
 
   @override
+  String get notificationAppointmentDueSoonTitle => 'Appointment in 10 minutes';
+
+  @override
   String get notificationAppointmentMissedAttentionTitle =>
       'Missed appointment';
 
@@ -2859,6 +2899,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationTeamAppointmentReassignedTitle =>
       'Team appointment reassigned';
+
+  @override
+  String get notificationTeamAppointmentDueNowTitle =>
+      'Team appointment due now';
+
+  @override
+  String get notificationTeamAppointmentDueSoonTitle =>
+      'Team appointment in 10 minutes';
 
   @override
   String get notificationTeamAppointmentRescheduledTitle =>
@@ -3461,6 +3509,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get platformNotificationCompanyUserStatusChanged =>
       'Company user status changed';
+
+  @override
+  String get platformNotificationDealWon => 'Deal won';
+
+  @override
+  String get platformNotificationDealLost => 'Deal lost';
 
   @override
   String get platformNotificationCompanyUserPasswordReset =>

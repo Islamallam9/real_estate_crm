@@ -108,6 +108,7 @@ AuditLogAction auditLogActionFromValue(String value) {
     'create' => AuditLogAction.create,
     'update' => AuditLogAction.update,
     'archive' => AuditLogAction.archive,
+    'restore' => AuditLogAction.restore,
     'deactivate' => AuditLogAction.deactivate,
     'assign' => AuditLogAction.assign,
     'statusChange' => AuditLogAction.statusChange,

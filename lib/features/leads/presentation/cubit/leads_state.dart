@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/lead.dart';
 import '../../domain/entities/lead_note.dart';
 import '../../domain/entities/lead_timeline_event.dart';
@@ -13,6 +14,7 @@ enum LeadsAction {
   createLead,
   updateLead,
   archiveLead,
+  restoreLead,
   updateStatus,
   assignLead,
   addNote,
@@ -33,6 +35,7 @@ class LeadsState extends Equatable {
     this.priorityFilter,
     this.assignedToFilter,
     this.followUpFilter,
+    this.archiveFilter = ArchiveFilter.active,
     this.message,
     this.lastAction = LeadsAction.none,
   });
@@ -50,6 +53,7 @@ class LeadsState extends Equatable {
       priorityFilter = null,
       assignedToFilter = null,
       followUpFilter = null,
+      archiveFilter = ArchiveFilter.active,
       message = null,
       lastAction = LeadsAction.none;
 
@@ -65,6 +69,7 @@ class LeadsState extends Equatable {
   final LeadPriority? priorityFilter;
   final String? assignedToFilter;
   final LeadFollowUpFilter? followUpFilter;
+  final ArchiveFilter archiveFilter;
   final String? message;
   final LeadsAction lastAction;
 
@@ -81,6 +86,7 @@ class LeadsState extends Equatable {
     LeadPriority? priorityFilter,
     String? assignedToFilter,
     LeadFollowUpFilter? followUpFilter,
+    ArchiveFilter? archiveFilter,
     String? message,
     LeadsAction? lastAction,
     bool clearSelectedLead = false,
@@ -117,6 +123,7 @@ class LeadsState extends Equatable {
       followUpFilter: clearFollowUpFilter
           ? null
           : followUpFilter ?? this.followUpFilter,
+      archiveFilter: archiveFilter ?? this.archiveFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
           ? LeadsAction.none
@@ -138,6 +145,7 @@ class LeadsState extends Equatable {
     priorityFilter,
     assignedToFilter,
     followUpFilter,
+    archiveFilter,
     message,
     lastAction,
   ];

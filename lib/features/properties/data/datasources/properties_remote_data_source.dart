@@ -31,7 +31,7 @@ abstract interface class PropertiesRemoteDataSource {
 
   Stream<List<PropertyModel>> watchProperties({
     required String companyId,
-    int limit,
+    int limit = 50,
   });
 }
 

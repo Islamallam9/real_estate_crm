@@ -97,6 +97,32 @@ class CompanyUsersCubit extends Cubit<CompanyUsersState> {
     }
   }
 
+
+  Future<bool> setUserActiveStatus({
+    required String companyId,
+    required String uid,
+    required bool isActive,
+  }) async {
+    emit(state.copyWith(status: CompanyUsersStatus.saving, clearMessage: true));
+    try {
+      await _remoteDataSource.setUserActiveStatus(
+        companyId: companyId,
+        uid: uid,
+        isActive: isActive,
+      );
+      emit(state.copyWith(status: CompanyUsersStatus.ready));
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: CompanyUsersStatus.failure,
+          message: _cleanCompanyUserError(error),
+        ),
+      );
+      return false;
+    }
+  }
+
   @override
   Future<void> close() {
     _subscription?.cancel();

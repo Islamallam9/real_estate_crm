@@ -227,6 +227,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardAuditImageRemoved => 'إزالة صورة';
 
   @override
+  String get dashboardAuditRestored => 'استعادة';
+
+  @override
   String get dashboardAuditLead => 'عميل محتمل';
 
   @override
@@ -374,7 +377,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get crmUser => 'مستخدم مسار';
 
   @override
-  String get workspace => 'مساحة العمل';
+  String get workspace => 'بيئة العمل';
 
   @override
   String get crmOverview => 'نظرة عامة على مسار CRM';
@@ -534,6 +537,31 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get clientArchivedSuccessfully => 'تمت أرشفة العميل بنجاح.';
+
+  @override
+  String get archived => 'مؤرشف';
+
+  @override
+  String get restore => 'استعادة';
+
+  @override
+  String get restoreRecord => 'استعادة السجل';
+
+  @override
+  String get restoreRecordConfirmation => 'سيعود هذا السجل إلى القوائم النشطة.';
+
+  @override
+  String get archiveReason => 'سبب الأرشفة';
+
+  @override
+  String get noArchivedRecords => 'لا توجد سجلات مؤرشفة';
+
+  @override
+  String get archivedRecordsHiddenFromActiveLists =>
+      'تبقى السجلات المؤرشفة مخفية من القوائم النشطة.';
+
+  @override
+  String get recordRestoredSuccessfully => 'تمت استعادة السجل بنجاح.';
 
   @override
   String get clientNotFoundMessage =>
@@ -1770,7 +1798,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get platformRecentActivity => 'النشاط الأخير';
 
   @override
-  String get platformWorkspaceSummary => 'ملخص مساحة العمل';
+  String get platformWorkspaceSummary => 'ملخص بيئة العمل';
 
   @override
   String get platformViewAllLogs => 'عرض جميع السجلات';
@@ -1806,6 +1834,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get deactivateUser => 'تعطيل المستخدم';
+
+  @override
+  String get activateUserConfirmation =>
+      'سيتم السماح لهذا المستخدم بالدخول إلى بيئة عمل الشركة مرة أخرى.';
+
+  @override
+  String get deactivateUserConfirmation =>
+      'سيفقد هذا المستخدم إمكانية الدخول إلى بيئة عمل هذه الشركة. ستظل السجلات الحالية كما هي.';
 
   @override
   String get noCompanies => 'لا توجد شركات بعد';
@@ -2835,6 +2871,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notificationAppointmentDueNowTitle => 'الموعد مستحق الآن';
 
   @override
+  String get notificationAppointmentDueSoonTitle => 'موعد خلال 10 دقائق';
+
+  @override
   String get notificationAppointmentMissedAttentionTitle => 'موعد فائت';
 
   @override
@@ -2847,6 +2886,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get notificationTeamAppointmentReassignedTitle =>
       'تمت إعادة إسناد موعد داخل الفريق';
+
+  @override
+  String get notificationTeamAppointmentDueNowTitle =>
+      'موعد مستحق الآن في الفريق';
+
+  @override
+  String get notificationTeamAppointmentDueSoonTitle =>
+      'موعد فريق خلال 10 دقائق';
 
   @override
   String get notificationTeamAppointmentRescheduledTitle =>
@@ -2922,7 +2969,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get invitationOnboardingNote =>
-      'يتيح التسجيل بالدعوة لمسؤول الشركة إنشاء مساحة شركته بنفسه. يظل الإعداد اليدوي متاحاً لحالات الدعم.';
+      'يتيح التسجيل بالدعوة لمسؤول الشركة إنشاء بيئة عمل شركته بنفسه. يظل الإعداد اليدوي متاحاً لحالات الدعم.';
 
   @override
   String get noInvitationsYet => 'لا توجد دعوات بعد';
@@ -2966,7 +3013,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get reviewAndCreate => 'مراجعة وإنشاء';
 
   @override
-  String get createWorkspace => 'إنشاء مساحة العمل';
+  String get createWorkspace => 'إنشاء بيئة العمل';
 
   @override
   String get companyEmail => 'بريد الشركة';
@@ -3007,14 +3054,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get onboardingTitle =>
-      'من العميل المحتمل إلى الصفقة، أدِر مساحة مبيعاتك العقارية من مكان واحد.';
+      'من العميل المحتمل إلى الصفقة، أدِر منظومة مبيعاتك العقارية من مكان واحد.';
 
   @override
   String get onboardingSubtitle =>
-      'يربط مسار الفرق والعملاء المحتملين والعقارات والمواعيد والإشعارات والتقارير داخل مساحة شركة آمنة.';
+      'يربط مسار الفرق والعملاء المحتملين والعقارات والمواعيد والإشعارات والتقارير داخل بيئة عمل الشركة آمنة.';
 
   @override
-  String get onboardingOperationsTitle => 'مساحة تشغيل CRM عملية';
+  String get onboardingOperationsTitle => 'بيئة تشغيل CRM عملية';
 
   @override
   String get onboardingOperationsMessage =>
@@ -3025,7 +3072,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get onboardingInvitationMessage =>
-      'استخدم رمز الدعوة لإنشاء مساحة الشركة والبدء كأول مسؤول للشركة.';
+      'استخدم رمز الدعوة لإنشاء بيئة عمل الشركة والبدء كأول مسؤول للشركة.';
 
   @override
   String get onboardingAnalyticsTitle => 'لوحات وتقارير مباشرة';
@@ -3038,7 +3085,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get signInExistingAccount => 'تسجيل الدخول لحساب موجود';
 
   @override
-  String get createAdminWorkspace => 'إنشاء مساحة شركة';
+  String get createAdminWorkspace => 'إنشاء بيئة عمل الشركة';
 
   @override
   String get companyIdGeneratedAutomatically =>
@@ -3141,7 +3188,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get unableToCreateWorkspace =>
-      'تعذر إنشاء مساحة العمل. راجع البيانات وحاول مرة أخرى.';
+      'تعذر إنشاء بيئة العمل. راجع البيانات وحاول مرة أخرى.';
 
   @override
   String get unableToCompleteRegistration =>
@@ -3149,7 +3196,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get registrationConflict =>
-      'التسجيل قيد التنفيذ بالفعل أو تم إنشاء المساحة للتو. حاول مرة أخرى.';
+      'التسجيل قيد التنفيذ بالفعل أو تم إنشاء بيئة العمل للتو. حاول مرة أخرى.';
 
   @override
   String get createYourAdminPassword => 'أنشئ كلمة مرور المسؤول';
@@ -3170,7 +3217,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get featureNotEnabledForWorkspace =>
-      'هذه الميزة غير مفعّلة لمساحة عملك.';
+      'هذه الميزة غير مفعّلة لبيئة عملك.';
 
   @override
   String get errorOccurred => 'حدث خطأ';
@@ -3210,14 +3257,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get supportCenterSubtitle =>
-      'أرسل طلبات الدعم أو ملاحظات المنتج من داخل مساحة العمل.';
+      'أرسل طلبات الدعم أو ملاحظات المنتج من داخل بيئة العمل.';
 
   @override
   String get contactSupport => 'التواصل مع الدعم';
 
   @override
   String get contactSupportSubtitle =>
-      'أنشئ طلب دعم مع إرفاق الصفحة والإصدار وسياق مساحة العمل تلقائياً.';
+      'أنشئ طلب دعم مع إرفاق الصفحة والإصدار وسياق بيئة العمل تلقائياً.';
 
   @override
   String get sendFeedback => 'إرسال ملاحظة';
@@ -3439,6 +3486,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get platformNotificationCompanyUserStatusChanged =>
       'تغيرت حالة مستخدم الشركة';
+
+  @override
+  String get platformNotificationDealWon => 'تم كسب صفقة';
+
+  @override
+  String get platformNotificationDealLost => 'تم فقد صفقة';
 
   @override
   String get platformNotificationCompanyUserPasswordReset =>

@@ -44,10 +44,11 @@ const FEATURE_KEYS = new Set([
   'reports',
   'auditLogs',
   'notifications',
+  'userManagement',
 ]);
 const OPERATIONAL_TEAM_ROLES = new Set(['salesAgent', 'marketing']);
 const LEAD_ASSIGNABLE_ROLES = new Set(['salesAgent', 'marketing']);
-const APPOINTMENT_ASSIGNABLE_ROLES = new Set(['salesAgent', 'marketing']);
+const APPOINTMENT_ASSIGNABLE_ROLES = new Set(['admin', 'manager', 'salesAgent', 'marketing']);
 const APPOINTMENT_TYPES = new Set([
   'call',
   'meeting',
@@ -91,6 +92,12 @@ const DATA_HEALTH_MODULE_POLICIES = {
   deals: { titleField: 'clientName', fallbackTitleField: 'propertyTitle', allowedRoles: new Set(['salesAgent']) },
   properties: { titleField: 'title', allowedRoles: new Set(['salesAgent']), onlyWhenAssigned: true },
 };
+const CRM_ARCHIVE_MODULE_POLICIES = {
+  leads: { titleField: 'fullName', fallbackTitle: 'Lead' },
+  clients: { titleField: 'fullName', fallbackTitle: 'Client', usesIsActive: true },
+  deals: { titleField: 'clientName', fallbackTitleField: 'propertyTitle', fallbackTitle: 'Deal', usesIsActive: true },
+  properties: { titleField: 'title', fallbackTitle: 'Property' },
+};
 const NOTIFICATION_TYPES = new Set([
   'leadAssigned',
   'leadReassigned',
@@ -101,12 +108,16 @@ const NOTIFICATION_TYPES = new Set([
   'appointmentAssigned',
   'appointmentReassigned',
   'appointmentRemovedFromYou',
+  'appointmentDueSoon',
+  'appointmentDueNow',
   'appointmentRescheduled',
   'appointmentCancelled',
   'appointmentCompleted',
   'appointmentMissed',
   'teamAppointmentAssigned',
   'teamAppointmentReassigned',
+  'teamAppointmentDueSoon',
+  'teamAppointmentDueNow',
   'teamAppointmentRescheduled',
   'teamAppointmentCancelled',
   'teamAppointmentCompleted',
@@ -148,6 +159,8 @@ const PLATFORM_NOTIFICATION_TYPES = new Set([
   'companyUserCreated',
   'companyUserStatusChanged',
   'companyUserPasswordReset',
+  'dealWon',
+  'dealLost',
   'invitationCreated',
   'invitationAccepted',
   'invitationRevoked',
@@ -722,6 +735,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
       reports: true,
       auditLogs: true,
       notifications: true,
+      userManagement: true,
     },
   });
   writeCompanyUser(batch, companyId, userRecord.uid, {
@@ -796,6 +810,7 @@ exports.addUserToCompany = onCall(async (request) => {
   if (company.isActive !== true || company.status === 'inactive') {
     throw new HttpsError('failed-precondition', 'Company is inactive.');
   }
+  enforceUserManagementFeature(company, isPlatformActor);
 
   await enforceUserLimit(companyId, company);
 
@@ -870,13 +885,14 @@ exports.addUserToCompany = onCall(async (request) => {
     });
     throw new HttpsError('internal', 'Unable to create company user.');
   }
-  if (isPlatformActor) {
-    const actor = await platformActorSummary(actorUid);
+  {
+    const actor = await notificationActorSummary(companyId, actorUid);
+    const actorRole = isPlatformActor ? 'platformAdmin' : 'companyAdmin';
     await createPlatformNotificationSafely('add_user_to_company', {
       id: `company_user_created_${companyId}_${userRecord.uid}`,
       type: 'companyUserCreated',
       title: 'Company user created',
-      message: `${fullName} was added to ${companyNotificationName(companyId, company)}.`,
+      message: `${fullName} was added to ${companyNotificationName(companyId, company)} by ${actor.actorName || actor.actorEmail || actorRole}.`,
       severity: 'success',
       source: 'user',
       route: '/platform',
@@ -889,6 +905,7 @@ exports.addUserToCompany = onCall(async (request) => {
         targetUid: userRecord.uid,
         targetEmail: email,
         role,
+        actorRole,
         passwordSetupMethod: usesTemporaryPassword ? 'temporaryPassword' : 'setupLink',
       },
     });
@@ -1011,13 +1028,34 @@ exports.assignUserToTeam = onCall(async (request) => {
   }
 
   const previousTeamId = optionalString(targetUser.teamId);
-  await targetUserRef.update({
+  const nextAssigneeSnapshot = {
+    ...targetUser,
     teamId,
     teamName: optionalString(team.name),
     managerId: optionalString(team.managerId),
     managerName: optionalString(team.managerName),
+  };
+  await targetUserRef.update({
+    teamId: nextAssigneeSnapshot.teamId,
+    teamName: nextAssigneeSnapshot.teamName,
+    managerId: nextAssigneeSnapshot.managerId,
+    managerName: nextAssigneeSnapshot.managerName,
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: actorUid,
+  });
+
+  const repairedRecords = await backfillAssignedRecordsForUser({
+    companyId,
+    uid,
+    assignee: nextAssigneeSnapshot,
+    actorUid,
+  });
+  console.info('team_member_assignment_backfill_completed', {
+    companyId,
+    teamId,
+    uid,
+    repairedRecords: repairedRecords.total,
+    byModule: repairedRecords.byModule,
   });
 
   await Promise.all([
@@ -1027,7 +1065,7 @@ exports.assignUserToTeam = onCall(async (request) => {
       : Promise.resolve(),
   ]);
 
-  return { companyId, teamId, uid };
+  return { companyId, teamId, uid, repairedRecords };
 });
 
 exports.removeUserFromTeam = onCall(async (request) => {
@@ -1056,6 +1094,13 @@ exports.removeUserFromTeam = onCall(async (request) => {
   }
 
   const previousTeamId = optionalString(targetUser.teamId);
+  const nextAssigneeSnapshot = {
+    ...targetUser,
+    teamId: '',
+    teamName: '',
+    managerId: '',
+    managerName: '',
+  };
   await targetUserRef.update({
     teamId: '',
     teamName: '',
@@ -1065,11 +1110,111 @@ exports.removeUserFromTeam = onCall(async (request) => {
     updatedBy: actorUid,
   });
 
+  const repairedRecords = await backfillAssignedRecordsForUser({
+    companyId,
+    uid,
+    assignee: nextAssigneeSnapshot,
+    actorUid,
+  });
+  console.info('team_member_removal_backfill_completed', {
+    companyId,
+    previousTeamId,
+    uid,
+    repairedRecords: repairedRecords.total,
+    byModule: repairedRecords.byModule,
+  });
+
   if (previousTeamId) {
     await refreshTeamMemberCount({ companyId, teamId: previousTeamId, actorUid });
   }
 
-  return { companyId, uid };
+  return { companyId, uid, repairedRecords };
+});
+
+
+exports.backfillTeamAssignedRecordSnapshots = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const teamId = requiredString(data.teamId, 'teamId');
+  validateCompanyId(companyId);
+
+  const actorUid = await requireActiveCompanyAdmin(request, companyId);
+  const teamSnapshot = await db.doc(`companies/${companyId}/teams/${teamId}`).get();
+  if (!teamSnapshot.exists) {
+    throw new HttpsError('not-found', 'Team was not found.');
+  }
+
+  const team = teamSnapshot.data() || {};
+  if (team.companyId && team.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Team does not belong to this company.');
+  }
+  if (team.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Team is inactive.');
+  }
+
+  const usersSnapshot = await db.collection(`companies/${companyId}/users`)
+    .where('teamId', '==', teamId)
+    .get();
+
+  const totals = {};
+  let repairedRecords = 0;
+  let repairedUsers = 0;
+  let repairedUserProfiles = 0;
+  const teamSnapshotPatch = {
+    teamId,
+    teamName: optionalString(team.name),
+    managerId: optionalString(team.managerId),
+    managerName: optionalString(team.managerName),
+  };
+
+  for (const userDoc of usersSnapshot.docs) {
+    const user = userDoc.data() || {};
+    if (!OPERATIONAL_TEAM_ROLES.has(user.role)) {
+      continue;
+    }
+
+    const nextAssigneeSnapshot = {
+      ...user,
+      ...teamSnapshotPatch,
+    };
+
+    const userNeedsRepair =
+      optionalString(user.teamName) !== teamSnapshotPatch.teamName ||
+      optionalString(user.managerId) !== teamSnapshotPatch.managerId ||
+      optionalString(user.managerName) !== teamSnapshotPatch.managerName;
+
+    if (userNeedsRepair) {
+      await userDoc.ref.set({
+        ...teamSnapshotPatch,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actorUid,
+      }, { merge: true });
+      repairedUserProfiles += 1;
+    }
+
+    const result = await backfillAssignedRecordsForUser({
+      companyId,
+      uid: userDoc.id,
+      assignee: nextAssigneeSnapshot,
+      actorUid,
+    });
+    repairedUsers += 1;
+    repairedRecords += result.total;
+    for (const [module, count] of Object.entries(result.byModule)) {
+      totals[module] = (totals[module] || 0) + count;
+    }
+  }
+
+  console.info('team_record_snapshot_backfill_completed', {
+    companyId,
+    teamId,
+    repairedUsers,
+    repairedUserProfiles,
+    repairedRecords,
+    totals,
+  });
+
+  return { companyId, teamId, repairedUsers, repairedUserProfiles, repairedRecords, totals };
 });
 
 exports.getCompanyDataHealthReport = onCall(async (request) => {
@@ -1530,24 +1675,6 @@ exports.refreshCompanyStorageUsage = onCall(async (request) => {
   const companyName = companyNotificationName(companyId, company);
   const limitBytes = storageLimitBytes(company);
   const usagePercent = limitBytes > 0 ? Math.round((totalBytes / limitBytes) * 10000) / 100 : 0;
-  await createPlatformNotificationSafely('refresh_company_storage_usage', {
-    type: 'storageUsageRefreshed',
-    title: 'Storage usage refreshed',
-    message: `${companyName} storage usage was refreshed.`,
-    severity: 'info',
-    source: 'storage',
-    route: '/platform',
-    actorId: actor.actorId,
-    actorName: actor.actorName,
-    actorEmail: actor.actorEmail,
-    companyId,
-    companyName,
-    metadata: {
-      storageUsedBytes: totalBytes,
-      storageLimitBytes: limitBytes,
-      usagePercent,
-    },
-  });
   if (limitBytes > 0 && usagePercent >= 80) {
     const level = usagePercent >= 95 ? 'urgent' : 'warning';
     await createPlatformNotificationSafely('storage_near_limit', {
@@ -1751,12 +1878,13 @@ exports.validateUploadedImageMagicBytes = onObjectFinalized(
 );
 
 exports.setCompanyUserActiveStatus = onCall(async (request) => {
-  const actorUid = await requireActivePlatformAdmin(request);
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const uid = requiredString(data.uid, 'uid');
   const isActive = requiredBoolean(data.isActive, 'isActive');
   validateCompanyId(companyId);
+  const actorUid = await requirePlatformOrCompanyAdmin(request, companyId);
+  const isPlatformActor = await isActivePlatformAdminUid(actorUid);
   const [companySnapshot, targetUserSnapshot] = await Promise.all([
     db.doc(`companies/${companyId}`).get(),
     db.doc(`companies/${companyId}/users/${uid}`).get(),
@@ -1769,6 +1897,15 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   }
   const company = companySnapshot.data() || {};
   const targetUser = targetUserSnapshot.data() || {};
+  if (!isPlatformActor) {
+    enforceUserManagementFeature(company, false);
+    assertCompanyAdminCanManageTarget({
+      actorUid,
+      targetUid: uid,
+      targetUser,
+      nextActive: isActive,
+    });
+  }
 
   const now = FieldValue.serverTimestamp();
   const status = isActive ? 'active' : 'inactive';
@@ -1776,7 +1913,7 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   batch.update(db.doc(`companies/${companyId}/users/${uid}`), {
     isActive,
     updatedAt: now,
-    updatedBy: request.auth.uid,
+    updatedBy: actorUid,
   });
   batch.update(db.doc(`users/${uid}/memberships/${companyId}`), {
     isActive,
@@ -1784,27 +1921,31 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
     updatedAt: now,
   });
   await batch.commit();
-  const actor = await platformActorSummary(actorUid);
-  await createPlatformNotificationSafely('set_company_user_active_status', {
-    type: 'companyUserStatusChanged',
-    title: 'Company user status changed',
-    message: `${optionalString(targetUser.fullName) || optionalString(targetUser.email) || uid} is now ${isActive ? 'active' : 'inactive'}.`,
-    severity: isActive ? 'success' : 'warning',
-    source: 'user',
-    route: '/platform',
-    actorId: actor.actorId,
-    actorName: actor.actorName,
-    actorEmail: actor.actorEmail,
-    companyId,
-    companyName: companyNotificationName(companyId, company),
-    metadata: {
-      targetUid: uid,
-      targetEmail: targetUser.email || '',
-      role: targetUser.role || '',
-      isActive,
-      status,
-    },
-  });
+  {
+    const actor = await notificationActorSummary(companyId, actorUid);
+    const actorRole = isPlatformActor ? 'platformAdmin' : 'companyAdmin';
+    await createPlatformNotificationSafely('set_company_user_active_status', {
+      type: 'companyUserStatusChanged',
+      title: 'Company user status changed',
+      message: `${optionalString(targetUser.fullName) || optionalString(targetUser.email) || uid} is now ${isActive ? 'active' : 'inactive'} by ${actor.actorName || actor.actorEmail || actorRole}.`,
+      severity: isActive ? 'success' : 'warning',
+      source: 'user',
+      route: '/platform',
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorEmail: actor.actorEmail,
+      companyId,
+      companyName: companyNotificationName(companyId, company),
+      metadata: {
+        targetUid: uid,
+        targetEmail: targetUser.email || '',
+        role: targetUser.role || '',
+        actorRole,
+        isActive,
+        status,
+      },
+    });
+  }
 
   return { uid, companyId, isActive };
 });
@@ -2005,6 +2146,14 @@ exports.updateOwnProfileSettings = onCall(async (request) => {
       ? profileUpdate.photoStoragePath
       : null,
   };
+});
+
+exports.archiveCrmRecord = onCall(async (request) => {
+  return updateCrmArchiveState(request, true);
+});
+
+exports.restoreCrmRecord = onCall(async (request) => {
+  return updateCrmArchiveState(request, false);
 });
 
 
@@ -2228,7 +2377,8 @@ exports.saveAppointmentRecord = onCall(async (request) => {
     const managerTeamId = optionalString(actor.teamId);
     const assigneeManagerId = optionalString(assignee.managerId);
     const assigneeTeamId = optionalString(assignee.teamId);
-    const canAssignToUser = assigneeManagerId === actorUid ||
+    const canAssignToUser = assignedTo === actorUid ||
+      assigneeManagerId === actorUid ||
       (managerTeamId && assigneeTeamId === managerTeamId);
     if (!canAssignToUser) {
       throw new HttpsError('permission-denied', 'You can only assign appointments to your team.');
@@ -2307,101 +2457,158 @@ exports.saveAppointmentRecord = onCall(async (request) => {
     after: payload,
   }).catch(() => undefined);
 
+  await createAppointmentTimingNotifications({
+    companyId,
+    appointmentId,
+    appointment: payload,
+    now: admin.firestore.Timestamp.now(),
+  }).catch(() => undefined);
+
   return { companyId, appointmentId };
 });
 
 
+exports.refreshAppointmentTimingNotifications = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    const actorUid = optionalString(request.auth && request.auth.uid);
+    if (!actorUid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+    const payload = request.data || {};
+    const companyId = optionalString(payload.companyId);
+    validateCompanyId(companyId);
+
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    if (!actor || actor.isActive !== true) {
+      throw new HttpsError('permission-denied', 'You do not have access to this company.');
+    }
+
+    const role = optionalString(actor.role);
+    if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(role)) {
+      return { checked: 0, processed: 0 };
+    }
+
+    return refreshAppointmentTimingWindow({
+      companyId,
+      actorUid,
+      actor,
+      nowDate: new Date(),
+      limit: 250,
+    });
+  },
+);
+
 exports.createDueAppointmentNotifications = onSchedule(
   {
-    schedule: 'every 5 minutes',
+    schedule: '* * * * *',
     timeZone: 'Africa/Cairo',
     region: 'us-east1',
   },
   async () => {
-    const nowDate = new Date();
-    const lookbackDate = new Date(nowDate.getTime() - 10 * 60 * 1000);
-    const now = admin.firestore.Timestamp.fromDate(nowDate);
-    const lookback = admin.firestore.Timestamp.fromDate(lookbackDate);
-
-    const snapshot = await db.collectionGroup('appointments')
-      .where('scheduledAt', '>=', lookback)
-      .where('scheduledAt', '<=', now)
-      .limit(250)
-      .get();
-
-    const writes = [];
-    for (const document of snapshot.docs) {
-      const appointment = document.data() || {};
-      const companyId = optionalString(appointment.companyId);
-      const appointmentId = optionalString(appointment.id) || document.id;
-      const status = normalizedWorkflowValue(appointment.status);
-      if (!companyId || !appointmentId || !['scheduled', 'rescheduled'].includes(status)) {
-        continue;
-      }
-
-      const assignedTo = optionalString(appointment.assignedTo);
-      const managerId = optionalString(appointment.managerId);
-      const title = optionalString(appointment.title) || appointmentId;
-      const subtitle = appointmentRecordSubtitle(appointment);
-      const scheduledAt = firestoreTimestampToIso(appointment.scheduledAt);
-      const metadata = {
-        scheduledAt,
-        assignedToName: optionalString(appointment.assignedToName),
-        relatedTitle: optionalString(appointment.relatedTitle),
-      };
-
-      if (assignedTo) {
-        writes.push(createCompanyNotification({
-          companyId,
-          recipientUid: assignedTo,
-          recipientRole: '',
-          type: 'systemInfo',
-          module: 'appointments',
-          recordId: appointmentId,
-          recordTitle: title,
-          recordSubtitle: subtitle,
-          route: '/appointments',
-          actorUid: '',
-          actorName: '',
-          teamId: optionalString(appointment.teamId),
-          teamName: optionalString(appointment.teamName),
-          managerId,
-          priority: 'high',
-          metadata,
-          fallbackTitle: 'Appointment due now',
-          fallbackBody: `${title} is due now.`,
-          dedupeKey: `appointment_due_${companyId}_${appointmentId}_${assignedTo}`,
-        }));
-      }
-
-      if (managerId && managerId !== assignedTo) {
-        writes.push(createCompanyNotification({
-          companyId,
-          recipientUid: managerId,
-          recipientRole: 'manager',
-          type: 'systemInfo',
-          module: 'appointments',
-          recordId: appointmentId,
-          recordTitle: title,
-          recordSubtitle: subtitle,
-          route: '/appointments',
-          actorUid: '',
-          actorName: '',
-          teamId: optionalString(appointment.teamId),
-          teamName: optionalString(appointment.teamName),
-          managerId,
-          priority: 'high',
-          metadata,
-          fallbackTitle: 'Team appointment due now',
-          fallbackBody: `${title} is due now for ${optionalString(appointment.assignedToName) || 'a team member'}.`,
-          dedupeKey: `appointment_due_${companyId}_${appointmentId}_manager_${managerId}`,
-        }));
-      }
-    }
-
-    await Promise.all(writes);
+    await refreshAppointmentTimingWindow({
+      nowDate: new Date(),
+      limit: 500,
+    });
   },
 );
+
+async function refreshAppointmentTimingWindow({
+  companyId,
+  actorUid,
+  actor,
+  nowDate,
+  limit,
+}) {
+  const dueSoonDate = new Date(nowDate.getTime() + 10 * 60 * 1000);
+  // Keep due-now recovery short enough to avoid turning very old missed
+  // appointments into new unread notifications, but wide enough to recover
+  // from scheduler/cold-start delay.
+  const lookbackDate = new Date(nowDate.getTime() - 30 * 60 * 1000);
+  const now = admin.firestore.Timestamp.fromDate(nowDate);
+  const dueSoonCutoff = admin.firestore.Timestamp.fromDate(dueSoonDate);
+  const lookback = admin.firestore.Timestamp.fromDate(lookbackDate);
+
+  const dueQuery = appointmentTimingQuery(companyId)
+    .where('scheduledAt', '>=', lookback)
+    .where('scheduledAt', '<=', now)
+    .limit(limit || 250);
+  const dueSoonQuery = appointmentTimingQuery(companyId)
+    .where('scheduledAt', '>', now)
+    .where('scheduledAt', '<=', dueSoonCutoff)
+    .limit(limit || 250);
+
+  const [dueSnapshot, dueSoonSnapshot] = await Promise.all([
+    dueQuery.get(),
+    dueSoonQuery.get(),
+  ]);
+
+  const writes = [];
+  let checked = 0;
+  for (const document of [...dueSnapshot.docs, ...dueSoonSnapshot.docs]) {
+    const appointment = document.data() || {};
+    const resolvedCompanyId = optionalString(appointment.companyId) || companyIdFromAppointmentPath(document.ref.path);
+    const appointmentId = optionalString(appointment.id) || document.id;
+    const status = normalizedWorkflowValue(appointment.status);
+    if (!resolvedCompanyId || !appointmentId || !['scheduled', 'rescheduled'].includes(status)) {
+      continue;
+    }
+    if (companyId && resolvedCompanyId !== companyId) {
+      continue;
+    }
+    if (actor && !canActorRefreshAppointmentTiming({ actorUid, actor, appointment })) {
+      continue;
+    }
+
+    checked += 1;
+    writes.push(createAppointmentTimingNotifications({
+      companyId: resolvedCompanyId,
+      appointmentId,
+      appointment,
+      now,
+    }));
+  }
+
+  const settled = await Promise.allSettled(writes);
+  const processed = settled.filter((item) => item.status === 'fulfilled').length;
+  return { checked, processed };
+}
+
+function appointmentTimingQuery(companyId) {
+  const cleanCompanyId = optionalString(companyId);
+  if (cleanCompanyId) {
+    return db.collection(`companies/${cleanCompanyId}/appointments`);
+  }
+  return db.collectionGroup('appointments');
+}
+
+function canActorRefreshAppointmentTiming({ actorUid, actor, appointment }) {
+  const role = optionalString(actor.role);
+  if (role === 'admin') {
+    return true;
+  }
+  if (role === 'manager') {
+    const actorTeamId = optionalString(actor.teamId);
+    const appointmentTeamId = optionalString(appointment.teamId);
+    const appointmentManagerId = optionalString(appointment.managerId);
+    return optionalString(appointment.assignedTo) === actorUid ||
+      appointmentManagerId === actorUid ||
+      (actorTeamId && appointmentTeamId === actorTeamId);
+  }
+  if (role === 'salesAgent' || role === 'marketing') {
+    return optionalString(appointment.assignedTo) === actorUid;
+  }
+  return false;
+}
+
+function companyIdFromAppointmentPath(path) {
+  const parts = optionalString(path).split('/');
+  const companiesIndex = parts.indexOf('companies');
+  if (companiesIndex < 0 || companiesIndex + 1 >= parts.length) {
+    return '';
+  }
+  return parts[companiesIndex + 1];
+}
 
 exports.createTaskAssignmentNotification = onDocumentWritten(
   'companies/{companyId}/tasks/{taskId}',
@@ -2581,12 +2788,24 @@ exports.generateCompanyUserPasswordResetLink = onCall(async (request) => {
   const uid = requiredString(data.uid, 'uid');
   validateCompanyId(companyId);
   const actorUid = await requirePlatformOrCompanyAdmin(request, companyId);
+  const isPlatformActor = await isActivePlatformAdminUid(actorUid);
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  const company = companySnapshot.exists ? companySnapshot.data() || {} : {};
+  enforceUserManagementFeature(company, isPlatformActor);
 
   const { companyUserSnapshot, userRecord } = await loadCompanyUserAndAuthUser({
     companyId,
     uid,
   });
   const companyUser = companyUserSnapshot.data() || {};
+  if (!isPlatformActor) {
+    assertCompanyAdminCanManageTarget({
+      actorUid,
+      targetUid: uid,
+      targetUser: companyUser,
+      nextActive: companyUser.isActive !== false,
+    });
+  }
   const email = normalizeEmail(userRecord.email || companyUser.email || '');
   if (!email) {
     throw new HttpsError('failed-precondition', 'Target user email was not found.');
@@ -3649,6 +3868,33 @@ function validateCompanyFeatures(features) {
   return validated;
 }
 
+function companyFeatureEnabled(company, feature) {
+  const features = company && typeof company.features === 'object' ? company.features : {};
+  return features[feature] !== false;
+}
+
+function enforceUserManagementFeature(company, isPlatformActor) {
+  if (!isPlatformActor && !companyFeatureEnabled(company, 'userManagement')) {
+    throw new HttpsError(
+      'failed-precondition',
+      'User Management is disabled for this company.',
+    );
+  }
+}
+
+function assertCompanyAdminCanManageTarget({ actorUid, targetUid, targetUser, nextActive }) {
+  const role = optionalString(targetUser.role);
+  if (role === 'admin') {
+    throw new HttpsError(
+      'permission-denied',
+      'Only platform owner support can manage company admins.',
+    );
+  }
+  if (actorUid === targetUid && nextActive === false) {
+    throw new HttpsError('permission-denied', 'You cannot deactivate your own user account.');
+  }
+}
+
 function positiveInteger(value, field) {
   if (!Number.isInteger(value) || value <= 0 || value > 1000000) {
     throw new HttpsError(
@@ -3830,6 +4076,59 @@ async function refreshTeamMemberCount({ companyId, teamId, actorUid }) {
   });
 }
 
+
+async function backfillAssignedRecordsForUser({ companyId, uid, assignee, actorUid }) {
+  const update = {
+    ...assignmentSnapshotFromAssignee(uid, assignee),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actorUid,
+  };
+  const modules = ['leads', 'clients', 'tasks', 'deals', 'appointments', 'properties'];
+  const result = { total: 0, byModule: {} };
+
+  for (const module of modules) {
+    let lastDoc = null;
+    let repairedForModule = 0;
+    do {
+      let query = db.collection(`companies/${companyId}/${module}`)
+        .where('assignedTo', '==', uid)
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(400);
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+      const snapshot = await query.get();
+      if (snapshot.empty) {
+        break;
+      }
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => {
+        batch.set(doc.ref, update, { merge: true });
+        repairedForModule += 1;
+      });
+      await batch.commit();
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < 400) {
+        break;
+      }
+    } while (lastDoc);
+
+    if (repairedForModule > 0) {
+      result.byModule[module] = repairedForModule;
+      result.total += repairedForModule;
+    }
+  }
+
+  console.info('assigned_record_snapshot_backfill_completed', {
+    companyId,
+    uid,
+    repairedRecords: result.total,
+    byModule: result.byModule,
+  });
+
+  return result;
+}
+
 function isPropertyImagePath(filePath) {
   return /^companies\/[^/]+\/properties\/[^/]+\/images\/[^/]+$/.test(filePath);
 }
@@ -3956,6 +4255,11 @@ function buildLeadPayload({
     isArchived: existingLead && existingLead.isArchived === true ? true : false,
     archivedAt: existingLead && existingLead.archivedAt ? existingLead.archivedAt : null,
     archivedBy: existingLead ? optionalString(existingLead.archivedBy) : '',
+    archivedByName: existingLead ? optionalString(existingLead.archivedByName) : '',
+    archiveReason: existingLead ? optionalString(existingLead.archiveReason) : '',
+    restoredAt: existingLead && existingLead.restoredAt ? existingLead.restoredAt : null,
+    restoredBy: existingLead ? optionalString(existingLead.restoredBy) : '',
+    restoredByName: existingLead ? optionalString(existingLead.restoredByName) : '',
   };
 
   if (isCreate) {
@@ -3964,9 +4268,174 @@ function buildLeadPayload({
     payload.isArchived = false;
     payload.archivedAt = null;
     payload.archivedBy = '';
+    payload.archivedByName = '';
+    payload.archiveReason = '';
+    payload.restoredAt = null;
+    payload.restoredBy = '';
+    payload.restoredByName = '';
   }
 
   return payload;
+}
+
+async function updateCrmArchiveState(request, archive) {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actorUid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const module = requiredString(data.module, 'module');
+  const recordId = requiredString(data.recordId, 'recordId');
+  const reason = sanitizePlainString(optionalString(data.reason), 500);
+  validateCompanyId(companyId);
+
+  const policy = CRM_ARCHIVE_MODULE_POLICIES[module];
+  if (!policy) {
+    throw new HttpsError('invalid-argument', 'Archive module is invalid.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to archive records.');
+  }
+
+  const recordRef = db.doc(`companies/${companyId}/${module}/${recordId}`);
+  const recordSnapshot = await recordRef.get();
+  if (!recordSnapshot.exists) {
+    throw new HttpsError('not-found', 'Record was not found.');
+  }
+  const record = recordSnapshot.data() || {};
+  if (optionalString(record.companyId) !== companyId) {
+    throw new HttpsError('permission-denied', 'Record belongs to another company.');
+  }
+  if (actorRole === 'manager' && !managerCanAccessRecord(actorUid, actor, record)) {
+    throw new HttpsError('permission-denied', 'Managers can archive only their team records.');
+  }
+
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email) || actorRole;
+  const now = FieldValue.serverTimestamp();
+  const update = archive
+    ? {
+        isArchived: true,
+        archivedAt: now,
+        archivedBy: actorUid,
+        archivedByName: actorName,
+        archiveReason: reason,
+        updatedAt: now,
+        updatedBy: actorUid,
+      }
+    : {
+        isArchived: false,
+        restoredAt: now,
+        restoredBy: actorUid,
+        restoredByName: actorName,
+        updatedAt: now,
+        updatedBy: actorUid,
+      };
+
+  if (policy.usesIsActive) {
+    update.isActive = !archive;
+  }
+
+  const batch = db.batch();
+  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+  batch.set(recordRef, update, { merge: true });
+  batch.set(
+    auditRef,
+    crmArchiveAuditPayload({
+      auditId: auditRef.id,
+      companyId,
+      actorUid,
+      actor,
+      action: archive ? 'archive' : 'restore',
+      module,
+      recordId,
+      record,
+      policy,
+      reason,
+      now,
+    }),
+  );
+  await batch.commit();
+
+  return { companyId, module, recordId, isArchived: archive };
+}
+
+function managerCanAccessRecord(actorUid, actor, record) {
+  const teamId = optionalString(actor.teamId);
+  return optionalString(record.assignedTo) === actorUid ||
+    optionalString(record.managerId) === actorUid ||
+    (teamId && optionalString(record.teamId) === teamId);
+}
+
+function crmArchiveAuditPayload({
+  auditId,
+  companyId,
+  actorUid,
+  actor,
+  action,
+  module,
+  recordId,
+  record,
+  policy,
+  reason,
+  now,
+}) {
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email) || optionalString(actor.role);
+  const title = sanitizePlainString(
+    optionalString(record[policy.titleField]) ||
+      optionalString(record[policy.fallbackTitleField]) ||
+      policy.fallbackTitle ||
+      recordId,
+    240,
+  );
+  return {
+    id: auditId,
+    companyId,
+    actorId: actorUid,
+    actorName,
+    actorEmail: optionalString(actor.email),
+    actorRole: optionalString(actor.role),
+    action,
+    module,
+    recordId,
+    recordTitle: title,
+    recordSubtitle: crmArchiveRecordSubtitle(module, record),
+    assignedTo: optionalString(record.assignedTo),
+    teamId: optionalString(record.teamId),
+    teamName: optionalString(record.teamName),
+    managerId: optionalString(record.managerId),
+    managerName: optionalString(record.managerName),
+    createdAt: now,
+    metadata: {
+      module,
+      recordId,
+      recordTitle: title,
+      assignedTo: optionalString(record.assignedTo),
+      assignedToName: optionalString(record.assignedToName),
+      teamId: optionalString(record.teamId),
+      teamName: optionalString(record.teamName),
+      managerId: optionalString(record.managerId),
+      managerName: optionalString(record.managerName),
+      archiveReason: reason,
+    },
+  };
+}
+
+function crmArchiveRecordSubtitle(module, record) {
+  if (module === 'leads' || module === 'clients') {
+    return sanitizePlainString(optionalString(record.phone) || optionalString(record.email), 240);
+  }
+  if (module === 'deals') {
+    return sanitizePlainString(optionalString(record.propertyTitle) || optionalString(record.stage), 240);
+  }
+  if (module === 'properties') {
+    return sanitizePlainString(optionalString(record.location) || optionalString(record.status), 240);
+  }
+  return '';
 }
 
 async function appointmentRelatedSnapshot({
@@ -4118,6 +4587,13 @@ function buildAppointmentPayload({
     status = 'rescheduled';
   }
 
+  const assigneeRole = optionalString(assignee.role);
+  const assigneeIsManager = assigneeRole === 'manager';
+  const resolvedManagerId = assigneeIsManager ? assignedTo : optionalString(assignee.managerId);
+  const resolvedManagerName = assigneeIsManager
+    ? optionalString(assignee.fullName)
+    : optionalString(assignee.managerName);
+
   const payload = {
     id: appointmentId,
     companyId,
@@ -4132,8 +4608,8 @@ function buildAppointmentPayload({
     assignedToEmail: optionalString(assignee.email),
     teamId: optionalString(assignee.teamId),
     teamName: optionalString(assignee.teamName),
-    managerId: optionalString(assignee.managerId),
-    managerName: optionalString(assignee.managerName),
+    managerId: resolvedManagerId,
+    managerName: resolvedManagerName,
     relatedType: relatedSnapshot.relatedType,
     relatedId: relatedSnapshot.relatedId,
     relatedTitle: relatedSnapshot.relatedTitle,
@@ -4295,6 +4771,172 @@ async function createAppointmentStatusNotifications({
       dedupeKey: `appointment_status_${appointmentId}_${eventId}_manager_${managerId}`,
     });
   }
+}
+
+async function createAppointmentTimingNotifications({
+  companyId,
+  appointmentId,
+  appointment,
+  now,
+}) {
+  await Promise.allSettled([
+    createAppointmentDueSoonNotifications({
+      companyId,
+      appointmentId,
+      appointment,
+      now,
+    }),
+    createAppointmentDueNotifications({
+      companyId,
+      appointmentId,
+      appointment,
+      now,
+    }),
+  ]);
+}
+
+async function createAppointmentDueSoonNotifications({
+  companyId,
+  appointmentId,
+  appointment,
+  now,
+}) {
+  const status = normalizedWorkflowValue(appointment.status);
+  if (!['scheduled', 'rescheduled'].includes(status)) {
+    return;
+  }
+  const scheduledAt = appointment.scheduledAt;
+  if (!scheduledAt || typeof scheduledAt.toMillis !== 'function') {
+    return;
+  }
+  const msUntilStart = scheduledAt.toMillis() - now.toMillis();
+  if (msUntilStart <= 0 || msUntilStart > 10 * 60 * 1000) {
+    return;
+  }
+  await createAppointmentTimingNotificationPair({
+    companyId,
+    appointmentId,
+    appointment,
+    notificationType: 'appointmentDueSoon',
+    teamNotificationType: 'teamAppointmentDueSoon',
+    dedupePrefix: 'appointment_due_soon',
+    fallbackTitle: 'Appointment in 10 minutes',
+    fallbackBody: `${optionalString(appointment.title) || appointmentId} starts in about 10 minutes.`,
+    teamFallbackTitle: 'Team appointment in 10 minutes',
+    teamFallbackBody: `${optionalString(appointment.title) || appointmentId} starts soon for ${optionalString(appointment.assignedToName) || 'a team member'}.`,
+    priority: 'high',
+  });
+}
+
+async function createAppointmentDueNotifications({
+  companyId,
+  appointmentId,
+  appointment,
+  now,
+}) {
+  const status = normalizedWorkflowValue(appointment.status);
+  if (!['scheduled', 'rescheduled'].includes(status)) {
+    return;
+  }
+  const scheduledAt = appointment.scheduledAt;
+  if (!scheduledAt || typeof scheduledAt.toMillis !== 'function') {
+    return;
+  }
+  if (scheduledAt.toMillis() > now.toMillis()) {
+    return;
+  }
+  await createAppointmentTimingNotificationPair({
+    companyId,
+    appointmentId,
+    appointment,
+    notificationType: 'appointmentDueNow',
+    teamNotificationType: 'teamAppointmentDueNow',
+    dedupePrefix: 'appointment_due',
+    fallbackTitle: 'Appointment due now',
+    fallbackBody: `${optionalString(appointment.title) || appointmentId} is due now.`,
+    teamFallbackTitle: 'Team appointment due now',
+    teamFallbackBody: `${optionalString(appointment.title) || appointmentId} is due now for ${optionalString(appointment.assignedToName) || 'a team member'}.`,
+    priority: 'high',
+  });
+}
+
+async function createAppointmentTimingNotificationPair({
+  companyId,
+  appointmentId,
+  appointment,
+  notificationType,
+  teamNotificationType,
+  dedupePrefix,
+  fallbackTitle,
+  fallbackBody,
+  teamFallbackTitle,
+  teamFallbackBody,
+  priority,
+}) {
+  const scheduledAt = appointment.scheduledAt;
+  if (!scheduledAt || typeof scheduledAt.toMillis !== 'function') {
+    return;
+  }
+  const assignedTo = optionalString(appointment.assignedTo);
+  const managerId = optionalString(appointment.managerId);
+  const title = optionalString(appointment.title) || appointmentId;
+  const subtitle = appointmentRecordSubtitle(appointment);
+  const scheduledAtIso = firestoreTimestampToIso(scheduledAt);
+  const dueDedupeKey = appointmentDueDedupeKeySegment(scheduledAt);
+  const metadata = {
+    scheduledAt: scheduledAtIso,
+    assignedToName: optionalString(appointment.assignedToName),
+    relatedTitle: optionalString(appointment.relatedTitle),
+  };
+  const base = {
+    companyId,
+    module: 'appointments',
+    recordId: appointmentId,
+    recordTitle: title,
+    recordSubtitle: subtitle,
+    route: '/appointments',
+    actorUid: '',
+    actorName: '',
+    teamId: optionalString(appointment.teamId),
+    teamName: optionalString(appointment.teamName),
+    managerId,
+    priority,
+    metadata,
+  };
+  const writes = [];
+
+  if (assignedTo) {
+    writes.push(createCompanyNotification({
+      ...base,
+      recipientUid: assignedTo,
+      recipientRole: '',
+      type: notificationType,
+      fallbackTitle,
+      fallbackBody,
+      dedupeKey: `${dedupePrefix}_${companyId}_${appointmentId}_${assignedTo}_${dueDedupeKey}`,
+    }));
+  }
+
+  if (managerId && managerId !== assignedTo) {
+    writes.push(createCompanyNotification({
+      ...base,
+      recipientUid: managerId,
+      recipientRole: 'manager',
+      type: teamNotificationType,
+      fallbackTitle: teamFallbackTitle,
+      fallbackBody: teamFallbackBody,
+      dedupeKey: `${dedupePrefix}_${companyId}_${appointmentId}_manager_${managerId}_${dueDedupeKey}`,
+    }));
+  }
+
+  await Promise.all(writes);
+}
+
+function appointmentDueDedupeKeySegment(scheduledAt) {
+  if (!scheduledAt || typeof scheduledAt.toMillis !== 'function') {
+    return 'unknown_due_time';
+  }
+  return scheduledAt.toMillis().toString();
 }
 
 function appointmentStatusNotificationType(status) {
@@ -4791,7 +5433,61 @@ async function createDealStageNotifications({
       dealId,
       eventId,
     });
+    await createPlatformDealOutcomeNotification({
+      companyId,
+      dealId,
+      actorUid,
+      before,
+      after,
+      type,
+      nextStage,
+      eventId,
+    });
   }
+}
+
+
+async function createPlatformDealOutcomeNotification({
+  companyId,
+  dealId,
+  actorUid,
+  before,
+  after,
+  type,
+  nextStage,
+  eventId,
+}) {
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  const company = companySnapshot.exists ? companySnapshot.data() || {} : {};
+  const actor = await notificationActorSummary(companyId, actorUid);
+  const isWon = type === 'dealWon';
+  const title = isWon ? 'Deal won' : 'Deal lost';
+  const amount = typeof after.expectedValue === 'number' ? after.expectedValue : null;
+  await createPlatformNotificationSafely('deal_outcome', {
+    id: `platform_deal_outcome_${companyId}_${dealId}_${eventId}`,
+    type: isWon ? 'dealWon' : 'dealLost',
+    title,
+    message: `${dealTitle(after, dealId)} moved from ${optionalString(before && before.stage) || 'previous stage'} to ${nextStage} in ${companyNotificationName(companyId, company)} by ${actor.actorName || actor.actorEmail || actorUid}.`,
+    severity: isWon ? 'success' : 'warning',
+    source: 'company',
+    route: '/platform',
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    actorEmail: actor.actorEmail,
+    companyId,
+    companyName: companyNotificationName(companyId, company),
+    metadata: {
+      dealId,
+      dealTitle: dealTitle(after, dealId),
+      previousStage: optionalString(before && before.stage),
+      newStage: nextStage,
+      expectedValue: amount,
+      assignedTo: optionalString(after.assignedTo),
+      assignedToName: optionalString(after.assignedToName),
+      managerId: optionalString(after.managerId),
+      teamId: optionalString(after.teamId),
+    },
+  });
 }
 
 async function notifyCompanyAdminsForDealOutcome({
@@ -5065,6 +5761,37 @@ async function platformActorSummary(uid) {
     ),
     actorEmail: sanitizePlainString(
       optionalString(adminData.email) ||
+        optionalString(userRecord && userRecord.email),
+      180,
+    ),
+  };
+}
+
+
+async function notificationActorSummary(companyId, uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return { actorId: '', actorName: '', actorEmail: '' };
+  }
+  const [platformSummary, companyUserSnapshot, userRecord] = await Promise.all([
+    platformActorSummary(cleanUid),
+    companyId ? db.doc(`companies/${companyId}/users/${cleanUid}`).get().catch(() => null) : null,
+    auth.getUser(cleanUid).catch(() => null),
+  ]);
+  const companyUser = companyUserSnapshot && companyUserSnapshot.exists
+    ? companyUserSnapshot.data() || {}
+    : {};
+  return {
+    actorId: cleanUid,
+    actorName: sanitizePlainString(
+      optionalString(platformSummary.actorName) ||
+        optionalString(companyUser.fullName) ||
+        optionalString(userRecord && userRecord.displayName),
+      160,
+    ),
+    actorEmail: sanitizePlainString(
+      optionalString(platformSummary.actorEmail) ||
+        optionalString(companyUser.email) ||
         optionalString(userRecord && userRecord.email),
       180,
     ),

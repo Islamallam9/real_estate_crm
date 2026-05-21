@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'masar_loading_view.dart';
+import 'app_shimmer.dart';
 
 class AppLoading extends StatelessWidget {
   const AppLoading({super.key, this.message});
@@ -9,6 +9,6 @@ class AppLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MasarLoadingView(message: message, compact: true);
+    return AppShimmerLoading(message: message);
   }
 }

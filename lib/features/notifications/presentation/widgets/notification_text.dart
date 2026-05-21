@@ -20,6 +20,8 @@ String notificationTitle(AppLocalizations l, CrmNotification notification) {
       l.notificationAppointmentReassignedTitle,
     CrmNotificationType.appointmentRemovedFromYou =>
       l.notificationAppointmentRemovedFromYouTitle,
+    CrmNotificationType.appointmentDueSoon =>
+      l.notificationAppointmentDueSoonTitle,
     CrmNotificationType.appointmentDueNow =>
       l.notificationAppointmentDueNowTitle,
     CrmNotificationType.appointmentRescheduled =>
@@ -34,6 +36,10 @@ String notificationTitle(AppLocalizations l, CrmNotification notification) {
       l.notificationTeamAppointmentAssignedTitle,
     CrmNotificationType.teamAppointmentReassigned =>
       l.notificationTeamAppointmentReassignedTitle,
+    CrmNotificationType.teamAppointmentDueSoon =>
+      l.notificationTeamAppointmentDueSoonTitle,
+    CrmNotificationType.teamAppointmentDueNow =>
+      l.notificationTeamAppointmentDueNowTitle,
     CrmNotificationType.teamAppointmentRescheduled =>
       l.notificationTeamAppointmentRescheduledTitle,
     CrmNotificationType.teamAppointmentCancelled =>
@@ -94,7 +100,10 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
   if (notification.type == CrmNotificationType.leadRemovedFromYou) {
     return l.notificationRecordNoLongerAssignedBody(record);
   }
-  if (notification.type == CrmNotificationType.appointmentDueNow) {
+  if (notification.type == CrmNotificationType.appointmentDueSoon ||
+      notification.type == CrmNotificationType.teamAppointmentDueSoon ||
+      notification.type == CrmNotificationType.appointmentDueNow ||
+      notification.type == CrmNotificationType.teamAppointmentDueNow) {
     return l.notificationRecordBody(record);
   }
   if (notification.type == CrmNotificationType.taskRemovedFromYou ||

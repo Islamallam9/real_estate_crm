@@ -386,11 +386,24 @@ class _SupportFilters extends StatelessWidget {
         ];
         if (narrow) {
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final field in fields) ...[
-                field,
-                if (field != fields.last) const SizedBox(height: AppSpacing.sm),
-              ],
+              fields.first,
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                height: 66,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: fields.length - 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    return SizedBox(
+                      width: 190,
+                      child: fields[index + 1],
+                    );
+                  },
+                ),
+              ),
             ],
           );
         }

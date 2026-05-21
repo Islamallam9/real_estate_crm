@@ -1,3 +1,4 @@
+import '../../../../core/archive/archive_filter.dart';
 import '../entities/lead.dart';
 import '../repositories/leads_repository.dart';
 
@@ -10,12 +11,14 @@ class WatchLeadsUseCase {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
     return _repository.watchLeads(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      archiveFilter: archiveFilter,
       limit: limit,
     );
   }

@@ -22,6 +22,8 @@ enum PlatformNotificationType {
   companyUserCreated,
   companyUserStatusChanged,
   companyUserPasswordReset,
+  dealWon,
+  dealLost,
   invitationCreated,
   invitationAccepted,
   invitationRevoked,

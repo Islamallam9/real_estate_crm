@@ -40,6 +40,14 @@ class Property extends Equatable {
     required this.updatedAt,
     required this.createdBy,
     required this.updatedBy,
+    this.isArchived = false,
+    this.archivedAt,
+    this.archivedBy = '',
+    this.archivedByName = '',
+    this.archiveReason = '',
+    this.restoredAt,
+    this.restoredBy = '',
+    this.restoredByName = '',
   });
 
   final String id;
@@ -65,6 +73,14 @@ class Property extends Equatable {
   final DateTime updatedAt;
   final String createdBy;
   final String updatedBy;
+  final bool isArchived;
+  final DateTime? archivedAt;
+  final String archivedBy;
+  final String archivedByName;
+  final String archiveReason;
+  final DateTime? restoredAt;
+  final String restoredBy;
+  final String restoredByName;
 
   String? get effectiveCoverImageUrl {
     final trimmedCover = coverImageUrl?.trim();
@@ -106,6 +122,14 @@ class Property extends Equatable {
     DateTime? updatedAt,
     String? createdBy,
     String? updatedBy,
+    bool? isArchived,
+    DateTime? archivedAt,
+    String? archivedBy,
+    String? archivedByName,
+    String? archiveReason,
+    DateTime? restoredAt,
+    String? restoredBy,
+    String? restoredByName,
     bool clearCoverImageUrl = false,
   }) {
     return Property(
@@ -134,6 +158,14 @@ class Property extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      isArchived: isArchived ?? this.isArchived,
+      archivedAt: archivedAt ?? this.archivedAt,
+      archivedBy: archivedBy ?? this.archivedBy,
+      archivedByName: archivedByName ?? this.archivedByName,
+      archiveReason: archiveReason ?? this.archiveReason,
+      restoredAt: restoredAt ?? this.restoredAt,
+      restoredBy: restoredBy ?? this.restoredBy,
+      restoredByName: restoredByName ?? this.restoredByName,
     );
   }
 
@@ -162,5 +194,13 @@ class Property extends Equatable {
     updatedAt,
     createdBy,
     updatedBy,
+    isArchived,
+    archivedAt,
+    archivedBy,
+    archivedByName,
+    archiveReason,
+    restoredAt,
+    restoredBy,
+    restoredByName,
   ];
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../../../core/constants/firebase_paths.dart';
@@ -54,6 +56,11 @@ abstract interface class TeamRemoteDataSource {
     required UserProfile user,
     required String actorUid,
   });
+
+  Future<void> backfillTeamAssignedRecordSnapshots({
+    required Team team,
+    required String actorUid,
+  });
 }
 
 class FirestoreTeamRemoteDataSource implements TeamRemoteDataSource {
@@ -103,20 +110,83 @@ class FirestoreTeamRemoteDataSource implements TeamRemoteDataSource {
     required UserRole role,
     required String currentUserId,
   }) {
-    Query<Map<String, dynamic>> query = _firestore
+    final usersCollection = _firestore
         .collection(FirebasePaths.companyUsers(companyId))
         .where('isActive', isEqualTo: true);
 
     if (role == UserRole.manager) {
-      query = query.where('managerId', isEqualTo: currentUserId);
+      return _watchManagerTeamUsers(
+        companyId: companyId,
+        currentUserId: currentUserId,
+      );
     }
 
-    return query.snapshots().map((snapshot) {
-      final users = snapshot.docs.map(UserProfileModel.fromFirestore).where((
-        user,
-      ) {
-        return user.companyId == companyId;
-      }).toList()
+    return _watchUsersQuery(usersCollection, companyId);
+  }
+
+  Stream<List<UserProfileModel>> _watchManagerTeamUsers({
+    required String companyId,
+    required String currentUserId,
+  }) async* {
+    final teamsSnapshot = await _firestore
+        .collection(FirebasePaths.companyTeams(companyId))
+        .where('managerId', isEqualTo: currentUserId)
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    final teamIds = teamsSnapshot.docs
+        .map((doc) {
+          final id = (doc.data()['id'] as String?)?.trim();
+          return id != null && id.isNotEmpty ? id : doc.id;
+        })
+        .where((id) => id.trim().isNotEmpty)
+        .take(10)
+        .toList(growable: false);
+
+    final usersCollection = _firestore
+        .collection(FirebasePaths.companyUsers(companyId))
+        .where('isActive', isEqualTo: true);
+
+    final streams = <Stream<List<UserProfileModel>>>[
+      _watchUsersQuery(
+        usersCollection.where('managerId', isEqualTo: currentUserId),
+        companyId,
+      ),
+    ];
+
+    for (final teamId in teamIds) {
+      streams.add(
+        _watchUsersQuery(
+          usersCollection.where('teamId', isEqualTo: teamId),
+          companyId,
+        ),
+      );
+    }
+
+    yield* _combineUserStreams(streams);
+  }
+
+  Stream<List<UserProfileModel>> _combineUserStreams(
+    List<Stream<List<UserProfileModel>>> streams,
+  ) {
+    final controller = StreamController<List<UserProfileModel>>();
+    final latest = List<List<UserProfileModel>>.filled(
+      streams.length,
+      const <UserProfileModel>[],
+    );
+    final subscriptions = <StreamSubscription<List<UserProfileModel>>>[];
+
+    void emitCombined() {
+      if (controller.isClosed) {
+        return;
+      }
+      final byUid = <String, UserProfileModel>{};
+      for (final users in latest) {
+        for (final user in users) {
+          byUid[user.uid] = user;
+        }
+      }
+      final merged = byUid.values.toList()
         ..sort((a, b) {
           final roleCompare = RoleConstants.toValue(a.role).compareTo(
             RoleConstants.toValue(b.role),
@@ -126,8 +196,62 @@ class FirestoreTeamRemoteDataSource implements TeamRemoteDataSource {
           }
           return a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase());
         });
-      return users;
-    });
+      controller.add(merged);
+    }
+
+    controller.onListen = () {
+      if (streams.isEmpty) {
+        controller.add(const <UserProfileModel>[]);
+        return;
+      }
+      for (var index = 0; index < streams.length; index += 1) {
+        final streamIndex = index;
+        subscriptions.add(
+          streams[streamIndex].listen(
+            (users) {
+              latest[streamIndex] = users;
+              emitCombined();
+            },
+            onError: controller.addError,
+          ),
+        );
+      }
+    };
+
+    controller.onCancel = () async {
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+    };
+
+    return controller.stream;
+  }
+
+  Stream<List<UserProfileModel>> _watchUsersQuery(
+    Query<Map<String, dynamic>> query,
+    String companyId,
+  ) async* {
+    try {
+      await for (final snapshot in query.snapshots()) {
+        final users = snapshot.docs.map(UserProfileModel.fromFirestore).where((
+          user,
+        ) {
+          return user.companyId == companyId;
+        }).toList()
+          ..sort((a, b) {
+            final roleCompare = RoleConstants.toValue(a.role).compareTo(
+              RoleConstants.toValue(b.role),
+            );
+            if (roleCompare != 0) {
+              return roleCompare;
+            }
+            return a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase());
+          });
+        yield users;
+      }
+    } on FirebaseException catch (error) {
+      throw TeamException(_mapFirebaseTeamError(error));
+    }
   }
 
   @override
@@ -207,6 +331,10 @@ class FirestoreTeamRemoteDataSource implements TeamRemoteDataSource {
         managerName: manager.fullName,
         actorUid: actorUid,
       );
+      await backfillTeamAssignedRecordSnapshots(
+        team: team,
+        actorUid: actorUid,
+      );
     }
   }
 
@@ -267,6 +395,23 @@ class FirestoreTeamRemoteDataSource implements TeamRemoteDataSource {
       await _functions.httpsCallable('removeUserFromTeam').call({
         'companyId': user.companyId,
         'uid': user.uid,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw TeamException(_mapTeamFunctionError(error));
+    } on FirebaseException catch (error) {
+      throw TeamException(_mapFirebaseTeamError(error));
+    }
+  }
+
+  @override
+  Future<void> backfillTeamAssignedRecordSnapshots({
+    required Team team,
+    required String actorUid,
+  }) async {
+    try {
+      await _functions.httpsCallable('backfillTeamAssignedRecordSnapshots').call({
+        'companyId': team.companyId,
+        'teamId': team.id,
       });
     } on FirebaseFunctionsException catch (error) {
       throw TeamException(_mapTeamFunctionError(error));

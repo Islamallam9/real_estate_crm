@@ -1730,75 +1730,127 @@ class _DashboardCompanyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: selected
-            ? AppColors.primaryColor(context).withValues(alpha: .08)
-            : AppColors.inputSurface(context),
-        border: Border.all(
-          color: selected
-              ? AppColors.primaryColor(context).withValues(alpha: .45)
-              : AppColors.borderColor(context),
-        ),
-        borderRadius: AppRadius.large,
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.business_outlined, color: AppColors.primaryColor(context)),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _companyTitle(company),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                Text(
-                  _directionalIsolate(company.id),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                      ),
-                ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 520;
+        final status = AppStatusBadge(
+          label: _statusLabel(l, company),
+          tone: _isOperationalCompany(company)
+              ? AppStatusTone.success
+              : AppStatusTone.neutral,
+        );
+        final users = Text(
+          selected
+              ? _usersUsedLabel(context, state, company)
+              : _limitLabel(context, company.limits['users']),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+                fontWeight: FontWeight.w700,
+              ),
+        );
+        final createdAt = Text(
+          _formatDate(context, company.createdAt),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
+        );
+
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primaryColor(context).withValues(alpha: .08)
+                : AppColors.inputSurface(context),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primaryColor(context).withValues(alpha: .45)
+                  : AppColors.borderColor(context),
             ),
+            borderRadius: AppRadius.large,
           ),
-          AppStatusBadge(
-            label: _statusLabel(l, company),
-            tone: _isOperationalCompany(company)
-                ? AppStatusTone.success
-                : AppStatusTone.neutral,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            selected
-                ? _usersUsedLabel(context, state, company)
-                : _limitLabel(context, company.limits['users']),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                  fontWeight: FontWeight.w700,
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.business_outlined,
+                          color: AppColors.primaryColor(context),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: _DashboardCompanyTitle(company: company)),
+                        _CompanyActionsMenu(
+                          company: company,
+                          onOpenWorkspace: onOpenWorkspace,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [status, users, createdAt],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      Icons.business_outlined,
+                      color: AppColors.primaryColor(context),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: _DashboardCompanyTitle(company: company)),
+                    status,
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(child: users),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(child: createdAt),
+                    _CompanyActionsMenu(
+                      company: company,
+                      onOpenWorkspace: onOpenWorkspace,
+                    ),
+                  ],
                 ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            _formatDate(context, company.createdAt),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                ),
-          ),
-          _CompanyActionsMenu(
-            company: company,
-            onOpenWorkspace: onOpenWorkspace,
-          ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+}
+
+class _DashboardCompanyTitle extends StatelessWidget {
+  const _DashboardCompanyTitle({required this.company});
+
+  final CompanyMetadata company;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _companyTitle(company),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        Text(
+          _directionalIsolate(company.id),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
+        ),
+      ],
     );
   }
 }
@@ -5794,6 +5846,7 @@ const _featureKeys = [
   'reports',
   'auditLogs',
   'notifications',
+  'userManagement',
 ];
 
 String _featureLabel(AppLocalizations l, String feature) {
@@ -5807,6 +5860,7 @@ String _featureLabel(AppLocalizations l, String feature) {
     'reports' => l.reports,
     'auditLogs' => l.auditLogs,
     'notifications' => l.notifications,
+    'userManagement' => l.userManagement,
     _ => feature,
   };
 }

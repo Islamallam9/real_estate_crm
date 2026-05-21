@@ -18,6 +18,7 @@ class TeamsCubit extends Cubit<TeamsState> {
     required SetTeamActiveStatusUseCase setTeamActiveStatusUseCase,
     required AddUserToTeamUseCase addUserToTeamUseCase,
     required RemoveUserFromTeamUseCase removeUserFromTeamUseCase,
+    required BackfillTeamAssignedRecordSnapshotsUseCase backfillTeamAssignedRecordSnapshotsUseCase,
   }) : _watchTeamsUseCase = watchTeamsUseCase,
        _watchTeamUsersUseCase = watchTeamUsersUseCase,
        _createTeamUseCase = createTeamUseCase,
@@ -25,6 +26,7 @@ class TeamsCubit extends Cubit<TeamsState> {
        _setTeamActiveStatusUseCase = setTeamActiveStatusUseCase,
        _addUserToTeamUseCase = addUserToTeamUseCase,
        _removeUserFromTeamUseCase = removeUserFromTeamUseCase,
+       _backfillTeamAssignedRecordSnapshotsUseCase = backfillTeamAssignedRecordSnapshotsUseCase,
        super(const TeamsState.initial());
 
   final WatchTeamsUseCase _watchTeamsUseCase;
@@ -34,6 +36,8 @@ class TeamsCubit extends Cubit<TeamsState> {
   final SetTeamActiveStatusUseCase _setTeamActiveStatusUseCase;
   final AddUserToTeamUseCase _addUserToTeamUseCase;
   final RemoveUserFromTeamUseCase _removeUserFromTeamUseCase;
+  final BackfillTeamAssignedRecordSnapshotsUseCase
+      _backfillTeamAssignedRecordSnapshotsUseCase;
 
   StreamSubscription? _teamsSubscription;
   StreamSubscription? _usersSubscription;
@@ -185,6 +189,18 @@ class TeamsCubit extends Cubit<TeamsState> {
   }) {
     return _save(() {
       return _removeUserFromTeamUseCase(user: user, actorUid: actorUid);
+    });
+  }
+
+  Future<bool> backfillTeamAssignedRecordSnapshots({
+    required Team team,
+    required String actorUid,
+  }) {
+    return _save(() {
+      return _backfillTeamAssignedRecordSnapshotsUseCase(
+        team: team,
+        actorUid: actorUid,
+      );
     });
   }
 

@@ -252,6 +252,8 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
       return l.leadStatusUpdatedSuccessfully;
     case LeadsAction.archiveLead:
       return l.leadArchivedSuccessfully;
+    case LeadsAction.restoreLead:
+      return l.recordRestoredSuccessfully;
     case LeadsAction.addNote:
       return l.noteAddedSuccessfully;
     case LeadsAction.markContactedToday:

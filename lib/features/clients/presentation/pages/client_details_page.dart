@@ -13,6 +13,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -135,9 +136,16 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                                           .headlineSmall
                                           ?.copyWith(
                                             fontWeight: FontWeight.w700,
-                                          ),
+                                      ),
                                     ),
                                   ),
+                                  if (client.isArchived) ...[
+                                    const SizedBox(width: AppSpacing.sm),
+                                    AppStatusBadge(
+                                      label: l.archived,
+                                      tone: AppStatusTone.neutral,
+                                    ),
+                                  ],
                                 ],
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -151,7 +159,7 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                                     onPressed: () =>
                                         context.go(RouteNames.clients),
                                   ),
-                                  if (canEdit)
+                                  if (canEdit && !client.isArchived)
                                     AppButton(
                                       label: l.editClient,
                                       onPressed: () => context.go(

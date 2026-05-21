@@ -1,21 +1,19 @@
 import '../repositories/leads_repository.dart';
 
-class ArchiveLeadUseCase {
-  const ArchiveLeadUseCase(this._repository);
+class RestoreLeadUseCase {
+  const RestoreLeadUseCase(this._repository);
 
   final LeadsRepository _repository;
 
   Future<void> call({
     required String companyId,
     required String leadId,
-    required String archivedBy,
-    String reason = '',
+    required String restoredBy,
   }) {
-    return _repository.archiveLead(
+    return _repository.restoreLead(
       companyId: companyId,
       leadId: leadId,
-      archivedBy: archivedBy,
-      reason: reason,
+      restoredBy: restoredBy,
     );
   }
 }

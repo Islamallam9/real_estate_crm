@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -60,6 +61,9 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
         companyId: companyId,
         role: role,
         currentUserId: uid,
+        archiveFilter: role == UserRole.admin || role == UserRole.manager
+            ? ArchiveFilter.all
+            : ArchiveFilter.active,
       );
     }
   }
@@ -94,6 +98,10 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
           if (state.status == DealsStatus.saved &&
               state.lastAction == DealsAction.archiveDeal) {
             AppFeedback.success(context, l.dealArchivedSuccessfully);
+            context.read<DealsCubit>().clearAction();
+          } else if (state.status == DealsStatus.saved &&
+              state.lastAction == DealsAction.restoreDeal) {
+            AppFeedback.success(context, l.recordRestoredSuccessfully);
             context.read<DealsCubit>().clearAction();
           } else if (state.status == DealsStatus.saved &&
               state.lastAction == DealsAction.updateStage) {
@@ -142,9 +150,20 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
-                        AppStatusBadge(
-                          label: dealStageLabel(l, deal.stage),
-                          tone: dealStageTone(deal.stage),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            if (deal.isArchived)
+                              AppStatusBadge(
+                                label: l.archived,
+                                tone: AppStatusTone.neutral,
+                              ),
+                            AppStatusBadge(
+                              label: dealStageLabel(l, deal.stage),
+                              tone: dealStageTone(deal.stage),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -158,7 +177,7 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
                           variant: AppButtonVariant.secondary,
                           onPressed: () => context.go(RouteNames.deals),
                         ),
-                        if (canUpdateStage)
+                        if (canUpdateStage && !deal.isArchived)
                           AppButton(
                             label: l.updateStage,
                             variant: AppButtonVariant.secondary,
@@ -169,17 +188,28 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
                               updatedBy: uid,
                             ),
                           ),
-                        if (canEdit)
+                        if (canEdit && !deal.isArchived)
                           AppButton(
                             label: l.editDeal,
                             onPressed: () =>
                                 context.go(RouteNames.dealEdit(deal.id)),
                           ),
-                        if (canArchive)
+                        if (canArchive && !deal.isArchived)
                           AppButton(
                             label: l.archiveDeal,
                             variant: AppButtonVariant.secondary,
                             onPressed: () => showArchiveDealDialog(
+                              context,
+                              companyId: companyId,
+                              deal: deal,
+                              updatedBy: uid,
+                            ),
+                          ),
+                        if (canArchive && deal.isArchived)
+                          AppButton(
+                            label: l.restore,
+                            variant: AppButtonVariant.secondary,
+                            onPressed: () => showRestoreDealDialog(
                               context,
                               companyId: companyId,
                               deal: deal,

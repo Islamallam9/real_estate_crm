@@ -87,16 +87,21 @@ class DashboardPage extends StatelessWidget {
             return const AppLoading();
           }
 
-          final companyId =
-              authState.userProfile?.companyId ??
-              authState.user?.companyId ??
-              '';
+          final user = authState.user;
+          final profile = authState.userProfile;
+          if (user == null || profile == null || profile.uid != user.uid) {
+            return const AppLoading();
+          }
+
+          final companyId = profile.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
 
           return _DashboardScopes(
+            key: ValueKey('dashboard-scopes:$companyId:${profile.uid}:${profile.role.name}'),
             child: _DashboardContent(
+              key: ValueKey('dashboard-content:$companyId:${profile.uid}:${profile.role.name}'),
               companyId: companyId,
               authState: authState,
             ),
@@ -155,7 +160,9 @@ class _PlatformDashboardPreviewScaffold extends StatelessWidget {
               }
 
               return _DashboardScopes(
+                key: ValueKey('dashboard-preview-scopes:$companyId:${authState.user?.uid ?? ''}'),
                 child: _DashboardContent(
+                  key: ValueKey('dashboard-preview-content:$companyId:${authState.user?.uid ?? ''}'),
                   companyId: companyId,
                   authState: authState,
                   platformPreview: true,
@@ -171,7 +178,7 @@ class _PlatformDashboardPreviewScaffold extends StatelessWidget {
 }
 
 class _DashboardScopes extends StatelessWidget {
-  const _DashboardScopes({required this.child});
+  const _DashboardScopes({super.key, required this.child});
 
   final Widget child;
 
@@ -195,6 +202,7 @@ class _DashboardScopes extends StatelessWidget {
 
 class _DashboardContent extends StatefulWidget {
   const _DashboardContent({
+    super.key,
     required this.companyId,
     required this.authState,
     this.platformPreview = false,
@@ -807,6 +815,7 @@ String _auditActionLabel(AppLocalizations l, AuditLogAction action) {
     AuditLogAction.cancel => l.dashboardAuditCancelled,
     AuditLogAction.imageAdded => l.dashboardAuditImageAdded,
     AuditLogAction.imageRemoved => l.dashboardAuditImageRemoved,
+    AuditLogAction.restore => l.dashboardAuditRestored,
   };
 }
 
@@ -840,7 +849,8 @@ AppStatusTone _auditActionTone(AuditLogAction action) {
     AuditLogAction.imageRemoved => AppStatusTone.neutral,
     AuditLogAction.statusChange ||
     AuditLogAction.stageChange => AppStatusTone.warning,
-    AuditLogAction.complete => AppStatusTone.success,
+    AuditLogAction.complete ||
+    AuditLogAction.restore => AppStatusTone.success,
     AuditLogAction.assign => AppStatusTone.info,
     AuditLogAction.update => AppStatusTone.info,
   };
@@ -1316,6 +1326,10 @@ class _DashboardView extends StatelessWidget {
     final canCreateDeal =
         authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
         role != null && PermissionService.can(role, AppPermission.createDeal);
+    final canCreateAppointment =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.appointments) &&
+        role != null &&
+        PermissionService.can(role, AppPermission.createAppointment);
 
     return [
       if (canCreateLead)
@@ -1335,6 +1349,12 @@ class _DashboardView extends StatelessWidget {
           label: l.addDeal,
           icon: Icons.handshake_outlined,
           onTap: () => context.go(RouteNames.dealsCreate),
+        ),
+      if (canCreateAppointment)
+        _QuickAddAction(
+          label: l.newAppointment,
+          icon: Icons.event_available_outlined,
+          onTap: () => context.go(RouteNames.appointmentsCreate),
         ),
     ];
   }
@@ -1693,8 +1713,8 @@ class _MobileQuickAddFabState extends State<_MobileQuickAddFab>
           end: AppSpacing.md,
           bottom: AppSpacing.md,
           child: SizedBox(
-            width: 218,
-            height: 220,
+            width: 238,
+            height: 88.0 + (widget.actions.length * 56.0),
             child: Stack(
               clipBehavior: Clip.none,
               alignment: AlignmentDirectional.bottomEnd,
@@ -1761,13 +1781,7 @@ class _QuickAddMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final direction = Directionality.of(context);
-    final horizontal = direction == TextDirection.rtl ? 64.0 : -64.0;
-    final offset = switch (index) {
-      0 => const Offset(0, -72),
-      1 => Offset(horizontal, -42),
-      _ => Offset(horizontal, -112),
-    };
+    final offset = Offset(0, -72.0 - (index * 54.0));
 
     return AnimatedBuilder(
       animation: animation,
@@ -2156,70 +2170,144 @@ class _SummaryGrid extends StatelessWidget {
         features.isFeatureEnabled(CompanyFeature.properties);
     final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
     final dealsEnabled = features.isFeatureEnabled(CompanyFeature.deals);
-    // Ordered for a clean 4-column by 2-row desktop grid.
+    final appointmentsEnabled =
+        features.isFeatureEnabled(CompanyFeature.appointments);
     final cards = [
       if (leadsEnabled)
         _MetricItem(
           l.totalLeads,
-        data.leads.length,
-        AppStatusTone.info,
-        Icons.people_alt_outlined,
-      ),
+          data.leads.length,
+          AppStatusTone.info,
+          Icons.people_alt_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            _createdToday(data.leads.map((lead) => lead.createdAt)),
+            data.leads.length,
+          ),
+          percentageTone: AppStatusTone.success,
+        ),
       if (leadsEnabled)
         _MetricItem(
           l.newLeads,
-        data.newLeads.length,
-        AppStatusTone.neutral,
-        Icons.person_add_alt_outlined,
-      ),
+          data.newLeads.length,
+          AppStatusTone.neutral,
+          Icons.person_add_alt_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.newLeads.length,
+            data.leads.length,
+          ),
+          percentageTone: AppStatusTone.success,
+        ),
       if (tasksEnabled || leadsEnabled)
         _MetricItem(
           copy.upcomingFollowUps,
-        data.upcomingFollowUps.length,
-        AppStatusTone.info,
-        Icons.upcoming_outlined,
-      ),
+          data.upcomingFollowUps.length,
+          AppStatusTone.info,
+          Icons.upcoming_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.upcomingFollowUps.length,
+            data.leads.length,
+          ),
+        ),
       if (tasksEnabled || leadsEnabled)
         _MetricItem(
           copy.overdueFollowUps,
-        data.overdueFollowUps.length,
-        AppStatusTone.error,
-        Icons.schedule_outlined,
-      ),
+          data.overdueFollowUps.length,
+          AppStatusTone.error,
+          Icons.schedule_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.overdueFollowUps.length,
+            data.leads.length,
+          ),
+          percentageTone: AppStatusTone.error,
+        ),
+      if (appointmentsEnabled)
+        _MetricItem(
+          l.upcomingAppointments,
+          data.upcomingAppointments.length,
+          AppStatusTone.info,
+          Icons.event_available_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.upcomingAppointments.length,
+            data.appointments.length,
+          ),
+        ),
+      if (appointmentsEnabled)
+        _MetricItem(
+          l.missedAppointments,
+          data.missedAppointments.length,
+          AppStatusTone.error,
+          Icons.event_busy_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.missedAppointments.length,
+            data.appointments.length,
+          ),
+          percentageTone: AppStatusTone.error,
+        ),
       if (dealsEnabled)
         _MetricItem(
           l.openDeals,
-        data.openDeals.length,
-        AppStatusTone.warning,
-        Icons.handshake_outlined,
-      ),
+          data.openDeals.length,
+          AppStatusTone.warning,
+          Icons.handshake_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.openDeals.length,
+            data.deals.length,
+          ),
+        ),
       if (dealsEnabled)
         _MetricItem(
           l.wonDeals,
-        data.wonDeals.length,
-        AppStatusTone.success,
-        Icons.emoji_events_outlined,
-      ),
+          data.wonDeals.length,
+          AppStatusTone.success,
+          Icons.emoji_events_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.wonDeals.length,
+            data.deals.length,
+          ),
+          percentageTone: AppStatusTone.success,
+        ),
       if (propertiesEnabled)
         _MetricItem(
           copy.availableProperties,
-        data.availableProperties.length,
-        AppStatusTone.success,
-        Icons.apartment_outlined,
-      ),
+          data.availableProperties.length,
+          AppStatusTone.success,
+          Icons.apartment_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.availableProperties.length,
+            data.properties.length,
+          ),
+          percentageTone: AppStatusTone.success,
+        ),
       if (clientsEnabled)
         _MetricItem(
           l.clients,
-        data.clients.length,
-        AppStatusTone.neutral,
-        Icons.group_outlined,
-      ),
+          data.clients.length,
+          AppStatusTone.neutral,
+          Icons.group_outlined,
+          percentageLabel: _metricPercentLabel(
+            context,
+            data.clients.length,
+            math.max(data.leads.length, data.clients.length),
+          ),
+        ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Desktop: 4 columns, Tablet: 2 columns, Mobile: 2 columns
-        final columns = constraints.maxWidth >= 860 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1180
+            ? 5
+            : constraints.maxWidth >= 860
+                ? 4
+                : 2;
         final gap = AppSpacing.sm;
         final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
 
@@ -2239,6 +2327,23 @@ class _SummaryGrid extends StatelessWidget {
   }
 }
 
+
+String _metricPercentLabel(BuildContext context, int value, int total) {
+  if (total <= 0 || value <= 0) {
+    return '0%';
+  }
+  final localeName = Localizations.localeOf(context).toLanguageTag();
+  return intl.NumberFormat.decimalPercentPattern(
+    locale: localeName,
+    decimalDigits: 0,
+  ).format(value / total);
+}
+
+int _createdToday(Iterable<DateTime> dates) {
+  final today = _dateOnly(DateTime.now());
+  return dates.where((date) => _dateOnly(date.toLocal()) == today).length;
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({required this.item});
 
@@ -2247,52 +2352,98 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _toneColor(context, item.tone);
+    final percentageColor = _toneColor(context, item.percentageTone ?? item.tone);
     return _HoverLiftPanel(
       borderRadius: AppRadius.xLarge,
       child: _Panel(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.textSecondaryColor(context),
-                      fontWeight: FontWeight.w700,
-                    ),
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.medium,
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TweenAnimationBuilder<double>(
+                  child: Icon(item.icon, size: 16, color: color),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: item.value.toDouble()),
                     duration: const Duration(milliseconds: 480),
                     curve: Curves.easeOutCubic,
                     builder: (context, value, _) {
                       return Text(
                         value.round().toString(),
-                        style: Theme.of(context).textTheme.titleLarge
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.w800,
+                              height: 1,
                               color: AppColors.textPrimaryColor(context),
                             ),
                       );
                     },
                   ),
-                ],
-              ),
-            ),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: AppRadius.large,
-              ),
-              child: Icon(item.icon, size: 18, color: color),
+                ),
+                if (item.percentageLabel != null &&
+                    item.percentageLabel!.trim().isNotEmpty)
+                  Container(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: percentageColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.percentageTone == AppStatusTone.error
+                              ? Icons.trending_down_rounded
+                              : Icons.trending_up_rounded,
+                          size: 14,
+                          color: percentageColor,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          item.percentageLabel!,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: percentageColor,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -3303,6 +3454,10 @@ class _ActionPanel extends StatelessWidget {
     final canCreateClient =
         authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
         role != null && PermissionService.can(role, AppPermission.createClient);
+    final canCreateAppointment =
+        authState.companyMetadata.isFeatureEnabled(CompanyFeature.appointments) &&
+        role != null &&
+        PermissionService.can(role, AppPermission.createAppointment);
 
     return _Panel(
       child: Column(
@@ -3333,6 +3488,15 @@ class _ActionPanel extends StatelessWidget {
             variant: AppButtonVariant.secondary,
             onPressed: canCreateProperty
                 ? () => context.go(RouteNames.propertiesCreate)
+                : null,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: l.newAppointment,
+            icon: Icons.event_available_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: canCreateAppointment
+                ? () => context.go(RouteNames.appointmentsCreate)
                 : null,
           ),
         ],
@@ -3588,12 +3752,21 @@ class _DashboardData {
 }
 
 class _MetricItem {
-  const _MetricItem(this.label, this.value, this.tone, this.icon);
+  const _MetricItem(
+    this.label,
+    this.value,
+    this.tone,
+    this.icon, {
+    this.percentageLabel,
+    this.percentageTone,
+  });
 
   final String label;
   final int value;
   final AppStatusTone tone;
   final IconData icon;
+  final String? percentageLabel;
+  final AppStatusTone? percentageTone;
 }
 
 class _ChartSegment {

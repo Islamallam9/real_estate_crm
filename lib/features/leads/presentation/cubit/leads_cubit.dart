@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
@@ -15,6 +16,7 @@ import '../../domain/usecases/add_lead_timeline_event_usecase.dart';
 import '../../domain/usecases/archive_lead_usecase.dart';
 import '../../domain/usecases/create_lead_usecase.dart';
 import '../../domain/usecases/get_lead_by_id_usecase.dart';
+import '../../domain/usecases/restore_lead_usecase.dart';
 import '../../domain/usecases/update_lead_usecase.dart';
 import '../../domain/usecases/watch_lead_notes_usecase.dart';
 import '../../domain/usecases/watch_lead_timeline_usecase.dart';
@@ -25,6 +27,7 @@ class LeadsCubit extends Cubit<LeadsState> {
   LeadsCubit({
     required CreateLeadUseCase createLeadUseCase,
     required ArchiveLeadUseCase archiveLeadUseCase,
+    required RestoreLeadUseCase restoreLeadUseCase,
     required UpdateLeadUseCase updateLeadUseCase,
     required GetLeadByIdUseCase getLeadByIdUseCase,
     required WatchLeadsUseCase watchLeadsUseCase,
@@ -35,6 +38,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _createLeadUseCase = createLeadUseCase,
        _archiveLeadUseCase = archiveLeadUseCase,
+       _restoreLeadUseCase = restoreLeadUseCase,
        _updateLeadUseCase = updateLeadUseCase,
        _getLeadByIdUseCase = getLeadByIdUseCase,
        _watchLeadsUseCase = watchLeadsUseCase,
@@ -47,6 +51,7 @@ class LeadsCubit extends Cubit<LeadsState> {
 
   final CreateLeadUseCase _createLeadUseCase;
   final ArchiveLeadUseCase _archiveLeadUseCase;
+  final RestoreLeadUseCase _restoreLeadUseCase;
   final UpdateLeadUseCase _updateLeadUseCase;
   final GetLeadByIdUseCase _getLeadByIdUseCase;
   final WatchLeadsUseCase _watchLeadsUseCase;
@@ -94,6 +99,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
     _leadsSubscription?.cancel();
@@ -113,6 +119,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           companyId: companyId,
           assignedTo: assignedTo,
           managerId: managerId,
+          archiveFilter: archiveFilter,
         ).listen(
           (leads) {
             if (isClosed) {
@@ -135,11 +142,12 @@ class LeadsCubit extends Cubit<LeadsState> {
                     : LeadsStatus.loaded,
                 leads: leads,
                 filteredLeads: filtered,
+                archiveFilter: archiveFilter,
                 clearMessage: true,
               ),
             );
           },
-          onError: (_) {
+          onError: (error) {
             if (isClosed) {
               return;
             }
@@ -147,11 +155,29 @@ class LeadsCubit extends Cubit<LeadsState> {
             emit(
               state.copyWith(
                 status: LeadsStatus.failure,
-                message: AppErrorMessages.connectionTimeout,
+                message: _leadErrorMessage(
+                  error,
+                  AppErrorMessages.unknown,
+                ),
               ),
             );
           },
         );
+  }
+
+  void setArchiveFilter(
+    ArchiveFilter archiveFilter, {
+    required String companyId,
+    String? assignedTo,
+    String? managerId,
+  }) {
+    emit(state.copyWith(archiveFilter: archiveFilter));
+    watchLeads(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      archiveFilter: archiveFilter,
+    );
   }
 
   void setSearchQuery(String query) {
@@ -478,6 +504,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String leadId,
     required String archivedBy,
     required String actorName,
+    String reason = '',
   }) async {
     emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
     try {
@@ -486,6 +513,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           companyId: companyId,
           leadId: leadId,
           archivedBy: archivedBy,
+          reason: reason,
         ),
       );
       await _addTimelineEvent(
@@ -548,6 +576,75 @@ class LeadsCubit extends Cubit<LeadsState> {
             'Unable to archive lead. Please try again.',
           ),
           lastAction: LeadsAction.archiveLead,
+        ),
+      );
+    }
+  }
+
+  Future<void> restoreLead({
+    required String companyId,
+    required String leadId,
+    required String restoredBy,
+    required String actorName,
+  }) async {
+    emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
+    try {
+      await _guardFirebaseAction(
+        () => _restoreLeadUseCase(
+          companyId: companyId,
+          leadId: leadId,
+          restoredBy: restoredBy,
+        ),
+      );
+      final lead = state.selectedLead ?? _leadById(leadId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: restoredBy,
+          actorName: actorName,
+          action: AuditLogAction.restore,
+          recordId: leadId,
+          recordTitle: lead == null ? 'Lead' : _leadTitle(lead),
+          recordSubtitle: lead == null ? '' : _leadSubtitle(lead),
+          metadata: {
+            if (lead != null) ...{
+              'assignedTo': lead.assignedTo,
+              'assignedToName': lead.assignedToName,
+              'teamId': lead.teamId,
+              'teamName': lead.teamName,
+              'managerId': lead.managerId,
+              'managerName': lead.managerName,
+            },
+          },
+        ),
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.saved,
+          clearMessage: true,
+          lastAction: LeadsAction.restoreLead,
+        ),
+      );
+    } on LeadException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
+    } catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: LeadsStatus.failure,
+          message: _leadErrorMessage(
+            error,
+            'Unable to restore lead. Please try again.',
+          ),
+          lastAction: LeadsAction.restoreLead,
         ),
       );
     }

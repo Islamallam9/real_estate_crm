@@ -1,10 +1,18 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/client.dart';
 
 enum ClientsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
-enum ClientsAction { none, createClient, updateClient, assignClient, archiveClient }
+enum ClientsAction {
+  none,
+  createClient,
+  updateClient,
+  assignClient,
+  archiveClient,
+  restoreClient,
+}
 
 class ClientsState extends Equatable {
   const ClientsState({
@@ -14,6 +22,7 @@ class ClientsState extends Equatable {
     this.selectedClient,
     this.searchQuery = '',
     this.assignedToFilter,
+    this.archiveFilter = ArchiveFilter.active,
     this.message,
     this.lastAction = ClientsAction.none,
   });
@@ -25,6 +34,7 @@ class ClientsState extends Equatable {
       selectedClient = null,
       searchQuery = '',
       assignedToFilter = null,
+      archiveFilter = ArchiveFilter.active,
       message = null,
       lastAction = ClientsAction.none;
 
@@ -34,6 +44,7 @@ class ClientsState extends Equatable {
   final Client? selectedClient;
   final String searchQuery;
   final String? assignedToFilter;
+  final ArchiveFilter archiveFilter;
   final String? message;
   final ClientsAction lastAction;
 
@@ -44,6 +55,7 @@ class ClientsState extends Equatable {
     Client? selectedClient,
     String? searchQuery,
     String? assignedToFilter,
+    ArchiveFilter? archiveFilter,
     String? message,
     ClientsAction? lastAction,
     bool clearMessage = false,
@@ -62,6 +74,7 @@ class ClientsState extends Equatable {
       assignedToFilter: clearAssignedToFilter
           ? null
           : assignedToFilter ?? this.assignedToFilter,
+      archiveFilter: archiveFilter ?? this.archiveFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
           ? ClientsAction.none
@@ -77,6 +90,7 @@ class ClientsState extends Equatable {
     selectedClient,
     searchQuery,
     assignedToFilter,
+    archiveFilter,
     message,
     lastAction,
   ];

@@ -1,4 +1,5 @@
 import '../../../../core/constants/role_constants.dart';
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/deal.dart';
 import '../../domain/repositories/deal_repository.dart';
 import '../datasources/deals_remote_data_source.dart';
@@ -15,12 +16,14 @@ class DealRepositoryImpl implements DealRepository {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
     return _remoteDataSource.watchDeals(
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      archiveFilter: archiveFilter,
       limit: limit,
     );
   }
@@ -63,8 +66,23 @@ class DealRepositoryImpl implements DealRepository {
     required String companyId,
     required String dealId,
     required String updatedBy,
+    String reason = '',
   }) {
     return _remoteDataSource.archiveDeal(
+      companyId: companyId,
+      dealId: dealId,
+      updatedBy: updatedBy,
+      reason: reason,
+    );
+  }
+
+  @override
+  Future<void> restoreDeal({
+    required String companyId,
+    required String dealId,
+    required String updatedBy,
+  }) {
+    return _remoteDataSource.restoreDeal(
       companyId: companyId,
       dealId: dealId,
       updatedBy: updatedBy,

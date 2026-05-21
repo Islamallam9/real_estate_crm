@@ -121,6 +121,8 @@ class _CreateAppointmentView extends StatelessWidget {
                                     submitLabel: l.saveAppointment,
                                     onSubmit: (appointment) {
                                       if (role == UserRole.manager &&
+                                          appointment.assignedTo.trim() !=
+                                              user.uid &&
                                           appointment.managerId.trim() !=
                                               user.uid) {
                                         AppFeedback.warning(

@@ -668,6 +668,88 @@ Known current issue to resolve first:
 - GoogleFonts runtime/offline issue should be resolved either by system fallback or local bundled fonts.
 - Splash logo still needs to be made larger and more premium.
 
+
+## Current emergency handoff — account switching, role-scoped streams, team members, and archive/UI phase
+
+This section supersedes older “known current issue” notes when they conflict with the latest chat state.
+
+Latest completed or mostly implemented work in the current chat:
+- Branding/public entry work was done earlier: Masar logo assets, local fonts, public onboarding/login/register polish, splash/logo sizing iterations, and removal of duplicate Flutter splash behavior.
+- Support Center and Feedback foundation was added under `lib/features/support/`, with tabs for Support, Feedback, My Requests, and Contact.
+- Support contact actions now use WhatsApp and email icons only. WhatsApp should open `https://wa.me/201208090241` with a prefilled support message. Do not show the raw phone number/email in the UI.
+- Platform Notifications were added under `lib/features/platform_notifications/` with platform bell/unread badge and `platform_notifications/{notificationId}`.
+- Support/feedback status updates now notify the ticket owner through normal company notifications.
+- User Management was made a platform-controlled feature flag (`userManagement`), but this must not block Team Management user reads.
+- Team Hierarchy/Manager Teams exists. Admin can create teams and assign Sales/Marketing users. Manager should have read-only “My Team”.
+- Automatic team assignment snapshot logic was added/expected:
+  - When Sales/Marketing user joins a team, all existing records assigned to that user should be stamped with `teamId/teamName/managerId/managerName`.
+  - When moved to another team, assigned records should move to the new team snapshots.
+  - When removed from a team, assigned records remain assigned to the user but team/manager snapshots are cleared.
+  - Manual “Backfill snapshots” remains a repair tool, not normal workflow.
+- Archive Standardization phase was implemented by Codex but not fully validated:
+  - `archiveCrmRecord` / `restoreCrmRecord` functions added.
+  - Leads, Clients, Deals archive UI/data were wired.
+  - Properties got archive metadata/rules support only; do not replace existing deactivate flow yet.
+  - Version was bumped to around `1.9.0+19`.
+- Reports tab scroll and Clients mobile compact card polish were attempted, but still need runtime verification.
+- AppFeedback Edge crash fix should use a global `ScaffoldMessengerKey`, not stale page `BuildContext`.
+
+Current unresolved critical problem:
+- After logging out from Admin and logging in as Sales/Manager, many modules still show permission errors or stale/no data.
+- This is not only Tasks. It affects Leads, Clients, Tasks, Appointments, Reports, and possibly Deals.
+- Team Management for Manager may show the team but not all members, while Admin sees members correctly.
+- Root suspicion: stale AuthBloc/UserProfile/module Cubit scopes after account switching, and/or role-scoped streams created before the fresh profile is loaded.
+- Do not fix by loosening Firestore rules.
+- Do not make Manager or Sales roles broader.
+- Correct fix must ensure every module waits for the current loaded `UserProfile` where `profile.uid == FirebaseAuth.currentUser.uid`, keys scopes by `companyId + uid + role`, and disposes/recreates old Cubits/streams on account switch.
+- Also inspect logout flow in `AuthBloc` and any profile/company resolver caching. On logout, old company/user/profile state must be cleared before the next login session starts.
+- Public routes after logout must not start protected streams.
+
+Immediate next phase:
+Production Stabilization — Account Switching + Role-Scoped Stream Reset + Team Member Visibility.
+
+Required next prompt focus:
+1. Inspect `AuthBloc`, auth state, profile/company resolver, app router redirects, shell scopes, and module scopes.
+2. Fix stale profile/session cleanup on logout.
+3. For each module page/scope (`Leads`, `Clients`, `Tasks`, `Appointments`, `Deals`, `Reports`, `Teams`, Dashboard if needed), ensure streams do not start until fresh current `UserProfile` is loaded and matches current Firebase Auth uid.
+4. Key module scopes/Cubits using `companyId`, `uid`, and `role`.
+5. On account switch, old Cubits/streams must be disposed and rebuilt.
+6. Keep queries role-scoped:
+   - Admin broad company.
+   - Manager own team only.
+   - Sales/Marketing own assigned only.
+   - Viewer restricted.
+7. Team Management:
+   - Admin sees all teams and members.
+   - Manager sees only own team and all active members of that team.
+   - Manager Team page is read-only and should not expose create/edit/manage/backfill/remove actions.
+   - Manager member read should work with `teamId == manager.teamId` and/or `managerId == manager.uid`, but not broad company reads.
+8. Reports:
+   - Do not start streams forbidden for the current role.
+   - Manager reports team-only; Sales/Marketing own-only; Admin company-wide.
+9. Avoid broad Firestore reads then client filtering.
+10. No Firestore rules changes unless inspection proves a precise rules/query mismatch. If rules change, keep them strict and explain deploy need.
+11. No Functions changes unless needed for team snapshot lifecycle/backfill bug. If functions change, run/suggest `node --check functions/src/index.js`.
+12. After fix, run `flutter analyze`, `node --check functions/src/index.js` if functions changed, and test role switching without hot restart.
+
+Testing checklist for the next phase:
+- Start as Admin, open Leads/Clients/Tasks/Appointments/Deals/Reports/Teams.
+- Logout.
+- Login as Sales. Sales sees only own assigned Leads/Clients/Tasks/Deals/Appointments where applicable; no permission cards on allowed pages.
+- Logout.
+- Login as Manager. Manager sees only own team records and own team members; no other team data.
+- Logout.
+- Login as Admin again. Admin sees all.
+- Browser refresh on each role still works.
+- Hot restart should not be required to clear old state.
+- Direct forbidden routes show clean localized permission/feature-unavailable state, not raw Firebase errors.
+- Team Management on mobile/narrow scrolls fully and bottom nav does not hide members/actions.
+- Reports tabs/sections scroll correctly.
+- Clients mobile cards are compact.
+- Archive active/archived flow works for Admin and Manager-scoped records.
+
+Do not proceed to Reports Export / BI, Global Search, or launch prep until this stabilization passes.
+
 ## Recommended next phases
 
 Immediate next phase:

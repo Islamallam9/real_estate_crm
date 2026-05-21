@@ -24,6 +24,14 @@ class Client extends Equatable {
     required this.updatedAt,
     required this.createdBy,
     required this.updatedBy,
+    this.isArchived = false,
+    this.archivedAt,
+    this.archivedBy = '',
+    this.archivedByName = '',
+    this.archiveReason = '',
+    this.restoredAt,
+    this.restoredBy = '',
+    this.restoredByName = '',
   });
 
   final String id;
@@ -48,6 +56,14 @@ class Client extends Equatable {
   final DateTime? updatedAt;
   final String createdBy;
   final String updatedBy;
+  final bool isArchived;
+  final DateTime? archivedAt;
+  final String archivedBy;
+  final String archivedByName;
+  final String archiveReason;
+  final DateTime? restoredAt;
+  final String restoredBy;
+  final String restoredByName;
 
   @override
   List<Object?> get props => [
@@ -73,5 +89,13 @@ class Client extends Equatable {
     updatedAt,
     createdBy,
     updatedBy,
+    isArchived,
+    archivedAt,
+    archivedBy,
+    archivedByName,
+    archiveReason,
+    restoredAt,
+    restoredBy,
+    restoredByName,
   ];
 }

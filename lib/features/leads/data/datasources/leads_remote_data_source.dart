@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/lead_exception.dart';
@@ -33,13 +34,21 @@ abstract interface class LeadsRemoteDataSource {
     required String companyId,
     required String leadId,
     required String archivedBy,
+    String reason = '',
+  });
+
+  Future<void> restoreLead({
+    required String companyId,
+    required String leadId,
+    required String restoredBy,
   });
 
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int limit = 30,
   });
 }
 
@@ -201,22 +210,17 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required String companyId,
     required String leadId,
     required String archivedBy,
+    String reason = '',
   }) async {
     try {
-      final document = _leadsCollection(companyId).doc(leadId);
-      final snapshot = await document.get();
-      if (!snapshot.exists) {
-        throw const LeadException('Unable to load lead.');
-      }
-      final lead = LeadModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, lead: lead);
-      await document.update({
-        'isArchived': true,
-        'archivedAt': FieldValue.serverTimestamp(),
-        'archivedBy': archivedBy,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': archivedBy,
+      await _functions.httpsCallable('archiveCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'leads',
+        'recordId': leadId,
+        'reason': reason,
       });
+    } on FirebaseFunctionsException catch (error) {
+      throw LeadException(_mapFunctionsError(error));
     } on LeadException {
       rethrow;
     } on FirebaseException catch (error) {
@@ -227,13 +231,42 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   }
 
   @override
+  Future<void> restoreLead({
+    required String companyId,
+    required String leadId,
+    required String restoredBy,
+  }) async {
+    try {
+      await _functions.httpsCallable('restoreCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'leads',
+        'recordId': leadId,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw LeadException(_mapFunctionsError(error));
+    } on LeadException {
+      rethrow;
+    } on FirebaseException catch (error) {
+      throw LeadException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const LeadException('Unable to restore lead. Please try again.');
+    }
+  }
+
+  @override
   Stream<List<LeadModel>> watchLeads({
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
     Query<Map<String, dynamic>> query = _leadsCollection(companyId);
+    if (archiveFilter == ArchiveFilter.archived) {
+      query = query.where('isArchived', isEqualTo: true);
+    } else if (archiveFilter == ArchiveFilter.active) {
+      query = query.where('isArchived', isEqualTo: false);
+    }
     if (managerId != null && managerId.trim().isNotEmpty) {
       query = query.where('managerId', isEqualTo: managerId.trim());
     } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
@@ -248,12 +281,23 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
             return lead;
           })
           .where((lead) {
-            return !lead.isArchived;
+            if (archiveFilter == ArchiveFilter.archived) {
+              return lead.isArchived;
+            }
+            if (archiveFilter == ArchiveFilter.active) {
+              return !lead.isArchived;
+            }
+            return true;
           })
           .toList();
 
       leads.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return leads;
+    }).handleError((Object error) {
+      if (error is FirebaseException) {
+        throw LeadException(_mapFirestoreError(error));
+      }
+      throw const LeadException(AppErrorMessages.unknown);
     });
   }
 
@@ -290,6 +334,11 @@ Map<String, Object?> _leadCallableData(LeadModel lead) {
     'isArchived': lead.isArchived,
     'archivedAt': _dateToCallable(lead.archivedAt),
     'archivedBy': lead.archivedBy,
+    'archivedByName': lead.archivedByName,
+    'archiveReason': lead.archiveReason,
+    'restoredAt': _dateToCallable(lead.restoredAt),
+    'restoredBy': lead.restoredBy,
+    'restoredByName': lead.restoredByName,
   };
 }
 

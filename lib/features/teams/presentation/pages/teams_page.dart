@@ -32,20 +32,32 @@ class TeamsPage extends StatelessWidget {
   const TeamsPage({super.key});
 
   static Widget withDependencies() {
-    final remoteDataSource = FirestoreTeamRemoteDataSource();
-    final repository = TeamRepositoryImpl(remoteDataSource: remoteDataSource);
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final user = authState.user;
+        final profile = authState.userProfile;
+        final scopeKey = user != null && profile != null && profile.uid == user.uid
+            ? 'teams-scope:${profile.companyId}:${profile.uid}:${profile.role.name}'
+            : 'teams-scope:loading';
+        final remoteDataSource = FirestoreTeamRemoteDataSource();
+        final repository = TeamRepositoryImpl(remoteDataSource: remoteDataSource);
 
-    return BlocProvider(
-      create: (_) => TeamsCubit(
-        watchTeamsUseCase: WatchTeamsUseCase(repository),
-        watchTeamUsersUseCase: WatchTeamUsersUseCase(repository),
-        createTeamUseCase: CreateTeamUseCase(repository),
-        updateTeamUseCase: UpdateTeamUseCase(repository),
-        setTeamActiveStatusUseCase: SetTeamActiveStatusUseCase(repository),
-        addUserToTeamUseCase: AddUserToTeamUseCase(repository),
-        removeUserFromTeamUseCase: RemoveUserFromTeamUseCase(repository),
-      ),
-      child: const TeamsPage(),
+        return BlocProvider(
+          key: ValueKey(scopeKey),
+          create: (_) => TeamsCubit(
+            watchTeamsUseCase: WatchTeamsUseCase(repository),
+            watchTeamUsersUseCase: WatchTeamUsersUseCase(repository),
+            createTeamUseCase: CreateTeamUseCase(repository),
+            updateTeamUseCase: UpdateTeamUseCase(repository),
+            setTeamActiveStatusUseCase: SetTeamActiveStatusUseCase(repository),
+            addUserToTeamUseCase: AddUserToTeamUseCase(repository),
+            removeUserFromTeamUseCase: RemoveUserFromTeamUseCase(repository),
+            backfillTeamAssignedRecordSnapshotsUseCase:
+                BackfillTeamAssignedRecordSnapshotsUseCase(repository),
+          ),
+          child: const TeamsPage(),
+        );
+      },
     );
   }
 
@@ -70,25 +82,22 @@ class _TeamsBody extends StatefulWidget {
 class _TeamsBodyState extends State<_TeamsBody> {
   String? _watchKey;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final authState = context.read<AuthBloc>().state;
-    final profile = authState.userProfile;
-    final user = authState.user;
-    if (profile == null || user == null) {
-      return;
-    }
-    final key = '${profile.companyId}:${user.uid}:${profile.role}';
+  void _ensureWatch(UserProfile profile) {
+    final key = '${profile.companyId}:${profile.uid}:${profile.role.name}';
     if (_watchKey == key) {
       return;
     }
     _watchKey = key;
-    context.read<TeamsCubit>().watch(
-      companyId: profile.companyId,
-      role: profile.role,
-      currentUserId: user.uid,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _watchKey != key) {
+        return;
+      }
+      context.read<TeamsCubit>().watch(
+        companyId: profile.companyId,
+        role: profile.role,
+        currentUserId: profile.uid,
+      );
+    });
   }
 
   @override
@@ -98,9 +107,11 @@ class _TeamsBodyState extends State<_TeamsBody> {
     final profile = authState.userProfile;
     final user = authState.user;
 
-    if (profile == null || user == null) {
-      return AppErrorView(message: l.missingCompanyProfile);
+    if (profile == null || user == null || profile.uid != user.uid) {
+      return const AppLoading();
     }
+
+    _ensureWatch(profile);
 
     final isAdmin = profile.role == UserRole.admin;
     final isManager = profile.role == UserRole.manager;
@@ -220,44 +231,27 @@ class _TeamsContent extends StatelessWidget {
           );
         }
 
-        return DefaultTabController(
-          length: tabs.length,
+        return SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               toolbar,
               const SizedBox(height: AppSpacing.sm),
-              _TeamTabBar(tabs: tabs),
-              const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: TabBarView(
-                  children: isAdmin
-                      ? [
-                          _TeamTabScroll(child: _OverviewGrid(state: state)),
-                          _TeamTabScroll(
-                            child: Column(
-                              children: [
-                                _TeamsMasterDetail(
-                                  state: state,
-                                  isAdmin: isAdmin,
-                                  actorUid: actorUid,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                _UnassignedUsersPanel(state: state),
-                              ],
-                            ),
-                          ),
-                        ]
-                      : [
-                          _TeamTabScroll(
-                            child: _TeamsMasterDetail(
-                              state: state,
-                              isAdmin: isAdmin,
-                              actorUid: actorUid,
-                            ),
-                          ),
-                        ],
-                ),
+              if (isAdmin) ...[
+                _OverviewGrid(state: state),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              _TeamsMasterDetail(
+                state: state,
+                isAdmin: isAdmin,
+                actorUid: actorUid,
               ),
+              if (isAdmin) ...[
+                const SizedBox(height: AppSpacing.md),
+                _UnassignedUsersPanel(state: state),
+              ],
+              const SizedBox(height: 96),
             ],
           ),
         );
@@ -346,7 +340,7 @@ class _TeamsMasterDetail extends StatelessWidget {
         ? _NoTeamPanel(isAdmin: isAdmin)
         : _TeamDetailsPanel(
             team: selectedTeam,
-            members: state.membersFor(selectedTeam.id),
+            members: state.membersForTeam(selectedTeam),
             users: state.users,
             managers: state.managers,
             isAdmin: isAdmin,
@@ -641,7 +635,7 @@ class _TeamsListPanel extends StatelessWidget {
                   _TeamListTile(
                     team: team,
                     selected: state.selectedTeam?.id == team.id,
-                    memberCount: state.membersFor(team.id).length,
+                    memberCount: state.membersForTeam(team).length,
                     onTap: () => context.read<TeamsCubit>().selectTeam(team.id),
                   ),
               ],
@@ -890,7 +884,7 @@ class _NoTeamPanel extends StatelessWidget {
   }
 }
 
-enum _TeamAction { edit, members, toggleActive }
+enum _TeamAction { edit, members, backfillSnapshots, toggleActive }
 
 class _TeamActionsMenu extends StatelessWidget {
   const _TeamActionsMenu({
@@ -934,6 +928,13 @@ class _TeamActionsMenu extends StatelessWidget {
             label: l.manageMembers,
           ),
         ),
+        PopupMenuItem<_TeamAction>(
+          value: _TeamAction.backfillSnapshots,
+          child: _PopupMenuRow(
+            icon: Icons.health_and_safety_outlined,
+            label: l.backfillSnapshots,
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem<_TeamAction>(
           value: _TeamAction.toggleActive,
@@ -967,6 +968,20 @@ class _TeamActionsMenu extends StatelessWidget {
           members: members,
           actorUid: actorUid,
         );
+      case _TeamAction.backfillSnapshots:
+        final success = await context
+            .read<TeamsCubit>()
+            .backfillTeamAssignedRecordSnapshots(
+              team: team,
+              actorUid: actorUid,
+            );
+        if (context.mounted && success) {
+          AppFeedback.success(
+            context,
+            AppLocalizations.of(context)!.dataHealthRepairSuccess,
+          );
+        }
+        return;
       case _TeamAction.toggleActive:
         final success = await context.read<TeamsCubit>().setTeamActiveStatus(
               team: team,

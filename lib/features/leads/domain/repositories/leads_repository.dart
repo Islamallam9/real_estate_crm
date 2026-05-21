@@ -1,3 +1,4 @@
+import '../../../../core/archive/archive_filter.dart';
 import '../entities/lead.dart';
 
 abstract interface class LeadsRepository {
@@ -18,12 +19,20 @@ abstract interface class LeadsRepository {
     required String companyId,
     required String leadId,
     required String archivedBy,
+    String reason = '',
+  });
+
+  Future<void> restoreLead({
+    required String companyId,
+    required String leadId,
+    required String restoredBy,
   });
 
   Stream<List<Lead>> watchLeads({
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int limit = 30,
   });
 }

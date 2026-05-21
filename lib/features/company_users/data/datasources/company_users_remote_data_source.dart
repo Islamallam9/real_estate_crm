@@ -33,6 +33,12 @@ abstract interface class CompanyUsersRemoteDataSource {
     required String companyId,
     required String uid,
   });
+
+  Future<void> setUserActiveStatus({
+    required String companyId,
+    required String uid,
+    required bool isActive,
+  });
 }
 
 class FirebaseCompanyUsersRemoteDataSource
@@ -130,6 +136,25 @@ class FirebaseCompanyUsersRemoteDataSource
       throw Exception(_mapCompanyUserFirebaseError(error));
     }
   }
+
+  @override
+  Future<void> setUserActiveStatus({
+    required String companyId,
+    required String uid,
+    required bool isActive,
+  }) async {
+    try {
+      await _functions.httpsCallable('setCompanyUserActiveStatus').call({
+        'companyId': companyId,
+        'uid': uid,
+        'isActive': isActive,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw Exception(_mapCompanyUserFunctionError(error));
+    } on FirebaseException catch (error) {
+      throw Exception(_mapCompanyUserFirebaseError(error));
+    }
+  }
 }
 
 String _mapCompanyUserFunctionError(FirebaseFunctionsException error) {
@@ -140,8 +165,13 @@ String _mapCompanyUserFunctionError(FirebaseFunctionsException error) {
   if (message == 'Company user limit reached.') {
     return 'company-user-limit-reached';
   }
-  if (message.contains('platform owner support')) {
+  if (message.contains('platform owner support') ||
+      message.contains('company admins') ||
+      message.contains('deactivate your own')) {
     return AppErrorMessages.permissionDenied;
+  }
+  if (message.contains('User Management is disabled')) {
+    return 'user-management-disabled';
   }
   return switch (error.code) {
     'unavailable' || 'deadline-exceeded' => AppErrorMessages.unableToConnect,

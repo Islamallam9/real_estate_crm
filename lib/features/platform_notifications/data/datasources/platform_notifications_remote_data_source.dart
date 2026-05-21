@@ -72,7 +72,10 @@ class FirestorePlatformNotificationsRemoteDataSource
   @override
   Future<void> markAllRead({int limit = 100}) async {
     try {
-      final snapshot = await _collection.limit(limit).get();
+      final snapshot = await _collection
+          .where('isRead', isEqualTo: false)
+          .limit(limit)
+          .get();
       if (snapshot.docs.isEmpty) {
         return;
       }

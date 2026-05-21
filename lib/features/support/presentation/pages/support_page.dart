@@ -713,10 +713,22 @@ class _InfoPill extends StatelessWidget {
 class _ContactActionsPanel extends StatelessWidget {
   const _ContactActionsPanel();
 
-  static final Uri _whatsAppUri = Uri.parse('https://wa.me/201208090241');
+  static const String _supportMessage =
+      'Hello Masar Support, I need help with my CRM workspace.';
+  static final Uri _whatsAppUri = Uri.https(
+    'wa.me',
+    '/201208090241',
+    {
+      'text': _supportMessage,
+    },
+  );
   static final Uri _emailUri = Uri(
     scheme: 'mailto',
     path: 'islamallam9@outlook.com',
+    queryParameters: {
+      'subject': 'Masar CRM support request',
+      'body': _supportMessage,
+    },
   );
 
   @override
@@ -924,7 +936,9 @@ Future<void> _launchContactUrl(BuildContext context, Uri uri) async {
   try {
     final launched = await launchUrl(
       uri,
-      mode: LaunchMode.externalApplication,
+      mode: kIsWeb
+          ? LaunchMode.platformDefault
+          : LaunchMode.externalApplication,
     );
     if (!launched && context.mounted) {
       AppFeedback.error(context, l.actionFailed);

@@ -86,6 +86,7 @@ class FirestoreUserProfileRemoteDataSource
     } catch (_) {
       throw const UserProfileException('Unable to load your user profile.');
     }
+
   }
 
   @override
@@ -110,17 +111,59 @@ class FirestoreUserProfileRemoteDataSource
 
     switch (currentUser.role) {
       case UserRole.admin:
-        yield* usersCollection
-            .where('isActive', isEqualTo: true)
-            .snapshots()
-            .map(_activeUsersFromSnapshot(companyId));
+        yield* _safeActiveUsersStream(
+          usersCollection.where('isActive', isEqualTo: true),
+          companyId,
+        );
         return;
       case UserRole.manager:
-        yield* usersCollection
-            .where('isActive', isEqualTo: true)
+        final teamsSnapshot = await _firestore
+            .collection('companies')
+            .doc(companyId)
+            .collection('teams')
             .where('managerId', isEqualTo: currentUid)
-            .snapshots()
-            .map(_activeUsersFromSnapshot(companyId));
+            .where('isActive', isEqualTo: true)
+            .get();
+        final teamIds = teamsSnapshot.docs
+            .map((doc) {
+              final id = (doc.data()['id'] as String?)?.trim();
+              return id != null && id.isNotEmpty ? id : doc.id;
+            })
+            .where((id) => id.trim().isNotEmpty)
+            .take(10)
+            .toList(growable: false);
+
+        final streams = <Stream<List<UserProfileModel>>>[
+          usersCollection.doc(currentUid).snapshots().map((snapshot) {
+            if (!snapshot.exists) {
+              return const <UserProfileModel>[];
+            }
+            final user = UserProfileModel.fromFirestore(snapshot);
+            if (user.companyId != companyId || !user.isActive) {
+              return const <UserProfileModel>[];
+            }
+            return <UserProfileModel>[user];
+          }),
+          _safeActiveUsersStream(
+            usersCollection
+                .where('isActive', isEqualTo: true)
+                .where('managerId', isEqualTo: currentUid),
+            companyId,
+          ),
+        ];
+
+        for (final teamId in teamIds) {
+          streams.add(
+            _safeActiveUsersStream(
+              usersCollection
+                  .where('isActive', isEqualTo: true)
+                  .where('teamId', isEqualTo: teamId),
+              companyId,
+            ),
+          );
+        }
+
+        yield* _combineUserProfileStreams(streams);
         return;
       case UserRole.salesAgent:
       case UserRole.marketing:
@@ -384,6 +427,83 @@ String _safeFileName(String fileName) {
     return 'profile_image.jpg';
   }
   return safe;
+}
+
+Stream<List<UserProfileModel>> _combineUserProfileStreams(
+  List<Stream<List<UserProfileModel>>> streams,
+) {
+  final controller = StreamController<List<UserProfileModel>>();
+  final latest = List<List<UserProfileModel>>.filled(
+    streams.length,
+    const <UserProfileModel>[],
+  );
+  final subscriptions = <StreamSubscription<List<UserProfileModel>>>[];
+
+  void emitCombined() {
+    if (controller.isClosed) {
+      return;
+    }
+    final byUid = <String, UserProfileModel>{};
+    for (final users in latest) {
+      for (final user in users) {
+        byUid[user.uid] = user;
+      }
+    }
+    final merged = byUid.values.toList()
+      ..sort((a, b) => a.fullName.compareTo(b.fullName));
+    controller.add(merged);
+  }
+
+  controller.onListen = () {
+    if (streams.isEmpty) {
+      controller.add(const <UserProfileModel>[]);
+      return;
+    }
+    for (var index = 0; index < streams.length; index += 1) {
+      final streamIndex = index;
+      subscriptions.add(
+        streams[streamIndex].listen(
+          (users) {
+            latest[streamIndex] = users;
+            emitCombined();
+          },
+          onError: controller.addError,
+        ),
+      );
+    }
+  };
+
+  controller.onCancel = () async {
+    for (final subscription in subscriptions) {
+      await subscription.cancel();
+    }
+  };
+
+  return controller.stream;
+}
+
+Stream<List<UserProfileModel>> _safeActiveUsersStream(
+  Query<Map<String, dynamic>> query,
+  String companyId,
+) async* {
+  try {
+    await for (final snapshot in query.snapshots()) {
+      final users = snapshot.docs
+          .map(UserProfileModel.fromFirestore)
+          .where((user) => user.companyId == companyId && user.isActive)
+          .toList()
+        ..sort((a, b) => a.fullName.compareTo(b.fullName));
+
+      yield users;
+    }
+  } on FirebaseException catch (error) {
+    if (error.code == 'permission-denied') {
+      yield const <UserProfileModel>[];
+      return;
+    }
+
+    rethrow;
+  }
 }
 
 String _mapFirestoreError(FirebaseException error) {

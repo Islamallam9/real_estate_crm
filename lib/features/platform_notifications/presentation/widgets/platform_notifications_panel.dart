@@ -335,7 +335,20 @@ class _NotificationActions extends StatelessWidget {
         if (notification.route.trim().isNotEmpty)
           IconButton(
             tooltip: l.open,
-            onPressed: () => context.go(notification.route),
+            onPressed: () {
+              if (!notification.isRead) {
+                context.read<PlatformNotificationsCubit>().markRead(
+                      notification: notification,
+                      isRead: true,
+                    );
+              }
+              final route = notification.route.trim();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) {
+                  context.go(route);
+                }
+              });
+            },
             icon: const Icon(Icons.open_in_new_outlined),
           ),
         IconButton(
@@ -493,6 +506,8 @@ String _notificationTitle(
       l.platformNotificationCompanyUserStatusChanged,
     PlatformNotificationType.companyUserPasswordReset =>
       l.platformNotificationCompanyUserPasswordReset,
+    PlatformNotificationType.dealWon => l.platformNotificationDealWon,
+    PlatformNotificationType.dealLost => l.platformNotificationDealLost,
     PlatformNotificationType.invitationCreated =>
       l.platformNotificationInvitationCreated,
     PlatformNotificationType.invitationAccepted =>
@@ -520,6 +535,10 @@ String _notificationMessage(
   AppLocalizations l,
   PlatformNotification notification,
 ) {
+  final customMessage = notification.message.trim();
+  if (customMessage.isNotEmpty) {
+    return customMessage;
+  }
   final company = notification.companyName.trim();
   final actor = notification.actorName.trim().isNotEmpty
       ? notification.actorName.trim()

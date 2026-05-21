@@ -9,6 +9,7 @@ import '../../data/repositories/client_repository_impl.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
 import '../../domain/usecases/assign_client_usecase.dart';
 import '../../domain/usecases/create_client_usecase.dart';
+import '../../domain/usecases/restore_client_usecase.dart';
 import '../../domain/usecases/update_client_usecase.dart';
 import '../../domain/usecases/watch_client_usecase.dart';
 import '../../domain/usecases/watch_clients_usecase.dart';
@@ -36,6 +37,7 @@ class ClientsScope extends StatelessWidget {
         updateClientUseCase: UpdateClientUseCase(repository),
         assignClientUseCase: AssignClientUseCase(repository),
         archiveClientUseCase: ArchiveClientUseCase(repository),
+        restoreClientUseCase: RestoreClientUseCase(repository),
         createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
       ),
       child: child,

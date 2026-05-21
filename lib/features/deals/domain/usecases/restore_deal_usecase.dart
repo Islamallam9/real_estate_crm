@@ -1,7 +1,7 @@
 import '../repositories/deal_repository.dart';
 
-class ArchiveDealUseCase {
-  const ArchiveDealUseCase(this._repository);
+class RestoreDealUseCase {
+  const RestoreDealUseCase(this._repository);
 
   final DealRepository _repository;
 
@@ -9,13 +9,12 @@ class ArchiveDealUseCase {
     required String companyId,
     required String dealId,
     required String updatedBy,
-    String reason = '',
   }) {
-    return _repository.archiveDeal(
+    return _repository.restoreDeal(
       companyId: companyId,
       dealId: dealId,
       updatedBy: updatedBy,
-      reason: reason,
     );
   }
 }
+

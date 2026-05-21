@@ -48,36 +48,32 @@ class TasksPage extends StatelessWidget {
             return const AppLoading();
           }
 
-          final companyId =
-              authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
+          final user = authState.user;
+          final profile = authState.userProfile;
+          if (user == null || profile == null || profile.uid != user.uid) {
+            return const AppLoading();
+          }
+
+          final companyId = profile.companyId;
+          final role = profile.role;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
 
-          final role = authState.userProfile?.role ?? authState.user?.role;
-          final canView = role != null
-              ? PermissionService.can(role, AppPermission.viewTasks)
-              : false;
+          final canView = PermissionService.can(role, AppPermission.viewTasks);
           if (!canView) {
             return AppErrorView(message: l.permissionDenied);
           }
 
-          final currentUser = authState.user;
           String? assignedTo;
           String? managerId;
 
           if (role == UserRole.manager) {
-            if (currentUser == null || currentUser.uid.isEmpty) {
-              return AppErrorView(message: l.permissionDenied);
-            }
-            managerId = currentUser.uid;
+            managerId = profile.uid;
           } else if (role == UserRole.salesAgent ||
               role == UserRole.marketing ||
               role == UserRole.viewer) {
-            if (currentUser == null || currentUser.uid.isEmpty) {
-              return AppErrorView(message: l.permissionDenied);
-            }
-            assignedTo = currentUser.uid;
+            assignedTo = profile.uid;
           }
           final canCreate =
               PermissionService.can(role, AppPermission.createTask) &&
@@ -86,15 +82,18 @@ class TasksPage extends StatelessWidget {
               role == UserRole.admin ||
               role == UserRole.manager ||
               role == UserRole.salesAgent;
+          final scopeKey = ValueKey('tasks-scope:$companyId:${profile.uid}:${role.name}');
 
           return TasksScope(
+            key: scopeKey,
             child: _TasksListContent(
+              key: ValueKey('tasks-content:$companyId:${profile.uid}:${role.name}'),
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,
               canCreate: canCreate,
               canManageTasks: canManageTasks,
-              uid: authState.user?.uid ?? '',
+              uid: profile.uid,
             ),
           );
         },
@@ -105,6 +104,7 @@ class TasksPage extends StatelessWidget {
 
 class _TasksListContent extends StatefulWidget {
   const _TasksListContent({
+    super.key,
     required this.companyId,
     required this.canCreate,
     required this.canManageTasks,

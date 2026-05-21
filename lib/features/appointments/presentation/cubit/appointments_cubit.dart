@@ -444,8 +444,8 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           appointment.assignedToName.toLowerCase().contains(query) ||
           appointment.assignedToEmail.toLowerCase().contains(query) ||
           appointment.location.toLowerCase().contains(query);
-      final matchesStatus =
-          selectedStatus == null || appointment.status == selectedStatus;
+      final matchesStatus = selectedStatus == null ||
+          _effectiveStatus(appointment, now) == selectedStatus;
       final matchesType =
           selectedType == null || appointment.type == selectedType;
       final matchesDate = selectedDateFilter == null ||
@@ -473,10 +473,9 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     }
     final today = _dateOnly(now);
     final day = _dateOnly(scheduledAt.toLocal());
-    final endAt = appointment.endAt ?? scheduledAt;
     final isMissed = appointment.status == AppointmentStatus.missed ||
-        (appointment.status == AppointmentStatus.scheduled &&
-            endAt.isBefore(now));
+        (_isOpenScheduledStatus(appointment.status) &&
+            _isAppointmentPastStart(appointment, now));
     switch (filter) {
       case AppointmentDateFilter.today:
         return day == today;
@@ -508,11 +507,9 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   }
 
   int _appointmentGroup(Appointment appointment, DateTime now) {
-    final endAt = appointment.endAt ?? appointment.scheduledAt;
     if (appointment.status == AppointmentStatus.missed ||
-        (appointment.status == AppointmentStatus.scheduled &&
-            endAt != null &&
-            endAt.isBefore(now))) {
+        (_isOpenScheduledStatus(appointment.status) &&
+            _isAppointmentPastStart(appointment, now))) {
       return 0;
     }
     if (appointment.status == AppointmentStatus.scheduled ||
@@ -524,6 +521,25 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
 
   DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
+  }
+
+  AppointmentStatus _effectiveStatus(Appointment appointment, DateTime now) {
+    if (_isOpenScheduledStatus(appointment.status) &&
+        _isAppointmentPastStart(appointment, now)) {
+      return AppointmentStatus.missed;
+    }
+    return appointment.status;
+  }
+
+  bool _isAppointmentPastStart(Appointment appointment, DateTime now) {
+    final scheduledAt = appointment.scheduledAt;
+    return scheduledAt != null &&
+        now.difference(scheduledAt.toLocal()).inSeconds >= 60;
+  }
+
+  bool _isOpenScheduledStatus(AppointmentStatus status) {
+    return status == AppointmentStatus.scheduled ||
+        status == AppointmentStatus.rescheduled;
   }
 
   String _errorMessage(Object error) {

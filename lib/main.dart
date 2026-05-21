@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -8,8 +9,9 @@ import 'core/localization/locale_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  VisibilityDetectorController.instance.updateInterval =
-      const Duration(milliseconds: 500);
+  VisibilityDetectorController.instance.updateInterval = const Duration(
+    milliseconds: 500,
+  );
 
   runApp(const _MasarBootstrapApp());
 }
@@ -24,6 +26,8 @@ class _MasarBootstrapApp extends StatefulWidget {
 class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
   late Future<Locale?> _startupFuture;
   Locale? _startupLocale;
+  Object? _startupError;
+  StackTrace? _startupStackTrace;
 
   @override
   void initState() {
@@ -34,12 +38,21 @@ class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
   void _retryStartup() {
     setState(() {
       _startupLocale = null;
+      _startupError = null;
+      _startupStackTrace = null;
       _startupFuture = _startAppWithTimeout();
     });
   }
 
-  Future<Locale?> _startAppWithTimeout() {
-    return _startApp().timeout(const Duration(seconds: 18));
+  Future<Locale?> _startAppWithTimeout() async {
+    try {
+      return await _startApp().timeout(const Duration(seconds: 18));
+    } catch (error, stackTrace) {
+      _startupError = error;
+      _startupStackTrace = stackTrace;
+      _reportStartupError(error, stackTrace);
+      rethrow;
+    }
   }
 
   Future<Locale?> _startApp() async {
@@ -63,6 +76,8 @@ class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
             snapshot.hasError) {
           return _MasarStartupFallback(
             locale: _startupLocale,
+            error: _startupError ?? snapshot.error,
+            stackTrace: _startupStackTrace ?? snapshot.stackTrace,
             onRetry: _retryStartup,
           );
         }
@@ -71,6 +86,23 @@ class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
       },
     );
   }
+}
+
+void _reportStartupError(Object error, StackTrace stackTrace) {
+  FlutterError.reportError(
+    FlutterErrorDetails(
+      exception: error,
+      stack: stackTrace,
+      library: 'Masar CRM startup',
+      context: ErrorDescription('while initializing Masar CRM'),
+    ),
+  );
+
+  debugPrint('Masar CRM startup failed: ${error.runtimeType}: $error');
+  debugPrintStack(
+    label: 'Masar CRM startup stack trace',
+    stackTrace: stackTrace,
+  );
 }
 
 class _MasarStartupLoading extends StatelessWidget {
@@ -108,9 +140,16 @@ class _MasarStartupLoading extends StatelessWidget {
 }
 
 class _MasarStartupFallback extends StatelessWidget {
-  const _MasarStartupFallback({required this.locale, required this.onRetry});
+  const _MasarStartupFallback({
+    required this.locale,
+    required this.error,
+    required this.stackTrace,
+    required this.onRetry,
+  });
 
   final Locale? locale;
+  final Object? error;
+  final StackTrace? stackTrace;
   final VoidCallback onRetry;
 
   static const _background = Color(0xFFFFFBF4);
@@ -139,65 +178,107 @@ class _MasarStartupFallback extends StatelessWidget {
           fontFamily: isArabic ? 'IBM Plex Sans Arabic' : 'Plus Jakarta Sans',
         ),
         child: ColoredBox(
-            color: _background,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 360),
-                child: Container(
-                  margin: const EdgeInsets.all(24),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: _border),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: _primary,
-                        size: 30,
+          color: _background,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: _border),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.error_outline, color: _primary, size: 30),
+                    const SizedBox(height: 14),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: _text,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton(
+                      onPressed: onRetry,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: _text,
+                      ),
+                      child: Text(retry),
+                    ),
+                    if (kDebugMode && error != null) ...[
                       const SizedBox(height: 14),
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _text,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _muted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      FilledButton(
-                        onPressed: onRetry,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _primary,
-                          foregroundColor: _text,
-                        ),
-                        child: Text(retry),
+                      _StartupDebugDetails(
+                        error: error!,
+                        stackTrace: stackTrace,
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StartupDebugDetails extends StatelessWidget {
+  const _StartupDebugDetails({required this.error, required this.stackTrace});
+
+  final Object error;
+  final StackTrace? stackTrace;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = [
+      '${error.runtimeType}: $error',
+      if (stackTrace != null) stackTrace.toString(),
+    ].join('\n\n');
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8EC),
+        border: Border.all(color: _MasarStartupFallback._border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 220),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: SelectableText(
+            details,
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(
+              color: Color(0xFF5D4037),
+              fontFamily: 'monospace',
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

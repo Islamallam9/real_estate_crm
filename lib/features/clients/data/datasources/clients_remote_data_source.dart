@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../domain/errors/client_exception.dart';
@@ -33,6 +35,13 @@ abstract interface class ClientsRemoteDataSource {
     required String companyId,
     required String clientId,
     required String updatedBy,
+    String reason = '',
+  });
+
+  Future<void> restoreClient({
+    required String companyId,
+    required String clientId,
+    required String updatedBy,
   });
 
   Stream<ClientModel?> watchClient({
@@ -44,15 +53,20 @@ abstract interface class ClientsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int limit = 30,
   });
 }
 
 class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
-  FirestoreClientsRemoteDataSource({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreClientsRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   @override
   Future<ClientModel> createClient({
@@ -89,6 +103,7 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         updatedAt: now,
         createdBy: client.createdBy,
         updatedBy: client.updatedBy,
+        isArchived: false,
       );
       await document.set(clientToSave.toFirestore());
       return clientToSave;
@@ -197,14 +212,38 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String companyId,
     required String clientId,
     required String updatedBy,
+    String reason = '',
   }) async {
     try {
-      final document = _clientsCollection(companyId).doc(clientId);
-      await document.update({
-        'isActive': false,
-        'updatedAt': Timestamp.now(),
-        'updatedBy': updatedBy,
+      await _functions.httpsCallable('archiveCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'clients',
+        'recordId': clientId,
+        'reason': reason,
       });
+    } on FirebaseFunctionsException catch (error) {
+      throw ClientException(_mapFunctionsError(error));
+    } on FirebaseException catch (error) {
+      throw ClientException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const ClientException(AppErrorMessages.unknown);
+    }
+  }
+
+  @override
+  Future<void> restoreClient({
+    required String companyId,
+    required String clientId,
+    required String updatedBy,
+  }) async {
+    try {
+      await _functions.httpsCallable('restoreCrmRecord').call(<String, Object?>{
+        'companyId': companyId,
+        'module': 'clients',
+        'recordId': clientId,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw ClientException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw ClientException(_mapFirestoreError(error));
     } catch (_) {
@@ -239,12 +278,17 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
-    Query<Map<String, dynamic>> query = _clientsCollection(companyId).where(
-      'isActive',
-      isEqualTo: true,
-    );
+    Query<Map<String, dynamic>> query = _clientsCollection(companyId);
+    if (archiveFilter == ArchiveFilter.archived) {
+      query = query.where('isArchived', isEqualTo: true);
+    } else if (archiveFilter == ArchiveFilter.active) {
+      query = query
+          .where('isActive', isEqualTo: true)
+          .where('isArchived', isEqualTo: false);
+    }
 
     if (managerId != null && managerId.trim().isNotEmpty) {
       query = query.where('managerId', isEqualTo: managerId.trim());
@@ -257,6 +301,14 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         final client = ClientModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, client: client);
         return client;
+      }).where((client) {
+        if (archiveFilter == ArchiveFilter.archived) {
+          return client.isArchived || !client.isActive;
+        }
+        if (archiveFilter == ArchiveFilter.active) {
+          return !client.isArchived && client.isActive;
+        }
+        return true;
       }).toList();
 
       clients.sort((a, b) {
@@ -277,6 +329,22 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     String companyId,
   ) {
     return _firestore.collection(FirebasePaths.companyClients(companyId));
+  }
+}
+
+String _mapFunctionsError(FirebaseFunctionsException error) {
+  switch (error.code) {
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return AppErrorMessages.unableToConnect;
+    case 'permission-denied':
+      return AppErrorMessages.permissionDenied;
+    case 'unauthenticated':
+      return AppErrorMessages.unauthenticated;
+    case 'not-found':
+      return AppErrorMessages.notFound;
+    default:
+      return error.message ?? AppErrorMessages.unknown;
   }
 }
 

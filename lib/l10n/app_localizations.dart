@@ -518,6 +518,12 @@ abstract class AppLocalizations {
   /// **'Image removed'**
   String get dashboardAuditImageRemoved;
 
+  /// No description provided for @dashboardAuditRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored'**
+  String get dashboardAuditRestored;
+
   /// No description provided for @dashboardAuditLead.
   ///
   /// In en, this message translates to:
@@ -1111,6 +1117,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Client archived successfully.'**
   String get clientArchivedSuccessfully;
+
+  /// No description provided for @archived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get archived;
+
+  /// No description provided for @restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get restore;
+
+  /// No description provided for @restoreRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore record'**
+  String get restoreRecord;
+
+  /// No description provided for @restoreRecordConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This record will return to active lists.'**
+  String get restoreRecordConfirmation;
+
+  /// No description provided for @archiveReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive reason'**
+  String get archiveReason;
+
+  /// No description provided for @noArchivedRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'No archived records'**
+  String get noArchivedRecords;
+
+  /// No description provided for @archivedRecordsHiddenFromActiveLists.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived records stay hidden from active lists.'**
+  String get archivedRecordsHiddenFromActiveLists;
+
+  /// No description provided for @recordRestoredSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Record restored successfully.'**
+  String get recordRestoredSuccessfully;
 
   /// No description provided for @clientNotFoundMessage.
   ///
@@ -3536,6 +3590,18 @@ abstract class AppLocalizations {
   /// **'Deactivate user'**
   String get deactivateUser;
 
+  /// No description provided for @activateUserConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This user will be allowed to access the company workspace again.'**
+  String get activateUserConfirmation;
+
+  /// No description provided for @deactivateUserConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'This user will lose access to this company workspace. Existing records remain unchanged.'**
+  String get deactivateUserConfirmation;
+
   /// No description provided for @noCompanies.
   ///
   /// In en, this message translates to:
@@ -5357,6 +5423,12 @@ abstract class AppLocalizations {
   /// **'Appointment due now'**
   String get notificationAppointmentDueNowTitle;
 
+  /// No description provided for @notificationAppointmentDueSoonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment in 10 minutes'**
+  String get notificationAppointmentDueSoonTitle;
+
   /// No description provided for @notificationAppointmentMissedAttentionTitle.
   ///
   /// In en, this message translates to:
@@ -5380,6 +5452,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Team appointment reassigned'**
   String get notificationTeamAppointmentReassignedTitle;
+
+  /// No description provided for @notificationTeamAppointmentDueNowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment due now'**
+  String get notificationTeamAppointmentDueNowTitle;
+
+  /// No description provided for @notificationTeamAppointmentDueSoonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team appointment in 10 minutes'**
+  String get notificationTeamAppointmentDueSoonTitle;
 
   /// No description provided for @notificationTeamAppointmentRescheduledTitle.
   ///
@@ -6484,6 +6568,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Company user status changed'**
   String get platformNotificationCompanyUserStatusChanged;
+
+  /// No description provided for @platformNotificationDealWon.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal won'**
+  String get platformNotificationDealWon;
+
+  /// No description provided for @platformNotificationDealLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal lost'**
+  String get platformNotificationDealLost;
 
   /// No description provided for @platformNotificationCompanyUserPasswordReset.
   ///

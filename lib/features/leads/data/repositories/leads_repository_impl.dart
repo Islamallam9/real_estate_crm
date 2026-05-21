@@ -1,3 +1,4 @@
+import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/lead.dart';
 import '../../domain/repositories/leads_repository.dart';
 import '../datasources/leads_remote_data_source.dart';
@@ -53,11 +54,26 @@ class LeadsRepositoryImpl implements LeadsRepository {
     required String companyId,
     required String leadId,
     required String archivedBy,
+    String reason = '',
   }) {
     return _remoteDataSource.archiveLead(
       companyId: companyId,
       leadId: leadId,
       archivedBy: archivedBy,
+      reason: reason,
+    );
+  }
+
+  @override
+  Future<void> restoreLead({
+    required String companyId,
+    required String leadId,
+    required String restoredBy,
+  }) {
+    return _remoteDataSource.restoreLead(
+      companyId: companyId,
+      leadId: leadId,
+      restoredBy: restoredBy,
     );
   }
 
@@ -66,12 +82,14 @@ class LeadsRepositoryImpl implements LeadsRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
     return _remoteDataSource.watchLeads(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      archiveFilter: archiveFilter,
       limit: limit,
     );
   }

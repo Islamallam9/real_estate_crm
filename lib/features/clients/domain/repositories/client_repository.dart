@@ -1,4 +1,5 @@
 import '../entities/client.dart';
+import '../../../../core/archive/archive_filter.dart';
 
 abstract interface class ClientRepository {
   Future<Client> createClient({
@@ -28,6 +29,13 @@ abstract interface class ClientRepository {
     required String companyId,
     required String clientId,
     required String updatedBy,
+    String reason = '',
+  });
+
+  Future<void> restoreClient({
+    required String companyId,
+    required String clientId,
+    required String updatedBy,
   });
 
   Stream<Client?> watchClient({
@@ -39,6 +47,7 @@ abstract interface class ClientRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int limit = 30,
   });
 }

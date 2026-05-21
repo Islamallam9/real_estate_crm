@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
@@ -11,6 +12,7 @@ import '../../domain/errors/client_exception.dart';
 import '../../domain/usecases/archive_client_usecase.dart';
 import '../../domain/usecases/assign_client_usecase.dart';
 import '../../domain/usecases/create_client_usecase.dart';
+import '../../domain/usecases/restore_client_usecase.dart';
 import '../../domain/usecases/update_client_usecase.dart';
 import '../../domain/usecases/watch_client_usecase.dart';
 import '../../domain/usecases/watch_clients_usecase.dart';
@@ -24,6 +26,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     required UpdateClientUseCase updateClientUseCase,
     required AssignClientUseCase assignClientUseCase,
     required ArchiveClientUseCase archiveClientUseCase,
+    required RestoreClientUseCase restoreClientUseCase,
     required CreateAuditLogUseCase createAuditLogUseCase,
   }) : _watchClientsUseCase = watchClientsUseCase,
        _watchClientUseCase = watchClientUseCase,
@@ -31,6 +34,7 @@ class ClientsCubit extends Cubit<ClientsState> {
        _updateClientUseCase = updateClientUseCase,
        _assignClientUseCase = assignClientUseCase,
        _archiveClientUseCase = archiveClientUseCase,
+       _restoreClientUseCase = restoreClientUseCase,
        _createAuditLogUseCase = createAuditLogUseCase,
       super(const ClientsState.initial());
 
@@ -40,6 +44,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   final UpdateClientUseCase _updateClientUseCase;
   final AssignClientUseCase _assignClientUseCase;
   final ArchiveClientUseCase _archiveClientUseCase;
+  final RestoreClientUseCase _restoreClientUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
 
   StreamSubscription<List<Client>>? _clientsSubscription;
@@ -51,6 +56,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(
       state.copyWith(
@@ -77,6 +83,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      archiveFilter: archiveFilter,
     ).listen(
       (clients) {
         if (isClosed) {
@@ -92,6 +99,7 @@ class ClientsCubit extends Cubit<ClientsState> {
               searchQuery: state.searchQuery,
               assignedToFilter: state.assignedToFilter,
             ),
+            archiveFilter: archiveFilter,
             clearMessage: true,
           ),
         );
@@ -111,6 +119,21 @@ class ClientsCubit extends Cubit<ClientsState> {
           ),
         );
       },
+    );
+  }
+
+  void setArchiveFilter(
+    ArchiveFilter archiveFilter, {
+    required String companyId,
+    String? assignedTo,
+    String? managerId,
+  }) {
+    emit(state.copyWith(archiveFilter: archiveFilter));
+    watchClients(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      archiveFilter: archiveFilter,
     );
   }
 
@@ -281,7 +304,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         _writeAuditLog(
           companyId: companyId,
           actorId: updatedClient.updatedBy,
-          action: AuditLogAction.update,
+          action: AuditLogAction.restore,
           recordId: updatedClient.id,
           recordTitle: _clientTitle(updatedClient),
           recordSubtitle: _clientSubtitle(updatedClient),
@@ -420,6 +443,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String companyId,
     required String clientId,
     required String updatedBy,
+    String reason = '',
   }) async {
     emit(
       state.copyWith(
@@ -433,6 +457,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         companyId: companyId,
         clientId: clientId,
         updatedBy: updatedBy,
+        reason: reason,
       );
       final client = _clientById(clientId);
       unawaited(
@@ -485,6 +510,81 @@ class ClientsCubit extends Cubit<ClientsState> {
           status: ClientsStatus.failure,
           message: AppErrorMessages.unknown,
           lastAction: ClientsAction.archiveClient,
+        ),
+      );
+    }
+  }
+
+  Future<void> restoreClient({
+    required String companyId,
+    required String clientId,
+    required String updatedBy,
+  }) async {
+    emit(
+      state.copyWith(
+        status: ClientsStatus.saving,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    try {
+      await _restoreClientUseCase(
+        companyId: companyId,
+        clientId: clientId,
+        updatedBy: updatedBy,
+      );
+      final client = _clientById(clientId);
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: updatedBy,
+          action: AuditLogAction.update,
+          recordId: clientId,
+          recordTitle: client == null ? 'Client' : _clientTitle(client),
+          recordSubtitle: client == null ? '' : _clientSubtitle(client),
+          metadata: {
+            'restoreAction': 'restore',
+            if (client != null) ...{
+              'assignedTo': client.assignedTo,
+              'assignedToName': client.assignedToName,
+              'teamId': client.teamId,
+              'teamName': client.teamName,
+              'managerId': client.managerId,
+              'managerName': client.managerName,
+            },
+          },
+        ),
+      );
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.saved,
+          clearMessage: true,
+          lastAction: ClientsAction.restoreClient,
+        ),
+      );
+    } on ClientException catch (error) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: error.message,
+          lastAction: ClientsAction.restoreClient,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: ClientsStatus.failure,
+          message: AppErrorMessages.unknown,
+          lastAction: ClientsAction.restoreClient,
         ),
       );
     }

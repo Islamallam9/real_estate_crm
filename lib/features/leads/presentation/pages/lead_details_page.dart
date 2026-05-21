@@ -249,6 +249,8 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
       return l.leadUpdatedSuccessfully;
     case LeadsAction.archiveLead:
       return l.leadArchivedSuccessfully;
+    case LeadsAction.restoreLead:
+      return l.recordRestoredSuccessfully;
     case LeadsAction.updateStatus:
       return l.leadStatusUpdatedSuccessfully;
     case LeadsAction.assignLead:
@@ -392,55 +394,35 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
               ),
             ),
           ),
-          AppStatusBadge(label: _statusLabel(l, widget.lead.status)),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              if (widget.lead.isArchived)
+                AppStatusBadge(
+                  label: l.archived,
+                  tone: AppStatusTone.neutral,
+                ),
+              AppStatusBadge(label: _statusLabel(l, widget.lead.status)),
+            ],
+          ),
         ],
       ),
       const SizedBox(height: AppSpacing.sm),
       Text(l.leadAssignedTo(widget.assigneeName)),
       const SizedBox(height: AppSpacing.md),
-      Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        children: [
-          if (widget.canEdit)
-            AppButton(
-              label: l.editLead,
-              onPressed: () => context.go(RouteNames.leadEdit(widget.lead.id)),
-            ),
-          if (widget.canEdit)
-            BlocBuilder<LeadsCubit, LeadsState>(
-              buildWhen: (previous, current) =>
-                  previous.status != current.status,
-              builder: (context, state) {
-                final isSaving = state.status == LeadsStatus.saving;
-                return Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    AppButton(
-                      label: l.markContactedToday,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: isSaving
-                          ? null
-                          : () => _markContactedToday(context),
-                    ),
-                    AppButton(
-                      label: l.scheduleFollowUp,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: isSaving
-                          ? null
-                          : () => _scheduleFollowUp(context),
-                    ),
-                  ],
-                );
-              },
-            ),
-          if (widget.canArchive)
-            AppButton(label: l.archiveLead, onPressed: () => _archive(context)),
-        ],
+      _LeadDetailsActions(
+        canEdit: widget.canEdit,
+        canArchive: widget.canArchive,
+        isArchived: widget.lead.isArchived,
+        onEdit: () => context.go(RouteNames.leadEdit(widget.lead.id)),
+        onMarkContactedToday: () => _markContactedToday(context),
+        onScheduleFollowUp: () => _scheduleFollowUp(context),
+        onArchive: () => _archive(context),
+        onRestore: () => _restore(context),
       ),
       const SizedBox(height: AppSpacing.lg),
-      if (widget.canStatus)
+      if (widget.canStatus && !widget.lead.isArchived)
         BlocBuilder<LeadsCubit, LeadsState>(
           buildWhen: (previous, current) => previous.status != current.status,
           builder: (context, state) {
@@ -583,11 +565,63 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
 
   Future<void> _archive(BuildContext context) async {
     final l = AppLocalizations.of(context)!;
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l.archiveLead),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l.archiveLeadConfirmation),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: reasonController,
+                maxLines: 2,
+                label: l.archiveReason,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l.archive),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      reasonController.dispose();
+      return;
+    }
+    final cubit = context.read<LeadsCubit>();
+    await cubit.archiveLead(
+      companyId: widget.companyId,
+      leadId: widget.lead.id,
+      archivedBy: widget.uid,
+      actorName: widget.actorName,
+      reason: reasonController.text.trim(),
+    );
+    reasonController.dispose();
+    if (context.mounted && cubit.state.status == LeadsStatus.saved) {
+      context.go(RouteNames.leads);
+    }
+  }
+
+  Future<void> _restore(BuildContext context) async {
+    final l = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(l.archiveLead),
-        content: Text(l.archiveLeadConfirmation),
+        title: Text(l.restoreRecord),
+        content: Text(l.restoreRecordConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -595,7 +629,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l.archive),
+            child: Text(l.restore),
           ),
         ],
       ),
@@ -604,10 +638,10 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       return;
     }
     final cubit = context.read<LeadsCubit>();
-    await cubit.archiveLead(
+    await cubit.restoreLead(
       companyId: widget.companyId,
       leadId: widget.lead.id,
-      archivedBy: widget.uid,
+      restoredBy: widget.uid,
       actorName: widget.actorName,
     );
     if (context.mounted && cubit.state.status == LeadsStatus.saved) {
@@ -657,6 +691,106 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   }
 }
 
+
+class _LeadDetailsActions extends StatelessWidget {
+  const _LeadDetailsActions({
+    required this.canEdit,
+    required this.canArchive,
+    required this.isArchived,
+    required this.onEdit,
+    required this.onMarkContactedToday,
+    required this.onScheduleFollowUp,
+    required this.onArchive,
+    required this.onRestore,
+  });
+
+  final bool canEdit;
+  final bool canArchive;
+  final bool isArchived;
+  final VoidCallback onEdit;
+  final VoidCallback onMarkContactedToday;
+  final VoidCallback onScheduleFollowUp;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.sizeOf(context).width < 720;
+
+    return BlocBuilder<LeadsCubit, LeadsState>(
+      buildWhen: (previous, current) => previous.status != current.status,
+      builder: (context, state) {
+        final isSaving = state.status == LeadsStatus.saving;
+        final actions = <Widget>[
+          if (canEdit && !isArchived)
+            AppButton(
+              label: l.editLead,
+              icon: Icons.edit_outlined,
+              isExpanded: isNarrow,
+              onPressed: onEdit,
+            ),
+          if (canEdit && !isArchived)
+            AppButton(
+              label: l.markContactedToday,
+              icon: Icons.today_outlined,
+              variant: AppButtonVariant.secondary,
+              isExpanded: isNarrow,
+              onPressed: isSaving ? null : onMarkContactedToday,
+            ),
+          if (canEdit && !isArchived)
+            AppButton(
+              label: l.scheduleFollowUp,
+              icon: Icons.event_available_outlined,
+              variant: AppButtonVariant.secondary,
+              isExpanded: isNarrow,
+              onPressed: isSaving ? null : onScheduleFollowUp,
+            ),
+          if (canArchive && !isArchived)
+            AppButton(
+              label: l.archiveLead,
+              icon: Icons.archive_outlined,
+              variant: AppButtonVariant.danger,
+              isExpanded: isNarrow,
+              onPressed: isSaving ? null : onArchive,
+            ),
+          if (canArchive && isArchived)
+            AppButton(
+              label: l.restore,
+              icon: Icons.unarchive_outlined,
+              variant: AppButtonVariant.secondary,
+              isExpanded: isNarrow,
+              onPressed: isSaving ? null : onRestore,
+            ),
+        ];
+
+        if (actions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                actions[index],
+                if (index != actions.length - 1)
+                  const SizedBox(height: AppSpacing.xs),
+              ],
+            ],
+          );
+        }
+
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          alignment: WrapAlignment.start,
+          children: actions,
+        );
+      },
+    );
+  }
+}
 
 class _LeadDetailsTab {
   const _LeadDetailsTab({required this.label, required this.icon});

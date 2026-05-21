@@ -53,6 +53,11 @@ class Lead extends Equatable {
     this.isArchived = false,
     this.archivedAt,
     this.archivedBy,
+    this.archivedByName = '',
+    this.archiveReason = '',
+    this.restoredAt,
+    this.restoredBy,
+    this.restoredByName = '',
   });
 
   final String id;
@@ -84,6 +89,11 @@ class Lead extends Equatable {
   final bool isArchived;
   final DateTime? archivedAt;
   final String? archivedBy;
+  final String archivedByName;
+  final String archiveReason;
+  final DateTime? restoredAt;
+  final String? restoredBy;
+  final String restoredByName;
 
   Lead copyWith({
     String? id,
@@ -115,6 +125,11 @@ class Lead extends Equatable {
     bool? isArchived,
     DateTime? archivedAt,
     String? archivedBy,
+    String? archivedByName,
+    String? archiveReason,
+    DateTime? restoredAt,
+    String? restoredBy,
+    String? restoredByName,
   }) {
     return Lead(
       id: id ?? this.id,
@@ -147,6 +162,11 @@ class Lead extends Equatable {
       isArchived: isArchived ?? this.isArchived,
       archivedAt: archivedAt ?? this.archivedAt,
       archivedBy: archivedBy ?? this.archivedBy,
+      archivedByName: archivedByName ?? this.archivedByName,
+      archiveReason: archiveReason ?? this.archiveReason,
+      restoredAt: restoredAt ?? this.restoredAt,
+      restoredBy: restoredBy ?? this.restoredBy,
+      restoredByName: restoredByName ?? this.restoredByName,
     );
   }
 
@@ -181,5 +201,10 @@ class Lead extends Equatable {
     isArchived,
     archivedAt,
     archivedBy,
+    archivedByName,
+    archiveReason,
+    restoredAt,
+    restoredBy,
+    restoredByName,
   ];
 }

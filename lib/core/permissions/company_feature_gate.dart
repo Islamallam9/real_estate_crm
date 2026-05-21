@@ -10,7 +10,8 @@ enum CompanyFeature {
   deals('deals'),
   reports('reports'),
   auditLogs('auditLogs'),
-  notifications('notifications');
+  notifications('notifications'),
+  userManagement('userManagement');
 
   const CompanyFeature(this.key);
 
@@ -68,6 +69,9 @@ CompanyFeature? companyFeatureForLocation(String location) {
   }
   if (location.startsWith(RouteNames.notifications)) {
     return CompanyFeature.notifications;
+  }
+  if (location.startsWith(RouteNames.users)) {
+    return CompanyFeature.userManagement;
   }
 
   return null;

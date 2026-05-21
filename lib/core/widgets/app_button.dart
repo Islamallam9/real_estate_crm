@@ -92,9 +92,13 @@ class _ButtonContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const SizedBox.square(
-        dimension: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.2,
+          color: _loadingColor(context),
+        ),
       );
     }
 
@@ -117,5 +121,10 @@ class _ButtonContent extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Color _loadingColor(BuildContext context) {
+    return DefaultTextStyle.of(context).style.color ??
+        Theme.of(context).colorScheme.primary;
   }
 }

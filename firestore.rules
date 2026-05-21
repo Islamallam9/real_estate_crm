@@ -46,6 +46,10 @@ service cloud.firestore {
       return isActiveCompanyUser(companyId) && role(companyId) == 'admin';
     }
 
+    function isManager(companyId) {
+      return isActiveCompanyUser(companyId) && role(companyId) == 'manager';
+    }
+
     function isAdminOrManager(companyId) {
       return isActiveCompanyUser(companyId)
         && role(companyId) in ['admin', 'manager'];
@@ -61,6 +65,13 @@ service cloud.firestore {
 
     function isViewer(companyId) {
       return isActiveCompanyUser(companyId) && role(companyId) == 'viewer';
+    }
+
+    function companyFeatureEnabled(companyId, feature) {
+      return !get(/databases/$(database)/documents/companies/$(companyId)).data.keys().hasAny(['features'])
+        || !(get(/databases/$(database)/documents/companies/$(companyId)).data.features is map)
+        || !(get(/databases/$(database)/documents/companies/$(companyId)).data.features[feature] is bool)
+        || get(/databases/$(database)/documents/companies/$(companyId)).data.features[feature] == true;
     }
 
     function isStringOrNull(value) {
@@ -102,6 +113,21 @@ service cloud.firestore {
 
     function activeAssignedRecord(data) {
       return data.assignedTo == request.auth.uid;
+    }
+
+    function activeAssignedActiveRecord(data) {
+      return activeAssignedRecord(data)
+        && data.isActive == true;
+    }
+
+    function activeAssignedUnarchivedRecord(data) {
+      return activeAssignedRecord(data)
+        && (data.isArchived == null || data.isArchived == false);
+    }
+
+    function activeAssignedActiveUnarchivedRecord(data) {
+      return activeAssignedActiveRecord(data)
+        && (data.isArchived == null || data.isArchived == false);
     }
 
     function companyReadableRecord(companyId) {
@@ -155,7 +181,12 @@ service cloud.firestore {
         'nextFollowUpAt',
         'isArchived',
         'archivedAt',
-        'archivedBy'
+        'archivedBy',
+        'archivedByName',
+        'archiveReason',
+        'restoredAt',
+        'restoredBy',
+        'restoredByName'
       ];
     }
 
@@ -227,15 +258,20 @@ service cloud.firestore {
         && (request.resource.data.isArchived == null
           || request.resource.data.isArchived is bool)
         && isTimestampOrNull(request.resource.data.archivedAt)
-        && isStringOrNull(request.resource.data.archivedBy);
+        && isStringOrNull(request.resource.data.archivedBy)
+        && isStringOrNull(request.resource.data.archivedByName)
+        && isStringOrNull(request.resource.data.archiveReason)
+        && isTimestampOrNull(request.resource.data.restoredAt)
+        && isStringOrNull(request.resource.data.restoredBy)
+        && isStringOrNull(request.resource.data.restoredByName);
     }
 
     function canReadLead(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isMarketing(companyId) && activeAssignedRecord(resource.data))
-        || (isViewer(companyId) && activeAssignedRecord(resource.data));
+        || (isSalesAgent(companyId) && activeAssignedUnarchivedRecord(resource.data))
+        || (isMarketing(companyId) && activeAssignedUnarchivedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedUnarchivedRecord(resource.data));
     }
 
     function canCreateLead(companyId) {
@@ -352,6 +388,38 @@ service cloud.firestore {
           || request.resource.data.archivedBy == '');
     }
 
+    function archiveFieldsUnchanged() {
+      return (request.resource.data.isArchived == resource.data.isArchived
+          || (!('isArchived' in resource.data.keys())
+            && request.resource.data.isArchived == false))
+        && (request.resource.data.archivedAt == resource.data.archivedAt
+          || (!('archivedAt' in resource.data.keys())
+            && request.resource.data.archivedAt == null))
+        && (request.resource.data.archivedBy == resource.data.archivedBy
+          || (!('archivedBy' in resource.data.keys())
+            && (request.resource.data.archivedBy == null
+              || request.resource.data.archivedBy == '')))
+        && (request.resource.data.archivedByName == resource.data.archivedByName
+          || (!('archivedByName' in resource.data.keys())
+            && (request.resource.data.archivedByName == null
+              || request.resource.data.archivedByName == '')))
+        && (request.resource.data.archiveReason == resource.data.archiveReason
+          || (!('archiveReason' in resource.data.keys())
+            && (request.resource.data.archiveReason == null
+              || request.resource.data.archiveReason == '')))
+        && (request.resource.data.restoredAt == resource.data.restoredAt
+          || (!('restoredAt' in resource.data.keys())
+            && request.resource.data.restoredAt == null))
+        && (request.resource.data.restoredBy == resource.data.restoredBy
+          || (!('restoredBy' in resource.data.keys())
+            && (request.resource.data.restoredBy == null
+              || request.resource.data.restoredBy == '')))
+        && (request.resource.data.restoredByName == resource.data.restoredByName
+          || (!('restoredByName' in resource.data.keys())
+            && (request.resource.data.restoredByName == null
+              || request.resource.data.restoredByName == '')));
+    }
+
     function canUpdateLead(companyId) {
       return isAdmin(companyId)
         || managerScopedRecord(companyId, resource.data)
@@ -408,6 +476,14 @@ service cloud.firestore {
         'managerId',
         'managerName',
         'isActive',
+        'isArchived',
+        'archivedAt',
+        'archivedBy',
+        'archivedByName',
+        'archiveReason',
+        'restoredAt',
+        'restoredBy',
+        'restoredByName',
         'createdAt',
         'updatedAt',
         'createdBy',
@@ -453,6 +529,15 @@ service cloud.firestore {
         && optionalStringField(request.resource.data, 'managerId')
         && optionalStringField(request.resource.data, 'managerName')
         && request.resource.data.isActive is bool
+        && (request.resource.data.isArchived == null
+          || request.resource.data.isArchived is bool)
+        && isTimestampOrNull(request.resource.data.archivedAt)
+        && optionalStringField(request.resource.data, 'archivedBy')
+        && optionalStringField(request.resource.data, 'archivedByName')
+        && optionalStringField(request.resource.data, 'archiveReason')
+        && isTimestampOrNull(request.resource.data.restoredAt)
+        && optionalStringField(request.resource.data, 'restoredBy')
+        && optionalStringField(request.resource.data, 'restoredByName')
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.createdBy is string
@@ -462,8 +547,8 @@ service cloud.firestore {
     function canReadClient(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isViewer(companyId) && activeAssignedRecord(resource.data));
+        || (isSalesAgent(companyId) && activeAssignedActiveUnarchivedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedActiveUnarchivedRecord(resource.data));
     }
 
     function propertyFields() {
@@ -484,6 +569,14 @@ service cloud.firestore {
         'ownerName',
         'ownerPhone',
         'assignedTo',
+        'isArchived',
+        'archivedAt',
+        'archivedBy',
+        'archivedByName',
+        'archiveReason',
+        'restoredAt',
+        'restoredBy',
+        'restoredByName',
         'teamId',
         'teamName',
         'managerId',
@@ -556,6 +649,15 @@ service cloud.firestore {
         && request.resource.data.ownerName is string
         && request.resource.data.ownerPhone is string
         && request.resource.data.assignedTo is string
+        && (request.resource.data.isArchived == null
+          || request.resource.data.isArchived is bool)
+        && isTimestampOrNull(request.resource.data.archivedAt)
+        && optionalStringField(request.resource.data, 'archivedBy')
+        && optionalStringField(request.resource.data, 'archivedByName')
+        && optionalStringField(request.resource.data, 'archiveReason')
+        && isTimestampOrNull(request.resource.data.restoredAt)
+        && optionalStringField(request.resource.data, 'restoredBy')
+        && optionalStringField(request.resource.data, 'restoredByName')
         && optionalStringField(request.resource.data, 'teamId')
         && optionalStringField(request.resource.data, 'teamName')
         && optionalStringField(request.resource.data, 'managerId')
@@ -659,9 +761,9 @@ service cloud.firestore {
     function canReadTask(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isMarketing(companyId) && activeAssignedRecord(resource.data))
-        || (isViewer(companyId) && activeAssignedRecord(resource.data));
+        || (isSalesAgent(companyId) && activeAssignedActiveRecord(resource.data))
+        || (isMarketing(companyId) && activeAssignedActiveRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedActiveRecord(resource.data));
     }
 
     function canReadAppointment(companyId) {
@@ -709,6 +811,14 @@ service cloud.firestore {
         'lostReason',
         'notes',
         'isActive',
+        'isArchived',
+        'archivedAt',
+        'archivedBy',
+        'archivedByName',
+        'archiveReason',
+        'restoredAt',
+        'restoredBy',
+        'restoredByName',
         'createdAt',
         'updatedAt',
         'createdBy',
@@ -779,6 +889,15 @@ service cloud.firestore {
         && request.resource.data.lostReason is string
         && request.resource.data.notes is string
         && request.resource.data.isActive is bool
+        && (request.resource.data.isArchived == null
+          || request.resource.data.isArchived is bool)
+        && isTimestampOrNull(request.resource.data.archivedAt)
+        && optionalStringField(request.resource.data, 'archivedBy')
+        && optionalStringField(request.resource.data, 'archivedByName')
+        && optionalStringField(request.resource.data, 'archiveReason')
+        && isTimestampOrNull(request.resource.data.restoredAt)
+        && optionalStringField(request.resource.data, 'restoredBy')
+        && optionalStringField(request.resource.data, 'restoredByName')
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.createdBy is string
@@ -788,8 +907,8 @@ service cloud.firestore {
     function canReadDeal(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
-        || (isSalesAgent(companyId) && activeAssignedRecord(resource.data))
-        || (isViewer(companyId) && activeAssignedRecord(resource.data));
+        || (isSalesAgent(companyId) && activeAssignedActiveUnarchivedRecord(resource.data))
+        || (isViewer(companyId) && activeAssignedActiveUnarchivedRecord(resource.data));
     }
 
     function canUpdateDeal(companyId) {
@@ -899,13 +1018,22 @@ service cloud.firestore {
         && isStringOrNull(request.resource.data.lastLoginTimezone);
     }
 
+    function managesTeamById(companyId, teamId) {
+      return teamId is string
+        && teamId != ''
+        && exists(/databases/$(database)/documents/companies/$(companyId)/teams/$(teamId))
+        && get(/databases/$(database)/documents/companies/$(companyId)/teams/$(teamId)).data.managerId == request.auth.uid
+        && get(/databases/$(database)/documents/companies/$(companyId)/teams/$(teamId)).data.isActive == true;
+    }
+
     function canReadUserProfile(companyId, userId) {
       return (signedIn() && userId == request.auth.uid)
         || isActivePlatformAdmin()
         || isAdmin(companyId)
-        || (isAdminOrManager(companyId)
-          && resource.data.managerId == request.auth.uid
-          && resource.data.isActive == true);
+        || (isManager(companyId)
+          && resource.data.isActive == true
+          && (resource.data.managerId == request.auth.uid
+            || managesTeamById(companyId, resource.data.teamId)));
     }
 
     function teamFields() {
@@ -1011,6 +1139,7 @@ service cloud.firestore {
           'create',
           'update',
           'archive',
+          'restore',
           'deactivate',
           'assign',
           'statusChange',
@@ -1247,10 +1376,12 @@ service cloud.firestore {
         allow get, list: if isActivePlatformAdmin()
           || canReadUserProfile(companyId, userId);
         allow create: if isAdmin(companyId)
+          && companyFeatureEnabled(companyId, 'userManagement')
           && validUserProfile(companyId, userId)
           && request.resource.data.createdBy == request.auth.uid
           && !request.resource.data.keys().hasAny(loginSummaryFields());
         allow update: if (isAdmin(companyId)
+            && companyFeatureEnabled(companyId, 'userManagement')
             && validUserProfile(companyId, userId)
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.companyId == resource.data.companyId
@@ -1312,6 +1443,7 @@ service cloud.firestore {
           && canUpdateLead(companyId)
           && validLeadData(companyId, leadId)
           && validBaseUpdate(companyId)
+          && archiveFieldsUnchanged()
           && assignmentFieldsUnchangedOrValid(
             companyId,
             request.resource.data,
@@ -1416,9 +1548,12 @@ service cloud.firestore {
           && validClientData(companyId, clientId)
           && validBaseCreate(companyId, clientId)
           && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent'])
-          && request.resource.data.isActive == true;
+          && request.resource.data.isActive == true
+          && (request.resource.data.isArchived == null
+            || request.resource.data.isArchived == false);
         allow update: if (isAdmin(companyId)
             || managerScopedRecord(companyId, resource.data))
+          && archiveFieldsUnchanged()
           && validClientData(companyId, clientId)
           && validBaseUpdate(companyId)
           && assignmentFieldsUnchangedOrValid(
@@ -1441,8 +1576,11 @@ service cloud.firestore {
             ]);
         allow create: if isAdminOrManager(companyId)
           && validPropertyData(companyId, propertyId)
-          && validBaseCreate(companyId, propertyId);
+          && validBaseCreate(companyId, propertyId)
+          && (request.resource.data.isArchived == null
+            || request.resource.data.isArchived == false);
         allow update: if isAdminOrManager(companyId)
+          && archiveFieldsUnchanged()
           && validPropertyData(companyId, propertyId)
           && validBaseUpdate(companyId);
         allow delete: if false;
@@ -1483,9 +1621,12 @@ service cloud.firestore {
           && validDealData(companyId, dealId)
           && validBaseCreate(companyId, dealId)
           && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent'])
-          && request.resource.data.isActive == true;
+          && request.resource.data.isActive == true
+          && (request.resource.data.isArchived == null
+            || request.resource.data.isArchived == false);
         allow update: if isActiveCompanyUser(companyId)
           && canUpdateDeal(companyId)
+          && archiveFieldsUnchanged()
           && validDealData(companyId, dealId)
           && validBaseUpdate(companyId)
           && assignmentFieldsUnchangedOrValid(

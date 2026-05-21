@@ -6,6 +6,7 @@ import 'core/localization/locale_cubit.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_cubit.dart';
+import 'core/widgets/app_feedback.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/auth_state_changes_usecase.dart';
@@ -102,6 +103,7 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
           return BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
               return MaterialApp.router(
+                scaffoldMessengerKey: AppFeedback.scaffoldMessengerKey,
                 locale: locale,
                 onGenerateTitle: (context) =>
                     AppLocalizations.of(context)!.websiteTitle,

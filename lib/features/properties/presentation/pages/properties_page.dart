@@ -45,31 +45,30 @@ class PropertiesPage extends StatelessWidget {
             return const AppLoading();
           }
 
-          final companyId =
-              authState.userProfile?.companyId ??
-              authState.user?.companyId ??
-              '';
+          final user = authState.user;
+          final profile = authState.userProfile;
+          if (user == null || profile == null || profile.uid != user.uid) {
+            return const AppLoading();
+          }
+
+          final companyId = profile.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
 
-          final role = authState.userProfile?.role ?? authState.user?.role;
-          final canCreate = role != null
-              ? PermissionService.can(role, AppPermission.createProperty)
-              : false;
-          final canDeactivate = role != null
-              ? PermissionService.can(role, AppPermission.editProperty)
-              : false;
+          final role = profile.role;
+          final canCreate = PermissionService.can(role, AppPermission.createProperty);
+          final canDeactivate = PermissionService.can(role, AppPermission.editProperty);
 
           return PropertiesScope(
+            key: ValueKey('properties-scope:$companyId:${profile.uid}:${role.name}'),
             child: _PropertiesListContent(
+              key: ValueKey('properties-content:$companyId:${profile.uid}:${role.name}'),
               companyId: companyId,
               canCreate: canCreate,
-              canEdit: role != null
-                  ? PermissionService.can(role, AppPermission.editProperty)
-                  : false,
+              canEdit: PermissionService.can(role, AppPermission.editProperty),
               canDeactivate: canDeactivate,
-              uid: authState.user?.uid ?? '',
+              uid: profile.uid,
             ),
           );
         },
@@ -80,6 +79,7 @@ class PropertiesPage extends StatelessWidget {
 
 class _PropertiesListContent extends StatefulWidget {
   const _PropertiesListContent({
+    super.key,
     required this.companyId,
     required this.canCreate,
     required this.canEdit,
@@ -101,6 +101,18 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
   @override
   void initState() {
     super.initState();
+    _watchProperties();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PropertiesListContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId) {
+      _watchProperties();
+    }
+  }
+
+  void _watchProperties() {
     context.read<PropertiesCubit>().watchProperties(
       companyId: widget.companyId,
     );

@@ -15,6 +15,7 @@ import '../../domain/usecases/add_lead_timeline_event_usecase.dart';
 import '../../domain/usecases/create_lead_usecase.dart';
 import '../../domain/usecases/archive_lead_usecase.dart';
 import '../../domain/usecases/get_lead_by_id_usecase.dart';
+import '../../domain/usecases/restore_lead_usecase.dart';
 import '../../domain/usecases/update_lead_usecase.dart';
 import '../../domain/usecases/watch_lead_notes_usecase.dart';
 import '../../domain/usecases/watch_lead_timeline_usecase.dart';
@@ -47,6 +48,7 @@ class LeadsScope extends StatelessWidget {
           CheckDuplicateLeadUseCase(repository),
         ),
         archiveLeadUseCase: ArchiveLeadUseCase(repository),
+        restoreLeadUseCase: RestoreLeadUseCase(repository),
         updateLeadUseCase: UpdateLeadUseCase(
           repository,
           CheckDuplicateLeadUseCase(repository),

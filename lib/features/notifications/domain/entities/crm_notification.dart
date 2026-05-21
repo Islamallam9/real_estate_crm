@@ -10,6 +10,7 @@ enum CrmNotificationType {
   appointmentAssigned,
   appointmentReassigned,
   appointmentRemovedFromYou,
+  appointmentDueSoon,
   appointmentDueNow,
   appointmentRescheduled,
   appointmentCancelled,
@@ -17,6 +18,8 @@ enum CrmNotificationType {
   appointmentMissed,
   teamAppointmentAssigned,
   teamAppointmentReassigned,
+  teamAppointmentDueSoon,
+  teamAppointmentDueNow,
   teamAppointmentRescheduled,
   teamAppointmentCancelled,
   teamAppointmentCompleted,
@@ -99,6 +102,36 @@ class CrmNotification extends Equatable {
   final Map<String, Object?> metadata;
   final String fallbackTitle;
   final String fallbackBody;
+
+  CrmNotification copyWith({
+    bool? isRead,
+    DateTime? readAt,
+  }) {
+    return CrmNotification(
+      id: id,
+      companyId: companyId,
+      recipientUid: recipientUid,
+      recipientRole: recipientRole,
+      type: type,
+      module: module,
+      recordId: recordId,
+      recordTitle: recordTitle,
+      recordSubtitle: recordSubtitle,
+      route: route,
+      actorUid: actorUid,
+      actorName: actorName,
+      teamId: teamId,
+      teamName: teamName,
+      managerId: managerId,
+      priority: priority,
+      isRead: isRead ?? this.isRead,
+      readAt: readAt ?? this.readAt,
+      createdAt: createdAt,
+      metadata: metadata,
+      fallbackTitle: fallbackTitle,
+      fallbackBody: fallbackBody,
+    );
+  }
 
   @override
   List<Object?> get props => [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -38,7 +39,20 @@ class DealsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DealsScope(child: _DealsView());
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final user = authState.user;
+        final profile = authState.userProfile;
+        final scopeKey = profile == null || user == null || profile.uid != user.uid
+            ? const ValueKey('deals-scope:loading')
+            : ValueKey('deals-scope:${profile.companyId}:${profile.uid}:${profile.role.name}');
+
+        return DealsScope(
+          key: scopeKey,
+          child: const _DealsView(),
+        );
+      },
+    );
   }
 }
 
@@ -62,8 +76,9 @@ class _DealsViewState extends State<_DealsView> {
     required String companyId,
     required UserRole role,
     required String uid,
+    required ArchiveFilter archiveFilter,
   }) {
-    final key = '$companyId:${role.name}:$uid';
+    final key = '$companyId:${role.name}:$uid:${archiveFilter.name}';
     if (_watchKey == key) {
       return;
     }
@@ -72,6 +87,7 @@ class _DealsViewState extends State<_DealsView> {
       companyId: companyId,
       role: role,
       currentUserId: uid,
+      archiveFilter: archiveFilter,
     );
   }
 
@@ -87,8 +103,14 @@ class _DealsViewState extends State<_DealsView> {
     final authState = context.watch<AuthBloc>().state;
     final user = authState.user;
     final userProfile = authState.userProfile;
-    final companyId = userProfile?.companyId ?? user?.companyId ?? '';
-    final role = userProfile?.role ?? user?.role;
+    final isCurrentProfile = user != null &&
+        userProfile != null &&
+        userProfile.uid == user.uid;
+    final companyId = isCurrentProfile ? userProfile.companyId : '';
+    final role = isCurrentProfile ? userProfile.role : null;
+    final archiveFilter = context.select(
+      (DealsCubit cubit) => cubit.state.archiveFilter,
+    );
 
     if (authState.status == AuthStatus.initial ||
         authState.status == AuthStatus.loading) {
@@ -113,6 +135,7 @@ class _DealsViewState extends State<_DealsView> {
         companyId: companyId,
         role: role,
         uid: user.uid,
+        archiveFilter: archiveFilter,
       );
     }
     final canCreate = PermissionService.can(role, AppPermission.createDeal);
@@ -139,6 +162,10 @@ class _DealsViewState extends State<_DealsView> {
                     if (state.status == DealsStatus.saved &&
                         state.lastAction == DealsAction.archiveDeal) {
                       AppFeedback.success(context, l.dealArchivedSuccessfully);
+                      context.read<DealsCubit>().clearAction();
+                    } else if (state.status == DealsStatus.saved &&
+                        state.lastAction == DealsAction.restoreDeal) {
+                      AppFeedback.success(context, l.recordRestoredSuccessfully);
                       context.read<DealsCubit>().clearAction();
                     } else if (state.status == DealsStatus.saved &&
                         state.lastAction == DealsAction.updateStage) {
@@ -189,6 +216,10 @@ class _DealsViewState extends State<_DealsView> {
                             state: state,
                             searchController: _searchController,
                             canFilterAssignee: canFilterAssignee,
+                            showArchiveFilter: canArchive,
+                            companyId: companyId,
+                            role: role,
+                            currentUserId: user.uid,
                             users: users,
                           );
 
@@ -199,6 +230,8 @@ class _DealsViewState extends State<_DealsView> {
                             canEdit: canEdit,
                             canArchive: canArchive,
                             canUpdateStage: canUpdateStage,
+                            isArchivedView:
+                                state.archiveFilter == ArchiveFilter.archived,
                           );
 
                           if (isMobile) {
@@ -243,12 +276,20 @@ class _DealsFilters extends StatelessWidget {
     required this.state,
     required this.searchController,
     required this.canFilterAssignee,
+    required this.showArchiveFilter,
+    required this.companyId,
+    required this.role,
+    required this.currentUserId,
     required this.users,
   });
 
   final DealsState state;
   final TextEditingController searchController;
   final bool canFilterAssignee;
+  final bool showArchiveFilter;
+  final String companyId;
+  final UserRole role;
+  final String currentUserId;
   final List<UserProfile> users;
 
   @override
@@ -321,7 +362,58 @@ class _DealsFilters extends StatelessWidget {
             users: users,
           ),
         ],
+        if (showArchiveFilter) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: _DealsArchiveSegmentedFilter(
+              value: state.archiveFilter,
+              onChanged: (value) => cubit.setArchiveFilter(
+                value,
+                companyId: companyId,
+                role: role,
+                currentUserId: currentUserId,
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _DealsArchiveSegmentedFilter extends StatelessWidget {
+  const _DealsArchiveSegmentedFilter({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ArchiveFilter value;
+  final ValueChanged<ArchiveFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return SegmentedButton<ArchiveFilter>(
+      showSelectedIcon: false,
+      selected: {value == ArchiveFilter.archived ? value : ArchiveFilter.active},
+      segments: [
+        ButtonSegment(
+          value: ArchiveFilter.active,
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: Text(l.active),
+        ),
+        ButtonSegment(
+          value: ArchiveFilter.archived,
+          icon: const Icon(Icons.archive_outlined, size: 16),
+          label: Text(l.archived),
+        ),
+      ],
+      onSelectionChanged: (selected) => onChanged(selected.first),
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
   }
 }
@@ -480,6 +572,7 @@ class _DealsBody extends StatelessWidget {
     required this.canEdit,
     required this.canArchive,
     required this.canUpdateStage,
+    required this.isArchivedView,
   });
 
   final String companyId;
@@ -488,6 +581,7 @@ class _DealsBody extends StatelessWidget {
   final bool canEdit;
   final bool canArchive;
   final bool canUpdateStage;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -512,6 +606,7 @@ class _DealsBody extends StatelessWidget {
             companyId: companyId,
             role: role,
             currentUserId: uid,
+            archiveFilter: state.archiveFilter,
           );
         },
       );
@@ -519,9 +614,11 @@ class _DealsBody extends StatelessWidget {
 
     if (state.deals.isEmpty) {
       return AppEmptyState(
-        title: l.noDeals,
-        message: l.dealsSubtitle,
-        icon: Icons.handshake_outlined,
+        title: isArchivedView ? l.noArchivedRecords : l.noDeals,
+        message: isArchivedView
+            ? l.archivedRecordsHiddenFromActiveLists
+            : l.dealsSubtitle,
+        icon: isArchivedView ? Icons.archive_outlined : Icons.handshake_outlined,
       );
     }
 
@@ -545,11 +642,13 @@ class _DealsBody extends StatelessWidget {
                     RouteNames.dealDetails(state.filteredDeals[index].id),
                   ),
                   onEdit: canEdit
+                          && !isArchivedView
                       ? () => context.go(
                     RouteNames.dealEdit(state.filteredDeals[index].id),
                   )
                       : null,
                   onUpdateStage: canUpdateStage
+                          && !isArchivedView
                       ? () => showDealStageDialog(
                     context,
                     companyId: companyId,
@@ -558,6 +657,7 @@ class _DealsBody extends StatelessWidget {
                   )
                       : null,
                   onArchive: canArchive
+                          && !isArchivedView
                       ? () => showArchiveDealDialog(
                     context,
                     companyId: companyId,
@@ -565,6 +665,15 @@ class _DealsBody extends StatelessWidget {
                     updatedBy: uid,
                   )
                       : null,
+                  onRestore: canArchive && isArchivedView
+                      ? () => showRestoreDealDialog(
+                            context,
+                            companyId: companyId,
+                            deal: state.filteredDeals[index],
+                            updatedBy: uid,
+                          )
+                      : null,
+                  isArchivedView: isArchivedView,
                 ),
                 if (index != state.filteredDeals.length - 1)
                   const SizedBox(height: AppSpacing.sm),
@@ -581,9 +690,11 @@ class _DealsBody extends StatelessWidget {
               deals: state.filteredDeals,
               onOpen: (deal) => context.go(RouteNames.dealDetails(deal.id)),
               onEdit: canEdit
+                      && !isArchivedView
                   ? (deal) => context.go(RouteNames.dealEdit(deal.id))
                   : null,
               onUpdateStage: canUpdateStage
+                      && !isArchivedView
                   ? (deal) => showDealStageDialog(
                         context,
                         companyId: companyId,
@@ -592,13 +703,23 @@ class _DealsBody extends StatelessWidget {
                       )
                   : null,
               onArchive: canArchive
+                      && !isArchivedView
                   ? (deal) => showArchiveDealDialog(
+                        context,
+                        companyId: companyId,
+                        deal: deal,
+                        updatedBy: uid,
+                  )
+                  : null,
+              onRestore: canArchive && isArchivedView
+                  ? (deal) => showRestoreDealDialog(
                         context,
                         companyId: companyId,
                         deal: deal,
                         updatedBy: uid,
                       )
                   : null,
+              isArchivedView: isArchivedView,
             ),
           ),
         );
@@ -699,6 +820,7 @@ Future<void> showArchiveDealDialog(
 }) async {
   final l = AppLocalizations.of(context)!;
   final cubit = context.read<DealsCubit>();
+  final reasonController = TextEditingController();
   var isSubmitting = false;
 
   await showDialog<void>(
@@ -708,7 +830,20 @@ Future<void> showArchiveDealDialog(
         builder: (context, setDialogState) {
           return AlertDialog(
             title: Text(l.archiveDeal),
-            content: Text(l.archiveDealConfirmation),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(l.archiveDealConfirmation),
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: reasonController,
+                  enabled: !isSubmitting,
+                  maxLines: 2,
+                  label: l.archiveReason,
+                ),
+              ],
+            ),
             actions: [
               TextButton(
                 onPressed: isSubmitting
@@ -722,6 +857,60 @@ Future<void> showArchiveDealDialog(
                 onPressed: () async {
                   setDialogState(() => isSubmitting = true);
                   final success = await cubit.archiveDeal(
+                    companyId: companyId,
+                    dealId: deal.id,
+                    updatedBy: updatedBy,
+                    reason: reasonController.text.trim(),
+                  );
+                  if (success && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    setDialogState(() => isSubmitting = false);
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+  reasonController.dispose();
+}
+
+Future<void> showRestoreDealDialog(
+  BuildContext context, {
+  required String companyId,
+  required Deal deal,
+  required String updatedBy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final cubit = context.read<DealsCubit>();
+  var isSubmitting = false;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(l.restoreRecord),
+            content: Text(l.restoreRecordConfirmation),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
+              AppButton(
+                label: l.restore,
+                isLoading: isSubmitting,
+                onPressed: () async {
+                  setDialogState(() => isSubmitting = true);
+                  final success = await cubit.restoreDeal(
                     companyId: companyId,
                     dealId: deal.id,
                     updatedBy: updatedBy,

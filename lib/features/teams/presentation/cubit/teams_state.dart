@@ -53,6 +53,16 @@ class TeamsState extends Equatable {
     return users.where((user) => user.teamId == teamId).toList();
   }
 
+  List<UserProfile> membersForTeam(Team team) {
+    final byUid = <String, UserProfile>{};
+    for (final user in users) {
+      if (user.teamId == team.id || user.managerId == team.managerId) {
+        byUid[user.uid] = user;
+      }
+    }
+    return byUid.values.toList();
+  }
+
   List<UserProfile> get managers {
     return users.where((user) => user.role == UserRole.manager).toList();
   }

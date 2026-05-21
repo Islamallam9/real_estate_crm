@@ -67,8 +67,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Timer? _lockoutTimer;
   int _invalidCredentialAttempts = 0;
   DateTime? _lockedUntil;
+  int _sessionGeneration = 0;
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
+    final generation = _nextSessionGeneration();
+
     emit(
       state.copyWith(
         status: AuthStatus.loading,
@@ -94,6 +97,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         user: user,
         signOutOnFailure: false,
         recordLoginActivity: false,
+        expectedGeneration: generation,
       );
   }
 
@@ -101,6 +105,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
+    final generation = _nextSessionGeneration();
     final remaining = _lockoutSecondsRemaining();
     if (remaining > 0) {
       emit(
@@ -139,6 +144,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         user: user,
         signOutOnFailure: true,
         recordLoginActivity: true,
+        expectedGeneration: generation,
       );
     } on AuthException catch (error) {
       if (error.code == AuthErrorCode.invalidCredentials) {
@@ -229,11 +235,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignOutRequested event,
     Emitter<AuthState> emit,
   ) async {
+    _nextSessionGeneration();
     emit(
       state.copyWith(
         status: AuthStatus.loading,
         clearMessage: true,
         clearErrorCode: true,
+        clearUser: true,
+        clearUserProfile: true,
+        clearCompanyMetadata: true,
         passwordResetSent: false,
       ),
     );
@@ -278,19 +288,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (event.user == null) {
-      if (state.status == AuthStatus.failure) {
-        return;
-      }
-
+      _nextSessionGeneration();
       emit(const AuthState(status: AuthStatus.unauthenticated));
       return;
     }
 
+    final nextUser = event.user!;
+    final generation = _nextSessionGeneration();
+    final currentUid = state.user?.uid;
+    final currentProfileUid = state.userProfile?.uid;
+    if (currentUid != nextUser.uid || currentProfileUid != nextUser.uid) {
+      emit(
+        state.copyWith(
+          status: AuthStatus.loading,
+          user: nextUser,
+          clearUserProfile: true,
+          clearCompanyMetadata: true,
+          clearMessage: true,
+          clearErrorCode: true,
+        ),
+      );
+    }
+
     await _loadProfileAndEmitAuthenticated(
       emit: emit,
-      user: event.user!,
+      user: nextUser,
       signOutOnFailure: false,
       recordLoginActivity: false,
+      expectedGeneration: generation,
     );
   }
 
@@ -299,6 +324,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required AppUser user,
     required bool signOutOnFailure,
     required bool recordLoginActivity,
+    required int expectedGeneration,
   }) async {
     try {
       final resolution = await _resolveAuthCompanyUseCase(
@@ -310,8 +336,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         },
       );
 
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
+      }
+
       if (!resolution.hasCompany) {
         if (resolution.isPlatformAdmin) {
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
@@ -334,6 +367,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (!resolution.isCompanyActive) {
         if (resolution.isPlatformAdmin) {
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
@@ -362,6 +398,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       } on UserProfileException {
         if (resolution.isPlatformAdmin) {
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
@@ -374,8 +413,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         rethrow;
       }
 
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
+      }
+
       if (!profile.isActive) {
         if (resolution.isPlatformAdmin) {
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
@@ -403,9 +449,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             companyId: profile.companyId,
             uid: user.uid,
           );
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
         } catch (_) {
           // Login telemetry should not block a valid session.
         }
+      }
+
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
       }
 
       emit(
@@ -424,6 +477,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
     } on UserProfileException catch (error) {
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
+      }
       if (signOutOnFailure) {
         await _signOutUseCase();
       }
@@ -440,6 +496,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
     } on AuthException catch (error) {
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
+      }
       emit(
         AuthState(
           status: AuthStatus.failure,
@@ -448,6 +507,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
     } catch (_) {
+      if (!_isCurrentSession(user.uid, expectedGeneration)) {
+        return;
+      }
       if (signOutOnFailure) {
         await _signOutUseCase();
       }
@@ -557,6 +619,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       add(const AuthLockoutTicked());
     });
+  }
+
+  int _nextSessionGeneration() {
+    _sessionGeneration += 1;
+    return _sessionGeneration;
+  }
+
+  bool _isCurrentSession(String uid, int expectedGeneration) {
+    if (isClosed || _sessionGeneration != expectedGeneration) {
+      return false;
+    }
+    return _getCurrentUserUseCase()?.uid == uid;
   }
 
   void _resetInvalidCredentialBackoff() {

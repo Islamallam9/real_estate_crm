@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
@@ -45,10 +46,15 @@ abstract interface class NotificationsRemoteDataSource {
 
 class FirestoreNotificationsRemoteDataSource
     implements NotificationsRemoteDataSource {
-  FirestoreNotificationsRemoteDataSource({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreNotificationsRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions =
+            functions ?? FirebaseFunctions.instanceFor(region: 'us-east1');
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   @override
   Stream<List<CrmNotificationModel>> watchNotifications({
@@ -81,26 +87,77 @@ class FirestoreNotificationsRemoteDataSource
     required String companyId,
     required String recipientUid,
   }) {
-    return _notificationsCollection(companyId)
+    final controller = StreamController<int>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? unreadSub;
+    Timer? timingRefreshTimer;
+    var timingRefreshInFlight = false;
+
+    Future<void> refreshTimingNotifications() async {
+      if (timingRefreshInFlight || controller.isClosed) {
+        return;
+      }
+      timingRefreshInFlight = true;
+      try {
+        await _refreshAppointmentTimingNotifications(companyId: companyId);
+      } on FirebaseFunctionsException {
+        // Best-effort safety net. Keep the bell usable if the callable has not
+        // been deployed yet or the network is temporarily unavailable.
+      } catch (_) {
+        // Keep notification streams usable even if timing refresh fails.
+      } finally {
+        timingRefreshInFlight = false;
+      }
+    }
+
+    unreadSub = _notificationsCollection(companyId)
         .where('recipientUid', isEqualTo: recipientUid)
         .snapshots()
-        .map((snapshot) {
-      var unreadCount = 0;
-      for (final document in snapshot.docs) {
-        final notification = CrmNotificationModel.fromFirestore(document);
-        _ensureRecipient(
-          companyId: companyId,
-          recipientUid: recipientUid,
-          notification: notification,
-        );
-        if (!notification.isRead) {
-          unreadCount += 1;
+        .listen(
+      (snapshot) {
+        var unreadCount = 0;
+        try {
+          for (final document in snapshot.docs) {
+            final notification = CrmNotificationModel.fromFirestore(document);
+            _ensureRecipient(
+              companyId: companyId,
+              recipientUid: recipientUid,
+              notification: notification,
+            );
+            if (!notification.isRead) {
+              unreadCount += 1;
+            }
+          }
+          if (!controller.isClosed) {
+            controller.add(unreadCount);
+          }
+        } catch (error) {
+          if (!controller.isClosed) {
+            controller.addError(NotificationException(_mapFirestoreError(error)));
+          }
         }
-      }
-      return unreadCount;
-    }).handleError((Object error) {
-      throw NotificationException(_mapFirestoreError(error));
-    });
+      },
+      onError: (Object error) {
+        if (!controller.isClosed) {
+          controller.addError(NotificationException(_mapFirestoreError(error)));
+        }
+      },
+    );
+
+    // The bell is always active in the app shell, so this makes due-now
+    // appointment notifications appear while the user is inside the app even
+    // if Cloud Scheduler is delayed. FCM remains out of scope.
+    unawaited(refreshTimingNotifications());
+    timingRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => unawaited(refreshTimingNotifications()),
+    );
+
+    controller.onCancel = () async {
+      timingRefreshTimer?.cancel();
+      await unreadSub?.cancel();
+    };
+
+    return controller.stream;
   }
 
   @override
@@ -125,6 +182,25 @@ class FirestoreNotificationsRemoteDataSource
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? tasksSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? appointmentsSub;
     Timer? appointmentTicker;
+    var timingRefreshInFlight = false;
+
+    Future<void> refreshTimingNotifications() async {
+      if (timingRefreshInFlight || controller.isClosed) {
+        return;
+      }
+      timingRefreshInFlight = true;
+      try {
+        await _refreshAppointmentTimingNotifications(companyId: companyId);
+      } on FirebaseFunctionsException {
+        // Timing refresh is a best-effort safety net. The scheduled backend
+        // function remains the source of truth, so do not break the
+        // notification UI if the callable is not deployed yet or is delayed.
+      } catch (_) {
+        // Keep notification streams usable even if the timing refresh fails.
+      } finally {
+        timingRefreshInFlight = false;
+      }
+    }
 
     void emitCombined() {
       final reminders = [
@@ -213,9 +289,14 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
+    unawaited(refreshTimingNotifications());
+
     appointmentTicker = Timer.periodic(
       const Duration(minutes: 1),
-      (_) => refreshAppointmentReminders(),
+      (_) {
+        unawaited(refreshTimingNotifications());
+        refreshAppointmentReminders();
+      },
     );
 
     controller.onCancel = () async {
@@ -255,6 +336,7 @@ class FirestoreNotificationsRemoteDataSource
     try {
       final snapshot = await _notificationsCollection(companyId)
           .where('recipientUid', isEqualTo: recipientUid)
+          .where('isRead', isEqualTo: false)
           .limit(limit)
           .get();
       if (snapshot.docs.isEmpty) {
@@ -305,7 +387,9 @@ class FirestoreNotificationsRemoteDataSource
           ? query.where('teamId', isEqualTo: teamId)
           : query.where('managerId', isEqualTo: currentUserId);
     } else if (role == UserRole.salesAgent || role == UserRole.marketing) {
-      query = query.where('assignedTo', isEqualTo: currentUserId);
+      query = query
+          .where('assignedTo', isEqualTo: currentUserId)
+          .where('isArchived', isEqualTo: false);
     }
     return query.limit(limit);
   }
@@ -326,7 +410,9 @@ class FirestoreNotificationsRemoteDataSource
           ? query.where('teamId', isEqualTo: teamId)
           : query.where('managerId', isEqualTo: currentUserId);
     } else if (role == UserRole.salesAgent || role == UserRole.marketing) {
-      query = query.where('assignedTo', isEqualTo: currentUserId);
+      query = query
+          .where('assignedTo', isEqualTo: currentUserId)
+          .where('isActive', isEqualTo: true);
     }
     return query.limit(limit);
   }
@@ -481,14 +567,16 @@ class FirestoreNotificationsRemoteDataSource
       if (scheduledAt == null) {
         continue;
       }
-      final endAt = _dateTimeFromValue(data['endAt']) ?? scheduledAt;
       final scheduledDay = _dateOnly(scheduledAt);
       final isStoredMissed = status == 'missed';
-      final isOverdueScheduled =
-          status == 'scheduled' && endAt.toLocal().isBefore(now);
-      final isDueNow = status == 'scheduled' &&
+      final isOpenScheduled =
+          status == 'scheduled' || status == 'rescheduled';
+      final secondsPastStart =
+          now.difference(scheduledAt.toLocal()).inSeconds;
+      final isDueNow = isOpenScheduled &&
           !scheduledAt.toLocal().isAfter(now) &&
-          !endAt.toLocal().isBefore(now);
+          secondsPastStart < 60;
+      final isOverdueScheduled = isOpenScheduled && secondsPastStart >= 60;
       final isUpcomingSoon =
           scheduledAt.toLocal().isAfter(now) &&
           scheduledAt.toLocal().isBefore(soonCutoff);
@@ -530,6 +618,17 @@ class FirestoreNotificationsRemoteDataSource
       );
     }
     return reminders;
+  }
+
+  Future<void> _refreshAppointmentTimingNotifications({
+    required String companyId,
+  }) async {
+    final callable = _functions.httpsCallable(
+      'refreshAppointmentTimingNotifications',
+    );
+    await callable.call(<String, Object?>{
+      'companyId': companyId,
+    });
   }
 
   CollectionReference<Map<String, dynamic>> _notificationsCollection(

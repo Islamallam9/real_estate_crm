@@ -48,4 +48,9 @@ abstract interface class TeamRepository {
     required UserProfile user,
     required String actorUid,
   });
+
+  Future<void> backfillTeamAssignedRecordSnapshots({
+    required Team team,
+    required String actorUid,
+  });
 }

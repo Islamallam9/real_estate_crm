@@ -105,4 +105,15 @@ class TeamRepositoryImpl implements TeamRepository {
   }) {
     return _remoteDataSource.removeUserFromTeam(user: user, actorUid: actorUid);
   }
+
+  @override
+  Future<void> backfillTeamAssignedRecordSnapshots({
+    required Team team,
+    required String actorUid,
+  }) {
+    return _remoteDataSource.backfillTeamAssignedRecordSnapshots(
+      team: team,
+      actorUid: actorUid,
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -51,27 +52,32 @@ class LeadsListPage extends StatelessWidget {
             return const AppLoading();
           }
 
-          final companyId =
-              authState.userProfile?.companyId ??
-              authState.user?.companyId ??
-              '';
+          final user = authState.user;
+          final profile = authState.userProfile;
+          if (user == null || profile == null || profile.uid != user.uid) {
+            return const AppLoading();
+          }
+
+          final companyId = profile.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
 
+          final scopeKey = ValueKey('leads-scope:$companyId:${profile.uid}:${profile.role.name}');
+
           return LeadsScope(
+            key: scopeKey,
             child: _LeadsListContent(
+              key: ValueKey('leads-content:$companyId:${profile.uid}:${profile.role.name}'),
               companyId: companyId,
-              uid: authState.user?.uid ?? '',
-              actorName:
-                  authState.userProfile?.fullName ??
-                  authState.user?.fullName ??
-                  localizations.unknownUser,
-              canCreate: _can(authState, AppPermission.createLead),
-              canEdit: _can(authState, AppPermission.editLead),
-              roleName:
-                  (authState.userProfile?.role ?? authState.user?.role)?.name ??
-                  '',
+              uid: profile.uid,
+              actorName: profile.fullName.trim().isEmpty
+                  ? localizations.unknownUser
+                  : profile.fullName,
+              canCreate: PermissionService.can(profile.role, AppPermission.createLead),
+              canEdit: PermissionService.can(profile.role, AppPermission.editLead),
+              canArchive: PermissionService.can(profile.role, AppPermission.archiveLead),
+              roleName: profile.role.name,
             ),
           );
         },
@@ -82,11 +88,13 @@ class LeadsListPage extends StatelessWidget {
 
 class _LeadsListContent extends StatefulWidget {
   const _LeadsListContent({
+    super.key,
     required this.companyId,
     required this.uid,
     required this.actorName,
     required this.canCreate,
     required this.canEdit,
+    required this.canArchive,
     required this.roleName,
   });
 
@@ -95,6 +103,7 @@ class _LeadsListContent extends StatefulWidget {
   final String actorName;
   final bool canCreate;
   final bool canEdit;
+  final bool canArchive;
   final String roleName;
 
   @override
@@ -138,6 +147,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
       companyId: widget.companyId,
       assignedTo: _assignedToFilter,
       managerId: _managerIdFilter,
+      archiveFilter: context.read<LeadsCubit>().state.archiveFilter,
     );
   }
 
@@ -173,6 +183,8 @@ class _LeadsListContentState extends State<_LeadsListContent> {
           AppFeedback.success(context, localizations.leadAssignedSuccessfully);
         } else if (state.lastAction == LeadsAction.archiveLead) {
           AppFeedback.success(context, localizations.leadArchivedSuccessfully);
+        } else if (state.lastAction == LeadsAction.restoreLead) {
+          AppFeedback.success(context, localizations.recordRestoredSuccessfully);
         } else if (state.lastAction == LeadsAction.updateStatus) {
           AppFeedback.success(
             context,
@@ -223,6 +235,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                         companyId: widget.companyId,
                         assignedTo: _assignedToFilter,
                         managerId: _managerIdFilter,
+                        archiveFilter: state.archiveFilter,
                       );
                     },
                   );
@@ -233,6 +246,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 
                 final filters = _LeadFilters(
                   showAssignee: showAssignee,
+                  showArchiveFilter: widget.canArchive,
+                  companyId: widget.companyId,
+                  assignedTo: _assignedToFilter,
+                  managerId: _managerIdFilter,
                   users: users,
                 );
 
@@ -246,6 +263,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   canEdit: widget.canEdit,
                   uid: widget.uid,
                   actorName: widget.actorName,
+                  isArchivedView: state.archiveFilter == ArchiveFilter.archived,
                 );
 
                 if (isMobile) {
@@ -284,10 +302,21 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 }
 
 class _LeadFilters extends StatelessWidget {
-  const _LeadFilters({required this.showAssignee, required this.users});
+  const _LeadFilters({
+    required this.showAssignee,
+    required this.showArchiveFilter,
+    required this.companyId,
+    required this.users,
+    this.assignedTo,
+    this.managerId,
+  });
 
   final bool showAssignee;
+  final bool showArchiveFilter;
+  final String companyId;
   final List<UserProfile> users;
+  final String? assignedTo;
+  final String? managerId;
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +332,8 @@ class _LeadFilters extends StatelessWidget {
             previous.sourceFilter != current.sourceFilter ||
             previous.priorityFilter != current.priorityFilter ||
             previous.assignedToFilter != current.assignedToFilter ||
-            previous.followUpFilter != current.followUpFilter;
+            previous.followUpFilter != current.followUpFilter ||
+            previous.archiveFilter != current.archiveFilter;
       },
       builder: (context, state) {
         return LayoutBuilder(
@@ -312,6 +342,10 @@ class _LeadFilters extends StatelessWidget {
               return _MobileLeadFilters(
                 state: state,
                 showAssignee: showAssignee,
+                showArchiveFilter: showArchiveFilter,
+                companyId: companyId,
+                assignedTo: assignedTo,
+                managerId: managerId,
                 users: users,
               );
             }
@@ -371,6 +405,21 @@ class _LeadFilters extends StatelessWidget {
                     state: state,
                     users: users,
                     showAssignee: showAssignee,
+                  ),
+                ],
+                if (showArchiveFilter) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _LeadArchiveSegmentedFilter(
+                      value: state.archiveFilter,
+                      onChanged: (value) => cubit.setArchiveFilter(
+                        value,
+                        companyId: companyId,
+                        assignedTo: assignedTo,
+                        managerId: managerId,
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -514,12 +563,20 @@ class _MobileLeadFilters extends StatelessWidget {
   const _MobileLeadFilters({
     required this.state,
     required this.showAssignee,
+    required this.showArchiveFilter,
+    required this.companyId,
     required this.users,
+    this.assignedTo,
+    this.managerId,
   });
 
   final LeadsState state;
   final bool showAssignee;
+  final bool showArchiveFilter;
+  final String companyId;
   final List<UserProfile> users;
+  final String? assignedTo;
+  final String? managerId;
 
   @override
   Widget build(BuildContext context) {
@@ -528,28 +585,82 @@ class _MobileLeadFilters extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final cubit = context.read<LeadsCubit>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _LeadSearchField(
-            query: state.searchQuery,
-            onChanged: context.read<LeadsCubit>().setSearchQuery,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _LeadSearchField(
+                query: state.searchQuery,
+                onChanged: cubit.setSearchQuery,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            AppButton(
+              label: localizations.filters,
+              icon: Icons.tune,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => _showLeadFiltersSheet(
+                context,
+                state,
+                showAssignee: showAssignee,
+                users: users,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: AppSpacing.sm),
-        AppButton(
-          label: localizations.filters,
-          icon: Icons.tune,
-          variant: AppButtonVariant.secondary,
-          onPressed: () => _showLeadFiltersSheet(
-            context,
-            state,
-            showAssignee: showAssignee,
-            users: users,
+        if (showArchiveFilter) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _LeadArchiveSegmentedFilter(
+            value: state.archiveFilter,
+            onChanged: (value) => cubit.setArchiveFilter(
+              value,
+              companyId: companyId,
+              assignedTo: assignedTo,
+              managerId: managerId,
+            ),
           ),
+        ],
+      ],
+    );
+  }
+}
+
+class _LeadArchiveSegmentedFilter extends StatelessWidget {
+  const _LeadArchiveSegmentedFilter({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ArchiveFilter value;
+  final ValueChanged<ArchiveFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return SegmentedButton<ArchiveFilter>(
+      showSelectedIcon: false,
+      selected: {value == ArchiveFilter.archived ? value : ArchiveFilter.active},
+      segments: [
+        ButtonSegment(
+          value: ArchiveFilter.active,
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: Text(l.active),
+        ),
+        ButtonSegment(
+          value: ArchiveFilter.archived,
+          icon: const Icon(Icons.archive_outlined, size: 16),
+          label: Text(l.archived),
         ),
       ],
+      onSelectionChanged: (selected) => onChanged(selected.first),
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
   }
 }
@@ -812,6 +923,7 @@ class _LeadsBody extends StatelessWidget {
     required this.canEdit,
     required this.uid,
     required this.actorName,
+    required this.isArchivedView,
   });
 
   final LeadsState state;
@@ -823,6 +935,7 @@ class _LeadsBody extends StatelessWidget {
   final bool canEdit;
   final String uid;
   final String actorName;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -845,6 +958,7 @@ class _LeadsBody extends StatelessWidget {
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            archiveFilter: state.archiveFilter,
           );
         },
       );
@@ -856,8 +970,12 @@ class _LeadsBody extends StatelessWidget {
         if (compact) {
           if (state.filteredLeads.isEmpty) {
             return AppEmptyState(
-              title: localizations.noLeads,
-              message: localizations.leadsSubtitle,
+              title: isArchivedView
+                  ? localizations.noArchivedRecords
+                  : localizations.noLeads,
+              message: isArchivedView
+                  ? localizations.archivedRecordsHiddenFromActiveLists
+                  : localizations.leadsSubtitle,
             );
           }
           return Column(
@@ -866,6 +984,7 @@ class _LeadsBody extends StatelessWidget {
                 _LeadCard(
                   lead: state.filteredLeads[index],
                   users: users,
+                  isArchivedView: isArchivedView,
                 ),
                 if (index != state.filteredLeads.length - 1)
                   const SizedBox(height: AppSpacing.sm),
@@ -883,6 +1002,7 @@ class _LeadsBody extends StatelessWidget {
           actorName: actorName,
           isRefreshing: state.status == LeadsStatus.loading,
           isSaving: state.status == LeadsStatus.saving,
+          isArchivedView: isArchivedView,
         );
       },
     );
@@ -900,6 +1020,7 @@ class _LeadsWebWorkspace extends StatefulWidget {
     required this.actorName,
     required this.isRefreshing,
     required this.isSaving,
+    required this.isArchivedView,
   });
 
   final List<Lead> leads;
@@ -911,6 +1032,7 @@ class _LeadsWebWorkspace extends StatefulWidget {
   final String actorName;
   final bool isRefreshing;
   final bool isSaving;
+  final bool isArchivedView;
 
   @override
   State<_LeadsWebWorkspace> createState() => _LeadsWebWorkspaceState();
@@ -941,8 +1063,12 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                 builder: (context, constraints) {
                   final table = widget.leads.isEmpty
                       ? AppEmptyState(
-                          title: localizations.noLeads,
-                          message: localizations.leadsSubtitle,
+                          title: widget.isArchivedView
+                              ? localizations.noArchivedRecords
+                              : localizations.noLeads,
+                          message: widget.isArchivedView
+                              ? localizations.archivedRecordsHiddenFromActiveLists
+                              : localizations.leadsSubtitle,
                         )
                       : _LeadsWebTable(
                           leads: widget.leads,
@@ -962,6 +1088,7 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                     uid: widget.uid,
                     actorName: widget.actorName,
                     isSaving: widget.isSaving,
+                    isArchivedView: widget.isArchivedView,
                   );
 
                   if (constraints.maxWidth < 1100) {
@@ -1321,6 +1448,7 @@ class _LeadPreviewPanel extends StatelessWidget {
     required this.uid,
     required this.actorName,
     required this.isSaving,
+    required this.isArchivedView,
   });
 
   final Lead? lead;
@@ -1331,6 +1459,7 @@ class _LeadPreviewPanel extends StatelessWidget {
   final String uid;
   final String actorName;
   final bool isSaving;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -1381,6 +1510,11 @@ class _LeadPreviewPanel extends StatelessWidget {
                     spacing: AppSpacing.xs,
                     runSpacing: AppSpacing.xs,
                     children: [
+                      if (selectedLead.isArchived || isArchivedView)
+                        AppStatusBadge(
+                          label: l.archived,
+                          tone: AppStatusTone.neutral,
+                        ),
                       AppStatusBadge(label: _statusLabel(l, selectedLead.status)),
                       AppStatusBadge(
                         label: _priorityLabel(l, selectedLead.priority),
@@ -1430,7 +1564,7 @@ class _LeadPreviewPanel extends StatelessWidget {
             isExpanded: true,
             onPressed: () => context.go(RouteNames.leadDetails(selectedLead.id)),
           ),
-          if (canEdit) ...[
+          if (canEdit && !isArchivedView) ...[
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               alignment: WrapAlignment.center,
@@ -1601,10 +1735,12 @@ class _LeadCard extends StatelessWidget {
   const _LeadCard({
     required this.lead,
     required this.users,
+    required this.isArchivedView,
   });
 
   final Lead lead;
   final List<UserProfile> users;
+  final bool isArchivedView;
 
   @override
   Widget build(BuildContext context) {
@@ -1642,6 +1778,13 @@ class _LeadCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: _LeadTitle(lead: lead)),
+                if (lead.isArchived || isArchivedView) ...[
+                  AppStatusBadge(
+                    label: localizations.archived,
+                    tone: AppStatusTone.neutral,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
                 AppStatusBadge(label: _statusLabel(localizations, lead.status)),
               ],
             ),
