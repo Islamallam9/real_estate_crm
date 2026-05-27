@@ -42,6 +42,8 @@ class _LoginFormState extends State<LoginForm> {
       builder: (context, state) {
         final isLoading = state.status == AuthStatus.loading;
         final isLocked = state.lockoutSecondsRemaining > 0;
+        final hasAuthError = state.message != null &&
+            (state.status == AuthStatus.failure || state.errorCode != null);
 
         return Form(
           key: _formKey,
@@ -72,7 +74,7 @@ class _LoginFormState extends State<LoginForm> {
                 },
               ),
               const SizedBox(height: AppSpacing.md),
-              if (state.status == AuthStatus.failure && state.message != null)
+              if (hasAuthError)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: _LoginErrorMessage(
@@ -150,6 +152,8 @@ String _localizedAuthError(
       return localizations.authErrorAccountNotLinked;
     case AuthErrorCode.companyInactive:
       return localizations.authErrorCompanyInactive;
+    case AuthErrorCode.companyTrialEnded:
+      return localizations.trialEndedAccessMessage;
     case AuthErrorCode.tooManyAttempts:
       return localizations.authRetryCountdown(lockoutSecondsRemaining);
     case AuthErrorCode.unknown:

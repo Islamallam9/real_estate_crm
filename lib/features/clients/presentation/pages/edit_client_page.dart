@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -15,6 +16,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -31,7 +33,18 @@ class EditClientPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClientsScope(child: _EditClientView(clientId: clientId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return ClientsScope(
+          key: ValueKey(
+            session?.scopeKey('edit-client-scope') ??
+                'edit-client-scope:loading',
+          ),
+          child: _EditClientView(clientId: clientId),
+        );
+      },
+    );
   }
 }
 
@@ -46,29 +59,45 @@ class _EditClientView extends StatefulWidget {
 
 class _EditClientViewState extends State<_EditClientView> {
   bool _isSubmitting = false;
+  String? _watchKey;
 
-
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty && widget.clientId.isNotEmpty) {
-      context.read<ClientsCubit>().watchClient(
-        companyId: companyId,
-        clientId: widget.clientId,
-      );
+  void _watchClientWhenReady(ProtectedCompanySession session) {
+    if (widget.clientId.isEmpty) {
+      return;
     }
+    final key = '${session.scopeKey('edit-client-watch')}:${widget.clientId}';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<ClientsCubit>().watchClient(
+      companyId: session.companyId,
+      clientId: widget.clientId,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final companyId = _companyId(context);
-    final uid = authState.user?.uid ?? '';
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.clients,
+        title: l.editClient,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
     final canEdit =
         role != null && PermissionService.can(role, AppPermission.editClient);
+    if (session != null && canEdit) {
+      _watchClientWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.clients,
@@ -226,11 +255,6 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 String localizationsErrorFallback(

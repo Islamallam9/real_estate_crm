@@ -205,7 +205,7 @@ class _DesktopHero extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const MasarBrandLogo(height: 58),
+            const _OnboardingBrandLogo(height: 58),
             const SizedBox(height: AppSpacing.xl),
             Text(
               l.onboardingTitle,
@@ -239,6 +239,18 @@ class _DesktopHero extends StatelessWidget {
   }
 }
 
+
+class _OnboardingBrandLogo extends StatelessWidget {
+  const _OnboardingBrandLogo({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return MasarBrandLogo(height: height);
+  }
+}
+
 class _MobileOnboardingPager extends StatelessWidget {
   const _MobileOnboardingPager({
     required this.controller,
@@ -265,7 +277,7 @@ class _MobileOnboardingPager extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.only(bottom: AppSpacing.md),
-          child: MasarBrandLogo(height: 48),
+          child: _OnboardingBrandLogo(height: 48),
         ),
         Expanded(
           child: PageView.builder(

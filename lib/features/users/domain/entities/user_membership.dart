@@ -21,7 +21,7 @@ class UserMembership extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  bool get isUsable => isActive && status == 'active';
+  bool get isUsable => isActive && (status == 'active' || status == 'trial');
 
   @override
   List<Object?> get props => [

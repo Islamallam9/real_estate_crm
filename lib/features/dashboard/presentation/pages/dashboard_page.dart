@@ -8,12 +8,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
+import '../../../../core/time/server_clock.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
@@ -57,6 +60,8 @@ import '../../../tasks/domain/entities/crm_task.dart';
 import '../../../tasks/presentation/cubit/tasks_cubit.dart';
 import '../../../tasks/presentation/cubit/tasks_state.dart';
 import '../../../tasks/presentation/widgets/tasks_scope.dart';
+import '../../../users/domain/entities/company_metadata.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({
@@ -85,28 +90,30 @@ class DashboardPage extends StatelessWidget {
       title: l.dashboard,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
 
-          return _DashboardScopes(
-            key: ValueKey('dashboard-scopes:$companyId:${profile.uid}:${profile.role.name}'),
-            child: _DashboardContent(
-              key: ValueKey('dashboard-content:$companyId:${profile.uid}:${profile.role.name}'),
-              companyId: companyId,
-              authState: authState,
+          return _TrialAccessGate(
+            company: authState.companyMetadata,
+            child: _DashboardScopes(
+              key: ValueKey(session.scopeKey('dashboard-scopes')),
+              child: _DashboardContent(
+                key: ValueKey(session.scopeKey('dashboard-content')),
+                companyId: companyId,
+                authState: authState,
+              ),
             ),
           );
         },
@@ -239,10 +246,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void didUpdateWidget(covariant _DashboardContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldRole =
-        oldWidget.authState.userProfile?.role ?? oldWidget.authState.user?.role;
-    final newRole =
-        widget.authState.userProfile?.role ?? widget.authState.user?.role;
+    final oldRole = oldWidget.authState.protectedCompanySession?.profile.role;
+    final newRole = widget.authState.protectedCompanySession?.profile.role;
     final oldUid = oldWidget.authState.user?.uid ?? '';
     final newUid = widget.authState.user?.uid ?? '';
     if (oldWidget.companyId != widget.companyId ||
@@ -266,14 +271,14 @@ class _DashboardContentState extends State<_DashboardContent> {
       return;
     }
 
-    final role =
-        widget.authState.userProfile?.role ?? widget.authState.user?.role;
-    final uid = widget.authState.user?.uid ?? '';
+    final session = widget.authState.protectedCompanySession;
+    final role = session?.profile.role;
+    final uid = session?.uid ?? '';
     if (role == null || uid.isEmpty) {
       return;
     }
     final managerTeamId = role == UserRole.manager
-        ? widget.authState.userProfile?.teamId.trim()
+        ? session?.profile.teamId.trim()
         : null;
     final key = '${widget.companyId}:${role.name}:$uid:${managerTeamId ?? ''}';
     if (_watchKey == key) {
@@ -347,13 +352,13 @@ class _DashboardContentState extends State<_DashboardContent> {
       return;
     }
 
-    final role =
-        widget.authState.userProfile?.role ?? widget.authState.user?.role;
-    final uid = widget.authState.user?.uid ?? '';
+    final session = widget.authState.protectedCompanySession;
+    final role = session?.profile.role;
+    final uid = session?.uid ?? '';
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
     final managerTeamId = role == UserRole.manager
-        ? widget.authState.userProfile?.teamId.trim()
+        ? session?.profile.teamId.trim()
         : null;
 
     if (role != null &&
@@ -539,7 +544,7 @@ class _RecentActivityPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final role = authState.userProfile?.role ?? authState.user?.role;
+    final role = authState.protectedCompanySession?.profile.role;
     final canViewRecentActivity =
         platformPreview || role == UserRole.admin || role == UserRole.manager;
 
@@ -571,7 +576,7 @@ class _RecentActivityPanel extends StatelessWidget {
             builder: (context, state) {
               if (state.status == AuditLogsStatus.loading &&
                   state.logs.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: MasarLogoLoader(size: 40));
               }
 
               if (state.status == AuditLogsStatus.failure) {
@@ -820,6 +825,7 @@ String _auditActionLabel(AppLocalizations l, AuditLogAction action) {
     AuditLogAction.imageAdded => l.dashboardAuditImageAdded,
     AuditLogAction.imageRemoved => l.dashboardAuditImageRemoved,
     AuditLogAction.restore => l.dashboardAuditRestored,
+    AuditLogAction.exportGenerated => l.dashboardAuditExportGenerated,
   };
 }
 
@@ -830,6 +836,7 @@ String _auditModuleLabel(AppLocalizations l, AuditLogModule module) {
     AuditLogModule.properties => l.dashboardAuditProperty,
     AuditLogModule.tasks => l.dashboardAuditTask,
     AuditLogModule.deals => l.dashboardAuditDeal,
+    AuditLogModule.reports => l.reports,
   };
 }
 
@@ -840,6 +847,7 @@ IconData _auditModuleIcon(AuditLogModule module) {
     AuditLogModule.properties => Icons.business_outlined,
     AuditLogModule.tasks => Icons.checklist_rtl_rounded,
     AuditLogModule.deals => Icons.handshake_outlined,
+    AuditLogModule.reports => Icons.file_download_outlined,
   };
 }
 
@@ -857,6 +865,7 @@ AppStatusTone _auditActionTone(AuditLogAction action) {
     AuditLogAction.restore => AppStatusTone.success,
     AuditLogAction.assign => AppStatusTone.info,
     AuditLogAction.update => AppStatusTone.info,
+    AuditLogAction.exportGenerated => AppStatusTone.info,
   };
 }
 
@@ -875,6 +884,7 @@ void Function(BuildContext context)? _auditRecordTap(AuditLog log) {
     AuditLogModule.tasks => (context) => context.go(RouteNames.tasks),
     AuditLogModule.deals => (context) =>
         context.go(RouteNames.dealDetails(log.recordId)),
+    AuditLogModule.reports => (context) => context.go(RouteNames.reports),
   };
 }
 
@@ -1013,8 +1023,10 @@ class _DashboardView extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    return _TrialNoticeGate(
+      company: authState.companyMetadata,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
         final compact = constraints.maxWidth < 860;
         final mobile = constraints.maxWidth < 600;
         final features = authState.companyMetadata;
@@ -1068,6 +1080,8 @@ class _DashboardView extends StatelessWidget {
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _TrialBadgeBanner(company: authState.companyMetadata),
+                  _PaymentStatusBanner(company: authState.companyMetadata),
                   _DashboardReveal(
                     id: 'welcome',
                     delay: Duration.zero,
@@ -1318,7 +1332,8 @@ class _DashboardView extends StatelessWidget {
               ),
           ],
         );
-      },
+        },
+      ),
     );
   }
 
@@ -1327,7 +1342,7 @@ class _DashboardView extends StatelessWidget {
     AuthState authState,
   ) {
     final l = AppLocalizations.of(context)!;
-    final role = authState.userProfile?.role ?? authState.user?.role;
+    final role = authState.protectedCompanySession?.profile.role;
     final canCreateLead =
         authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
         role != null && PermissionService.can(role, AppPermission.createLead);
@@ -1368,6 +1383,417 @@ class _DashboardView extends StatelessWidget {
           onTap: () => context.go(RouteNames.appointmentsCreate),
         ),
     ];
+  }
+}
+
+
+class _TrialNoticeGate extends StatefulWidget {
+  const _TrialNoticeGate({required this.company, required this.child});
+
+  final CompanyMetadata? company;
+  final Widget child;
+
+  @override
+  State<_TrialNoticeGate> createState() => _TrialNoticeGateState();
+}
+
+class _TrialAccessGate extends StatefulWidget {
+  const _TrialAccessGate({
+    required this.company,
+    required this.child,
+  });
+
+  final CompanyMetadata? company;
+  final Widget child;
+
+  @override
+  State<_TrialAccessGate> createState() => _TrialAccessGateState();
+}
+
+class _TrialAccessGateState extends State<_TrialAccessGate> {
+  bool _expired = false;
+  bool _checkFailed = false;
+  String? _checkedKey;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkTrialAccess());
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrialAccessGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.company?.id != widget.company?.id ||
+        oldWidget.company?.status != widget.company?.status ||
+        oldWidget.company?.trialStartedAt != widget.company?.trialStartedAt ||
+        oldWidget.company?.trialEndsAt != widget.company?.trialEndsAt ||
+        oldWidget.company?.paymentStatus != widget.company?.paymentStatus ||
+        oldWidget.company?.gracePeriodEndsAt != widget.company?.gracePeriodEndsAt) {
+      _checkedKey = null;
+      _expired = false;
+      _checkFailed = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkTrialAccess());
+    }
+  }
+
+  Future<void> _checkTrialAccess() async {
+    final company = widget.company;
+    final isTrialCheck = company != null && company.isTrial && company.trialEndsAt != null;
+    final isGraceCheck = company != null &&
+        company.paymentStatus == 'gracePeriod' &&
+        company.gracePeriodEndsAt != null;
+    if (!mounted || company == null || (!isTrialCheck && !isGraceCheck)) {
+      return;
+    }
+
+    final target = isTrialCheck ? company.trialEndsAt! : company.gracePeriodEndsAt!;
+    final key = isTrialCheck
+        ? '${company.id}:trial:${company.trialStartedAt?.millisecondsSinceEpoch ?? 0}:${target.millisecondsSinceEpoch}'
+        : '${company.id}:payment:${target.millisecondsSinceEpoch}';
+    if (_checkedKey == key && !_expired) {
+      return;
+    }
+
+    setState(() {
+      _checkFailed = false;
+    });
+    try {
+      final serverNow = await ServerClock.instance.now(forceRefresh: true);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _checkedKey = key;
+        _expired = !serverNow.isBefore(target);
+        _checkFailed = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _checkFailed = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final company = widget.company;
+    final isSuspended = company?.paymentStatus == 'suspended';
+    final isTrialCheck = company != null && company.isTrial && company.trialEndsAt != null;
+    final isGraceCheck = company != null &&
+        company.paymentStatus == 'gracePeriod' &&
+        company.gracePeriodEndsAt != null;
+    if (isSuspended) {
+      return AppErrorView(
+        message: AppLocalizations.of(context)!.paymentAccessBlockedMessage,
+        onRetry: _checkTrialAccess,
+      );
+    }
+    if (company == null || (!isTrialCheck && !isGraceCheck)) {
+      return widget.child;
+    }
+    if (_checkedKey == null) {
+      if (_checkFailed) {
+        return AppErrorView(
+          message: AppLocalizations.of(context)!.unableToConnect,
+          onRetry: _checkTrialAccess,
+        );
+      }
+      return const AppLoading();
+    }
+    if (_expired) {
+      return AppErrorView(
+        message: isTrialCheck
+            ? AppLocalizations.of(context)!.trialEndedAccessMessage
+            : AppLocalizations.of(context)!.paymentAccessBlockedMessage,
+        onRetry: _checkTrialAccess,
+      );
+    }
+    return widget.child;
+  }
+}
+
+class _TrialNoticeGateState extends State<_TrialNoticeGate> {
+  String? _lastDialogKey;
+  Timer? _trialNoticeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTrialNoticeTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTrialNotice());
+  }
+
+  @override
+  void dispose() {
+    _trialNoticeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrialNoticeGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.company?.id != widget.company?.id ||
+        oldWidget.company?.trialStartedAt != widget.company?.trialStartedAt ||
+        oldWidget.company?.trialEndsAt != widget.company?.trialEndsAt ||
+        oldWidget.company?.status != widget.company?.status) {
+      _startTrialNoticeTimer();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTrialNotice());
+    }
+  }
+
+  void _startTrialNoticeTimer() {
+    _trialNoticeTimer?.cancel();
+    final company = widget.company;
+    if (company == null || !company.isTrial || company.trialEndsAt == null) {
+      return;
+    }
+    _trialNoticeTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _maybeShowTrialNotice(),
+    );
+  }
+
+  Future<void> _maybeShowTrialNotice() async {
+    final company = widget.company;
+    if (!mounted || company == null || !company.isTrial || company.trialEndsAt == null) {
+      return;
+    }
+
+    late final DateTime serverNow;
+    try {
+      serverNow = await ServerClock.instance.now();
+    } catch (_) {
+      // Do not use the device clock for trial/payment UX. If server time cannot
+      // be reached, skip this client-side reminder until the next check.
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final milestone = _trialMilestone(company, serverNow);
+    if (milestone == null) {
+      return;
+    }
+    final key = 'trial_notice_${company.id}_${company.trialStartedAt?.millisecondsSinceEpoch ?? 0}_$milestone';
+    if (_lastDialogKey == key) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted || (prefs.getBool(key) ?? false)) {
+      return;
+    }
+    _lastDialogKey = key;
+    final l = AppLocalizations.of(context)!;
+    final remaining = company.trialEndsAt!.difference(serverNow);
+    final remainingText = _formatTrialRemaining(l, remaining);
+    final milestoneText = _trialMilestoneText(l, milestone);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l.trialReminderTitle),
+          content: Text(
+            '$milestoneText\n\n'
+            '${l.trialRemaining}: $remainingText\n'
+            '${l.trialEndsAt}: ${_formatTrialEndDate(dialogContext, company.trialEndsAt!)}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await prefs.setBool(key, true);
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: Text(l.done),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+int? _trialMilestone(CompanyMetadata? company, DateTime now) {
+  if (company == null) {
+    return null;
+  }
+  final start = company.trialStartedAt;
+  final end = company.trialEndsAt;
+  if (start == null || end == null || !company.isTrial) {
+    return null;
+  }
+  final total = end.difference(start).inSeconds;
+  if (total <= 0) {
+    return 3;
+  }
+  final elapsed = now.difference(start).inSeconds;
+  if (elapsed < 0) {
+    return null;
+  }
+  final finalWarningAt = (total * 0.90).floor().clamp(1, total);
+  if (elapsed >= finalWarningAt) return 3;
+  if (elapsed >= (total * 2 / 3)) return 2;
+  if (elapsed >= (total / 3)) return 1;
+  return null;
+}
+
+String _trialMilestoneText(AppLocalizations l, int milestone) {
+  return switch (milestone) {
+    1 => l.trialFirstReminderMessage,
+    2 => l.trialSecondReminderMessage,
+    _ => l.trialFinalReminderMessage,
+  };
+}
+
+class _TrialBadgeBanner extends StatefulWidget {
+  const _TrialBadgeBanner({required this.company});
+
+  final CompanyMetadata? company;
+
+  @override
+  State<_TrialBadgeBanner> createState() => _TrialBadgeBannerState();
+}
+
+class _TrialBadgeBannerState extends State<_TrialBadgeBanner> {
+  DateTime? _serverNow;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshServerTime();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) => _refreshServerTime());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrialBadgeBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.company?.id != widget.company?.id ||
+        oldWidget.company?.trialEndsAt != widget.company?.trialEndsAt ||
+        oldWidget.company?.status != widget.company?.status) {
+      _refreshServerTime(forceRefresh: true);
+    }
+  }
+
+  Future<void> _refreshServerTime({bool forceRefresh = false}) async {
+    final company = widget.company;
+    if (company == null || !company.isTrial || company.trialEndsAt == null) {
+      return;
+    }
+    try {
+      final now = await ServerClock.instance.now(forceRefresh: forceRefresh);
+      if (mounted) {
+        setState(() => _serverNow = now);
+      }
+    } catch (_) {
+      // Never fall back to the device clock for trial/payment remaining time.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final company = widget.company;
+    if (company == null) {
+      return const SizedBox.shrink();
+    }
+    final l = AppLocalizations.of(context)!;
+    final endsAt = company.trialEndsAt;
+    if (!company.isTrial || endsAt == null) {
+      return const SizedBox.shrink();
+    }
+    final serverNow = _serverNow ?? ServerClock.instance.estimatedNow;
+    final remainingText = serverNow == null
+        ? l.trial
+        : _formatTrialRemaining(l, endsAt.difference(serverNow));
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.warningColor(context).withValues(alpha: 0.10),
+        border: Border.all(color: AppColors.warningColor(context).withValues(alpha: 0.28)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.hourglass_top_outlined, color: AppColors.warningColor(context), size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              '${l.trial} - $remainingText - ${l.trialEndsAt}: ${_formatTrialEndDate(context, endsAt)}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentStatusBanner extends StatelessWidget {
+  const _PaymentStatusBanner({required this.company});
+
+  final CompanyMetadata? company;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = company;
+    final status = current?.paymentStatus;
+    if (current == null ||
+        status == null ||
+        !['overdue', 'gracePeriod', 'suspended', 'dueSoon'].contains(status)) {
+      return const SizedBox.shrink();
+    }
+    final l = AppLocalizations.of(context)!;
+    final message = switch (status) {
+      'suspended' => l.paymentAccessBlockedMessage,
+      'gracePeriod' => l.paymentGraceMessage,
+      'overdue' => l.paymentOverdueMessage,
+      _ => l.paymentDueSoonMessage,
+    };
+    final tone = status == 'suspended' || status == 'overdue'
+        ? AppStatusTone.error
+        : AppStatusTone.warning;
+    final color = _toneColor(context, tone);
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.payments_outlined, color: color, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1603,11 +2029,11 @@ class _MobileDashboardTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MasarTabBar(
+      compact: true,
       tabs: [
         for (final tab in tabs)
           MasarTabItem(label: tab.label, icon: tab.icon),
       ],
-      fullWidth: true,
     );
   }
 }
@@ -3533,7 +3959,7 @@ class _ActionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final role = authState.userProfile?.role ?? authState.user?.role;
+    final role = authState.protectedCompanySession?.profile.role;
     final canCreateLead =
         authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
         role != null && PermissionService.can(role, AppPermission.createLead);
@@ -3915,6 +4341,34 @@ DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
 }
 
+
+String _formatDate(BuildContext context, DateTime value) {
+  final localeName = AppLocalizations.of(context)!.localeName;
+  return intl.DateFormat.yMMMd(localeName).format(value.toLocal());
+}
+
+String _formatTrialEndDate(BuildContext context, DateTime value) {
+  final localeName = AppLocalizations.of(context)!.localeName;
+  return intl.DateFormat.yMMMd(localeName).add_jm().format(value.toLocal());
+}
+
+String _formatTrialRemaining(AppLocalizations l, Duration remaining) {
+  final isArabic = l.localeName.toLowerCase().startsWith('ar');
+  if (remaining.inSeconds <= 0) {
+    return isArabic ? '0 دقيقة' : '0 min';
+  }
+  if (remaining.inHours < 1) {
+    final minutes = (remaining.inSeconds / 60).ceil().clamp(1, 60).toInt();
+    return isArabic ? '$minutes دقيقة' : '$minutes min';
+  }
+  if (remaining.inDays < 1) {
+    final hours = (remaining.inMinutes / 60).ceil().clamp(1, 24).toInt();
+    return isArabic ? '$hours ساعة' : '$hours hr';
+  }
+  final days = (remaining.inHours / 24).ceil();
+  return isArabic ? '$days يوم' : '$days d';
+}
+
 String _relativeTimeLabel(BuildContext context, DateTime time) {
   final l = AppLocalizations.of(context)!;
   final now = DateTime.now();
@@ -4155,7 +4609,7 @@ bool _canViewRecentActivity(
     return true;
   }
 
-  final role = authState.userProfile?.role ?? authState.user?.role;
+  final role = authState.protectedCompanySession?.profile.role;
   return role == UserRole.admin || role == UserRole.manager;
 }
 
@@ -4166,7 +4620,7 @@ bool _canViewAppointments(
   if (platformPreview) {
     return false;
   }
-  final role = authState.userProfile?.role ?? authState.user?.role;
+  final role = authState.protectedCompanySession?.profile.role;
   return authState.companyMetadata.isFeatureEnabled(CompanyFeature.appointments) &&
       role != null &&
       PermissionService.can(role, AppPermission.viewAppointments);
@@ -4180,7 +4634,7 @@ bool _canViewUnassignedLeads(
     return true;
   }
 
-  final role = authState.userProfile?.role ?? authState.user?.role;
+  final role = authState.protectedCompanySession?.profile.role;
   return role == UserRole.admin;
 }
 

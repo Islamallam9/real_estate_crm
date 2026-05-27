@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -14,6 +15,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/platform_notification.dart';
 import '../cubit/platform_notifications_cubit.dart';
 import '../cubit/platform_notifications_state.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class PlatformNotificationsBell extends StatelessWidget {
   const PlatformNotificationsBell({
@@ -36,7 +38,11 @@ class PlatformNotificationsBell extends StatelessWidget {
         final count = state.unreadCount;
         return IconButton(
           tooltip: l.platformNotifications,
-          onPressed: onPressed,
+          onPressed: () => _showPlatformNotificationsMenu(
+            context: context,
+            cubit: context.read<PlatformNotificationsCubit>(),
+            onViewAll: onPressed,
+          ),
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -79,6 +85,266 @@ class PlatformNotificationsBell extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+Future<void> _showPlatformNotificationsMenu({
+  required BuildContext context,
+  required PlatformNotificationsCubit cubit,
+  VoidCallback? onViewAll,
+}) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black.withValues(alpha: 0.08),
+    transitionDuration: const Duration(milliseconds: 140),
+    pageBuilder: (dialogContext, _, __) {
+      return BlocProvider.value(
+        value: cubit,
+        child: _PlatformNotificationsMenu(onViewAll: onViewAll),
+      );
+    },
+    transitionBuilder: (_, animation, __, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.03),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+class _PlatformNotificationsMenu extends StatelessWidget {
+  const _PlatformNotificationsMenu({this.onViewAll});
+
+  final VoidCallback? onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final size = MediaQuery.sizeOf(context);
+    final isMobile = size.width < 720;
+    final panelWidth = isMobile ? size.width - 28 : 390.0;
+    final panelHeight = (size.height - 104).clamp(320.0, 560.0).toDouble();
+
+    return SafeArea(
+      child: Align(
+        alignment: AlignmentDirectional.topEnd,
+        child: Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(
+            isMobile ? 14 : 0,
+            isMobile ? 78 : 72,
+            isMobile ? 14 : 22,
+            0,
+          ),
+          child: Material(
+            color: AppColors.cardSurface(context),
+            borderRadius: AppRadius.xLarge,
+            elevation: 16,
+            child: Container(
+              width: panelWidth,
+              height: panelHeight,
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.borderColor(context)),
+                borderRadius: AppRadius.xLarge,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: AppColors.isDark(context) ? .42 : .10),
+                    blurRadius: 26,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: BlocBuilder<PlatformNotificationsCubit, PlatformNotificationsState>(
+                builder: (context, state) {
+                  final items = state.notifications.take(8).toList(growable: false);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l.platformNotifications,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: state.unreadCount == 0 || state.markingAllRead
+                                ? null
+                                : () => context.read<PlatformNotificationsCubit>().markAllRead(),
+                            child: state.markingAllRead
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : Text(l.markAllRead),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Expanded(
+                        child: state.status == PlatformNotificationsStatus.loading && items.isEmpty
+                            ? const Center(child: MasarLogoLoader(size: 36))
+                            : items.isEmpty
+                                ? AppEmptyState(
+                                    icon: Icons.notifications_none_outlined,
+                                    title: l.noPlatformNotifications,
+                                    message: l.noPlatformNotificationsMessage,
+                                  )
+                                : ListView.separated(
+                                    itemCount: items.length,
+                                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
+                                    itemBuilder: (context, index) {
+                                      final notification = items[index];
+                                      return _PlatformNotificationMenuTile(
+                                        notification: notification,
+                                        onOpen: () {
+                                          if (!notification.isRead) {
+                                            context.read<PlatformNotificationsCubit>().markRead(
+                                                  notification: notification,
+                                                  isRead: true,
+                                                );
+                                          }
+                                          final route = notification.route.trim().isEmpty
+                                              ? RouteNames.platformNotifications
+                                              : notification.route.trim();
+                                          Navigator.of(context, rootNavigator: true).maybePop();
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (context.mounted) {
+                                              context.go(route);
+                                            }
+                                          });
+                                        },
+                                      );
+                                    },
+                                  ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            Navigator.of(context, rootNavigator: true).maybePop();
+                            if (onViewAll != null) {
+                              onViewAll!();
+                            } else {
+                              context.go(RouteNames.platformNotifications);
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_forward, size: 16),
+                          label: Text(l.viewAll),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlatformNotificationMenuTile extends StatelessWidget {
+  const _PlatformNotificationMenuTile({
+    required this.notification,
+    required this.onOpen,
+  });
+
+  final PlatformNotification notification;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final color = _severityColor(context, notification.severity);
+    return Material(
+      color: notification.isRead
+          ? AppColors.inputSurface(context)
+          : AppColors.selectedSurface(context).withValues(alpha: .48),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: AppRadius.large,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .12),
+                  borderRadius: AppRadius.large,
+                ),
+                child: Icon(_notificationIcon(notification), size: 20, color: color),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _notificationTitle(l, notification),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _notificationMessage(l, notification),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: 2,
+                      children: [
+                        if (notification.companyName.trim().isNotEmpty)
+                          _MetaPill(label: l.company, value: notification.companyName),
+                        if (notification.createdAt != null)
+                          _MetaPill(
+                            label: l.createdAt,
+                            value: _relativeTime(l, notification.createdAt!),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondaryColor(context),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

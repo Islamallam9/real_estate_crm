@@ -15,6 +15,8 @@ class CreateCompanyInvitationUseCase {
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   }) {
     return _repository.createCompanyInvitation(
@@ -26,6 +28,8 @@ class CreateCompanyInvitationUseCase {
       locale: locale,
       timezone: timezone,
       expiresAt: expiresAt,
+      trialDays: trialDays,
+      trialDurationUnit: trialDurationUnit,
       notes: notes,
     );
   }

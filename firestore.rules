@@ -26,6 +26,32 @@ service cloud.firestore {
       return signedIn() && currentMembershipData(companyId).companyId == companyId;
     }
 
+    function companyData(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+
+    function companyOpenForCrm(companyId) {
+      let company = companyData(companyId);
+      return company.isActive == true
+        && (
+          !company.keys().hasAny(['status'])
+          || company.status == 'active'
+          || (company.status == 'trial'
+            && company.trialEndsAt is timestamp
+            && company.trialEndsAt > request.time)
+        )
+        && (
+          !company.keys().hasAny(['paymentStatus'])
+          || company.paymentStatus != 'suspended'
+        )
+        && (
+          !company.keys().hasAny(['paymentStatus'])
+          || company.paymentStatus != 'gracePeriod'
+          || (company.gracePeriodEndsAt is timestamp
+            && company.gracePeriodEndsAt > request.time)
+        );
+    }
+
     function currentUserData(companyId) {
       return get(
         /databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)
@@ -34,6 +60,7 @@ service cloud.firestore {
 
     function isActiveCompanyUser(companyId) {
       return signedIn()
+        && companyOpenForCrm(companyId)
         && currentUserData(companyId).companyId == companyId
         && currentUserData(companyId).isActive == true;
     }
@@ -1341,6 +1368,11 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    match /platform_error_logs/{logId} {
+      allow get, list: if isActivePlatformAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /support_tickets/{ticketId} {
       allow get, list: if isActivePlatformAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
@@ -1412,6 +1444,11 @@ service cloud.firestore {
             && request.resource.data.updatedBy == request.auth.uid
             && request.resource.data.updatedAt is timestamp);
         allow delete: if false;
+      }
+
+      match /payment_history/{historyId} {
+        allow get, list: if isActivePlatformAdmin();
+        allow create, update, delete: if false;
       }
 
       match /teams/{teamId} {

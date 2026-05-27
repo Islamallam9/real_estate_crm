@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -25,6 +26,7 @@ import '../cubit/properties_state.dart';
 import '../widgets/properties_scope.dart';
 import '../widgets/property_card.dart';
 import '../widgets/property_labels.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class PropertiesPage extends StatelessWidget {
   const PropertiesPage({super.key});
@@ -41,18 +43,17 @@ class PropertiesPage extends StatelessWidget {
       title: localizations.properties,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
@@ -62,9 +63,9 @@ class PropertiesPage extends StatelessWidget {
           final canDeactivate = PermissionService.can(role, AppPermission.editProperty);
 
           return PropertiesScope(
-            key: ValueKey('properties-scope:$companyId:${profile.uid}:${role.name}'),
+            key: ValueKey(session.scopeKey('properties-scope')),
             child: _PropertiesListContent(
-              key: ValueKey('properties-content:$companyId:${profile.uid}:${role.name}'),
+              key: ValueKey(session.scopeKey('properties-content')),
               companyId: companyId,
               canCreate: canCreate,
               canEdit: PermissionService.can(role, AppPermission.editProperty),
@@ -353,7 +354,7 @@ class _PropertiesBody extends StatelessWidget {
               color: AppColors.appBackground(
                 context,
               ).withValues(alpha: 0.42),
-              child: const Center(child: CircularProgressIndicator()),
+              child: const Center(child: MasarLogoLoader(size: 42)),
             ),
           ),
       ],

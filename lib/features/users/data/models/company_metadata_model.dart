@@ -16,6 +16,23 @@ class CompanyMetadataModel extends CompanyMetadata {
     required super.settings,
     required super.limits,
     required super.features,
+    super.trialStartedAt,
+    super.trialEndsAt,
+    super.trialDurationValue,
+    super.trialDurationUnit,
+    super.paymentStatus,
+    super.nextPaymentDueAt,
+    super.lastPaymentAt,
+    super.paymentAmount,
+    super.paymentCurrency,
+    super.paymentCycle,
+    super.paymentNotes,
+    super.gracePeriodEndsAt,
+    super.suspendedAt,
+    super.suspendedReason,
+    super.paymentUpdatedAt,
+    super.paymentUpdatedBy,
+    super.paymentReminderState = const <String, Object?>{},
     super.storageUsedBytes,
     super.storageUsageUpdatedAt,
   });
@@ -41,12 +58,39 @@ class CompanyMetadataModel extends CompanyMetadata {
       settings: _mapFromValue(data['settings']),
       limits: _mapFromValue(data['limits']),
       features: _mapFromValue(data['features']),
+      trialStartedAt: _nullableDateTimeFromValue(data['trialStartedAt']),
+      trialEndsAt: _nullableDateTimeFromValue(data['trialEndsAt']),
+      trialDurationValue: _intFromValue(data['trialDurationValue']),
+      trialDurationUnit: data['trialDurationUnit'] as String?,
+      paymentStatus: data['paymentStatus'] as String?,
+      nextPaymentDueAt: _nullableDateTimeFromValue(data['nextPaymentDueAt']),
+      lastPaymentAt: _nullableDateTimeFromValue(data['lastPaymentAt']),
+      paymentAmount: _doubleFromValue(data['paymentAmount']),
+      paymentCurrency: data['paymentCurrency'] as String?,
+      paymentCycle: data['paymentCycle'] as String?,
+      paymentNotes: data['paymentNotes'] as String?,
+      gracePeriodEndsAt: _nullableDateTimeFromValue(data['gracePeriodEndsAt']),
+      suspendedAt: _nullableDateTimeFromValue(data['suspendedAt']),
+      suspendedReason: data['suspendedReason'] as String?,
+      paymentUpdatedAt: _nullableDateTimeFromValue(data['paymentUpdatedAt']),
+      paymentUpdatedBy: data['paymentUpdatedBy'] as String?,
+      paymentReminderState: _mapFromValue(data['paymentReminderState']),
       storageUsedBytes: _intFromValue(data['storageUsedBytes']),
       storageUsageUpdatedAt: _nullableDateTimeFromValue(
         data['storageUsageUpdatedAt'],
       ),
     );
   }
+}
+
+double? _doubleFromValue(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.tryParse(value);
+  }
+  return null;
 }
 
 int? _intFromValue(Object? value) {

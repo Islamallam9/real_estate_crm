@@ -311,6 +311,16 @@ class _AboutSection extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Divider(color: AppColors.borderColor(context)),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            l.developedAndDesignedBy,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
         ],
       ),
     );

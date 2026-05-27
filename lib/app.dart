@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
+import 'core/constants/role_constants.dart';
 import 'core/localization/locale_cubit.dart';
+import 'core/observability/app_error_reporter.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_cubit.dart';
@@ -17,6 +19,9 @@ import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/platform_observability/data/datasources/platform_observability_remote_data_source.dart';
+import 'features/platform_observability/data/repositories/platform_observability_repository_impl.dart';
+import 'features/platform_observability/domain/usecases/report_client_error_usecase.dart';
 import 'features/users/data/datasources/user_profile_remote_data_source.dart';
 import 'features/users/data/datasources/company_resolver_remote_data_source.dart';
 import 'features/users/data/repositories/user_profile_repository_impl.dart';
@@ -76,6 +81,17 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
     )..add(const AuthStarted());
 
     _router = AppRouter.createRouter(_authBloc);
+    final observabilityRemoteDataSource =
+        FirebasePlatformObservabilityRemoteDataSource();
+    final observabilityRepository = PlatformObservabilityRepositoryImpl(
+      remoteDataSource: observabilityRemoteDataSource,
+    );
+    MasarObservabilityReporter.instance.configure(
+      reportClientErrorUseCase: ReportClientErrorUseCase(
+        observabilityRepository,
+      ),
+      contextProvider: _observabilityContext,
+    );
     _localeCubit = LocaleCubit(initialLocale: widget.initialLocale)
       ..loadSavedLocale();
     _themeCubit = ThemeCubit()..loadSavedThemeMode();
@@ -124,6 +140,32 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
           );
         },
       ),
+    );
+  }
+
+  MasarObservabilityContext _observabilityContext() {
+    final state = _authBloc.state;
+    final user = state.user;
+    final profile = state.userProfile;
+    final company = state.companyMetadata;
+    var route = '';
+    try {
+      route = _router.routeInformationProvider.value.uri.toString();
+    } catch (_) {
+      route = '';
+    }
+    final companyName = (company?.displayName ?? '').trim().isNotEmpty
+        ? company!.displayName
+        : (company?.name ?? '');
+    return MasarObservabilityContext(
+      companyId: profile?.companyId ?? user?.companyId ?? company?.id ?? '',
+      companyName: companyName,
+      userId: profile?.uid ?? user?.uid ?? '',
+      userEmail: profile?.email ?? user?.email ?? '',
+      userRole: profile == null
+          ? (state.isPlatformAdmin ? 'platformAdmin' : '')
+          : RoleConstants.toValue(profile.role),
+      route: route,
     );
   }
 }

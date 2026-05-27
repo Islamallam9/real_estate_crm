@@ -21,6 +21,7 @@ import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/lead_form.dart';
 import '../widgets/leads_scope.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class CreateLeadPage extends StatelessWidget {
   const CreateLeadPage({super.key});
@@ -152,7 +153,7 @@ class _CreateLeadFormContent extends StatelessWidget {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting &&
                         canAssign) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(child: MasarLogoLoader(size: 40));
                     }
                     if (snapshot.hasError) {
                       return AppErrorView(

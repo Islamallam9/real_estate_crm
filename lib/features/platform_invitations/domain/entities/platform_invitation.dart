@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class PlatformInvitation extends Equatable {
   const PlatformInvitation({
     required this.id,
+    required this.invitationCode,
     required this.codePreview,
     required this.type,
     required this.status,
@@ -22,9 +23,14 @@ class PlatformInvitation extends Equatable {
     required this.acceptedAdminEmail,
     required this.companyId,
     required this.adminUid,
+    required this.companyName,
+    required this.companyStatus,
+    required this.companyPlanName,
+    required this.companyCreatedAt,
   });
 
   final String id;
+  final String invitationCode;
   final String codePreview;
   final String type;
   final String status;
@@ -44,12 +50,17 @@ class PlatformInvitation extends Equatable {
   final String acceptedAdminEmail;
   final String companyId;
   final String adminUid;
+  final String companyName;
+  final String companyStatus;
+  final String companyPlanName;
+  final DateTime? companyCreatedAt;
 
   bool get isActive => status == 'active';
 
   @override
   List<Object?> get props => [
     id,
+    invitationCode,
     codePreview,
     type,
     status,
@@ -69,6 +80,10 @@ class PlatformInvitation extends Equatable {
     acceptedAdminEmail,
     companyId,
     adminUid,
+    companyName,
+    companyStatus,
+    companyPlanName,
+    companyCreatedAt,
   ];
 }
 

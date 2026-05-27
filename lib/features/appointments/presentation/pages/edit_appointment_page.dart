@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/routing/route_names.dart';
@@ -13,6 +14,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -30,8 +32,17 @@ class EditAppointmentPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppointmentsScope(
-      child: _EditAppointmentView(appointmentId: appointmentId),
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return AppointmentsScope(
+          key: ValueKey(
+            session?.scopeKey('edit-appointment-scope') ??
+                'edit-appointment-scope:loading',
+          ),
+          child: _EditAppointmentView(appointmentId: appointmentId),
+        );
+      },
     );
   }
 }
@@ -47,27 +58,45 @@ class _EditAppointmentView extends StatefulWidget {
 
 class _EditAppointmentViewState extends State<_EditAppointmentView> {
   bool _isSubmitting = false;
+  String? _watchKey;
 
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty && widget.appointmentId.isNotEmpty) {
-      context.read<AppointmentsCubit>().watchAppointment(
-            companyId: companyId,
-            appointmentId: widget.appointmentId,
-          );
+  void _watchAppointmentWhenReady(ProtectedCompanySession session) {
+    if (widget.appointmentId.isEmpty) {
+      return;
     }
+    final key =
+        '${session.scopeKey('edit-appointment-watch')}:${widget.appointmentId}';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<AppointmentsCubit>().watchAppointment(
+          companyId: session.companyId,
+          appointmentId: widget.appointmentId,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final companyId = _companyId(context);
-    final uid = authState.user?.uid ?? '';
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.appointments,
+        title: l.editAppointment,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
     final canEditRole = role != null && role != UserRole.viewer;
+    if (session != null && canEditRole) {
+      _watchAppointmentWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.appointments,
@@ -120,7 +149,7 @@ class _EditAppointmentViewState extends State<_EditAppointmentView> {
                 }
                 if (role == UserRole.manager &&
                     appointment.managerId != uid &&
-                    appointment.teamId != authState.userProfile?.teamId) {
+                    appointment.teamId != session?.profile.teamId) {
                   return AppErrorView(message: l.permissionDenied);
                 }
 
@@ -271,11 +300,6 @@ class _AppointmentEditorForm extends StatelessWidget {
       },
     );
   }
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

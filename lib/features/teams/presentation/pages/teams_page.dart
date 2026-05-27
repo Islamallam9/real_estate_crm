@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -18,6 +19,7 @@ import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
+import '../../../../core/widgets/masar_user_avatar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -36,11 +38,9 @@ class TeamsPage extends StatelessWidget {
   static Widget withDependencies() {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
-        final user = authState.user;
-        final profile = authState.userProfile;
-        final scopeKey = user != null && profile != null && profile.uid == user.uid
-            ? 'teams-scope:${profile.companyId}:${profile.uid}:${profile.role.name}'
-            : 'teams-scope:loading';
+        final session = authState.protectedCompanySession;
+        final scopeKey =
+            session?.scopeKey('teams-scope') ?? 'teams-scope:loading';
         final remoteDataSource = FirestoreTeamRemoteDataSource();
         final repository = TeamRepositoryImpl(remoteDataSource: remoteDataSource);
 
@@ -85,7 +85,8 @@ class _TeamsBodyState extends State<_TeamsBody> {
   String? _watchKey;
 
   void _ensureWatch(UserProfile profile) {
-    final key = '${profile.companyId}:${profile.uid}:${profile.role.name}';
+    final key =
+        '${profile.companyId}:${profile.uid}:${profile.role.name}:${profile.teamId}:${profile.managerId}';
     if (_watchKey == key) {
       return;
     }
@@ -106,13 +107,13 @@ class _TeamsBodyState extends State<_TeamsBody> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final authState = context.watch<AuthBloc>().state;
-    final profile = authState.userProfile;
-    final user = authState.user;
+    final session = authState.protectedCompanySession;
 
-    if (profile == null || user == null || profile.uid != user.uid) {
+    if (authState.isWaitingForProtectedCompanySession || session == null) {
       return const AppLoading();
     }
 
+    final profile = session.profile;
     _ensureWatch(profile);
 
     final isAdmin = profile.role == UserRole.admin;
@@ -142,7 +143,7 @@ class _TeamsBodyState extends State<_TeamsBody> {
           return _TeamsContent(
             state: state,
             profile: profile,
-            actorUid: user.uid,
+            actorUid: session.profile.uid,
             isAdmin: isAdmin,
           );
         },
@@ -206,7 +207,7 @@ class _TeamsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               toolbar,
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               Expanded(
                 child: SingleChildScrollView(
                   physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
@@ -215,7 +216,7 @@ class _TeamsContent extends StatelessWidget {
                     children: [
                       if (isAdmin) ...[
                         _OverviewGrid(state: state),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                       ],
                       _TeamsMasterDetail(
                         state: state,
@@ -223,7 +224,7 @@ class _TeamsContent extends StatelessWidget {
                         actorUid: actorUid,
                       ),
                       if (isAdmin) ...[
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         _UnassignedUsersPanel(state: state),
                       ],
                     ],
@@ -244,7 +245,7 @@ class _TeamsContent extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               if (isAdmin) ...[
                 _OverviewGrid(state: state),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
               ],
               _TeamsMasterDetail(
                 state: state,
@@ -252,7 +253,7 @@ class _TeamsContent extends StatelessWidget {
                 actorUid: actorUid,
               ),
               if (isAdmin) ...[
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 _UnassignedUsersPanel(state: state),
               ],
               const SizedBox(height: 96),
@@ -346,8 +347,8 @@ class _TeamsMasterDetail extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: 360, child: list),
-            const SizedBox(width: AppSpacing.md),
+            SizedBox(width: 280, child: list),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(child: details),
           ],
         );
@@ -369,6 +370,10 @@ class _UnassignedUsersPanel extends StatelessWidget {
     }).toList();
 
     return _Panel(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -430,7 +435,10 @@ class _TeamsToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return _Panel(
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 760;
@@ -439,14 +447,14 @@ class _TeamsToolbar extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondaryColor(context),
@@ -547,9 +555,13 @@ class _OverviewGrid extends StatelessWidget {
               SizedBox(
                 width: width,
                 child: _Panel(
+                  padding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
                   child: Row(
                     children: [
-                      Icon(card.icon, color: AppColors.primaryColor(context)),
+                      Icon(card.icon, size: 20, color: AppColors.primaryColor(context)),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Column(
@@ -565,8 +577,8 @@ class _OverviewGrid extends StatelessWidget {
                               card.value.toString(),
                               style: Theme.of(context)
                                   .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
                             ),
                           ],
                         ),
@@ -594,6 +606,10 @@ class _TeamsListPanel extends StatelessWidget {
     final teams = state.filteredTeams;
 
     return _Panel(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -601,10 +617,10 @@ class _TeamsListPanel extends StatelessWidget {
             isAdmin ? l.teams : l.myTeam,
             style: Theme.of(context)
                 .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           if (teams.isEmpty)
             AppEmptyState(
               icon: Icons.groups_outlined,
@@ -646,7 +662,7 @@ class _TeamListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Material(
         color: selected
             ? AppColors.selectedSurface(context)
@@ -656,7 +672,10 @@ class _TeamListTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: AppRadius.large,
           child: Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 7,
+            ),
             decoration: BoxDecoration(
               border: Border.all(
                 color: selected
@@ -677,8 +696,8 @@ class _TeamListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context)
                             .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            .bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -747,6 +766,10 @@ class _TeamDetailsPanel extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
 
     return _Panel(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -762,19 +785,21 @@ class _TeamDetailsPanel extends StatelessWidget {
                   children: [
                     Text(
                       team.name,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context)
                           .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       team.description.trim().isEmpty
                           ? l.teamDetails
                           : team.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondaryColor(context),
                       ),
                     ),
@@ -798,7 +823,7 @@ class _TeamDetailsPanel extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
@@ -809,13 +834,13 @@ class _TeamDetailsPanel extends StatelessWidget {
               _InfoChip(label: l.updatedAt, value: _formatDate(context, team.updatedAt)),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             l.teamMembers,
             style: Theme.of(context)
                 .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: AppSpacing.sm),
           if (members.isEmpty)
@@ -1079,7 +1104,7 @@ class _CompactUserRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsetsDirectional.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: 6,
       ),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
@@ -1088,8 +1113,14 @@ class _CompactUserRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _TeamUserAvatar(name: user.fullName, photoUrl: user.photoUrl),
-          const SizedBox(width: AppSpacing.sm),
+          _TeamUserAvatar(
+            name: user.fullName,
+            photoUrl: user.photoUrl,
+            cacheKey: user.photoStoragePath.trim().isNotEmpty
+                ? user.photoStoragePath
+                : user.updatedAt.millisecondsSinceEpoch.toString(),
+          ),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             flex: 2,
             child: Column(
@@ -1114,7 +1145,7 @@ class _CompactUserRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.xs),
           if (showTeam && user.teamName.trim().isNotEmpty)
             Expanded(
               child: Text(
@@ -1161,7 +1192,13 @@ class _UserCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _TeamUserAvatar(name: user.fullName, photoUrl: user.photoUrl),
+          _TeamUserAvatar(
+            name: user.fullName,
+            photoUrl: user.photoUrl,
+            cacheKey: user.photoStoragePath.trim().isNotEmpty
+                ? user.photoStoragePath
+                : user.updatedAt.millisecondsSinceEpoch.toString(),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -1204,30 +1241,23 @@ class _UserCard extends StatelessWidget {
 }
 
 class _TeamUserAvatar extends StatelessWidget {
-  const _TeamUserAvatar({required this.name, required this.photoUrl});
+  const _TeamUserAvatar({
+    required this.name,
+    required this.photoUrl,
+    required this.cacheKey,
+  });
 
   final String name;
   final String photoUrl;
+  final String cacheKey;
 
   @override
   Widget build(BuildContext context) {
-    final cleanUrl = photoUrl.trim();
-    final fallback = CircleAvatar(child: Text(_initialFor(name)));
-    if (cleanUrl.isEmpty) {
-      return fallback;
-    }
-
-    return ClipOval(
-      child: SizedBox(
-        width: 40,
-        height: 40,
-        child: Image.network(
-          cleanUrl,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => fallback,
-        ),
-      ),
+    return MasarUserAvatar(
+      name: name,
+      photoUrl: photoUrl,
+      cacheKey: cacheKey,
+      radius: 15,
     );
   }
 }
@@ -1264,8 +1294,8 @@ class _InfoChip extends StatelessWidget {
     final cleanValue = value.trim().isEmpty ? l.notAvailable : value.trim();
     return Container(
       padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
@@ -1286,7 +1316,7 @@ class _InfoChip extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 230),
             child: Text(
               cleanValue,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),

@@ -72,6 +72,9 @@ class FirebaseCompanyUsersRemoteDataSource
           isActive: data['isActive'] as bool? ?? false,
           teamName: data['teamName'] as String? ?? '',
           managerName: data['managerName'] as String? ?? '',
+          photoUrl: data['photoUrl'] as String? ?? '',
+          photoStoragePath: data['photoStoragePath'] as String? ?? '',
+          updatedAt: _nullableDateTimeFromValue(data['updatedAt']),
           mustChangePassword: data['mustChangePassword'] as bool? ?? false,
         );
       }).toList();
@@ -193,4 +196,18 @@ String _mapCompanyUserFirebaseError(FirebaseException error) {
     'not-found' => AppErrorMessages.notFound,
     _ => AppErrorMessages.unknown,
   };
+}
+
+
+DateTime? _nullableDateTimeFromValue(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is Timestamp) {
+    return value.toDate();
+  }
+  if (value is DateTime) {
+    return value;
+  }
+  return null;
 }

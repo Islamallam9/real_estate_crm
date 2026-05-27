@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -44,18 +45,17 @@ class TasksPage extends StatelessWidget {
       title: l.tasks,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           final role = profile.role;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
@@ -83,12 +83,12 @@ class TasksPage extends StatelessWidget {
               role == UserRole.admin ||
               role == UserRole.manager ||
               role == UserRole.salesAgent;
-          final scopeKey = ValueKey('tasks-scope:$companyId:${profile.uid}:${role.name}');
+          final scopeKey = ValueKey(session.scopeKey('tasks-scope'));
 
           return TasksScope(
             key: scopeKey,
             child: _TasksListContent(
-              key: ValueKey('tasks-content:$companyId:${profile.uid}:${role.name}'),
+              key: ValueKey(session.scopeKey('tasks-content')),
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,

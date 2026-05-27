@@ -190,7 +190,7 @@ class FirebaseAuthRemoteDataSource implements AuthRemoteDataSource {
 
   @override
   Stream<AppUserModel?> authStateChanges() {
-    return _firebaseAuth.authStateChanges().map((user) {
+    return _firebaseAuth.idTokenChanges().map((user) {
       if (user == null) {
         return null;
       }

@@ -15,6 +15,8 @@ abstract interface class PlatformInvitationsRemoteDataSource {
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   });
 
@@ -42,6 +44,8 @@ class FirebasePlatformInvitationsRemoteDataSource
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   }) async {
     final data = await _callMap('createCompanyInvitation', {
@@ -53,6 +57,11 @@ class FirebasePlatformInvitationsRemoteDataSource
       'locale': locale,
       'timezone': timezone,
       'expiresAt': expiresAt.toIso8601String(),
+      if (trialDays != null && trialDays > 0) ...{
+        'trialDurationValue': trialDays,
+        'trialDurationUnit': trialDurationUnit,
+        'trialDays': _legacyTrialDays(trialDays, trialDurationUnit),
+      },
       if (notes.trim().isNotEmpty) 'notes': notes.trim(),
       'origin': _safeInvitationOrigin(),
     });
@@ -115,4 +124,15 @@ String _safeInvitationOrigin() {
     return uri.origin;
   }
   return AppConstants.publicWebBaseUrl;
+}
+
+int _legacyTrialDays(int value, String unit) {
+  final normalized = unit.trim().toLowerCase();
+  if (normalized == 'minutes') {
+    return (value / (60 * 24)).ceil().clamp(1, 3650).toInt();
+  }
+  if (normalized == 'hours') {
+    return (value / 24).ceil().clamp(1, 3650).toInt();
+  }
+  return value;
 }

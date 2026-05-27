@@ -11,6 +11,16 @@ const db = admin.firestore();
 const auth = admin.auth();
 const FieldValue = admin.firestore.FieldValue;
 
+
+exports.getServerTime = onCall(() => {
+  const now = new Date();
+  return {
+    now: now.toISOString(),
+    nowMillis: now.getTime(),
+  };
+});
+
+
 const ROLES = new Set(['admin', 'manager', 'salesAgent', 'marketing', 'viewer']);
 const COMPANY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,48}[a-z0-9]$/;
 const INVITATION_CODE_PATTERN = /^MASAR-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
@@ -33,7 +43,26 @@ const REGISTRATION_ERROR_KEYS = new Set([
   'unable-to-complete-registration',
 ]);
 const LOCALES = new Set(['en', 'ar']);
-const COMPANY_STATUSES = new Set(['active', 'inactive', 'trial']);
+const COMPANY_STATUSES = new Set(['active', 'inactive', 'trial', 'trialExpired']);
+const PAYMENT_STATUSES = new Set([
+  'paid',
+  'dueSoon',
+  'overdue',
+  'gracePeriod',
+  'suspended',
+  'trial',
+  'trialExpired',
+  'inactive',
+]);
+const PAYMENT_CYCLES = new Set(['monthly', 'quarterly', 'semiAnnual', 'yearly', 'custom']);
+const PAYMENT_HISTORY_ACTIONS = new Set([
+  'markedPaid',
+  'extended',
+  'statusChanged',
+  'suspended',
+  'reactivated',
+  'noteAdded',
+]);
 const FEATURE_KEYS = new Set([
   'leads',
   'clients',
@@ -171,6 +200,14 @@ const PLATFORM_NOTIFICATION_TYPES = new Set([
   'storageUsageRefreshed',
   'storageNearLimit',
   'platformFunctionFailed',
+  'trialEndingSoon',
+  'trialExpired',
+  'paymentDueSoon',
+  'paymentOverdue',
+  'paymentGraceEnding',
+  'paymentSuspended',
+  'paymentReactivated',
+  'paymentMarkedPaid',
 ]);
 const PLATFORM_NOTIFICATION_SEVERITIES = new Set(['info', 'success', 'warning', 'urgent']);
 const PLATFORM_NOTIFICATION_SOURCES = new Set([
@@ -181,6 +218,26 @@ const PLATFORM_NOTIFICATION_SOURCES = new Set([
   'user',
   'storage',
   'system',
+]);
+const PLATFORM_ERROR_SOURCES = new Set([
+  'flutter_web',
+  'flutter_mobile',
+  'cloud_function',
+  'firestore_rule',
+  'storage',
+  'unknown',
+]);
+const PLATFORM_ERROR_SEVERITIES = new Set(['info', 'warning', 'error', 'fatal']);
+const IMPORTANT_ERROR_MODULES = new Set([
+  'auth',
+  'appointments',
+  'platform',
+  'invitations',
+  'clients',
+  'clients assignment',
+  'support',
+  'subscription',
+  'payment',
 ]);
 const IMPORTANT_LEAD_STATUSES = new Set([
   'hot',
@@ -228,6 +285,7 @@ exports.createCompanyInvitation = onCall(async (request) => {
   const locale = optionalString(data.locale) || 'en';
   const timezone = optionalString(data.timezone) || 'Africa/Cairo';
   const notes = sanitizeShortString(data.notes, 500);
+  const trial = trialPayload(data);
   const expiresAt = parseFutureDate(data.expiresAt, 'expiresAt');
 
   validateLocale(locale);
@@ -242,6 +300,7 @@ exports.createCompanyInvitation = onCall(async (request) => {
     id: invitationRef.id,
     codeHash,
     codePreview,
+    invitationCode,
     type: 'companyAdmin',
     status: 'active',
     planId,
@@ -252,6 +311,9 @@ exports.createCompanyInvitation = onCall(async (request) => {
     locale,
     timezone,
     notes,
+    trialDays: trial.trialDays,
+    trialDurationValue: trial.trialDurationValue,
+    trialDurationUnit: trial.trialDurationUnit,
     expiresAt,
     maxUses: 1,
     usedCount: 0,
@@ -280,6 +342,9 @@ exports.createCompanyInvitation = onCall(async (request) => {
       storageLimitMb,
       locale,
       timezone,
+      trialDays: trial.trialDays,
+      trialDurationValue: trial.trialDurationValue,
+      trialDurationUnit: trial.trialDurationUnit,
     },
   });
 
@@ -320,6 +385,9 @@ exports.validateCompanyInvitation = onCall(async (request) => {
     features: publicFeatureSummary(invitation.data.features || {}),
     locale: invitation.data.locale || 'en',
     timezone: invitation.data.timezone || 'Africa/Cairo',
+    trialDays: Number.isInteger(invitation.data.trialDays) ? invitation.data.trialDays : 0,
+    trialDurationValue: Number.isInteger(invitation.data.trialDurationValue) ? invitation.data.trialDurationValue : (Number.isInteger(invitation.data.trialDays) ? invitation.data.trialDays : 0),
+    trialDurationUnit: normalizeTrialUnit(invitation.data.trialDurationUnit),
     expiresAt: dateMillis(invitation.data.expiresAt),
   };
 });
@@ -453,6 +521,10 @@ exports.acceptCompanyInvitation = onCall(async (request) => {
         freshInvitation.storageLimitMb || 1024,
         'storageLimitMb',
       );
+      const trial = trialDatesFromDuration(
+        Number.isInteger(freshInvitation.trialDurationValue) ? freshInvitation.trialDurationValue : freshInvitation.trialDays,
+        freshInvitation.trialDurationUnit,
+      );
 
       currentStep = 'create_company_docs';
       logAcceptInvitationStep(currentStep, logContext);
@@ -460,14 +532,25 @@ exports.acceptCompanyInvitation = onCall(async (request) => {
         id: companyId,
         name: companyName,
         displayName: companyName,
-        status: 'active',
+        status: trial.status,
         isActive: true,
+        trialStartedAt: trial.trialStartedAt,
+        trialEndsAt: trial.trialEndsAt,
         phone: companyPhone,
         city: companyCity,
         location: companyCity,
         website: companyWebsite,
         planId: freshInvitation.planId || '',
         planName,
+        trialDays: trial.trialDays,
+        trialDurationValue: trial.trialDurationValue,
+        trialDurationUnit: trial.trialDurationUnit,
+        paymentStatus: trial.status === 'trial' ? 'trial' : 'paid',
+        paymentCycle: 'monthly',
+        paymentCurrency: 'EGP',
+        paymentAmount: 0,
+        paymentNotes: '',
+        paymentReminderState: {},
         createdAt: now,
         createdBy: userRecord.uid,
         updatedAt: now,
@@ -522,7 +605,8 @@ exports.acceptCompanyInvitation = onCall(async (request) => {
         companyName,
         role: 'admin',
         isActive: true,
-        status: 'active',
+        status: trial.status,
+        paymentStatus: trial.status === 'trial' ? 'trial' : 'paid',
         createdAt: now,
         updatedAt: now,
       }, { merge: true });
@@ -600,6 +684,18 @@ exports.acceptCompanyInvitation = onCall(async (request) => {
     if (currentStep !== 'accept_invitation_failed') {
       logAcceptInvitationStep(currentStep, logContext, mappedError);
     }
+    if (mappedError && mappedError.code === 'internal') {
+      await logCloudFunctionError({
+        functionName: 'acceptCompanyInvitation',
+        module: 'invitations',
+        companyId: logContext.companyId,
+        error: mappedError,
+        metadata: {
+          step: currentStep,
+          invitationId: logContext.invitationId,
+        },
+      });
+    }
     if (createdAuthUser && userRecord) {
       await cleanupInvitationAuthUser(userRecord, logContext);
       createdAuthUser = false;
@@ -664,12 +760,224 @@ exports.listCompanyInvitations = onCall(async (request) => {
     .orderBy('createdAt', 'desc')
     .limit(100)
     .get();
-  const invitations = snapshot.docs
-    .map((doc) => publicInvitationListItem(doc.id, doc.data() || {}))
+  const rawInvitations = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data() || {},
+  }));
+  const usedCompanyIds = [
+    ...new Set(
+      rawInvitations
+        .map((item) => item.data.companyId || '')
+        .filter((companyId) => companyId),
+    ),
+  ];
+  const companySnapshots = await Promise.all(
+    usedCompanyIds.map((companyId) => db.doc(`companies/${companyId}`).get()),
+  );
+  const companiesById = {};
+  companySnapshots.forEach((companySnapshot) => {
+    if (companySnapshot.exists) {
+      companiesById[companySnapshot.id] = companySnapshot.data() || {};
+    }
+  });
+  const invitations = rawInvitations
+    .map((item) => publicInvitationListItem(
+      item.id,
+      item.data,
+      companiesById[item.data.companyId || ''] || null,
+    ))
     .filter((invitation) => !status || invitation.status === status);
   return {
     invitations,
   };
+});
+
+exports.reportClientError = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const uid = request.auth.uid;
+  const data = request.data || {};
+  const source = enumValueOrDefault(data.source, PLATFORM_ERROR_SOURCES, 'unknown');
+  const severity = enumValueOrDefault(data.severity, PLATFORM_ERROR_SEVERITIES, 'error');
+  const message =
+    sanitizeLogText(optionalString(data.message) || 'Unhandled client error', 500);
+  const route = sanitizeLogText(optionalString(data.route), 180);
+  const module = sanitizeLogText(optionalString(data.module), 100);
+  const errorCode = sanitizeLogText(optionalString(data.errorCode), 100);
+  const shortStack = sanitizeLogText(optionalString(data.shortStack), 1800);
+  const providedStackHash = sanitizeHash(optionalString(data.stackHash));
+  const stackHash = providedStackHash || hashText(`${message}\n${shortStack}`).slice(0, 32);
+  const appVersion = sanitizeLogText(optionalString(data.appVersion), 40);
+  const buildNumber = sanitizeLogText(optionalString(data.buildNumber), 24);
+  const platform = sanitizeLogText(optionalString(data.platform), 80);
+  const deviceType = sanitizeLogText(optionalString(data.deviceType), 80);
+  const userAgent = sanitizeLogText(optionalString(data.userAgent), 600);
+  const timezone = sanitizeLogText(optionalString(data.timezone), 80);
+  const metadata = sanitizeLogMetadata(data.metadata || {});
+
+  const resolvedContext = await resolveErrorReporterContext({
+    uid,
+    requestedCompanyId: optionalString(data.companyId),
+  });
+  const cleanCompanyId = resolvedContext.companyId;
+  const cleanCompanyName = resolvedContext.companyName;
+  const userEmail = resolvedContext.userEmail;
+  const userRole = resolvedContext.userRole;
+  const messageHash = hashText(`${message}|${errorCode}`).slice(0, 24);
+  const dedupeId = safeDocumentId(
+    `err_${hashText([
+      cleanCompanyId,
+      source,
+      route,
+      module,
+      stackHash,
+      messageHash,
+    ].join('|')).slice(0, 36)}`,
+  );
+  const logRef = db.collection('platform_error_logs').doc(dedupeId);
+  const now = FieldValue.serverTimestamp();
+
+  const occurrenceCount = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(logRef);
+    if (snapshot.exists) {
+      const previousCount = Number(snapshot.get('occurrenceCount') || 0);
+      const nextCount = previousCount + 1;
+      transaction.set(logRef, {
+        id: logRef.id,
+        companyId: cleanCompanyId,
+        companyName: cleanCompanyName,
+        userId: uid,
+        userEmail,
+        userRole,
+        route,
+        module,
+        source,
+        severity,
+        message,
+        errorCode,
+        stackHash,
+        shortStack,
+        occurrenceCount: nextCount,
+        lastSeenAt: now,
+        appVersion,
+        buildNumber,
+        platform,
+        deviceType,
+        userAgent,
+        timezone,
+        resolved: false,
+        resolvedBy: '',
+        resolvedByEmail: '',
+        resolvedAt: null,
+        metadata,
+      }, { merge: true });
+      return nextCount;
+    }
+
+    transaction.set(logRef, {
+      id: logRef.id,
+      companyId: cleanCompanyId,
+      companyName: cleanCompanyName,
+      userId: uid,
+      userEmail,
+      userRole,
+      route,
+      module,
+      source,
+      severity,
+      message,
+      errorCode,
+      stackHash,
+      shortStack,
+      occurrenceCount: 1,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      createdAt: now,
+      appVersion,
+      buildNumber,
+      platform,
+      deviceType,
+      userAgent,
+      timezone,
+      resolved: false,
+      resolvedBy: '',
+      resolvedByEmail: '',
+      resolvedAt: null,
+      ownerNotified: false,
+      metadata,
+    });
+    return 1;
+  });
+
+  if (shouldNotifyOwnerForError({
+    severity,
+    module,
+    occurrenceCount,
+    errorCode,
+  })) {
+    const title = severity === 'fatal'
+      ? 'Fatal error detected'
+      : 'Repeated platform error detected';
+    const companyPart = cleanCompanyName || cleanCompanyId || 'Masar CRM';
+    await createPlatformNotificationSafely('report_client_error', {
+      id: `platform_error_${logRef.id}`,
+      type: 'platformFunctionFailed',
+      title,
+      message: `${companyPart}: ${message}`,
+      severity: severity === 'fatal' ? 'urgent' : 'warning',
+      source: 'system',
+      route: '/platform/monitoring',
+      actorId: uid,
+      actorName: '',
+      actorEmail: userEmail,
+      companyId: cleanCompanyId,
+      companyName: cleanCompanyName,
+      metadata: {
+        logId: logRef.id,
+        source,
+        module,
+        route,
+        severity,
+        occurrenceCount,
+        errorCode,
+      },
+    });
+    await logRef.set({
+      ownerNotified: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+
+  return {
+    logId: logRef.id,
+    occurrenceCount,
+  };
+});
+
+exports.markPlatformErrorResolved = onCall(async (request) => {
+  const callerUid = await requireActivePlatformAdmin(request);
+  const logId = requiredString((request.data || {}).logId, 'logId');
+  const cleanLogId = safeDocumentId(logId);
+  if (!cleanLogId) {
+    throw new HttpsError('invalid-argument', 'Log ID is invalid.');
+  }
+  const logRef = db.collection('platform_error_logs').doc(cleanLogId);
+  const logSnapshot = await logRef.get();
+  if (!logSnapshot.exists) {
+    throw new HttpsError('not-found', 'Error log was not found.');
+  }
+  const actor = await platformActorSummary(callerUid);
+  await logRef.set({
+    resolved: true,
+    resolvedBy: callerUid,
+    resolvedByEmail: actor.actorEmail,
+    resolvedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return { logId: cleanLogId, resolved: true };
 });
 
 exports.createCompanyWithAdmin = onCall(async (request) => {
@@ -682,6 +990,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
   const adminPhone = optionalString(data.adminPhone);
   const locale = optionalString(data.locale) || 'en';
   const timezone = optionalString(data.timezone) || 'Africa/Cairo';
+  const trial = trialPayload(data);
 
   validateCompanyId(companyId);
   validateLocale(locale);
@@ -711,8 +1020,19 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
     id: companyId,
     name: companyName,
     displayName: companyName,
-    status: 'active',
+    status: trial.status,
     isActive: true,
+    trialStartedAt: trial.trialStartedAt,
+    trialEndsAt: trial.trialEndsAt,
+    trialDays: trial.trialDays,
+    trialDurationValue: trial.trialDurationValue,
+    trialDurationUnit: trial.trialDurationUnit,
+    paymentStatus: trial.status === 'trial' ? 'trial' : 'paid',
+    paymentCycle: 'monthly',
+    paymentCurrency: 'EGP',
+    paymentAmount: 0,
+    paymentNotes: '',
+    paymentReminderState: {},
     createdAt: now,
     createdBy: request.auth.uid,
     updatedAt: now,
@@ -751,6 +1071,8 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
     companyName,
     role: 'admin',
     isActive: true,
+    status: trial.status,
+    paymentStatus: trial.status === 'trial' ? 'trial' : 'paid',
     now,
   });
   await batch.commit();
@@ -1603,12 +1925,17 @@ exports.setCompanyActiveStatus = onCall(async (request) => {
     throw new HttpsError('not-found', 'Company was not found.');
   }
   const company = companySnapshot.data() || {};
+  const affectedUserIds = await listCompanyUserIds(companyId);
+  if (!isActive) {
+    await revokeRefreshTokensForUids(affectedUserIds);
+  }
   await companyRef.update({
     isActive,
     status: isActive ? 'active' : 'inactive',
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: request.auth.uid,
   });
+  await syncGlobalUserActiveStatuses(affectedUserIds);
   const actor = await platformActorSummary(actorUid);
   await createPlatformNotificationSafely('set_company_active_status', {
     type: 'companyStatusChanged',
@@ -1729,9 +2056,41 @@ exports.updateCompanyPlatformSettings = onCall(async (request) => {
   if (Object.prototype.hasOwnProperty.call(data, 'status')) {
     update.status = requiredString(data.status, 'status');
     validateCompanyStatus(update.status);
+    if (update.status === 'active') {
+      update.isActive = true;
+      update.paymentStatus = 'paid';
+      update.paymentUpdatedAt = FieldValue.serverTimestamp();
+      update.paymentUpdatedBy = actorUid;
+      update.trialEndsAt = FieldValue.delete();
+      update.trialConvertedAt = FieldValue.serverTimestamp();
+    }
   }
   if (Object.prototype.hasOwnProperty.call(data, 'isActive')) {
     update.isActive = requiredBoolean(data.isActive, 'isActive');
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'trialDurationValue')) {
+    const duration = positiveInteger(data.trialDurationValue, 'trialDurationValue');
+    const unit = normalizeTrialUnit(data.trialDurationUnit);
+    const trial = trialDatesFromDuration(duration, unit);
+    update.trialEndsAt = trial.trialEndsAt;
+    update.trialStartedAt = trial.trialStartedAt;
+    update.trialDurationValue = trial.trialDurationValue;
+    update.trialDurationUnit = trial.trialDurationUnit;
+    update.trialDays = trial.trialDays;
+    update.status = 'trial';
+    update.isActive = true;
+    update.paymentStatus = 'trial';
+  } else if (Object.prototype.hasOwnProperty.call(data, 'trialEndsAt')) {
+    const trialEndsAt = parseFutureDate(data.trialEndsAt, 'trialEndsAt');
+    update.trialEndsAt = trialEndsAt;
+    update.trialStartedAt = FieldValue.serverTimestamp();
+    if (!Object.prototype.hasOwnProperty.call(update, 'status')) {
+      update.status = 'trial';
+    }
+    if (!Object.prototype.hasOwnProperty.call(update, 'isActive')) {
+      update.isActive = true;
+    }
+    update.paymentStatus = 'trial';
   }
 
   if (Object.prototype.hasOwnProperty.call(data, 'settings')) {
@@ -1771,7 +2130,20 @@ exports.updateCompanyPlatformSettings = onCall(async (request) => {
     update.status = 'active';
   }
 
+  const changedCompanyAccess =
+    Object.prototype.hasOwnProperty.call(update, 'status') ||
+    Object.prototype.hasOwnProperty.call(update, 'isActive');
+  const affectedUserIds = changedCompanyAccess
+    ? await listCompanyUserIds(companyId)
+    : [];
+  if (update.isActive === false || update.status === 'inactive') {
+    await revokeRefreshTokensForUids(affectedUserIds);
+  }
+
   await companyRef.update(update);
+  if (changedCompanyAccess) {
+    await syncGlobalUserActiveStatuses(affectedUserIds);
+  }
 
   const nextCompanyName = update.displayName || update.name;
   if (nextCompanyName) {
@@ -1819,6 +2191,564 @@ exports.updateCompanyPlatformSettings = onCall(async (request) => {
 
   return { companyId };
 });
+
+exports.markCompanyPaymentPaid = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const amount = paymentAmountValue(data.amount);
+  const currency = normalizeCurrency(data.currency);
+  const paymentDate = parseOptionalDate(data.paymentDate) || new Date();
+  const nextPaymentDueAt = parseFutureDate(data.nextPaymentDueAt, 'nextPaymentDueAt');
+  const paymentCycle = normalizePaymentCycle(data.paymentCycle);
+  const notes = sanitizePlainString(optionalString(data.notes), 500);
+
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnapshot = await companyRef.get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  const previousStatus = paymentStatusForCompany(company);
+  const actor = await platformActorSummary(actorUid);
+  const companyName = companyNotificationName(companyId, company);
+  const affectedUserIds = await listCompanyUserIds(companyId);
+  const batch = db.batch();
+  const now = FieldValue.serverTimestamp();
+
+  batch.update(companyRef, {
+    status: 'active',
+    isActive: true,
+    paymentStatus: 'paid',
+    lastPaymentAt: paymentDate,
+    nextPaymentDueAt,
+    paymentAmount: amount,
+    paymentCurrency: currency,
+    paymentCycle,
+    paymentNotes: notes,
+    paymentUpdatedAt: now,
+    paymentUpdatedBy: actorUid,
+    gracePeriodEndsAt: FieldValue.delete(),
+    suspendedAt: FieldValue.delete(),
+    suspendedReason: FieldValue.delete(),
+    trialEndsAt: FieldValue.delete(),
+    trialConvertedAt: now,
+    paymentReminderState: {},
+    updatedAt: now,
+    updatedBy: actorUid,
+  });
+  addPaymentHistoryToBatch(batch, {
+    companyId,
+    companyName,
+    action: 'markedPaid',
+    amount,
+    currency,
+    paymentDate,
+    nextPaymentDueAt,
+    previousStatus,
+    newStatus: 'paid',
+    notes,
+    actor,
+    now,
+  });
+  await batch.commit();
+  await syncGlobalUserActiveStatuses(affectedUserIds);
+  await createPlatformPaymentNotification({
+    type: 'paymentMarkedPaid',
+    title: 'Payment marked paid',
+    message: `${companyName} was marked as paid.`,
+    companyId,
+    companyName,
+    actor,
+    metadata: { amount, currency, nextPaymentDueAt: nextPaymentDueAt.toISOString() },
+  });
+  await notifyCompanyAdminsForPaymentState({
+    companyId,
+    company: { ...company, paymentStatus: 'paid' },
+    paymentStatus: 'paid',
+    dedupeSuffix: `paid_${Date.now()}`,
+  });
+  return { companyId, paymentStatus: 'paid' };
+});
+
+exports.extendCompanyPaymentDueDate = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const nextPaymentDueAt = parseFutureDate(data.nextPaymentDueAt, 'nextPaymentDueAt');
+  const notes = sanitizePlainString(optionalString(data.notes), 500);
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnapshot = await companyRef.get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  const previousStatus = paymentStatusForCompany(company);
+  const actor = await platformActorSummary(actorUid);
+  const companyName = companyNotificationName(companyId, company);
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  batch.update(companyRef, {
+    paymentStatus: previousStatus === 'suspended' ? 'suspended' : 'paid',
+    nextPaymentDueAt,
+    paymentNotes: notes || optionalString(company.paymentNotes),
+    paymentUpdatedAt: now,
+    paymentUpdatedBy: actorUid,
+    paymentReminderState: {},
+    updatedAt: now,
+    updatedBy: actorUid,
+  });
+  addPaymentHistoryToBatch(batch, {
+    companyId,
+    companyName,
+    action: 'extended',
+    amount: paymentAmountValue(company.paymentAmount, true),
+    currency: normalizeCurrency(company.paymentCurrency, true),
+    paymentDate: dateFromCallableValue(company.lastPaymentAt),
+    nextPaymentDueAt,
+    previousStatus,
+    newStatus: previousStatus === 'suspended' ? 'suspended' : 'paid',
+    notes,
+    actor,
+    now,
+  });
+  await batch.commit();
+  await createPlatformPaymentNotification({
+    type: 'paymentDueSoon',
+    title: 'Payment due date extended',
+    message: `${companyName} payment due date was extended.`,
+    companyId,
+    companyName,
+    actor,
+    metadata: { nextPaymentDueAt: nextPaymentDueAt.toISOString() },
+  });
+  return { companyId, nextPaymentDueAt: nextPaymentDueAt.toISOString() };
+});
+
+exports.updateCompanyPaymentStatus = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const paymentStatus = normalizePaymentStatus(data.paymentStatus);
+  const notes = sanitizePlainString(optionalString(data.notes), 500);
+  const suspendedReason = sanitizePlainString(optionalString(data.suspendedReason), 500);
+  const nextPaymentDueAt = parseOptionalDate(data.nextPaymentDueAt);
+  const gracePeriodEndsAt = parseOptionalDate(data.gracePeriodEndsAt);
+  if (paymentStatus === 'gracePeriod' && !gracePeriodEndsAt) {
+    throw new HttpsError('invalid-argument', 'gracePeriodEndsAt is required.');
+  }
+  if (paymentStatus === 'suspended' && !suspendedReason && !notes) {
+    throw new HttpsError('invalid-argument', 'Suspension reason is required.');
+  }
+
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnapshot = await companyRef.get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  const previousStatus = paymentStatusForCompany(company);
+  const companyName = companyNotificationName(companyId, company);
+  const actor = await platformActorSummary(actorUid);
+  const now = FieldValue.serverTimestamp();
+  const update = {
+    paymentStatus,
+    paymentNotes: notes || optionalString(company.paymentNotes),
+    paymentUpdatedAt: now,
+    paymentUpdatedBy: actorUid,
+    paymentReminderState: {},
+    updatedAt: now,
+    updatedBy: actorUid,
+  };
+
+  if (nextPaymentDueAt) {
+    update.nextPaymentDueAt = nextPaymentDueAt;
+  }
+  if (paymentStatus === 'gracePeriod') {
+    update.status = 'active';
+    update.isActive = true;
+    update.gracePeriodEndsAt = gracePeriodEndsAt;
+    update.suspendedAt = FieldValue.delete();
+    update.suspendedReason = FieldValue.delete();
+  } else if (paymentStatus === 'suspended') {
+    update.status = 'inactive';
+    update.isActive = false;
+    update.suspendedAt = now;
+    update.suspendedReason = suspendedReason || notes;
+  } else if (paymentStatus === 'paid' || paymentStatus === 'dueSoon' || paymentStatus === 'overdue') {
+    update.status = 'active';
+    update.isActive = true;
+    update.gracePeriodEndsAt = FieldValue.delete();
+    update.suspendedAt = FieldValue.delete();
+    update.suspendedReason = FieldValue.delete();
+  } else if (paymentStatus === 'inactive') {
+    update.status = 'inactive';
+    update.isActive = false;
+  }
+
+  const affectedUserIds = await listCompanyUserIds(companyId);
+  if (update.isActive === false) {
+    await revokeRefreshTokensForUids(affectedUserIds);
+  }
+
+  const batch = db.batch();
+  batch.update(companyRef, update);
+  const action = paymentHistoryActionForStatus(paymentStatus, previousStatus, notes);
+  addPaymentHistoryToBatch(batch, {
+    companyId,
+    companyName,
+    action,
+    amount: paymentAmountValue(company.paymentAmount, true),
+    currency: normalizeCurrency(company.paymentCurrency, true),
+    paymentDate: dateFromCallableValue(company.lastPaymentAt),
+    nextPaymentDueAt: nextPaymentDueAt || dateFromCallableValue(company.nextPaymentDueAt),
+    previousStatus,
+    newStatus: paymentStatus,
+    notes: suspendedReason || notes,
+    actor,
+    now,
+  });
+  await batch.commit();
+  await syncGlobalUserActiveStatuses(affectedUserIds);
+
+  await createPlatformPaymentNotification({
+    type: platformPaymentNotificationType(paymentStatus, action),
+    title: platformPaymentNotificationTitle(paymentStatus, action),
+    message: `${companyName}: ${platformPaymentNotificationTitle(paymentStatus, action)}.`,
+    companyId,
+    companyName,
+    actor,
+    metadata: { previousStatus, paymentStatus },
+  });
+  await notifyCompanyAdminsForPaymentState({
+    companyId,
+    company: { ...company, paymentStatus, gracePeriodEndsAt },
+    paymentStatus,
+    dedupeSuffix: `${paymentStatus}_${Date.now()}`,
+  });
+
+  return { companyId, paymentStatus };
+});
+
+
+
+exports.listPlatformErrorLogs = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const requestedLimit = optionalPositiveInteger(data.limit, 'limit') || 160;
+  const limit = Math.min(requestedLimit, 500);
+
+  const snapshot = await db
+    .collection('platform_error_logs')
+    .orderBy('lastSeenAt', 'desc')
+    .limit(limit)
+    .get();
+
+  return {
+    logs: snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...serializeExportValue(doc.data() || {}),
+    })),
+  };
+});
+
+exports.exportCompanyDataForPlatform = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+
+  const allowedCollections = new Set([
+    'users',
+    'leads',
+    'clients',
+    'properties',
+    'tasks',
+    'deals',
+    'appointments',
+    'notifications',
+    'audit_logs',
+    'teams',
+  ]);
+  const requestedCollections = Array.isArray(data.collections)
+    ? data.collections.map(optionalString).filter(Boolean)
+    : [];
+  const collections = requestedCollections.length > 0
+    ? requestedCollections.filter((collectionName) => allowedCollections.has(collectionName))
+    : [...allowedCollections];
+
+  if (collections.length === 0) {
+    throw new HttpsError('invalid-argument', 'Select at least one export section.');
+  }
+
+  const result = {
+    companyId,
+    exportedAt: new Date().toISOString(),
+    company: serializeExportValue(companySnapshot.data() || {}),
+    data: {},
+  };
+
+  for (const collectionName of collections) {
+    const snapshot = await db
+      .collection(`companies/${companyId}/${collectionName}`)
+      .limit(5000)
+      .get();
+    result.data[collectionName] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...serializeExportValue(doc.data() || {}),
+    }));
+  }
+
+  return result;
+});
+
+exports.expireTrialCompanies = onSchedule('every 1 minutes', async () => {
+  const now = new Date();
+  const snapshot = await db
+    .collection('companies')
+    .where('status', '==', 'trial')
+    .limit(500)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const company = doc.data() || {};
+    const companyId = doc.id;
+    const trialEndsAt = dateFromCallableValue(company.trialEndsAt);
+    const trialStartedAt = dateFromCallableValue(company.trialStartedAt);
+    if (!trialEndsAt) {
+      continue;
+    }
+
+    if (trialEndsAt.getTime() > now.getTime()) {
+      const milestone = trialNotificationMilestone({
+        start: trialStartedAt,
+        end: trialEndsAt,
+        now,
+      });
+      if (milestone > 0) {
+        await notifyTrialMilestone({ companyId, company, milestone, trialEndsAt, now });
+      }
+      continue;
+    }
+
+    const affectedUserIds = await listCompanyUserIds(companyId);
+    await revokeRefreshTokensForUids(affectedUserIds);
+    await doc.ref.update({
+      status: 'trialExpired',
+      isActive: false,
+      trialExpiredAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: 'system:trial-expiry',
+    });
+    await syncGlobalUserActiveStatuses(affectedUserIds);
+    const platformExpiredLocale = await platformNotificationLocale();
+    const platformExpiredText = trialNotificationText({
+      locale: platformExpiredLocale,
+      milestone: 3,
+      companyName: companyNotificationName(companyId, company),
+      expired: true,
+    });
+    await createPlatformNotificationSafely('trial_expired', {
+      id: `trial_expired_${companyId}`,
+      type: 'trialExpired',
+      title: platformExpiredText.title,
+      message: platformExpiredText.platformBody,
+      severity: 'warning',
+      source: 'company',
+      route: '/platform',
+      companyId,
+      companyName: companyNotificationName(companyId, company),
+      metadata: {
+        status: 'trialExpired',
+        trialEndsAt: trialEndsAt.toISOString(),
+      },
+    });
+
+    const admins = await listCompanyAdminUsers(companyId);
+    for (const admin of admins) {
+      const locale = notificationLocaleForCompanyUser(company, admin);
+      const text = trialNotificationText({
+        locale,
+        milestone: 3,
+        expired: true,
+      });
+      await createCompanyNotification({
+        companyId,
+        recipientUid: admin.uid,
+        recipientRole: 'admin',
+        type: 'systemInfo',
+        module: 'company',
+        recordId: companyId,
+        recordTitle: text.title,
+        recordSubtitle: text.body,
+        route: '/dashboard',
+        actorUid: 'system:trial',
+        actorName: 'Masar CRM',
+        priority: 'urgent',
+        metadata: {
+          status: 'trialExpired',
+          trialEndsAt: trialEndsAt.toISOString(),
+        },
+        fallbackTitle: text.title,
+        fallbackBody: text.body,
+        dedupeKey: `trial_expired_${companyId}_admin_${admin.uid}`,
+      });
+    }
+  }
+
+  return null;
+});
+
+exports.runPaymentReminderSweep = onSchedule('every 6 hours', async () => {
+  const now = new Date();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const tomorrowMs = 24 * 60 * 60 * 1000;
+  const snapshot = await db
+    .collection('companies')
+    .where('isActive', '==', true)
+    .limit(500)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const company = doc.data() || {};
+    const companyId = doc.id;
+    const status = paymentStatusForCompany(company);
+    if (['trial', 'trialExpired', 'inactive', 'suspended'].includes(status)) {
+      continue;
+    }
+    const nextDue = dateFromCallableValue(company.nextPaymentDueAt);
+    const graceEnds = dateFromCallableValue(company.gracePeriodEndsAt);
+    const reminderState = company && typeof company.paymentReminderState === 'object'
+      ? company.paymentReminderState
+      : {};
+    const updates = {};
+
+    if (status === 'gracePeriod' && graceEnds) {
+      const remaining = graceEnds.getTime() - now.getTime();
+      if (remaining <= tomorrowMs && remaining > 0) {
+        const key = `graceEnding_${graceEnds.getTime()}`;
+        if (!reminderState[key]) {
+          await createPlatformPaymentNotification({
+            type: 'paymentGraceEnding',
+            title: 'Grace period ending soon',
+            message: `${companyNotificationName(companyId, company)} grace period is ending soon.`,
+            companyId,
+            companyName: companyNotificationName(companyId, company),
+            metadata: { gracePeriodEndsAt: graceEnds.toISOString() },
+          });
+          await notifyCompanyAdminsForPaymentState({
+            companyId,
+            company,
+            paymentStatus: 'gracePeriod',
+            dedupeSuffix: key,
+          });
+          updates[`paymentReminderState.${key}`] = true;
+        }
+      }
+      if (remaining <= 0) {
+        updates.paymentStatus = 'suspended';
+        updates.status = 'inactive';
+        updates.isActive = false;
+        updates.suspendedAt = FieldValue.serverTimestamp();
+        updates.suspendedReason = 'Grace period ended.';
+        const key = `graceExpired_${graceEnds.getTime()}`;
+        if (!reminderState[key]) {
+          await createPlatformPaymentNotification({
+            type: 'paymentSuspended',
+            title: 'Company suspended',
+            message: `${companyNotificationName(companyId, company)} was suspended after the payment grace period ended.`,
+            companyId,
+            companyName: companyNotificationName(companyId, company),
+            metadata: { gracePeriodEndsAt: graceEnds.toISOString() },
+          });
+          await notifyCompanyAdminsForPaymentState({
+            companyId,
+            company,
+            paymentStatus: 'suspended',
+            dedupeSuffix: key,
+          });
+          updates[`paymentReminderState.${key}`] = true;
+        }
+      }
+    }
+
+    if (nextDue) {
+      const remaining = nextDue.getTime() - now.getTime();
+      if (remaining <= 0) {
+        const key = `overdue_${nextDue.getTime()}`;
+        updates.paymentStatus = status === 'gracePeriod' ? 'gracePeriod' : 'overdue';
+        if (!reminderState[key]) {
+          await createPlatformPaymentNotification({
+            type: 'paymentOverdue',
+            title: 'Payment overdue',
+            message: `${companyNotificationName(companyId, company)} payment is overdue.`,
+            companyId,
+            companyName: companyNotificationName(companyId, company),
+            metadata: { nextPaymentDueAt: nextDue.toISOString() },
+          });
+          await notifyCompanyAdminsForPaymentState({
+            companyId,
+            company,
+            paymentStatus: status === 'gracePeriod' ? 'gracePeriod' : 'overdue',
+            dedupeSuffix: key,
+          });
+          updates[`paymentReminderState.${key}`] = true;
+        }
+      } else if (remaining <= tomorrowMs) {
+        const key = `dueTomorrow_${nextDue.getTime()}`;
+        updates.paymentStatus = 'dueSoon';
+        if (!reminderState[key]) {
+          await createPlatformPaymentNotification({
+            type: 'paymentDueSoon',
+            title: 'Payment due tomorrow',
+            message: `${companyNotificationName(companyId, company)} payment is due tomorrow.`,
+            companyId,
+            companyName: companyNotificationName(companyId, company),
+            metadata: { nextPaymentDueAt: nextDue.toISOString() },
+          });
+          updates[`paymentReminderState.${key}`] = true;
+        }
+      } else if (remaining <= sevenDaysMs) {
+        const key = `due7_${nextDue.getTime()}`;
+        updates.paymentStatus = 'dueSoon';
+        if (!reminderState[key]) {
+          await createPlatformPaymentNotification({
+            type: 'paymentDueSoon',
+            title: 'Payment due soon',
+            message: `${companyNotificationName(companyId, company)} payment is due within 7 days.`,
+            companyId,
+            companyName: companyNotificationName(companyId, company),
+            metadata: { nextPaymentDueAt: nextDue.toISOString() },
+          });
+          updates[`paymentReminderState.${key}`] = true;
+        }
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updates.paymentUpdatedAt = FieldValue.serverTimestamp();
+      updates.paymentUpdatedBy = 'system:payment-reminder';
+      await doc.ref.set(updates, { merge: true });
+      if (updates.isActive === false) {
+        const affectedUserIds = await listCompanyUserIds(companyId);
+        await revokeRefreshTokensForUids(affectedUserIds);
+        await syncGlobalUserActiveStatuses(affectedUserIds);
+      }
+    }
+  }
+
+  return null;
+});
+
 
 
 exports.validateUploadedImageMagicBytes = onObjectFinalized(
@@ -1897,6 +2827,9 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   }
   const company = companySnapshot.data() || {};
   const targetUser = targetUserSnapshot.data() || {};
+  if (targetUser.companyId && targetUser.companyId !== companyId) {
+    throw new HttpsError('permission-denied', 'Company user does not belong to this company.');
+  }
   if (!isPlatformActor) {
     enforceUserManagementFeature(company, false);
     assertCompanyAdminCanManageTarget({
@@ -1905,6 +2838,9 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
       targetUser,
       nextActive: isActive,
     });
+  }
+  if (!isActive) {
+    await revokeRefreshTokensForUid(uid);
   }
 
   const now = FieldValue.serverTimestamp();
@@ -1921,6 +2857,7 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
     updatedAt: now,
   });
   await batch.commit();
+  await syncGlobalUserActiveStatus(uid);
   {
     const actor = await notificationActorSummary(companyId, actorUid);
     const actorRole = isPlatformActor ? 'platformAdmin' : 'companyAdmin';
@@ -3447,7 +4384,7 @@ function writeMembership(batch, uid, companyId, data) {
       companyName: data.companyName,
       role: data.role,
       isActive: data.isActive,
-      status: data.isActive ? 'active' : 'inactive',
+      status: data.status || (data.isActive ? 'active' : 'inactive'),
       createdAt: data.now,
       updatedAt: data.now,
     },
@@ -4047,6 +4984,378 @@ function positiveInteger(value, field) {
   return value;
 }
 
+function optionalPositiveInteger(value, field) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return 0;
+  }
+  return positiveInteger(value, field);
+}
+
+function trialDatesFromDays(trialDays) {
+  return trialDatesFromDuration(trialDays, 'days');
+}
+
+function trialDatesFromDuration(value, unit) {
+  const durationValue = Number.isInteger(value) ? value : Number.parseInt(value, 10);
+  const durationUnit = normalizeTrialUnit(unit);
+  if (!Number.isInteger(durationValue) || durationValue <= 0) {
+    return {
+      status: 'active',
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialDurationValue: 0,
+      trialDurationUnit: durationUnit,
+      trialDays: 0,
+    };
+  }
+  const now = new Date();
+  return {
+    status: 'trial',
+    trialStartedAt: now,
+    trialEndsAt: new Date(now.getTime() + durationValue * trialUnitMs(durationUnit)),
+    trialDurationValue: durationValue,
+    trialDurationUnit: durationUnit,
+    trialDays: trialApproxDays(durationValue, durationUnit),
+  };
+}
+
+function normalizeTrialUnit(unit) {
+  const clean = optionalString(unit).toLowerCase();
+  if (clean === 'minutes' || clean === 'hours' || clean === 'days') {
+    return clean;
+  }
+  return 'days';
+}
+
+function trialUnitMs(unit) {
+  if (unit === 'minutes') return 60 * 1000;
+  if (unit === 'hours') return 60 * 60 * 1000;
+  return 24 * 60 * 60 * 1000;
+}
+
+function trialApproxDays(value, unit) {
+  if (!Number.isInteger(value) || value <= 0) return 0;
+  if (unit === 'minutes') return Math.max(1, Math.ceil(value / (60 * 24)));
+  if (unit === 'hours') return Math.max(1, Math.ceil(value / 24));
+  return value;
+}
+
+function trialPayload(data) {
+  const legacyDays = optionalPositiveInteger(data.trialDays, 'trialDays');
+  const value = optionalPositiveInteger(data.trialDurationValue, 'trialDurationValue') || legacyDays;
+  const unit = Object.prototype.hasOwnProperty.call(data, 'trialDurationUnit')
+    ? normalizeTrialUnit(data.trialDurationUnit)
+    : 'days';
+  return trialDatesFromDuration(value, unit);
+}
+
+function normalizePaymentStatus(value) {
+  const status = optionalString(value);
+  if (!PAYMENT_STATUSES.has(status)) {
+    throw new HttpsError('invalid-argument', 'Payment status is invalid.');
+  }
+  return status;
+}
+
+function normalizePaymentCycle(value) {
+  const cycle = optionalString(value) || 'monthly';
+  if (!PAYMENT_CYCLES.has(cycle)) {
+    throw new HttpsError('invalid-argument', 'Payment cycle is invalid.');
+  }
+  return cycle;
+}
+
+function normalizeCurrency(value, allowEmpty = false) {
+  const clean = optionalString(value).toUpperCase();
+  if (!clean && allowEmpty) {
+    return '';
+  }
+  if (!/^[A-Z]{3}$/.test(clean)) {
+    throw new HttpsError('invalid-argument', 'Payment currency is invalid.');
+  }
+  return clean;
+}
+
+function paymentAmountValue(value, allowEmpty = false) {
+  if ((value === null || typeof value === 'undefined' || value === '') && allowEmpty) {
+    return 0;
+  }
+  const amount = typeof value === 'number' ? value : Number.parseFloat(optionalString(value));
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1000000000) {
+    throw new HttpsError('invalid-argument', 'Payment amount is invalid.');
+  }
+  return Math.round(amount * 100) / 100;
+}
+
+function paymentStatusForCompany(company) {
+  const explicit = optionalString(company && company.paymentStatus);
+  if (PAYMENT_STATUSES.has(explicit)) {
+    return explicit;
+  }
+  const status = optionalString(company && company.status);
+  if (status === 'trial') return 'trial';
+  if (status === 'trialExpired') return 'trialExpired';
+  if (status === 'inactive' || (company && company.isActive === false)) return 'inactive';
+  return 'paid';
+}
+
+function paymentHistoryActionForStatus(status, previousStatus, notes) {
+  if (status === 'suspended') return 'suspended';
+  if (status === 'paid' && previousStatus === 'suspended') return 'reactivated';
+  if (status === 'paid') return 'reactivated';
+  if (notes && status === previousStatus) return 'noteAdded';
+  return 'statusChanged';
+}
+
+function platformPaymentNotificationType(status, action) {
+  if (action === 'reactivated') return 'paymentReactivated';
+  if (status === 'suspended') return 'paymentSuspended';
+  if (status === 'gracePeriod') return 'paymentGraceEnding';
+  if (status === 'overdue') return 'paymentOverdue';
+  if (status === 'dueSoon') return 'paymentDueSoon';
+  if (status === 'paid') return 'paymentMarkedPaid';
+  return 'companySettingsChanged';
+}
+
+function platformPaymentNotificationTitle(status, action) {
+  if (action === 'reactivated') return 'Company reactivated';
+  if (status === 'suspended') return 'Company suspended';
+  if (status === 'gracePeriod') return 'Company moved to grace period';
+  if (status === 'overdue') return 'Payment overdue';
+  if (status === 'dueSoon') return 'Payment due soon';
+  if (status === 'paid') return 'Payment marked paid';
+  return 'Payment status changed';
+}
+
+function addPaymentHistoryToBatch(batch, {
+  companyId,
+  companyName,
+  action,
+  amount,
+  currency,
+  paymentDate,
+  nextPaymentDueAt,
+  previousStatus,
+  newStatus,
+  notes,
+  actor = {},
+  now,
+}) {
+  const cleanAction = PAYMENT_HISTORY_ACTIONS.has(action) ? action : 'statusChanged';
+  const historyRef = db.collection(`companies/${companyId}/payment_history`).doc();
+  batch.set(historyRef, {
+    id: historyRef.id,
+    companyId,
+    companyName: sanitizePlainString(companyName, 240),
+    action: cleanAction,
+    amount: typeof amount === 'number' ? amount : 0,
+    currency: sanitizePlainString(currency, 12),
+    paymentDate: paymentDate || null,
+    nextPaymentDueAt: nextPaymentDueAt || null,
+    previousStatus: sanitizePlainString(previousStatus, 40),
+    newStatus: sanitizePlainString(newStatus, 40),
+    notes: sanitizePlainString(notes, 500),
+    actorUid: sanitizePlainString(actor.actorId, 160),
+    actorName: sanitizePlainString(actor.actorName, 160),
+    actorEmail: sanitizePlainString(actor.actorEmail, 180),
+    createdAt: now || FieldValue.serverTimestamp(),
+  });
+}
+
+async function createPlatformPaymentNotification({
+  type,
+  title,
+  message,
+  companyId,
+  companyName,
+  actor = {},
+  metadata = {},
+}) {
+  const locale = await platformNotificationLocale();
+  const text = platformPaymentNotificationText(locale, {
+    type,
+    title,
+    message,
+    companyName,
+  });
+  return createPlatformNotificationSafely('payment_follow_up', {
+    type,
+    title: text.title,
+    message: text.message,
+    severity: type === 'paymentSuspended' || type === 'paymentOverdue' ? 'urgent' : 'warning',
+    source: 'company',
+    route: '/platform',
+    actorId: actor.actorId || '',
+    actorName: actor.actorName || '',
+    actorEmail: actor.actorEmail || '',
+    companyId,
+    companyName,
+    metadata,
+  });
+}
+
+function platformPaymentNotificationText(locale, {
+  type,
+  title,
+  message,
+  companyName,
+}) {
+  const lang = normalizeNotificationLocale(locale);
+  if (lang !== 'ar') {
+    return { title, message };
+  }
+  const name = optionalString(companyName);
+  const prefix = name ? `${name}: ` : '';
+  if (type === 'paymentDueSoon') {
+    return {
+      title: 'دفعة مستحقة قريبًا',
+      message: `${prefix}توجد دفعة مستحقة قريبًا.`,
+    };
+  }
+  if (type === 'paymentOverdue') {
+    return {
+      title: 'الدفع متأخر',
+      message: `${prefix}توجد دفعة متأخرة تحتاج إلى متابعة.`,
+    };
+  }
+  if (type === 'paymentGraceEnding') {
+    const movedToGrace = optionalString(title).toLowerCase().includes('moved');
+    return {
+      title: movedToGrace ? 'تم نقل الشركة إلى فترة سماح' : 'فترة السماح أوشكت على الانتهاء',
+      message: movedToGrace
+        ? `${prefix}تم نقل الشركة إلى فترة سماح للدفع.`
+        : `${prefix}فترة السماح للدفع أوشكت على الانتهاء.`,
+    };
+  }
+  if (type === 'paymentSuspended') {
+    return {
+      title: 'تم إيقاف الشركة',
+      message: `${prefix}تم إيقاف الوصول بسبب حالة الدفع.`,
+    };
+  }
+  if (type === 'paymentReactivated') {
+    return {
+      title: 'تمت إعادة تفعيل الشركة',
+      message: `${prefix}تمت إعادة تفعيل الشركة بعد تحديث حالة الدفع.`,
+    };
+  }
+  if (type === 'paymentMarkedPaid') {
+    return {
+      title: 'تم تسجيل الدفع',
+      message: `${prefix}تم تسجيل الشركة كمدفوعة.`,
+    };
+  }
+  return {
+    title: 'تم تحديث حالة الدفع',
+    message: `${prefix}تم تحديث حالة دفع الشركة.`,
+  };
+}
+
+function paymentCompanyMessage(locale, paymentStatus) {
+  const lang = normalizeNotificationLocale(locale);
+  if (lang === 'ar') {
+    if (paymentStatus === 'suspended') {
+      return {
+        title: 'تم إيقاف الشركة مؤقتًا',
+        body: 'تم إيقاف الوصول مؤقتًا بسبب حالة الدفع. يرجى التواصل مع الدعم أو مالك المنصة لإعادة التفعيل.',
+      };
+    }
+    if (paymentStatus === 'gracePeriod') {
+      return {
+        title: 'الشركة في فترة سماح',
+        body: 'الشركة تعمل خلال فترة سماح للدفع. يرجى التواصل مع الدعم أو مالك المنصة لتجنب إيقاف الوصول.',
+      };
+    }
+    if (paymentStatus === 'overdue') {
+      return {
+        title: 'الدفع متأخر',
+        body: 'يوجد مبلغ مستحق على الشركة. يرجى التواصل مع الدعم أو مالك المنصة لتحديث حالة الدفع.',
+      };
+    }
+    return {
+      title: 'تم تحديث حالة الدفع',
+      body: 'تم تحديث حالة دفع الشركة.',
+    };
+  }
+  if (paymentStatus === 'suspended') {
+    return {
+      title: 'Company suspended',
+      body: 'Access is temporarily suspended because of payment status. Please contact support or the platform owner to reactivate the company.',
+    };
+  }
+  if (paymentStatus === 'gracePeriod') {
+    return {
+      title: 'Company is in grace period',
+      body: 'The company is working during a payment grace period. Please contact support or the platform owner to avoid access suspension.',
+    };
+  }
+  if (paymentStatus === 'overdue') {
+    return {
+      title: 'Payment overdue',
+      body: 'A company payment is overdue. Please contact support or the platform owner to update the payment status.',
+    };
+  }
+  return {
+    title: 'Payment status updated',
+    body: 'The company payment status was updated.',
+  };
+}
+
+async function notifyCompanyAdminsForPaymentState({
+  companyId,
+  company,
+  paymentStatus,
+  dedupeSuffix,
+}) {
+  if (!['overdue', 'gracePeriod', 'suspended'].includes(paymentStatus)) {
+    return;
+  }
+  const admins = await listCompanyAdminUsers(companyId);
+  for (const admin of admins) {
+    const locale = notificationLocaleForCompanyUser(company, admin);
+    const text = paymentCompanyMessage(locale, paymentStatus);
+    await createCompanyNotification({
+      companyId,
+      recipientUid: admin.uid,
+      recipientRole: 'admin',
+      type: 'systemInfo',
+      module: 'company',
+      recordId: companyId,
+      recordTitle: text.title,
+      recordSubtitle: text.body,
+      route: '/dashboard',
+      actorUid: 'system:payment',
+      actorName: 'Masar CRM',
+      priority: paymentStatus === 'suspended' ? 'urgent' : 'high',
+      metadata: { paymentStatus },
+      fallbackTitle: text.title,
+      fallbackBody: text.body,
+      dedupeKey: `payment_${companyId}_${admin.uid}_${dedupeSuffix}`,
+    });
+  }
+}
+
+function serializeExportValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return null;
+  }
+  if (typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+  if (Array.isArray(value)) {
+    return value.map(serializeExportValue);
+  }
+  if (typeof value === 'object') {
+    const result = {};
+    for (const [key, child] of Object.entries(value)) {
+      result[key] = serializeExportValue(child);
+    }
+    return result;
+  }
+  return value;
+}
+
+
 async function enforceUserLimit(companyId, company) {
   const limits = company.limits || {};
   const limit = limits.users;
@@ -4088,6 +5397,298 @@ async function loadCompanyUserAndAuthUser({ companyId, uid }) {
   }
 
   return { companyUserSnapshot, userRecord };
+}
+
+async function listCompanyUserIds(companyId) {
+  const snapshot = await db.collection(`companies/${companyId}/users`).select().get();
+  return snapshot.docs
+    .map((doc) => optionalString(doc.id))
+    .filter((uid) => uid.length > 0);
+}
+
+async function listCompanyAdminUsers(companyId) {
+  const snapshot = await db
+    .collection(`companies/${companyId}/users`)
+    .where('role', '==', 'admin')
+    .limit(50)
+    .get();
+  return snapshot.docs
+    .map((doc) => ({
+      uid: doc.id,
+      ...(doc.data() || {}),
+    }))
+    .filter((user) => user.isActive === true);
+}
+
+function trialNotificationMilestone({ start, end, now }) {
+  if (!start || !end) {
+    return 0;
+  }
+  const totalMs = end.getTime() - start.getTime();
+  if (totalMs <= 0) {
+    return 3;
+  }
+  const elapsedMs = now.getTime() - start.getTime();
+  if (elapsedMs < 0 || now.getTime() >= end.getTime()) {
+    return now.getTime() >= end.getTime() ? 3 : 0;
+  }
+  const finalWarningAt = Math.max(1, Math.floor(totalMs * 0.90));
+  if (elapsedMs >= finalWarningAt) return 3;
+  if (elapsedMs >= totalMs * 2 / 3) return 2;
+  if (elapsedMs >= totalMs / 3) return 1;
+  return 0;
+}
+
+function normalizeNotificationLocale(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (clean.startsWith('ar')) return 'ar';
+  return 'en';
+}
+
+function notificationLocaleForCompany(company) {
+  const settings = company && typeof company.settings === 'object' ? company.settings : {};
+  return normalizeNotificationLocale(
+    optionalString(settings.locale) ||
+      optionalString(company && company.locale) ||
+      optionalString(company && company.lastLoginLocale),
+  );
+}
+
+function notificationLocaleForCompanyUser(company, user) {
+  return normalizeNotificationLocale(
+    optionalString(user && user.locale) ||
+      optionalString(user && user.lastLoginLocale) ||
+      notificationLocaleForCompany(company),
+  );
+}
+
+async function platformNotificationLocale() {
+  try {
+    const snapshot = await db
+      .collection('platform_admins')
+      .where('isActive', '==', true)
+      .limit(20)
+      .get();
+    for (const doc of snapshot.docs) {
+      const adminData = doc.data() || {};
+      const locale = optionalString(adminData.locale) || optionalString(adminData.lastLoginLocale);
+      if (normalizeNotificationLocale(locale) === 'ar') {
+        return 'ar';
+      }
+    }
+  } catch (_) {
+    return 'en';
+  }
+  return 'en';
+}
+
+function trialRemainingText(end, now, locale) {
+  if (!end || !now) {
+    return locale === 'ar' ? 'وقت قصير' : 'a short time';
+  }
+  const remainingMs = Math.max(0, end.getTime() - now.getTime());
+  const minutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+  if (minutes < 60) {
+    return locale === 'ar'
+      ? `${minutes} ${minutes === 1 ? 'دقيقة' : 'دقائق'}`
+      : `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  }
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) {
+    return locale === 'ar'
+      ? `${hours} ${hours === 1 ? 'ساعة' : 'ساعات'}`
+      : `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  }
+  const days = Math.ceil(hours / 24);
+  return locale === 'ar'
+    ? `${days} ${days === 1 ? 'يوم' : 'أيام'}`
+    : `${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+function trialNotificationText({
+  locale,
+  milestone,
+  remaining = '',
+  companyName = '',
+  expired = false,
+}) {
+  const lang = normalizeNotificationLocale(locale);
+  const cleanCompanyName = optionalString(companyName);
+  if (expired) {
+    if (lang === 'ar') {
+      const body = 'انتهت فترة التجربة. يرجى التواصل مع الدعم أو الاشتراك لإعادة تفعيل الشركة.';
+      return {
+        title: 'انتهت فترة التجربة',
+        body,
+        platformBody: cleanCompanyName
+          ? `${cleanCompanyName}: انتهت فترة التجربة.`
+          : body,
+      };
+    }
+    const body = 'The trial period has ended. Please contact support or subscribe to reactivate the company.';
+    return {
+      title: 'Trial ended',
+      body,
+      platformBody: cleanCompanyName
+        ? `${cleanCompanyName} trial ended.`
+        : body,
+    };
+  }
+
+  const isFinal = milestone === 3;
+  if (lang === 'ar') {
+    const title = isFinal ? 'فترة التجربة أوشكت على الانتهاء' : 'تنبيه فترة التجربة';
+    const body = `تبقى تقريبًا ${remaining || 'وقت قصير'} على انتهاء فترة التجربة. يرجى التواصل مع الدعم أو الاشتراك للاستمرار في استخدام مسار.`;
+    return {
+      title,
+      body,
+      platformBody: cleanCompanyName ? `${cleanCompanyName}: ${body}` : body,
+    };
+  }
+
+  const title = isFinal ? 'Trial is about to end' : 'Trial checkpoint reached';
+  const body = `About ${remaining || 'a short time'} remains before the trial ends. Please contact support or subscribe to continue using Masar.`;
+  return {
+    title,
+    body,
+    platformBody: cleanCompanyName ? `${cleanCompanyName}: ${body}` : body,
+  };
+}
+
+async function notifyTrialMilestone({ companyId, company, milestone, trialEndsAt, now }) {
+  if (!milestone || milestone < 1 || milestone > 3) {
+    return;
+  }
+  const trialStartedAt = dateFromCallableValue(company.trialStartedAt);
+  const startKey = trialStartedAt ? trialStartedAt.getTime() : 'unknown';
+  const companyName = companyNotificationName(companyId, company);
+  const endIso = trialEndsAt ? trialEndsAt.toISOString() : '';
+  const platformLocale = await platformNotificationLocale();
+  const platformText = trialNotificationText({
+    locale: platformLocale,
+    milestone,
+    remaining: trialRemainingText(trialEndsAt, now, platformLocale),
+    companyName,
+  });
+  await createPlatformNotificationSafely(`trial_${milestone}_platform_${companyId}`, {
+    id: `trial_milestone_${companyId}_${startKey}_${milestone}`,
+    type: 'trialEndingSoon',
+    title: platformText.title,
+    message: platformText.platformBody,
+    severity: milestone === 3 ? 'urgent' : 'warning',
+    source: 'company',
+    route: '/platform',
+    companyId,
+    companyName,
+    metadata: {
+      milestone,
+      trialEndsAt: endIso,
+      trialStartedAt: trialStartedAt ? trialStartedAt.toISOString() : '',
+    },
+  });
+
+  const admins = await listCompanyAdminUsers(companyId);
+  for (const admin of admins) {
+    const locale = notificationLocaleForCompanyUser(company, admin);
+    const text = trialNotificationText({
+      locale,
+      milestone,
+      remaining: trialRemainingText(trialEndsAt, now, locale),
+    });
+    await createCompanyNotification({
+      companyId,
+      recipientUid: admin.uid,
+      recipientRole: 'admin',
+      type: 'systemInfo',
+      module: 'company',
+      recordId: companyId,
+      recordTitle: text.title,
+      recordSubtitle: text.body,
+      route: '/dashboard',
+      actorUid: 'system:trial',
+      actorName: 'Masar CRM',
+      priority: milestone === 3 ? 'urgent' : 'high',
+      metadata: {
+        milestone,
+        trialEndsAt: endIso,
+        trialStartedAt: trialStartedAt ? trialStartedAt.toISOString() : '',
+      },
+      fallbackTitle: text.title,
+      fallbackBody: text.body,
+      dedupeKey: `trial_milestone_${companyId}_${startKey}_${milestone}_admin_${admin.uid}`,
+    });
+  }
+}
+
+async function revokeRefreshTokensForUids(uids) {
+  const uniqueUids = [...new Set((uids || []).map(optionalString).filter(Boolean))];
+  for (const uid of uniqueUids) {
+    await revokeRefreshTokensForUid(uid);
+  }
+}
+
+async function revokeRefreshTokensForUid(uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return;
+  }
+  try {
+    await auth.revokeRefreshTokens(cleanUid);
+  } catch (error) {
+    if (error && error.code === 'auth/user-not-found') {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function syncGlobalUserActiveStatuses(uids) {
+  const uniqueUids = [...new Set((uids || []).map(optionalString).filter(Boolean))];
+  for (const uid of uniqueUids) {
+    await syncGlobalUserActiveStatus(uid);
+  }
+}
+
+async function syncGlobalUserActiveStatus(uid) {
+  const cleanUid = optionalString(uid);
+  if (!cleanUid) {
+    return;
+  }
+  const isActive = await userHasActiveAccess(cleanUid);
+  await db.doc(`users/${cleanUid}`).set({
+    isActive,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
+async function userHasActiveAccess(uid) {
+  if (await isActivePlatformAdminUid(uid)) {
+    return true;
+  }
+
+  const membershipsSnapshot = await db.collection(`users/${uid}/memberships`).get();
+  for (const membershipDocument of membershipsSnapshot.docs) {
+    const membership = membershipDocument.data() || {};
+    const companyId = optionalString(membership.companyId) || membershipDocument.id;
+    if (
+      !companyId ||
+      membership.isActive !== true ||
+      optionalString(membership.status) === 'inactive'
+    ) {
+      continue;
+    }
+
+    const companySnapshot = await db.doc(`companies/${companyId}`).get();
+    if (!companySnapshot.exists) {
+      continue;
+    }
+    const company = companySnapshot.data() || {};
+    if (company.isActive === true && optionalString(company.status) !== 'inactive') {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function requestIpAddress(request) {
@@ -5815,6 +7416,264 @@ function safeNotificationMetadata(metadata) {
   return clean;
 }
 
+function enumValueOrDefault(value, allowedValues, fallback) {
+  const clean = optionalString(value);
+  return allowedValues.has(clean) ? clean : fallback;
+}
+
+function sanitizeHash(value) {
+  return optionalString(value).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+}
+
+function hashText(value) {
+  return crypto.createHash('sha256').update(optionalString(value)).digest('hex');
+}
+
+function sanitizeLogText(value, maxLength) {
+  let clean = optionalString(value);
+  clean = clean.replace(/[<>]/g, '');
+  clean = clean.replace(
+    /(password|token|secret|reset[_-]?link|invitation[_-]?code)\s*[:=]\s*[^\s,;]+/gi,
+    '$1=[redacted]',
+  );
+  clean = clean.replace(
+    /https?:\/\/\S*(token|secret|signature|alt=media)\S*/gi,
+    '[redacted-url]',
+  );
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return clean.slice(0, maxLength);
+}
+
+function sanitizeLogMetadata(metadata) {
+  const clean = {};
+  const source = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? metadata
+    : {};
+  for (const [key, value] of Object.entries(source)) {
+    const cleanKey = sanitizeLogText(key, 80);
+    if (!cleanKey) {
+      continue;
+    }
+    if (/password|token|secret|reset|invitation/i.test(cleanKey)) {
+      continue;
+    }
+    if (typeof value === 'string') {
+      clean[cleanKey] = sanitizeLogText(value, 240);
+    } else if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+      clean[cleanKey] = value;
+    }
+  }
+  return clean;
+}
+
+async function resolveErrorReporterContext({ uid, requestedCompanyId }) {
+  const cleanUid = optionalString(uid);
+  const isPlatform = await isActivePlatformAdminUid(cleanUid);
+  const userRecord = await auth.getUser(cleanUid).catch(() => null);
+  let companyId = '';
+  let companyName = '';
+  let userEmail = sanitizeLogText(optionalString(userRecord && userRecord.email), 180);
+  let userRole = isPlatform ? 'platformAdmin' : '';
+  const candidateCompanyId = optionalString(requestedCompanyId);
+
+  if (candidateCompanyId && COMPANY_ID_PATTERN.test(candidateCompanyId)) {
+    const [companySnapshot, companyUserSnapshot] = await Promise.all([
+      db.doc(`companies/${candidateCompanyId}`).get(),
+      db.doc(`companies/${candidateCompanyId}/users/${cleanUid}`).get(),
+    ]);
+    const companyUser = companyUserSnapshot.exists
+      ? companyUserSnapshot.data() || {}
+      : {};
+    const canUseCompany =
+      isPlatform ||
+      (companyUserSnapshot.exists &&
+        optionalString(companyUser.companyId) === candidateCompanyId);
+    if (canUseCompany) {
+      const company = companySnapshot.exists ? companySnapshot.data() || {} : {};
+      companyId = candidateCompanyId;
+      companyName = companyNotificationName(candidateCompanyId, company);
+      userEmail = sanitizeLogText(optionalString(companyUser.email) || userEmail, 180);
+      userRole = sanitizeLogText(optionalString(companyUser.role) || userRole, 80);
+    }
+  }
+
+  return {
+    companyId,
+    companyName,
+    userEmail,
+    userRole,
+  };
+}
+
+function shouldNotifyOwnerForError({
+  severity,
+  module,
+  occurrenceCount,
+  errorCode = '',
+}) {
+  const cleanModule = optionalString(module).toLowerCase();
+  const cleanErrorCode = optionalString(errorCode).toLowerCase();
+  const isImportantModule = [...IMPORTANT_ERROR_MODULES].some((important) => {
+    return cleanModule === important || cleanModule.includes(important);
+  });
+  const isPermissionProblem =
+    cleanErrorCode === 'permission-denied' ||
+    cleanModule.includes('permission');
+  if (severity === 'fatal') {
+    return true;
+  }
+  if (severity === 'error' && (occurrenceCount >= 3 || isImportantModule)) {
+    return true;
+  }
+  if (
+    severity === 'warning' &&
+    occurrenceCount >= 5 &&
+    (isImportantModule || isPermissionProblem)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function logCloudFunctionError({
+  functionName,
+  module,
+  companyId = '',
+  error,
+  metadata = {},
+}) {
+  try {
+    const cleanCompanyId = optionalString(companyId);
+    const hasCompanyId = cleanCompanyId && COMPANY_ID_PATTERN.test(cleanCompanyId);
+    const companySnapshot = hasCompanyId
+      ? await db.doc(`companies/${cleanCompanyId}`).get()
+      : null;
+    const company = companySnapshot && companySnapshot.exists
+      ? companySnapshot.data() || {}
+      : {};
+    const companyName = hasCompanyId ? companyNotificationName(cleanCompanyId, company) : '';
+    const source = 'cloud_function';
+    const severity = 'error';
+    const cleanModule = sanitizeLogText(optionalString(module) || optionalString(functionName), 100);
+    const message = sanitizeLogText(
+      optionalString(error && error.message) || `${functionName} failed`,
+      500,
+    );
+    const errorCode = sanitizeLogText(optionalString(error && error.code), 100);
+    const shortStack = sanitizeLogText(optionalString(error && error.stack), 1800);
+    const stackHash = hashText(`${functionName}|${message}|${shortStack}`).slice(0, 32);
+    const logRef = db.collection('platform_error_logs').doc(
+      safeDocumentId(`fn_${hashText([
+        cleanCompanyId,
+        functionName,
+        cleanModule,
+        stackHash,
+      ].join('|')).slice(0, 36)}`),
+    );
+    const now = FieldValue.serverTimestamp();
+    const occurrenceCount = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(logRef);
+      if (snapshot.exists) {
+        const nextCount = Number(snapshot.get('occurrenceCount') || 0) + 1;
+        transaction.set(logRef, {
+          id: logRef.id,
+          companyId: hasCompanyId ? cleanCompanyId : '',
+          companyName,
+          source,
+          severity,
+          module: cleanModule,
+          message,
+          errorCode,
+          stackHash,
+          shortStack,
+          occurrenceCount: nextCount,
+          lastSeenAt: now,
+          resolved: false,
+          resolvedBy: '',
+          resolvedByEmail: '',
+          resolvedAt: null,
+          metadata: sanitizeLogMetadata({
+            functionName,
+            ...metadata,
+          }),
+        }, { merge: true });
+        return nextCount;
+      }
+      transaction.set(logRef, {
+        id: logRef.id,
+        companyId: hasCompanyId ? cleanCompanyId : '',
+        companyName,
+        userId: '',
+        userEmail: '',
+        userRole: '',
+        route: '',
+        module: cleanModule,
+        source,
+        severity,
+        message,
+        errorCode,
+        stackHash,
+        shortStack,
+        occurrenceCount: 1,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        createdAt: now,
+        appVersion: '',
+        buildNumber: '',
+        platform: 'cloud_functions',
+        deviceType: 'server',
+        userAgent: '',
+        timezone: '',
+        resolved: false,
+        resolvedBy: '',
+        resolvedByEmail: '',
+        resolvedAt: null,
+        ownerNotified: false,
+        metadata: sanitizeLogMetadata({
+          functionName,
+          ...metadata,
+        }),
+      });
+      return 1;
+    });
+
+    if (shouldNotifyOwnerForError({ severity, module: cleanModule, occurrenceCount })) {
+      await createPlatformNotificationSafely('log_cloud_function_error', {
+        id: `platform_error_${logRef.id}`,
+        type: 'platformFunctionFailed',
+        title: 'Cloud Function failed',
+        message: `${cleanModule || functionName}: ${message}`,
+        severity: 'warning',
+        source: 'system',
+        route: '/platform/monitoring',
+        companyId: hasCompanyId ? cleanCompanyId : '',
+        companyName,
+        metadata: {
+          logId: logRef.id,
+          functionName,
+          module: cleanModule,
+          occurrenceCount,
+          errorCode,
+        },
+      });
+      await logRef.set({
+        ownerNotified: true,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    return logRef.id;
+  } catch (loggingError) {
+    console.error('platform_error_log_failed', {
+      functionName,
+      code: loggingError && loggingError.code ? loggingError.code : '',
+      message: loggingError && loggingError.message ? loggingError.message : '',
+    });
+    return '';
+  }
+}
+
 async function createPlatformNotification(payload) {
   const sourcePayload = payload || {};
   const type = optionalString(sourcePayload.type);
@@ -6231,11 +8090,13 @@ function emailHint(email) {
   return `${name.slice(0, 2)}***@${domain}`;
 }
 
-function publicInvitationListItem(id, invitation) {
+function publicInvitationListItem(id, invitation, company = null) {
   const visibleStatus = invitationPublicStatus(invitation);
+  const companyData = company || {};
   return {
     id,
-    codePreview: invitation.codePreview || '',
+    invitationCode: invitation.invitationCode || invitation.codePreview || '',
+    codePreview: invitation.invitationCode || invitation.codePreview || '',
     type: invitation.type || 'companyAdmin',
     status: visibleStatus,
     planId: invitation.planId || '',
@@ -6254,6 +8115,10 @@ function publicInvitationListItem(id, invitation) {
     acceptedAdminEmail: invitation.acceptedAdminEmail || '',
     companyId: invitation.companyId || '',
     adminUid: invitation.adminUid || '',
+    companyName: companyData.displayName || companyData.name || '',
+    companyStatus: companyData.status || '',
+    companyPlanName: companyData.planName || '',
+    companyCreatedAt: dateMillis(companyData.createdAt),
   };
 }
 
@@ -6264,6 +8129,17 @@ function parseFutureDate(value, field) {
   }
   if (date.getTime() <= Date.now()) {
     throw new HttpsError('invalid-argument', `${field} must be in the future.`);
+  }
+  return date;
+}
+
+function parseOptionalDate(value) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return null;
+  }
+  const date = dateFromCallableValue(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    throw new HttpsError('invalid-argument', 'Date value is invalid.');
   }
   return date;
 }

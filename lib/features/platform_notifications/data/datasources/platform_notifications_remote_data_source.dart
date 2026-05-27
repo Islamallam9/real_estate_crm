@@ -4,6 +4,8 @@ import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../models/platform_notification_model.dart';
 
+const _platformUnreadCountLimit = 1000;
+
 abstract interface class PlatformNotificationsRemoteDataSource {
   Stream<List<PlatformNotificationModel>> watchNotifications({int limit});
 
@@ -26,7 +28,11 @@ class FirestorePlatformNotificationsRemoteDataSource
 
   @override
   Stream<List<PlatformNotificationModel>> watchNotifications({int limit = 80}) {
-    return _collection.snapshots().map((snapshot) {
+    return _collection
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final notifications = snapshot.docs
           .map(PlatformNotificationModel.fromFirestore)
           .toList()
@@ -39,16 +45,12 @@ class FirestorePlatformNotificationsRemoteDataSource
 
   @override
   Stream<int> watchUnreadCount() {
-    return _collection.snapshots().map((snapshot) {
-      var count = 0;
-      for (final document in snapshot.docs) {
-        final data = document.data();
-        if (data['isRead'] != true) {
-          count += 1;
-        }
-      }
-      return count;
-    }).handleError((Object error) {
+    return _collection
+        .where('isRead', isEqualTo: false)
+        .limit(_platformUnreadCountLimit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length)
+        .handleError((Object error) {
       throw Exception(_mapFirestoreError(error));
     });
   }

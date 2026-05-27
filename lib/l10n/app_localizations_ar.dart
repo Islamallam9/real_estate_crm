@@ -230,6 +230,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardAuditRestored => 'استعادة';
 
   @override
+  String get dashboardAuditExportGenerated => 'إنشاء تصدير';
+
+  @override
   String get dashboardAuditLead => 'عميل محتمل';
 
   @override
@@ -997,9 +1000,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get searchLeads => 'البحث في العملاء المحتملين';
 
   @override
-  String get allStatuses => 'كل الحالات';
-
-  @override
   String get allSources => 'كل المصادر';
 
   @override
@@ -1448,7 +1448,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get lostReason => 'سبب الخسارة';
 
   @override
-  String get assignedAgent => 'الموظف المسؤول';
+  String get assignedAgent => 'المسند إليه';
 
   @override
   String get updateStage => 'تحديث المرحلة';
@@ -1878,17 +1878,212 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unableToLoadReports => 'تعذر تحميل التقارير. حاول مرة أخرى.';
 
   @override
-  String get reportsOverview =>
-      'راجع أداء إدارة العملاء باستخدام بيانات العملاء المحتملين والصفقات والمهام والعقارات للفترة المحددة.';
+  String get reportsOverview => 'نظرة عامة';
+
+  @override
+  String get exportCenter => 'التصدير';
+
+  @override
+  String get exportCenterSubtitle =>
+      'أنشئ ملفات Excel منظمة بعلامة مسار من بيانات إدارة العملاء المسموح لك بالوصول إليها.';
+
+  @override
+  String get exportsFollowRolePermissions => 'كل تصدير يلتزم بصلاحيات دورك.';
+
+  @override
+  String get generateExport => 'إنشاء ملف Excel';
+
+  @override
+  String get exportReportType => 'نوع التقرير';
+
+  @override
+  String get exportGenerateSection => 'إنشاء الملف';
+
+  @override
+  String get excel => 'Excel';
+
+  @override
+  String get exportLanguage => 'لغة التقرير';
+
+  @override
+  String get exportStatusFilter => 'الحالة أو المرحلة';
+
+  @override
+  String get allStatuses => 'كل الحالات';
+
+  @override
+  String get includeArchivedRecords => 'تضمين السجلات المؤرشفة';
+
+  @override
+  String get exportColumns => 'أعمدة الملف';
+
+  @override
+  String get recommendedColumns => 'الأعمدة المقترحة';
+
+  @override
+  String get advancedColumns => 'اختيار أعمدة متقدم';
+
+  @override
+  String get selectedAssignee => 'الموظف المحدد';
+
+  @override
+  String get exportReady => 'التصدير جاهز';
+
+  @override
+  String get downloadFile => 'تنزيل الملف';
+
+  @override
+  String get records => 'سجل';
+
+  @override
+  String get exportGeneratedSuccessfully => 'تم إنشاء ملف Excel بنجاح.';
+
+  @override
+  String get exportDownloadFailed => 'التنزيل غير متاح على هذه المنصة.';
+
+  @override
+  String get exportNotAvailableForRole => 'هذا التصدير غير متاح لدورك.';
+
+  @override
+  String get teamPerformanceExport => 'أداء الفريق';
+
+  @override
+  String get pipelineReportExport => 'تقرير مسار الصفقات';
+
+  @override
+  String get followUpReportExport => 'تقرير المتابعات';
+
+  @override
+  String get auditSummaryExport => 'ملخص سجل النشاط';
+
+  @override
+  String get companyWideExportScope => 'على مستوى الشركة';
+
+  @override
+  String get myTeamExportScope => 'فريقي';
+
+  @override
+  String get myRecordsExportScope => 'سجلاتي';
+
+  @override
+  String get restrictedExportScope => 'محدود';
+
+  @override
+  String get lastMonth => 'الشهر الماضي';
+
+  @override
+  String get customRange => 'نطاق مخصص';
+
+  @override
+  String get product => 'المنتج';
+
+  @override
+  String get reportName => 'اسم التقرير';
+
+  @override
+  String get scope => 'النطاق';
+
+  @override
+  String get dateRange => 'نطاق التاريخ';
+
+  @override
+  String get generatedBy => 'تم الإنشاء بواسطة';
+
+  @override
+  String get generatedAt => 'وقت الإنشاء';
+
+  @override
+  String get recordCount => 'عدد السجلات';
+
+  @override
+  String get filtersSummary => 'ملخص الفلاتر';
+
+  @override
+  String get field => 'الحقل';
+
+  @override
+  String get value => 'القيمة';
+
+  @override
+  String get reportSummary => 'ملخص التقرير';
+
+  @override
+  String get dataSheet => 'بيانات التقرير';
+
+  @override
+  String get exportColumnLeadName => 'اسم العميل المحتمل';
+
+  @override
+  String get exportColumnClientName => 'اسم العميل';
+
+  @override
+  String get exportColumnDealTitle => 'عنوان الصفقة';
+
+  @override
+  String get exportColumnPropertyTitle => 'عنوان العقار';
+
+  @override
+  String get budget => 'الميزانية';
+
+  @override
+  String get stage => 'المرحلة';
+
+  @override
+  String get expectedCloseDate => 'تاريخ الإغلاق المتوقع';
+
+  @override
+  String get title => 'العنوان';
+
+  @override
+  String get scheduledAt => 'موعد الجدولة';
+
+  @override
+  String get type => 'النوع';
+
+  @override
+  String get imageCount => 'عدد الصور';
+
+  @override
+  String get dealCount => 'عدد الصفقات';
+
+  @override
+  String get totalValue => 'إجمالي القيمة';
+
+  @override
+  String get averageDealValue => 'متوسط قيمة الصفقة';
+
+  @override
+  String get leadsAssigned => 'العملاء المحتملون المسندون';
+
+  @override
+  String get convertedLeads => 'العملاء المحتملون المحولون';
+
+  @override
+  String get tasksDue => 'المهام المستحقة';
+
+  @override
+  String get tasksOverdue => 'المهام المتأخرة';
+
+  @override
+  String get appointmentsUpcoming => 'المواعيد القادمة';
+
+  @override
+  String get team => 'الفريق';
+
+  @override
+  String get action => 'الإجراء';
+
+  @override
+  String get recordTitle => 'عنوان السجل';
+
+  @override
+  String get actor => 'المنفذ';
 
   @override
   String get reportPeriod => 'فترة التقرير';
 
   @override
   String get selectedPeriod => 'الفترة المحددة';
-
-  @override
-  String get allTime => 'كل الفترات';
 
   @override
   String get today => 'اليوم';
@@ -3175,7 +3370,7 @@ class AppLocalizationsAr extends AppLocalizations {
       'وصلت هذه الدعوة إلى حد الاستخدام.';
 
   @override
-  String get adminEmailAlreadyExists => 'بريد المسؤول مستخدم بالفعل.';
+  String get adminEmailAlreadyExists => 'جرّب بريدًا آخر للمسؤول.';
 
   @override
   String get companyNameAlreadyRegistered =>
@@ -3568,4 +3763,340 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get storageUsageUpdated => 'تم تحديث استخدام التخزين.';
+
+  @override
+  String get yes => 'نعم';
+
+  @override
+  String get no => 'لا';
+
+  @override
+  String get message => 'الرسالة';
+
+  @override
+  String get module => 'الوحدة';
+
+  @override
+  String get severity => 'الخطورة';
+
+  @override
+  String get resolved => 'تم الحل';
+
+  @override
+  String get unresolved => 'غير محلول';
+
+  @override
+  String get platformMonitoring => 'المراقبة';
+
+  @override
+  String get platformMonitoringSubtitle =>
+      'تتبع الأخطاء الجسيمة ومشكلات الصلاحيات المتكررة وحوادث الشركات داخل مسار CRM.';
+
+  @override
+  String get activeIncidents => 'الحوادث النشطة';
+
+  @override
+  String get fatalErrors => 'الأخطاء القاتلة';
+
+  @override
+  String get errorsToday => 'أخطاء اليوم';
+
+  @override
+  String get affectedCompanies => 'الشركات المتأثرة';
+
+  @override
+  String get allSeverities => 'كل مستويات الخطورة';
+
+  @override
+  String get allErrorSources => 'كل المصادر';
+
+  @override
+  String get allModules => 'كل الوحدات';
+
+  @override
+  String get allTime => 'كل الفترات';
+
+  @override
+  String get last24Hours => 'آخر 24 ساعة';
+
+  @override
+  String get last7Days => 'آخر 7 أيام';
+
+  @override
+  String get last30Days => 'آخر 30 يومًا';
+
+  @override
+  String get resolvedAndUnresolved => 'محلول وغير محلول';
+
+  @override
+  String get unresolvedOnly => 'غير المحلولة فقط';
+
+  @override
+  String get resolvedOnly => 'المحلولة فقط';
+
+  @override
+  String get noPlatformErrors => 'لا توجد حوادث مراقبة';
+
+  @override
+  String get noPlatformErrorsMessage =>
+      'ستظهر هنا أخطاء التطبيق والقواعد والتخزين والدوال الجسيمة بعد الإبلاغ عنها.';
+
+  @override
+  String get occurrenceCount => 'مرات التكرار';
+
+  @override
+  String get firstSeenAt => 'أول ظهور';
+
+  @override
+  String get lastSeenAt => 'آخر ظهور';
+
+  @override
+  String get errorCode => 'رمز الخطأ';
+
+  @override
+  String get stackHash => 'بصمة المكدس';
+
+  @override
+  String get shortStack => 'المكدس المختصر';
+
+  @override
+  String get metadata => 'بيانات إضافية';
+
+  @override
+  String get ownerNotified => 'تم تنبيه المالك';
+
+  @override
+  String get markResolved => 'تحديد كمحلول';
+
+  @override
+  String get resolvedBy => 'تم الحل بواسطة';
+
+  @override
+  String get resolvedAt => 'وقت الحل';
+
+  @override
+  String get errorDetails => 'تفاصيل الخطأ';
+
+  @override
+  String get buildNumber => 'رقم البناء';
+
+  @override
+  String get errorSeverityInfo => 'معلومة';
+
+  @override
+  String get errorSeverityWarning => 'تحذير';
+
+  @override
+  String get errorSeverityError => 'خطأ';
+
+  @override
+  String get errorSeverityFatal => 'قاتل';
+
+  @override
+  String get errorSourceFlutterWeb => 'Flutter Web';
+
+  @override
+  String get errorSourceFlutterMobile => 'Flutter Mobile';
+
+  @override
+  String get errorSourceCloudFunction => 'Cloud Function';
+
+  @override
+  String get errorSourceFirestoreRule => 'قاعدة Firestore';
+
+  @override
+  String get errorSourceStorage => 'Storage';
+
+  @override
+  String get errorSourceUnknown => 'غير معروف';
+
+  @override
+  String get platformMonitoringResolvedMessage =>
+      'تم تحديد حادث المراقبة كمحلول.';
+
+  @override
+  String get enableTrial => 'تفعيل الفترة التجريبية';
+
+  @override
+  String get enableTrialSubtitle =>
+      'تظل الشركة نشطة خلال الفترة التجريبية المحددة، ثم يتوقف الوصول حتى يتم التجديد من الدعم.';
+
+  @override
+  String get trialPeriodDays => 'مدة التجربة';
+
+  @override
+  String get trialEndsAt => 'تنتهي التجربة';
+
+  @override
+  String get trialEnded => 'انتهت التجربة';
+
+  @override
+  String get trialEndedAccessMessage =>
+      'انتهت الفترة التجريبية. تواصل مع الدعم أو اشترك لمتابعة استخدام مسار CRM.';
+
+  @override
+  String get trialReminderTitle => 'تنبيه الفترة التجريبية';
+
+  @override
+  String get trialRemaining => 'الوقت المتبقي للتجربة';
+
+  @override
+  String get trialFirstReminderMessage =>
+      'تم تجاوز أول مرحلة من الفترة التجريبية. جهّز الاشتراك قبل توقف الوصول.';
+
+  @override
+  String get trialSecondReminderMessage =>
+      'الفترة التجريبية تقترب من الانتهاء. اشترك أو تواصل مع الدعم للاستمرار دون انقطاع.';
+
+  @override
+  String get trialFinalReminderMessage =>
+      'الفترة التجريبية على وشك الانتهاء. اشترك أو تواصل مع الدعم الآن لتجنب توقف الوصول.';
+
+  @override
+  String get exportCompanyData => 'تصدير بيانات الشركة';
+
+  @override
+  String get companyDataExported => 'تم تصدير بيانات الشركة.';
+
+  @override
+  String get developedAndDesignedBy =>
+      'تم التطوير والتصميم بواسطة: Islam A. © 2026';
+
+  @override
+  String get clearNotification => 'مسح';
+
+  @override
+  String get collapseAttentionNeeded => 'طي';
+
+  @override
+  String get expandAttentionNeeded => 'عرض';
+
+  @override
+  String get paymentFollowUp => 'متابعة المدفوعات';
+
+  @override
+  String get paymentStatus => 'حالة الدفع';
+
+  @override
+  String get paid => 'مدفوع';
+
+  @override
+  String get dueSoon => 'مستحق قريبًا';
+
+  @override
+  String get gracePeriod => 'فترة سماح';
+
+  @override
+  String get suspended => 'موقوف';
+
+  @override
+  String get markAsPaid => 'تسجيل كمدفوع';
+
+  @override
+  String get extendDueDate => 'تمديد تاريخ الاستحقاق';
+
+  @override
+  String get nextPaymentDue => 'تاريخ الاستحقاق القادم';
+
+  @override
+  String get lastPayment => 'آخر دفعة';
+
+  @override
+  String get paymentHistory => 'سجل المدفوعات';
+
+  @override
+  String get paymentNotes => 'ملاحظات الدفع';
+
+  @override
+  String get paymentCurrency => 'العملة';
+
+  @override
+  String get paymentCycle => 'دورة الدفع';
+
+  @override
+  String get monthly => 'شهري';
+
+  @override
+  String get quarterly => 'ربع سنوي';
+
+  @override
+  String get semiAnnual => 'نصف سنوي';
+
+  @override
+  String get yearly => 'سنوي';
+
+  @override
+  String get custom => 'مخصص';
+
+  @override
+  String get amount => 'المبلغ';
+
+  @override
+  String get daysRemaining => 'الأيام المتبقية';
+
+  @override
+  String get paidCompanies => 'شركات مدفوعة';
+
+  @override
+  String get expectedThisMonth => 'المتوقع هذا الشهر';
+
+  @override
+  String get moveToGracePeriod => 'نقل إلى فترة سماح';
+
+  @override
+  String get suspendCompany => 'إيقاف الشركة';
+
+  @override
+  String get reactivateCompany => 'إعادة تفعيل الشركة';
+
+  @override
+  String get gracePeriodEndsAt => 'نهاية فترة السماح';
+
+  @override
+  String get suspendedReason => 'سبب الإيقاف';
+
+  @override
+  String get markedPaid => 'تم التسجيل كمدفوع';
+
+  @override
+  String get extended => 'تم التمديد';
+
+  @override
+  String get reactivated => 'تمت إعادة التفعيل';
+
+  @override
+  String get noteAdded => 'تمت إضافة ملاحظة';
+
+  @override
+  String get noPaymentHistory =>
+      'ستظهر إجراءات الدفع هنا بعد أن يحدّث مالك المنصة هذه الشركة.';
+
+  @override
+  String get futureDateRequired => 'أدخل تاريخًا مستقبليًا.';
+
+  @override
+  String get paymentAccessBlockedMessage =>
+      'تم إيقاف وصول الشركة بسبب حالة الدفع. يرجى التواصل مع الدعم أو مالك المنصة لإعادة التفعيل.';
+
+  @override
+  String get paymentDueSoonMessage =>
+      'يوجد دفعة مستحقة قريبًا على الشركة. يرجى التواصل مع الدعم أو مالك المنصة لتجنب انقطاع الوصول.';
+
+  @override
+  String get paymentOverdueMessage =>
+      'يوجد دفعة متأخرة على الشركة. يرجى التواصل مع الدعم أو مالك المنصة لتحديث حالة الدفع.';
+
+  @override
+  String get paymentGraceMessage =>
+      'الشركة في فترة سماح للدفع. يرجى التواصل مع الدعم أو مالك المنصة قبل إيقاف الوصول.';
+
+  @override
+  String daysRemainingCount(int count) {
+    return 'متبقي $count يوم';
+  }
+
+  @override
+  String overdueDaysCount(int count) {
+    return 'متأخر $count يوم';
+  }
 }

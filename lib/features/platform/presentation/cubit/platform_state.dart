@@ -3,16 +3,29 @@ import 'package:equatable/equatable.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_payment_history.dart';
 
 enum PlatformStatus { initial, loading, ready, saving, failure }
 
-enum PlatformCompanyFilter { all, active, inactive, trial }
+enum PlatformCompanyFilter {
+  all,
+  active,
+  inactive,
+  trial,
+  trialExpired,
+  paid,
+  dueSoon,
+  overdue,
+  gracePeriod,
+  suspended,
+}
 
 class PlatformState extends Equatable {
   const PlatformState({
     required this.status,
     this.companies = const [],
     this.companyUsers = const [],
+    this.paymentHistory = const [],
     this.selectedCompanyId,
     this.searchQuery = '',
     this.companyFilter = PlatformCompanyFilter.all,
@@ -31,6 +44,7 @@ class PlatformState extends Equatable {
   final PlatformStatus status;
   final List<CompanyMetadata> companies;
   final List<PlatformCompanyUser> companyUsers;
+  final List<PlatformPaymentHistory> paymentHistory;
   final String? selectedCompanyId;
   final String searchQuery;
   final PlatformCompanyFilter companyFilter;
@@ -68,11 +82,16 @@ class PlatformState extends Equatable {
           company.displayName.toLowerCase().contains(query);
       final matchesFilter = switch (companyFilter) {
         PlatformCompanyFilter.all => true,
-        PlatformCompanyFilter.active =>
-          company.isActive && company.status != 'inactive',
+        PlatformCompanyFilter.active => company.isUsable && company.status == 'active',
         PlatformCompanyFilter.inactive =>
-          !company.isActive || company.status == 'inactive',
+          !company.isUsable || company.status == 'inactive' || company.status == 'trialExpired',
         PlatformCompanyFilter.trial => company.status == 'trial',
+        PlatformCompanyFilter.trialExpired => company.status == 'trialExpired',
+        PlatformCompanyFilter.paid => company.paymentStatus == 'paid',
+        PlatformCompanyFilter.dueSoon => company.paymentStatus == 'dueSoon',
+        PlatformCompanyFilter.overdue => company.paymentStatus == 'overdue',
+        PlatformCompanyFilter.gracePeriod => company.paymentStatus == 'gracePeriod',
+        PlatformCompanyFilter.suspended => company.paymentStatus == 'suspended',
       };
       return matchesQuery && matchesFilter;
     }).toList();
@@ -82,6 +101,7 @@ class PlatformState extends Equatable {
     PlatformStatus? status,
     List<CompanyMetadata>? companies,
     List<PlatformCompanyUser>? companyUsers,
+    List<PlatformPaymentHistory>? paymentHistory,
     String? selectedCompanyId,
     String? searchQuery,
     PlatformCompanyFilter? companyFilter,
@@ -105,6 +125,7 @@ class PlatformState extends Equatable {
       status: status ?? this.status,
       companies: companies ?? this.companies,
       companyUsers: companyUsers ?? this.companyUsers,
+      paymentHistory: paymentHistory ?? this.paymentHistory,
       selectedCompanyId: selectedCompanyId ?? this.selectedCompanyId,
       searchQuery: searchQuery ?? this.searchQuery,
       companyFilter: companyFilter ?? this.companyFilter,
@@ -135,6 +156,7 @@ class PlatformState extends Equatable {
     status,
     companies,
     companyUsers,
+    paymentHistory,
     selectedCompanyId,
     searchQuery,
     companyFilter,

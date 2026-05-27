@@ -10,6 +10,9 @@ class CompanyCrmUser extends Equatable {
     required this.isActive,
     required this.teamName,
     required this.managerName,
+    this.photoUrl = '',
+    this.photoStoragePath = '',
+    this.updatedAt,
     this.mustChangePassword = false,
   });
 
@@ -21,6 +24,9 @@ class CompanyCrmUser extends Equatable {
   final bool isActive;
   final String teamName;
   final String managerName;
+  final String photoUrl;
+  final String photoStoragePath;
+  final DateTime? updatedAt;
   final bool mustChangePassword;
 
   @override
@@ -33,6 +39,9 @@ class CompanyCrmUser extends Equatable {
         isActive,
         teamName,
         managerName,
+        photoUrl,
+        photoStoragePath,
+        updatedAt,
         mustChangePassword,
       ];
 }

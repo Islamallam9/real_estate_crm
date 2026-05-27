@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -20,6 +21,7 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -29,6 +31,7 @@ import '../../domain/entities/lead_timeline_event.dart';
 import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/leads_scope.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class LeadDetailsPage extends StatelessWidget {
   const LeadDetailsPage({super.key, required this.leadId});
@@ -37,7 +40,18 @@ class LeadDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LeadsScope(child: _LeadDetailsView(leadId: leadId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return LeadsScope(
+          key: ValueKey(
+            session?.scopeKey('lead-details-scope') ??
+                'lead-details-scope:loading',
+          ),
+          child: _LeadDetailsView(leadId: leadId),
+        );
+      },
+    );
   }
 }
 
@@ -68,7 +82,6 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
   @override
   void initState() {
     super.initState();
-    _loadLeadWhenReady();
   }
 
   @override
@@ -78,10 +91,11 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
   }
 
   void _loadLeadWhenReady() {
-    final companyId = _companyId(context);
-    if (companyId.isEmpty || widget.leadId.isEmpty) {
+    final session = context.read<AuthBloc>().state.protectedCompanySession;
+    if (session == null || widget.leadId.isEmpty) {
       return;
     }
+    final companyId = session.companyId;
 
     final cubit = context.read<LeadsCubit>();
     if (_loadedCompanyId != companyId) {
@@ -97,14 +111,14 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
     final l = AppLocalizations.of(context)!;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    final actorName =
-        authState.userProfile?.fullName ??
-        authState.user?.fullName ??
-        l.unknownUser;
-    final companyId = _companyId(context);
+    final role = session?.profile.role;
+    final uid = session?.uid ?? '';
+    final actorName = session?.profile.fullName.trim().isNotEmpty == true
+        ? session!.profile.fullName
+        : l.unknownUser;
+    final companyId = session?.companyId ?? '';
     if (companyId.isNotEmpty && _loadedCompanyId != companyId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -116,7 +130,11 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,
       title: l.leadDetails,
-      child: BlocConsumer<LeadsCubit, LeadsState>(
+      child: authState.isWaitingForProtectedCompanySession
+          ? const AppLoading()
+          : session == null
+              ? AppErrorView(message: l.missingCompanyProfile)
+              : BlocConsumer<LeadsCubit, LeadsState>(
         listenWhen: (previous, current) =>
             previous.status != current.status &&
             (current.status == LeadsStatus.saved ||
@@ -198,8 +216,7 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                 canStatus: canStatus,
                 assigneeName: assigneeName,
                 activeUsers: users,
-                currentUserProfile: authState.userProfile ??
-                    _currentUserProfileFromUsers(users, uid),
+                currentUserProfile: session.profile,
               );
 
               final isBusy =
@@ -218,7 +235,7 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                             context,
                           ).withValues(alpha: 0.70),
                           child: const Center(
-                            child: CircularProgressIndicator(),
+                            child: MasarLogoLoader(size: 42),
                           ),
                         ),
                       ),
@@ -1135,11 +1152,6 @@ String _assigneeName(List<UserProfile> users, String uid, AppLocalizations l) {
 
 bool _looksLikeUid(String value) {
   return RegExp(r'^[A-Za-z0-9_-]{20,}$').hasMatch(value);
-}
-
-String _companyId(BuildContext context) {
-  final auth = context.read<AuthBloc>().state;
-  return auth.userProfile?.companyId ?? auth.user?.companyId ?? '';
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

@@ -13,9 +13,10 @@ enum AuditLogAction {
   cancel,
   imageAdded,
   imageRemoved,
+  exportGenerated,
 }
 
-enum AuditLogModule { leads, clients, properties, tasks, deals }
+enum AuditLogModule { leads, clients, properties, tasks, deals, reports }
 
 class AuditLog extends Equatable {
   const AuditLog({

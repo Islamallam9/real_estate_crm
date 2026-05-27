@@ -111,6 +111,8 @@ class FirestoreNotificationsRemoteDataSource
 
     unreadSub = _notificationsCollection(companyId)
         .where('recipientUid', isEqualTo: recipientUid)
+        .where('isRead', isEqualTo: false)
+        .limit(notificationUnreadCountLimit)
         .snapshots()
         .listen(
       (snapshot) {

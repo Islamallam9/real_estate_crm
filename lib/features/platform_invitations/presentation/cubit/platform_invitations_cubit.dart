@@ -39,7 +39,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.failure,
-          message: error.toString(),
+          message: error.toString().replaceFirst('Exception: ', ''),
         ),
       );
     }
@@ -62,6 +62,8 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   }) async {
     emit(
@@ -81,7 +83,9 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
         locale: locale,
         timezone: timezone,
         expiresAt: expiresAt,
-          notes: notes,
+        trialDays: trialDays,
+        trialDurationUnit: trialDurationUnit,
+        notes: notes,
       );
       final invitations = await _listCompanyInvitationsUseCase();
       emit(
@@ -97,7 +101,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.failure,
-          message: error.toString(),
+          message: error.toString().replaceFirst('Exception: ', ''),
         ),
       );
       return false;
@@ -128,7 +132,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.failure,
-          message: error.toString(),
+          message: error.toString().replaceFirst('Exception: ', ''),
           clearActiveAction: true,
         ),
       );

@@ -3,4 +3,5 @@
 const notificationDropdownLimit = 15;
 const notificationHistoryPageLimit = 100;
 const notificationMarkAllReadLimit = 100;
+const notificationUnreadCountLimit = 1000;
 const notificationFutureReadRetentionDays = 90;

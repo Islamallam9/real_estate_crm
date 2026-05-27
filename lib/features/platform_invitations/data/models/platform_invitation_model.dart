@@ -3,6 +3,7 @@ import '../../domain/entities/platform_invitation.dart';
 class PlatformInvitationModel extends PlatformInvitation {
   const PlatformInvitationModel({
     required super.id,
+    required super.invitationCode,
     required super.codePreview,
     required super.type,
     required super.status,
@@ -22,12 +23,23 @@ class PlatformInvitationModel extends PlatformInvitation {
     required super.acceptedAdminEmail,
     required super.companyId,
     required super.adminUid,
+    required super.companyName,
+    required super.companyStatus,
+    required super.companyPlanName,
+    required super.companyCreatedAt,
   });
 
   factory PlatformInvitationModel.fromMap(Map<String, dynamic> data) {
     return PlatformInvitationModel(
       id: data['id'] as String? ?? '',
-      codePreview: data['codePreview'] as String? ?? '',
+      invitationCode:
+          (data['invitationCode'] as String?) ??
+          (data['codePreview'] as String?) ??
+          '',
+      codePreview:
+          (data['codePreview'] as String?) ??
+          (data['invitationCode'] as String?) ??
+          '',
       type: data['type'] as String? ?? 'companyAdmin',
       status: data['status'] as String? ?? 'active',
       planId: data['planId'] as String? ?? '',
@@ -46,6 +58,10 @@ class PlatformInvitationModel extends PlatformInvitation {
       acceptedAdminEmail: data['acceptedAdminEmail'] as String? ?? '',
       companyId: data['companyId'] as String? ?? '',
       adminUid: data['adminUid'] as String? ?? '',
+      companyName: data['companyName'] as String? ?? '',
+      companyStatus: data['companyStatus'] as String? ?? '',
+      companyPlanName: data['companyPlanName'] as String? ?? '',
+      companyCreatedAt: _dateFromValue(data['companyCreatedAt']),
     );
   }
 }

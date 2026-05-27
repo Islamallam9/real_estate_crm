@@ -81,6 +81,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         status: NotificationsStatus.loading,
         clearMessage: true,
         clearReminderMessage: true,
+        clearedNotificationIds: const <String>{},
+        clearedReminderIds: const <String>{},
       ),
     );
 
@@ -96,7 +98,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         emit(
           state.copyWith(
             status: NotificationsStatus.loaded,
-            notifications: notifications,
+            notifications: _filterClearedNotifications(notifications),
             clearMessage: true,
           ),
         );
@@ -141,7 +143,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         if (!isClosed) {
           emit(
             state.copyWith(
-              reminders: reminders,
+              reminders: _filterClearedReminders(reminders),
               clearReminderMessage: true,
             ),
           );
@@ -199,6 +201,57 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         );
       }
     }
+  }
+
+  Future<void> clearNotification({
+    required String companyId,
+    required CrmNotification notification,
+  }) async {
+    final clearedIds = <String>{...state.clearedNotificationIds, notification.id};
+    emit(
+      state.copyWith(
+        notifications: state.notifications
+            .where((item) => item.id != notification.id)
+            .toList(),
+        clearedNotificationIds: clearedIds,
+        unreadCount: notification.isRead
+            ? state.unreadCount
+            : _decrementUnreadCount(state.unreadCount),
+        clearMessage: true,
+      ),
+    );
+
+    if (notification.isRead) {
+      return;
+    }
+
+    try {
+      await _markNotificationReadUseCase(
+        companyId: companyId,
+        notificationId: notification.id,
+      );
+    } on NotificationException catch (error) {
+      if (!isClosed) {
+        emit(state.copyWith(message: error.message));
+      }
+    } catch (_) {
+      if (!isClosed) {
+        emit(state.copyWith(message: AppErrorMessages.unknown));
+      }
+    }
+  }
+
+  void clearAttentionReminder(String reminderId) {
+    final clearedIds = <String>{...state.clearedReminderIds, reminderId};
+    emit(
+      state.copyWith(
+        reminders: state.reminders
+            .where((reminder) => reminder.id != reminderId)
+            .toList(),
+        clearedReminderIds: clearedIds,
+        clearReminderMessage: true,
+      ),
+    );
   }
 
   Future<void> markAllRead({
@@ -273,6 +326,29 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     final now = DateTime.now();
     return notifications
         .map((notification) => notification.copyWith(isRead: true, readAt: now))
+        .toList();
+  }
+
+  List<CrmNotification> _filterClearedNotifications(
+    List<CrmNotification> notifications,
+  ) {
+    if (state.clearedNotificationIds.isEmpty) {
+      return notifications;
+    }
+    return notifications
+        .where((notification) =>
+            !state.clearedNotificationIds.contains(notification.id))
+        .toList();
+  }
+
+  List<AttentionReminder> _filterClearedReminders(
+    List<AttentionReminder> reminders,
+  ) {
+    if (state.clearedReminderIds.isEmpty) {
+      return reminders;
+    }
+    return reminders
+        .where((reminder) => !state.clearedReminderIds.contains(reminder.id))
         .toList();
   }
 

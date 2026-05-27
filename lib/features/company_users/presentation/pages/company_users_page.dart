@@ -25,6 +25,8 @@ import '../../data/datasources/company_users_remote_data_source.dart';
 import '../../domain/entities/company_crm_user.dart';
 import '../cubit/company_users_cubit.dart';
 import '../cubit/company_users_state.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
+import '../../../../core/widgets/masar_user_avatar.dart';
 
 class CompanyUsersPage extends StatelessWidget {
   const CompanyUsersPage({super.key});
@@ -112,36 +114,35 @@ class _CompanyUsersScopeState extends State<_CompanyUsersScope> {
           return LayoutBuilder(
             builder: (context, constraints) {
               final isNarrow = constraints.maxWidth < 720;
-              if (isNarrow) {
-                return SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _UsersHeader(
-                        companyId: widget.companyId,
-                        saving: saving,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      controls,
-                      const SizedBox(height: AppSpacing.sm),
-                      content,
-                      const SizedBox(height: 96),
-                    ],
-                  ),
-                );
-              }
-
-              return Column(
+              final bottomPadding = isNarrow ? 112.0 : AppSpacing.md;
+              final body = Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _UsersHeader(companyId: widget.companyId, saving: saving),
-                  const SizedBox(height: AppSpacing.md),
+                  _UsersHeader(
+                    companyId: widget.companyId,
+                    saving: saving,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   controls,
-                  const SizedBox(height: AppSpacing.md),
-                  Expanded(child: content),
+                  const SizedBox(height: AppSpacing.sm),
+                  content,
+                  SizedBox(height: bottomPadding),
                 ],
+              );
+
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : 0,
+                    minHeight: constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : 0,
+                  ),
+                  child: body,
+                ),
               );
             },
           );
@@ -254,23 +255,25 @@ class _UsersListContent extends StatelessWidget {
               saving: saving,
             ),
             if (index != state.filteredUsers.length - 1)
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.xs),
           ],
         ],
       );
     }
 
-    return ListView.separated(
-      itemCount: state.filteredUsers.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        return _UserRow(
-          companyId: companyId,
-          user: state.filteredUsers[index],
-          currentUserId: currentUserId,
-          saving: saving,
-        );
-      },
+    return Column(
+      children: [
+        for (var index = 0; index < state.filteredUsers.length; index++) ...[
+          _UserRow(
+            companyId: companyId,
+            user: state.filteredUsers[index],
+            currentUserId: currentUserId,
+            saving: saving,
+          ),
+          if (index != state.filteredUsers.length - 1)
+            const SizedBox(height: AppSpacing.xs),
+        ],
+      ],
     );
   }
 }
@@ -285,7 +288,10 @@ class _UsersHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -294,11 +300,11 @@ class _UsersHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 34,
+            height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor(context).withValues(alpha: 0.12),
+              color: AppColors.primaryColor(context).withValues(alpha: 0.10),
               borderRadius: AppRadius.large,
             ),
             child: Icon(
@@ -306,19 +312,21 @@ class _UsersHeader extends StatelessWidget {
               color: AppColors.primaryColor(context),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   l.userManagement,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 Text(
                   l.userManagementSubtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppColors.textSecondaryColor(context),
                   ),
@@ -349,14 +357,13 @@ class _UserRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final isNarrow = MediaQuery.sizeOf(context).width < 720;
-    final avatar = CircleAvatar(
-      radius: isNarrow ? 18 : 20,
-      backgroundColor: AppColors.primaryColor(context).withValues(alpha: 0.15),
-      child: Text(
-        user.fullName.trim().isEmpty
-            ? '?'
-            : user.fullName.trim().characters.first.toUpperCase(),
-      ),
+    final avatar = MasarUserAvatar(
+      name: user.fullName,
+      photoUrl: user.photoUrl,
+      cacheKey: user.photoStoragePath.trim().isNotEmpty
+          ? user.photoStoragePath
+          : (user.updatedAt?.millisecondsSinceEpoch.toString() ?? ''),
+      radius: isNarrow ? 14 : 15,
     );
     final details = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,7 +372,9 @@ class _UserRow extends StatelessWidget {
           user.fullName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
         ),
         Text(
           _isolate(user.email),
@@ -435,7 +444,10 @@ class _UserRow extends StatelessWidget {
     );
 
     return Container(
-      padding: EdgeInsets.all(isNarrow ? AppSpacing.sm : AppSpacing.md),
+      padding: EdgeInsetsDirectional.symmetric(
+        horizontal: isNarrow ? AppSpacing.sm : AppSpacing.sm,
+        vertical: isNarrow ? 6 : 7,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -453,14 +465,14 @@ class _UserRow extends StatelessWidget {
                     actions,
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xs),
                 badges,
               ],
             )
           : Row(
               children: [
                 avatar,
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(child: details),
                 badges,
                 const SizedBox(width: AppSpacing.xs),
@@ -798,7 +810,7 @@ class _GenerateSetupLinkDialogState extends State<_GenerateSetupLinkDialog> {
         title: Text(l.generateSetupLink),
         content: const SizedBox(
           width: 420,
-          child: Center(child: CircularProgressIndicator()),
+          child: Center(child: MasarLogoLoader(size: 38)),
         ),
       );
     }

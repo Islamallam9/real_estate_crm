@@ -10,6 +10,8 @@ abstract interface class PlatformInvitationRepository {
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   });
 

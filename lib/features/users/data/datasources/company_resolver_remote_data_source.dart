@@ -59,27 +59,45 @@ class FirestoreCompanyResolverRemoteDataSource
         );
       }
 
-      final membership = memberships.first;
-      final companyDocument = await _firestore
-          .doc(FirebasePaths.company(membership.companyId))
-          .get();
+      AuthCompanyResolution? firstInactiveResolution;
+      AuthCompanyResolution? firstMissingCompanyResolution;
 
-      if (!companyDocument.exists) {
-        return AuthCompanyResolution(
+      for (final membership in memberships) {
+        final companyDocument = await _firestore
+            .doc(FirebasePaths.company(membership.companyId))
+            .get();
+
+        if (!companyDocument.exists) {
+          firstMissingCompanyResolution ??= AuthCompanyResolution(
+            isPlatformAdmin: isPlatformAdmin,
+            membership: membership,
+            platformFullName: platformFullName,
+            platformPhotoUrl: platformPhotoUrl,
+          );
+          continue;
+        }
+
+        final company = CompanyMetadataModel.fromFirestore(companyDocument);
+        final resolution = AuthCompanyResolution(
           isPlatformAdmin: isPlatformAdmin,
           membership: membership,
+          company: company,
           platformFullName: platformFullName,
           platformPhotoUrl: platformPhotoUrl,
         );
+        if (company.isUsable) {
+          return resolution;
+        }
+        firstInactiveResolution ??= resolution;
       }
 
-      return AuthCompanyResolution(
-        isPlatformAdmin: isPlatformAdmin,
-        membership: membership,
-        company: CompanyMetadataModel.fromFirestore(companyDocument),
-        platformFullName: platformFullName,
-        platformPhotoUrl: platformPhotoUrl,
-      );
+      return firstInactiveResolution ??
+          firstMissingCompanyResolution ??
+          AuthCompanyResolution(
+            isPlatformAdmin: isPlatformAdmin,
+            platformFullName: platformFullName,
+            platformPhotoUrl: platformPhotoUrl,
+          );
     } on FirebaseException catch (error) {
       throw UserProfileException(_mapFirestoreError(error));
     } catch (_) {

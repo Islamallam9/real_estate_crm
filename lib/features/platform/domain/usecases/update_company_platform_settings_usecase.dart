@@ -14,6 +14,9 @@ class UpdateCompanyPlatformSettingsUseCase {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+    DateTime? trialEndsAt,
+    int? trialDurationValue,
+    String? trialDurationUnit,
   }) {
     return _repository.updateCompanyPlatformSettings(
       companyId: companyId,
@@ -24,6 +27,9 @@ class UpdateCompanyPlatformSettingsUseCase {
       settings: settings,
       limits: limits,
       features: features,
+      trialEndsAt: trialEndsAt,
+      trialDurationValue: trialDurationValue,
+      trialDurationUnit: trialDurationUnit,
     );
   }
 }

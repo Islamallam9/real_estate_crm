@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -17,10 +18,12 @@ import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/clients_scope.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class ClientDetailsPage extends StatelessWidget {
   const ClientDetailsPage({super.key, required this.clientId});
@@ -29,7 +32,18 @@ class ClientDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClientsScope(child: _ClientDetailsView(clientId: clientId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return ClientsScope(
+          key: ValueKey(
+            session?.scopeKey('client-details-scope') ??
+                'client-details-scope:loading',
+          ),
+          child: _ClientDetailsView(clientId: clientId),
+        );
+      },
+    );
   }
 }
 
@@ -43,29 +57,48 @@ class _ClientDetailsView extends StatefulWidget {
 }
 
 class _ClientDetailsViewState extends State<_ClientDetailsView> {
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty && widget.clientId.isNotEmpty) {
-      context.read<ClientsCubit>().watchClient(
-        companyId: companyId,
-        clientId: widget.clientId,
-      );
+  String? _watchKey;
+
+  void _watchClientWhenReady(ProtectedCompanySession session) {
+    if (widget.clientId.isEmpty) {
+      return;
     }
+    final key =
+        '${session.scopeKey('client-details-watch')}:${widget.clientId}';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<ClientsCubit>().watchClient(
+      companyId: session.companyId,
+      clientId: widget.clientId,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    final companyId = _companyId(context);
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.clients,
+        title: l.clientDetails,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
+    final uid = session?.uid ?? '';
+    final companyId = session?.companyId ?? '';
     final canView =
         role != null && PermissionService.can(role, AppPermission.viewClients);
     final canEdit =
         role != null && PermissionService.can(role, AppPermission.editClient);
+    if (session != null && canView) {
+      _watchClientWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.clients,
@@ -282,7 +315,7 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                               context,
                             ).withValues(alpha: 0.55),
                             child: const Center(
-                              child: CircularProgressIndicator(),
+                              child: MasarLogoLoader(size: 42),
                             ),
                           ),
                         ),
@@ -344,11 +377,6 @@ Widget _detail(BuildContext context, String label, String value) {
       ],
     ),
   );
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 String _valueOrNotAvailable(AppLocalizations l, String value) {

@@ -3,6 +3,7 @@ import '../../../users/domain/entities/company_metadata.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_payment_history.dart';
 import '../../domain/repositories/platform_repository.dart';
 import '../datasources/platform_remote_data_source.dart';
 
@@ -25,6 +26,13 @@ class PlatformRepositoryImpl implements PlatformRepository {
   }
 
   @override
+  Stream<List<PlatformPaymentHistory>> watchPaymentHistory({
+    required String companyId,
+  }) {
+    return _remoteDataSource.watchPaymentHistory(companyId: companyId);
+  }
+
+  @override
   Future<void> createCompanyWithAdmin({
     required String companyId,
     required String companyName,
@@ -33,6 +41,8 @@ class PlatformRepositoryImpl implements PlatformRepository {
     required String adminPhone,
     required String locale,
     required String timezone,
+    int? trialDays,
+    String trialDurationUnit = 'days',
   }) {
     return _remoteDataSource.createCompanyWithAdmin(
       companyId: companyId,
@@ -42,6 +52,8 @@ class PlatformRepositoryImpl implements PlatformRepository {
       adminPhone: adminPhone,
       locale: locale,
       timezone: timezone,
+      trialDays: trialDays,
+      trialDurationUnit: trialDurationUnit,
     );
   }
 
@@ -133,6 +145,9 @@ class PlatformRepositoryImpl implements PlatformRepository {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+    DateTime? trialEndsAt,
+    int? trialDurationValue,
+    String? trialDurationUnit,
   }) {
     return _remoteDataSource.updateCompanyPlatformSettings(
       companyId: companyId,
@@ -143,6 +158,9 @@ class PlatformRepositoryImpl implements PlatformRepository {
       settings: settings,
       limits: limits,
       features: features,
+      trialEndsAt: trialEndsAt,
+      trialDurationValue: trialDurationValue,
+      trialDurationUnit: trialDurationUnit,
     );
   }
 
@@ -169,5 +187,69 @@ class PlatformRepositoryImpl implements PlatformRepository {
   @override
   Future<void> refreshCompanyStorageUsage({required String companyId}) {
     return _remoteDataSource.refreshCompanyStorageUsage(companyId: companyId);
+  }
+
+  @override
+  Future<void> markCompanyPaymentPaid({
+    required String companyId,
+    required double amount,
+    required String currency,
+    required DateTime paymentDate,
+    required DateTime nextPaymentDueAt,
+    required String paymentCycle,
+    required String notes,
+  }) {
+    return _remoteDataSource.markCompanyPaymentPaid(
+      companyId: companyId,
+      amount: amount,
+      currency: currency,
+      paymentDate: paymentDate,
+      nextPaymentDueAt: nextPaymentDueAt,
+      paymentCycle: paymentCycle,
+      notes: notes,
+    );
+  }
+
+  @override
+  Future<void> extendCompanyPaymentDueDate({
+    required String companyId,
+    required DateTime nextPaymentDueAt,
+    required String notes,
+  }) {
+    return _remoteDataSource.extendCompanyPaymentDueDate(
+      companyId: companyId,
+      nextPaymentDueAt: nextPaymentDueAt,
+      notes: notes,
+    );
+  }
+
+  @override
+  Future<void> updateCompanyPaymentStatus({
+    required String companyId,
+    required String paymentStatus,
+    DateTime? nextPaymentDueAt,
+    DateTime? gracePeriodEndsAt,
+    String? suspendedReason,
+    String? notes,
+  }) {
+    return _remoteDataSource.updateCompanyPaymentStatus(
+      companyId: companyId,
+      paymentStatus: paymentStatus,
+      nextPaymentDueAt: nextPaymentDueAt,
+      gracePeriodEndsAt: gracePeriodEndsAt,
+      suspendedReason: suspendedReason,
+      notes: notes,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportCompanyData({
+    required String companyId,
+    List<String>? collections,
+  }) {
+    return _remoteDataSource.exportCompanyData(
+      companyId: companyId,
+      collections: collections,
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/routing/route_names.dart';
@@ -13,6 +14,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -29,7 +31,17 @@ class EditTaskPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TasksScope(child: _EditTaskView(taskId: taskId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return TasksScope(
+          key: ValueKey(
+            session?.scopeKey('edit-task-scope') ?? 'edit-task-scope:loading',
+          ),
+          child: _EditTaskView(taskId: taskId),
+        );
+      },
+    );
   }
 }
 
@@ -44,29 +56,47 @@ class _EditTaskView extends StatefulWidget {
 
 class _EditTaskViewState extends State<_EditTaskView> {
   bool _isSubmitting = false;
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty && widget.taskId.isNotEmpty) {
-      context.read<TasksCubit>().watchTask(
-        companyId: companyId,
-        taskId: widget.taskId,
-      );
+  String? _watchKey;
+
+  void _watchTaskWhenReady(ProtectedCompanySession session) {
+    if (widget.taskId.isEmpty) {
+      return;
     }
+    final key = '${session.scopeKey('edit-task-watch')}:${widget.taskId}';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<TasksCubit>().watchTask(
+      companyId: session.companyId,
+      taskId: widget.taskId,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final companyId = _companyId(context);
-    final uid = authState.user?.uid ?? '';
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.tasks,
+        title: l.editTask,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
     final canEditRole =
         role == UserRole.admin ||
         role == UserRole.manager ||
         role == UserRole.salesAgent;
+    if (session != null && canEditRole) {
+      _watchTaskWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.tasks,
@@ -224,11 +254,6 @@ class _EditTaskViewState extends State<_EditTaskView> {
             ),
     );
   }
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

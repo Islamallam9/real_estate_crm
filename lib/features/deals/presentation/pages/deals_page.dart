@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -42,11 +43,10 @@ class DealsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
-        final user = authState.user;
-        final profile = authState.userProfile;
-        final scopeKey = profile == null || user == null || profile.uid != user.uid
+        final session = authState.protectedCompanySession;
+        final scopeKey = session == null
             ? const ValueKey('deals-scope:loading')
-            : ValueKey('deals-scope:${profile.companyId}:${profile.uid}:${profile.role.name}');
+            : ValueKey(session.scopeKey('deals-scope'));
 
         return DealsScope(
           key: scopeKey,
@@ -102,19 +102,15 @@ class _DealsViewState extends State<_DealsView> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final authState = context.watch<AuthBloc>().state;
-    final user = authState.user;
-    final userProfile = authState.userProfile;
-    final isCurrentProfile = user != null &&
-        userProfile != null &&
-        userProfile.uid == user.uid;
-    final companyId = isCurrentProfile ? userProfile.companyId : '';
-    final role = isCurrentProfile ? userProfile.role : null;
+    final session = authState.protectedCompanySession;
+    final companyId = session?.companyId ?? '';
+    final role = session?.profile.role;
+    final uid = session?.uid ?? '';
     final archiveFilter = context.select(
       (DealsCubit cubit) => cubit.state.archiveFilter,
     );
 
-    if (authState.status == AuthStatus.initial ||
-        authState.status == AuthStatus.loading) {
+    if (authState.isWaitingForProtectedCompanySession) {
       return CrmAppShell(
         selectedItem: CrmNavigationItem.deals,
         title: l.deals,
@@ -122,7 +118,7 @@ class _DealsViewState extends State<_DealsView> {
       );
     }
 
-    if (companyId.isEmpty || role == null || user == null) {
+    if (companyId.isEmpty || role == null || uid.isEmpty) {
       return CrmAppShell(
         selectedItem: CrmNavigationItem.deals,
         title: l.deals,
@@ -135,7 +131,7 @@ class _DealsViewState extends State<_DealsView> {
       _watchScopedDeals(
         companyId: companyId,
         role: role,
-        uid: user.uid,
+        uid: uid,
         archiveFilter: archiveFilter,
       );
     }
@@ -220,13 +216,14 @@ class _DealsViewState extends State<_DealsView> {
                             showArchiveFilter: canArchive,
                             companyId: companyId,
                             role: role,
-                            currentUserId: user.uid,
+                            currentUserId: uid,
                             users: users,
                           );
 
                           final body = _DealsBody(
                             companyId: companyId,
-                            uid: user.uid,
+                            uid: uid,
+                            role: role,
                             state: state,
                             canEdit: canEdit,
                             canArchive: canArchive,
@@ -570,6 +567,7 @@ class _DealsBody extends StatelessWidget {
   const _DealsBody({
     required this.companyId,
     required this.uid,
+    required this.role,
     required this.state,
     required this.canEdit,
     required this.canArchive,
@@ -579,6 +577,7 @@ class _DealsBody extends StatelessWidget {
 
   final String companyId;
   final String uid;
+  final UserRole role;
   final DealsState state;
   final bool canEdit;
   final bool canArchive;
@@ -599,11 +598,6 @@ class _DealsBody extends StatelessWidget {
       return AppErrorView(
         message: localizeDealError(l, state.message),
         onRetry: () {
-          final authState = context.read<AuthBloc>().state;
-          final role = authState.userProfile?.role ?? authState.user?.role;
-          if (role == null) {
-            return;
-          }
           context.read<DealsCubit>().watchDeals(
             companyId: companyId,
             role: role,

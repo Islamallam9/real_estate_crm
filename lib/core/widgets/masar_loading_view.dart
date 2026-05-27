@@ -39,6 +39,74 @@ class MasarLoadingView extends StatelessWidget {
   }
 }
 
+
+class MasarLogoLoader extends StatefulWidget {
+  const MasarLogoLoader({
+    super.key,
+    this.size = 42,
+    this.message,
+  });
+
+  final double size;
+  final String? message;
+
+  @override
+  State<MasarLogoLoader> createState() => _MasarLogoLoaderState();
+}
+
+class _MasarLogoLoaderState extends State<MasarLogoLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final message = widget.message?.trim() ?? '';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final scale = 0.94 + (_controller.value * 0.06);
+            return Transform.scale(
+              scale: scale,
+              child: child,
+            );
+          },
+          child: MasarBrandMark(size: widget.size),
+        ),
+        if (message.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _MasarLoadingCard extends StatelessWidget {
   const _MasarLoadingCard({required this.compact, this.message});
 

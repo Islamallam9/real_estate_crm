@@ -15,6 +15,8 @@ class NotificationsState extends Equatable {
     this.reminderMessage,
     this.markingNotificationId = '',
     this.markingAllRead = false,
+    this.clearedNotificationIds = const <String>{},
+    this.clearedReminderIds = const <String>{},
   });
 
   const NotificationsState.initial()
@@ -25,7 +27,9 @@ class NotificationsState extends Equatable {
         message = null,
         reminderMessage = null,
         markingNotificationId = '',
-        markingAllRead = false;
+        markingAllRead = false,
+        clearedNotificationIds = const <String>{},
+        clearedReminderIds = const <String>{};
 
   final NotificationsStatus status;
   final List<CrmNotification> notifications;
@@ -35,6 +39,8 @@ class NotificationsState extends Equatable {
   final String? reminderMessage;
   final String markingNotificationId;
   final bool markingAllRead;
+  final Set<String> clearedNotificationIds;
+  final Set<String> clearedReminderIds;
 
   int get visibleUnreadCount {
     return notifications.where((notification) => !notification.isRead).length;
@@ -57,6 +63,8 @@ class NotificationsState extends Equatable {
     String? reminderMessage,
     String? markingNotificationId,
     bool? markingAllRead,
+    Set<String>? clearedNotificationIds,
+    Set<String>? clearedReminderIds,
     bool clearMessage = false,
     bool clearReminderMessage = false,
     bool clearMarkingNotificationId = false,
@@ -73,6 +81,9 @@ class NotificationsState extends Equatable {
           ? ''
           : markingNotificationId ?? this.markingNotificationId,
       markingAllRead: markingAllRead ?? this.markingAllRead,
+      clearedNotificationIds:
+          clearedNotificationIds ?? this.clearedNotificationIds,
+      clearedReminderIds: clearedReminderIds ?? this.clearedReminderIds,
     );
   }
 
@@ -86,5 +97,7 @@ class NotificationsState extends Equatable {
         reminderMessage,
         markingNotificationId,
         markingAllRead,
+        clearedNotificationIds,
+        clearedReminderIds,
       ];
 }

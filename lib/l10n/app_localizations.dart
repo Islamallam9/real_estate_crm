@@ -524,6 +524,12 @@ abstract class AppLocalizations {
   /// **'Restored'**
   String get dashboardAuditRestored;
 
+  /// No description provided for @dashboardAuditExportGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Export generated'**
+  String get dashboardAuditExportGenerated;
+
   /// No description provided for @dashboardAuditLead.
   ///
   /// In en, this message translates to:
@@ -1999,12 +2005,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search leads'**
   String get searchLeads;
-
-  /// No description provided for @allStatuses.
-  ///
-  /// In en, this message translates to:
-  /// **'All statuses'**
-  String get allStatuses;
 
   /// No description provided for @allSources.
   ///
@@ -3665,8 +3665,404 @@ abstract class AppLocalizations {
   /// No description provided for @reportsOverview.
   ///
   /// In en, this message translates to:
-  /// **'Review CRM performance using real leads, deals, tasks, and properties for the selected period.'**
+  /// **'Overview'**
   String get reportsOverview;
+
+  /// No description provided for @exportCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get exportCenter;
+
+  /// No description provided for @exportCenterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate clean, branded Excel workbooks from the CRM data you are allowed to access.'**
+  String get exportCenterSubtitle;
+
+  /// No description provided for @exportsFollowRolePermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Exports follow your role permissions.'**
+  String get exportsFollowRolePermissions;
+
+  /// No description provided for @generateExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate Excel'**
+  String get generateExport;
+
+  /// No description provided for @exportReportType.
+  ///
+  /// In en, this message translates to:
+  /// **'Report type'**
+  String get exportReportType;
+
+  /// No description provided for @exportGenerateSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get exportGenerateSection;
+
+  /// No description provided for @excel.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel'**
+  String get excel;
+
+  /// No description provided for @exportLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Report language'**
+  String get exportLanguage;
+
+  /// No description provided for @exportStatusFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Status / stage'**
+  String get exportStatusFilter;
+
+  /// No description provided for @allStatuses.
+  ///
+  /// In en, this message translates to:
+  /// **'All statuses'**
+  String get allStatuses;
+
+  /// No description provided for @includeArchivedRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Include archived records'**
+  String get includeArchivedRecords;
+
+  /// No description provided for @exportColumns.
+  ///
+  /// In en, this message translates to:
+  /// **'Export columns'**
+  String get exportColumns;
+
+  /// No description provided for @recommendedColumns.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended columns'**
+  String get recommendedColumns;
+
+  /// No description provided for @advancedColumns.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced column selection'**
+  String get advancedColumns;
+
+  /// No description provided for @selectedAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected assignee'**
+  String get selectedAssignee;
+
+  /// No description provided for @exportReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Export ready'**
+  String get exportReady;
+
+  /// No description provided for @downloadFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Download file'**
+  String get downloadFile;
+
+  /// No description provided for @records.
+  ///
+  /// In en, this message translates to:
+  /// **'records'**
+  String get records;
+
+  /// No description provided for @exportGeneratedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel file generated successfully.'**
+  String get exportGeneratedSuccessfully;
+
+  /// No description provided for @exportDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download is unavailable on this platform.'**
+  String get exportDownloadFailed;
+
+  /// No description provided for @exportNotAvailableForRole.
+  ///
+  /// In en, this message translates to:
+  /// **'This export is not available for your role.'**
+  String get exportNotAvailableForRole;
+
+  /// No description provided for @teamPerformanceExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Team performance'**
+  String get teamPerformanceExport;
+
+  /// No description provided for @pipelineReportExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales pipeline report'**
+  String get pipelineReportExport;
+
+  /// No description provided for @followUpReportExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up report'**
+  String get followUpReportExport;
+
+  /// No description provided for @auditSummaryExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity audit summary'**
+  String get auditSummaryExport;
+
+  /// No description provided for @companyWideExportScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Company-wide'**
+  String get companyWideExportScope;
+
+  /// No description provided for @myTeamExportScope.
+  ///
+  /// In en, this message translates to:
+  /// **'My team'**
+  String get myTeamExportScope;
+
+  /// No description provided for @myRecordsExportScope.
+  ///
+  /// In en, this message translates to:
+  /// **'My records'**
+  String get myRecordsExportScope;
+
+  /// No description provided for @restrictedExportScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Restricted'**
+  String get restrictedExportScope;
+
+  /// No description provided for @lastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Last month'**
+  String get lastMonth;
+
+  /// No description provided for @customRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom range'**
+  String get customRange;
+
+  /// No description provided for @product.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get product;
+
+  /// No description provided for @reportName.
+  ///
+  /// In en, this message translates to:
+  /// **'Report name'**
+  String get reportName;
+
+  /// No description provided for @scope.
+  ///
+  /// In en, this message translates to:
+  /// **'Scope'**
+  String get scope;
+
+  /// No description provided for @dateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Date range'**
+  String get dateRange;
+
+  /// No description provided for @generatedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Generated by'**
+  String get generatedBy;
+
+  /// No description provided for @generatedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Generated at'**
+  String get generatedAt;
+
+  /// No description provided for @recordCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Record count'**
+  String get recordCount;
+
+  /// No description provided for @filtersSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters summary'**
+  String get filtersSummary;
+
+  /// No description provided for @field.
+  ///
+  /// In en, this message translates to:
+  /// **'Field'**
+  String get field;
+
+  /// No description provided for @value.
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get value;
+
+  /// No description provided for @reportSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Summary'**
+  String get reportSummary;
+
+  /// No description provided for @dataSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Report data'**
+  String get dataSheet;
+
+  /// No description provided for @exportColumnLeadName.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead name'**
+  String get exportColumnLeadName;
+
+  /// No description provided for @exportColumnClientName.
+  ///
+  /// In en, this message translates to:
+  /// **'Client name'**
+  String get exportColumnClientName;
+
+  /// No description provided for @exportColumnDealTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal title'**
+  String get exportColumnDealTitle;
+
+  /// No description provided for @exportColumnPropertyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Property title'**
+  String get exportColumnPropertyTitle;
+
+  /// No description provided for @budget.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get budget;
+
+  /// No description provided for @stage.
+  ///
+  /// In en, this message translates to:
+  /// **'Stage'**
+  String get stage;
+
+  /// No description provided for @expectedCloseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected close date'**
+  String get expectedCloseDate;
+
+  /// No description provided for @title.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get title;
+
+  /// No description provided for @scheduledAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled at'**
+  String get scheduledAt;
+
+  /// No description provided for @type.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get type;
+
+  /// No description provided for @imageCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Image count'**
+  String get imageCount;
+
+  /// No description provided for @dealCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal count'**
+  String get dealCount;
+
+  /// No description provided for @totalValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Total value'**
+  String get totalValue;
+
+  /// No description provided for @averageDealValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Average deal value'**
+  String get averageDealValue;
+
+  /// No description provided for @leadsAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads assigned'**
+  String get leadsAssigned;
+
+  /// No description provided for @convertedLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Converted leads'**
+  String get convertedLeads;
+
+  /// No description provided for @tasksDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks due'**
+  String get tasksDue;
+
+  /// No description provided for @tasksOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks overdue'**
+  String get tasksOverdue;
+
+  /// No description provided for @appointmentsUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming appointments'**
+  String get appointmentsUpcoming;
+
+  /// No description provided for @team.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get team;
+
+  /// No description provided for @action.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get action;
+
+  /// No description provided for @recordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Record title'**
+  String get recordTitle;
+
+  /// No description provided for @actor.
+  ///
+  /// In en, this message translates to:
+  /// **'Actor'**
+  String get actor;
 
   /// No description provided for @reportPeriod.
   ///
@@ -3679,12 +4075,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selected period'**
   String get selectedPeriod;
-
-  /// No description provided for @allTime.
-  ///
-  /// In en, this message translates to:
-  /// **'All time'**
-  String get allTime;
 
   /// No description provided for @today.
   ///
@@ -5990,7 +6380,7 @@ abstract class AppLocalizations {
   /// No description provided for @adminEmailAlreadyExists.
   ///
   /// In en, this message translates to:
-  /// **'This admin email is already used.'**
+  /// **'Please try another admin email.'**
   String get adminEmailAlreadyExists;
 
   /// No description provided for @companyNameAlreadyRegistered.
@@ -6712,6 +7102,642 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Storage usage updated.'**
   String get storageUsageUpdated;
+
+  /// No description provided for @yes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get yes;
+
+  /// No description provided for @no.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get no;
+
+  /// No description provided for @message.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get message;
+
+  /// No description provided for @module.
+  ///
+  /// In en, this message translates to:
+  /// **'Module'**
+  String get module;
+
+  /// No description provided for @severity.
+  ///
+  /// In en, this message translates to:
+  /// **'Severity'**
+  String get severity;
+
+  /// No description provided for @resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get resolved;
+
+  /// No description provided for @unresolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unresolved'**
+  String get unresolved;
+
+  /// No description provided for @platformMonitoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitoring'**
+  String get platformMonitoring;
+
+  /// No description provided for @platformMonitoringSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trace serious errors, repeated permission problems, and company-level incidents across Masar CRM.'**
+  String get platformMonitoringSubtitle;
+
+  /// No description provided for @activeIncidents.
+  ///
+  /// In en, this message translates to:
+  /// **'Active incidents'**
+  String get activeIncidents;
+
+  /// No description provided for @fatalErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Fatal errors'**
+  String get fatalErrors;
+
+  /// No description provided for @errorsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors today'**
+  String get errorsToday;
+
+  /// No description provided for @affectedCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Affected companies'**
+  String get affectedCompanies;
+
+  /// No description provided for @allSeverities.
+  ///
+  /// In en, this message translates to:
+  /// **'All severities'**
+  String get allSeverities;
+
+  /// No description provided for @allErrorSources.
+  ///
+  /// In en, this message translates to:
+  /// **'All sources'**
+  String get allErrorSources;
+
+  /// No description provided for @allModules.
+  ///
+  /// In en, this message translates to:
+  /// **'All modules'**
+  String get allModules;
+
+  /// No description provided for @allTime.
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get allTime;
+
+  /// No description provided for @last24Hours.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 24 hours'**
+  String get last24Hours;
+
+  /// No description provided for @last7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get last7Days;
+
+  /// No description provided for @last30Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get last30Days;
+
+  /// No description provided for @resolvedAndUnresolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved and unresolved'**
+  String get resolvedAndUnresolved;
+
+  /// No description provided for @unresolvedOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Unresolved only'**
+  String get unresolvedOnly;
+
+  /// No description provided for @resolvedOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved only'**
+  String get resolvedOnly;
+
+  /// No description provided for @noPlatformErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'No monitoring incidents'**
+  String get noPlatformErrors;
+
+  /// No description provided for @noPlatformErrorsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Serious app, rule, storage, and function errors will appear here after they are reported.'**
+  String get noPlatformErrorsMessage;
+
+  /// No description provided for @occurrenceCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Occurrences'**
+  String get occurrenceCount;
+
+  /// No description provided for @firstSeenAt.
+  ///
+  /// In en, this message translates to:
+  /// **'First seen'**
+  String get firstSeenAt;
+
+  /// No description provided for @lastSeenAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen'**
+  String get lastSeenAt;
+
+  /// No description provided for @errorCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Error code'**
+  String get errorCode;
+
+  /// No description provided for @stackHash.
+  ///
+  /// In en, this message translates to:
+  /// **'Stack hash'**
+  String get stackHash;
+
+  /// No description provided for @shortStack.
+  ///
+  /// In en, this message translates to:
+  /// **'Short stack'**
+  String get shortStack;
+
+  /// No description provided for @metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata'**
+  String get metadata;
+
+  /// No description provided for @ownerNotified.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner notified'**
+  String get ownerNotified;
+
+  /// No description provided for @markResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark resolved'**
+  String get markResolved;
+
+  /// No description provided for @resolvedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved by'**
+  String get resolvedBy;
+
+  /// No description provided for @resolvedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved at'**
+  String get resolvedAt;
+
+  /// No description provided for @errorDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Error details'**
+  String get errorDetails;
+
+  /// No description provided for @buildNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Build number'**
+  String get buildNumber;
+
+  /// No description provided for @errorSeverityInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get errorSeverityInfo;
+
+  /// No description provided for @errorSeverityWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get errorSeverityWarning;
+
+  /// No description provided for @errorSeverityError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get errorSeverityError;
+
+  /// No description provided for @errorSeverityFatal.
+  ///
+  /// In en, this message translates to:
+  /// **'Fatal'**
+  String get errorSeverityFatal;
+
+  /// No description provided for @errorSourceFlutterWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Flutter Web'**
+  String get errorSourceFlutterWeb;
+
+  /// No description provided for @errorSourceFlutterMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'Flutter Mobile'**
+  String get errorSourceFlutterMobile;
+
+  /// No description provided for @errorSourceCloudFunction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud Function'**
+  String get errorSourceCloudFunction;
+
+  /// No description provided for @errorSourceFirestoreRule.
+  ///
+  /// In en, this message translates to:
+  /// **'Firestore rule'**
+  String get errorSourceFirestoreRule;
+
+  /// No description provided for @errorSourceStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get errorSourceStorage;
+
+  /// No description provided for @errorSourceUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get errorSourceUnknown;
+
+  /// No description provided for @platformMonitoringResolvedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitoring incident marked resolved.'**
+  String get platformMonitoringResolvedMessage;
+
+  /// No description provided for @enableTrial.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable trial period'**
+  String get enableTrial;
+
+  /// No description provided for @enableTrialSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company remains active during the custom trial period, then access is stopped until support renews it.'**
+  String get enableTrialSubtitle;
+
+  /// No description provided for @trialPeriodDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial period'**
+  String get trialPeriodDays;
+
+  /// No description provided for @trialEndsAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial ends'**
+  String get trialEndsAt;
+
+  /// No description provided for @trialEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial ended'**
+  String get trialEnded;
+
+  /// No description provided for @trialEndedAccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trial period has ended. Please contact support or subscribe to continue using Masar CRM.'**
+  String get trialEndedAccessMessage;
+
+  /// No description provided for @trialReminderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial reminder'**
+  String get trialReminderTitle;
+
+  /// No description provided for @trialRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial remaining'**
+  String get trialRemaining;
+
+  /// No description provided for @trialFirstReminderMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trial has passed its first checkpoint. Please plan your subscription before access stops.'**
+  String get trialFirstReminderMessage;
+
+  /// No description provided for @trialSecondReminderMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trial is getting closer to the end. Subscribe or contact support to keep working without interruption.'**
+  String get trialSecondReminderMessage;
+
+  /// No description provided for @trialFinalReminderMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trial is about to end soon. Subscribe or contact support now to avoid losing access.'**
+  String get trialFinalReminderMessage;
+
+  /// No description provided for @exportCompanyData.
+  ///
+  /// In en, this message translates to:
+  /// **'Export company data'**
+  String get exportCompanyData;
+
+  /// No description provided for @companyDataExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Company data exported.'**
+  String get companyDataExported;
+
+  /// No description provided for @developedAndDesignedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Developed and designed by: Islam A. © 2026'**
+  String get developedAndDesignedBy;
+
+  /// No description provided for @clearNotification.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clearNotification;
+
+  /// No description provided for @collapseAttentionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse'**
+  String get collapseAttentionNeeded;
+
+  /// No description provided for @expandAttentionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand'**
+  String get expandAttentionNeeded;
+
+  /// No description provided for @paymentFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment follow-up'**
+  String get paymentFollowUp;
+
+  /// No description provided for @paymentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment status'**
+  String get paymentStatus;
+
+  /// No description provided for @paid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paid;
+
+  /// No description provided for @dueSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Due soon'**
+  String get dueSoon;
+
+  /// No description provided for @gracePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace period'**
+  String get gracePeriod;
+
+  /// No description provided for @suspended.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspended'**
+  String get suspended;
+
+  /// No description provided for @markAsPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as paid'**
+  String get markAsPaid;
+
+  /// No description provided for @extendDueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend due date'**
+  String get extendDueDate;
+
+  /// No description provided for @nextPaymentDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Next payment due'**
+  String get nextPaymentDue;
+
+  /// No description provided for @lastPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Last payment'**
+  String get lastPayment;
+
+  /// No description provided for @paymentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment history'**
+  String get paymentHistory;
+
+  /// No description provided for @paymentNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment notes'**
+  String get paymentNotes;
+
+  /// No description provided for @paymentCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get paymentCurrency;
+
+  /// No description provided for @paymentCycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment cycle'**
+  String get paymentCycle;
+
+  /// No description provided for @monthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get monthly;
+
+  /// No description provided for @quarterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Quarterly'**
+  String get quarterly;
+
+  /// No description provided for @semiAnnual.
+  ///
+  /// In en, this message translates to:
+  /// **'Semi-annual'**
+  String get semiAnnual;
+
+  /// No description provided for @yearly.
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get yearly;
+
+  /// No description provided for @custom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get custom;
+
+  /// No description provided for @amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get amount;
+
+  /// No description provided for @daysRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'Days remaining'**
+  String get daysRemaining;
+
+  /// No description provided for @paidCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid companies'**
+  String get paidCompanies;
+
+  /// No description provided for @expectedThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected this month'**
+  String get expectedThisMonth;
+
+  /// No description provided for @moveToGracePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to grace period'**
+  String get moveToGracePeriod;
+
+  /// No description provided for @suspendCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspend company'**
+  String get suspendCompany;
+
+  /// No description provided for @reactivateCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Reactivate company'**
+  String get reactivateCompany;
+
+  /// No description provided for @gracePeriodEndsAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Grace period ends'**
+  String get gracePeriodEndsAt;
+
+  /// No description provided for @suspendedReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspension reason'**
+  String get suspendedReason;
+
+  /// No description provided for @markedPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked paid'**
+  String get markedPaid;
+
+  /// No description provided for @extended.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended'**
+  String get extended;
+
+  /// No description provided for @reactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Reactivated'**
+  String get reactivated;
+
+  /// No description provided for @noteAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added'**
+  String get noteAdded;
+
+  /// No description provided for @noPaymentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment actions will appear here after the platform owner updates this company.'**
+  String get noPaymentHistory;
+
+  /// No description provided for @futureDateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a future date.'**
+  String get futureDateRequired;
+
+  /// No description provided for @paymentAccessBlockedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Company access is suspended because of payment status. Please contact support or the platform owner to reactivate the company.'**
+  String get paymentAccessBlockedMessage;
+
+  /// No description provided for @paymentDueSoonMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A company payment is due soon. Please contact support or the platform owner to keep access uninterrupted.'**
+  String get paymentDueSoonMessage;
+
+  /// No description provided for @paymentOverdueMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A company payment is overdue. Please contact support or the platform owner to update the payment status.'**
+  String get paymentOverdueMessage;
+
+  /// No description provided for @paymentGraceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The company is in a payment grace period. Please contact support or the platform owner before access is suspended.'**
+  String get paymentGraceMessage;
+
+  /// No description provided for @daysRemainingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days remaining'**
+  String daysRemainingCount(int count);
+
+  /// No description provided for @overdueDaysCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days overdue'**
+  String overdueDaysCount(int count);
 }
 
 class _AppLocalizationsDelegate

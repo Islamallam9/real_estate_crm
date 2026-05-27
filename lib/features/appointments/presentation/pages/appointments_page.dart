@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' as intl;
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/routing/route_names.dart';
@@ -45,18 +46,17 @@ class AppointmentsPage extends StatelessWidget {
       title: l.appointments,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           final role = profile.role;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
@@ -73,12 +73,12 @@ class AppointmentsPage extends StatelessWidget {
               role == UserRole.marketing) {
             assignedTo = profile.uid;
           }
-          final scopeKey = ValueKey('appointments-scope:$companyId:${profile.uid}:${role.name}');
+          final scopeKey = ValueKey(session.scopeKey('appointments-scope'));
 
           return AppointmentsScope(
             key: scopeKey,
             child: _AppointmentsContent(
-              key: ValueKey('appointments-content:$companyId:${profile.uid}:${role.name}'),
+              key: ValueKey(session.scopeKey('appointments-content')),
               companyId: companyId,
               uid: profile.uid,
               role: role,

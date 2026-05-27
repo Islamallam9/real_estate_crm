@@ -14,6 +14,7 @@ enum AuthErrorCode {
   inactiveAccount,
   accountNotLinked,
   companyInactive,
+  companyTrialEnded,
   tooManyAttempts,
   unknown,
 }
@@ -30,6 +31,8 @@ abstract final class AuthErrorMessages {
       'This account is not linked to an active company.';
   static const companyInactive =
       'This company is inactive. Please contact platform support.';
+  static const companyTrialEnded =
+      'Your trial period has ended. Please contact support or subscribe to continue using Masar CRM.';
   static const tooManyAttempts =
       'Too many failed sign-in attempts. Please wait before trying again.';
   static const currentPasswordIncorrect = 'Current password is incorrect.';

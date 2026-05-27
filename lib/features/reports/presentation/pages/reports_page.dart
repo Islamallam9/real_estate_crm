@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -15,14 +16,13 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
-import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
-import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -35,6 +35,7 @@ import '../../../deals/presentation/cubit/deals_cubit.dart';
 import '../../../deals/presentation/cubit/deals_state.dart';
 import '../../../deals/presentation/widgets/deal_card.dart';
 import '../../../deals/presentation/widgets/deals_scope.dart';
+import '../../../exports/presentation/widgets/export_center_panel.dart';
 import '../../../leads/domain/entities/lead.dart';
 import '../../../leads/presentation/cubit/leads_cubit.dart';
 import '../../../leads/presentation/cubit/leads_state.dart';
@@ -68,20 +69,19 @@ class ReportsPage extends StatelessWidget {
       title: l.reports,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           final role = profile.role;
-          final uid = profile.uid;
+          final uid = session.uid;
           if (companyId.isEmpty) {
             return AppErrorView(message: l.missingCompanyProfile);
           }
@@ -89,7 +89,15 @@ class ReportsPage extends StatelessWidget {
             return AppErrorView(message: l.permissionDenied);
           }
 
-          final scopeKey = '$companyId:$uid:${role.name}';
+          final scopeKey = session.scopeKey('reports');
+          final companyMetadata = authState.companyMetadata;
+          final displayName = companyMetadata?.displayName.trim() ?? '';
+          final metadataName = displayName.isNotEmpty
+              ? displayName
+              : companyMetadata?.name ?? '';
+          final companyName = metadataName.trim().isEmpty
+              ? companyId
+              : metadataName.trim();
 
           return LeadsScope(
             key: ValueKey('reports-leads-scope:$scopeKey'),
@@ -104,6 +112,8 @@ class ReportsPage extends StatelessWidget {
                     child: _ReportsContent(
                       key: ValueKey('reports-content:$scopeKey'),
                       companyId: companyId,
+                      companyName: companyName,
+                      profile: profile,
                       role: role,
                       currentUserId: uid,
                     ),
@@ -122,11 +132,15 @@ class _ReportsContent extends StatefulWidget {
   const _ReportsContent({
     super.key,
     required this.companyId,
+    required this.companyName,
+    required this.profile,
     required this.role,
     required this.currentUserId,
   });
 
   final String companyId;
+  final String companyName;
+  final UserProfile profile;
   final UserRole role;
   final String currentUserId;
 
@@ -269,19 +283,12 @@ class _ReportsContentState extends State<_ReportsContent> {
                               searchQuery: _searchQuery,
                             );
 
-                            if (!data.hasAnyData) {
-                              return AppEmptyState(
-                                title: AppLocalizations.of(context)!.noReportData,
-                                message:
-                                AppLocalizations.of(context)!.reportsOverview,
-                                icon: Icons.bar_chart_outlined,
-                              );
-                            }
-
                             return _ReportsView(
                               data: data,
                               users: users,
                               canFilterAssignee: _canFilterAssignee,
+                              profile: widget.profile,
+                              companyName: widget.companyName,
                               period: _period,
                               assignedTo: _assignedTo,
                               searchController: _searchController,
@@ -324,6 +331,8 @@ class _ReportsView extends StatelessWidget {
     required this.data,
     required this.users,
     required this.canFilterAssignee,
+    required this.profile,
+    required this.companyName,
     required this.period,
     required this.assignedTo,
     required this.onPeriodChanged,
@@ -340,6 +349,8 @@ class _ReportsView extends StatelessWidget {
   final _ReportsData data;
   final List<UserProfile> users;
   final bool canFilterAssignee;
+  final UserProfile profile;
+  final String companyName;
   final _ReportPeriod period;
   final String assignedTo;
   final ValueChanged<_ReportPeriod> onPeriodChanged;
@@ -359,6 +370,8 @@ class _ReportsView extends StatelessWidget {
         data: data,
         users: users,
         canFilterAssignee: canFilterAssignee,
+        profile: profile,
+        companyName: companyName,
         period: period,
         assignedTo: assignedTo,
         hasFilters: hasFilters,
@@ -371,33 +384,51 @@ class _ReportsView extends StatelessWidget {
       );
     }
 
-    return SingleChildScrollView(
-      physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _ReportReveal(
-            id: 'header',
-            delay: Duration.zero,
-            child: _ReportHeader(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          _ReportsSearchFilterRow(
-            users: users,
-            canFilterAssignee: canFilterAssignee,
-            period: period,
-            assignedTo: assignedTo,
-            hasFilters: hasFilters,
-            searchController: searchController,
-            searchQuery: searchQuery,
-            onSearchChanged: onSearchChanged,
-            onPeriodChanged: onPeriodChanged,
-            onAssignedToChanged: onAssignedToChanged,
-            onClearFilters: onClearFilters,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
+    return DefaultTabController(
+      length: 2,
+      child: Builder(
+        builder: (context) {
+          final controller = DefaultTabController.of(context);
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              final index = controller.index.clamp(0, 1);
+              return SingleChildScrollView(
+                physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ReportsSearchFilterRow(
+                      users: users,
+                      canFilterAssignee: canFilterAssignee,
+                      period: period,
+                      assignedTo: assignedTo,
+                      hasFilters: hasFilters,
+                      searchController: searchController,
+                      searchQuery: searchQuery,
+                      onSearchChanged: onSearchChanged,
+                      onPeriodChanged: onPeriodChanged,
+                      onAssignedToChanged: onAssignedToChanged,
+                      onClearFilters: onClearFilters,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    MasarTabBar(
+                      compact: true,
+                      fullWidth: true,
+                      tabs: [
+                        MasarTabItem(
+                          label: l.reportsOverview,
+                          icon: Icons.analytics_outlined,
+                        ),
+                        MasarTabItem(
+                          label: l.exportCenter,
+                          icon: Icons.file_download_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    if (index == 0) ...[
           _ReportReveal(
             id: 'summary',
             delay: const Duration(milliseconds: 60),
@@ -576,7 +607,23 @@ class _ReportsView extends StatelessWidget {
               child: _AgentReportSection(data: data, users: users),
             ),
           ],
-        ],
+
+                    ] else ...[
+                      _ReportReveal(
+                        id: 'export-center',
+                        delay: const Duration(milliseconds: 60),
+                        child: ExportCenterPanel(
+                          profile: profile,
+                          companyName: companyName,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -588,6 +635,8 @@ class _MobileReportsView extends StatelessWidget {
     required this.data,
     required this.users,
     required this.canFilterAssignee,
+    required this.profile,
+    required this.companyName,
     required this.period,
     required this.assignedTo,
     required this.hasFilters,
@@ -602,6 +651,8 @@ class _MobileReportsView extends StatelessWidget {
   final _ReportsData data;
   final List<UserProfile> users;
   final bool canFilterAssignee;
+  final UserProfile profile;
+  final String companyName;
   final _ReportPeriod period;
   final String assignedTo;
   final bool hasFilters;
@@ -793,6 +844,18 @@ class _MobileReportsView extends StatelessWidget {
             children: [_AgentReportSection(data: data, users: users)],
           ),
         ),
+      _MobileReportTab(
+        label: l.exportCenter,
+        icon: Icons.file_download_outlined,
+        child: _MobileReportTabBody(
+          children: [
+            ExportCenterPanel(
+              profile: profile,
+              companyName: companyName,
+            ),
+          ],
+        ),
+      ),
     ];
 
     return DefaultTabController(
@@ -862,27 +925,10 @@ class _MobileReportsTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return MasarTabBar(
       compact: true,
-      fullWidth: true,
+      fullWidth: false,
       tabs: [
         for (final tab in tabs) MasarTabItem(label: tab.label, icon: tab.icon),
       ],
-    );
-  }
-}
-
-class _MobileReportTabBody extends StatelessWidget {
-  const _MobileReportTabBody({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
-      ),
     );
   }
 }
@@ -1169,7 +1215,7 @@ class _ReportsSearchFilterRow extends StatelessWidget {
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1272,12 +1318,12 @@ class _ExecutiveSummary extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000
+        final columns = constraints.maxWidth >= 900
             ? 5
-            : constraints.maxWidth >= 700
+            : constraints.maxWidth >= 640
             ? 3
             : 2;
-        final gap = AppSpacing.sm;
+        const gap = AppSpacing.xs;
         final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
 
         return Wrap(
@@ -1316,7 +1362,7 @@ class _ReportSection extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth >= 920
@@ -1325,12 +1371,12 @@ class _ReportSection extends StatelessWidget {
                   ? 2
                   : 1;
               final width =
-                  (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
+                  (constraints.maxWidth - (columns - 1) * AppSpacing.sm) /
                       columns;
 
               return Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   for (final child in children)
                     SizedBox(width: width, child: child),
@@ -1351,7 +1397,7 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -1384,7 +1430,10 @@ class _SummaryCard extends StatelessWidget {
     return _ReportHoverCard(
       borderRadius: AppRadius.xLarge,
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         decoration: BoxDecoration(
           color: AppColors.cardSurface(context),
           border: Border.all(color: AppColors.borderColor(context)),
@@ -1396,14 +1445,14 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
                 borderRadius: AppRadius.large,
               ),
-              child: Icon(item.icon, color: color, size: 20),
+              child: Icon(item.icon, color: color, size: 18),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
@@ -1423,7 +1472,7 @@ class _SummaryCard extends StatelessWidget {
                         value.round().toString(),
                         style: Theme.of(context)
                             .textTheme
-                            .headlineSmall
+                            .titleLarge
                             ?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: AppColors.textPrimaryColor(context),
@@ -1551,13 +1600,13 @@ class _DonutReportCardState extends State<_DonutReportCard>
                   segments: widget.segments,
                   progress: _sweep.value,
                   total: total,
-                  size: 82,
+                  size: 66,
                   valueKey: 'report-donut-total-$_signature',
                 ),
               );
             },
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: AnimatedBuilder(
               animation: _legend,
@@ -2213,7 +2262,7 @@ class _InnerReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -2230,7 +2279,7 @@ class _InnerReportCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           child,
         ],
       ),
@@ -2392,7 +2441,7 @@ class _BarLine extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 104,
+          width: 92,
           child: Text(
             row.label,
             maxLines: 1,
@@ -2411,7 +2460,7 @@ class _BarLine extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   value: animValue,
-                  minHeight: 8,
+                  minHeight: 6,
                   backgroundColor: AppColors.borderColor(context),
                   valueColor: AlwaysStoppedAnimation<Color>(row.color),
                 ),
@@ -2421,7 +2470,7 @@ class _BarLine extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         SizedBox(
-          width: 54,
+          width: 46,
           child: Text(
             row.amount == null
                 ? row.value.toString()
@@ -2709,6 +2758,23 @@ class _ReportsData {
 
       return a.overdueTasks.compareTo(b.overdueTasks);
     });    return rows;
+  }
+}
+
+class _MobileReportTabBody extends StatelessWidget {
+  const _MobileReportTabBody({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
   }
 }
 

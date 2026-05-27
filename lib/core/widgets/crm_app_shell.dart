@@ -22,6 +22,7 @@ import '../../features/notifications/presentation/widgets/notification_bell_butt
 import '../../features/notifications/presentation/widgets/notifications_scope.dart';
 import '../../features/notifications/presentation/widgets/notification_text.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
+import '../auth/protected_company_session.dart';
 import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
 import '../permissions/company_feature_gate.dart';
@@ -36,6 +37,7 @@ import 'app_feedback.dart';
 import 'masar_brand.dart';
 import 'masar_page_entrance.dart';
 import 'masar_refresh_indicator.dart';
+import 'masar_loading_view.dart';
 import 'responsive_layout.dart';
 
 enum CrmNavigationItem {
@@ -165,7 +167,10 @@ class CrmAppShell extends StatelessWidget {
       (AuthBloc bloc) => bloc.state.companyMetadata,
     );
     final authState = context.watch<AuthBloc>().state;
-    final desktopItems = _visibleItemsForRole(_items, authState.userProfile?.role);
+    final desktopItems = _visibleItemsForRole(
+      _items,
+      authState.protectedCompanySession?.profile.role,
+    );
     final mobileItems = _mobileItems;
     final effectiveOnItemSelected =
         onItemSelected ?? (item) => _goToItem(context, item);
@@ -244,23 +249,20 @@ class _CrmNotificationsScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = authState.userProfile;
-    final authUid = authState.user?.uid ?? '';
-    if (profile == null ||
-        authUid.isEmpty ||
-        profile.uid != authUid ||
-        profile.companyId.trim().isEmpty ||
+    final session = authState.protectedCompanySession;
+    if (session == null ||
         !authState.companyMetadata.isFeatureEnabled(CompanyFeature.notifications)) {
       return child;
     }
+    final profile = session.profile;
 
     return NotificationsScope(
       key: ValueKey(
-        'notifications-scope:${profile.companyId}:$authUid:${profile.role.name}',
+        session.scopeKey('notifications-scope'),
       ),
       child: _CrmNotificationsStarter(
-        companyId: profile.companyId,
-        currentUserId: authUid,
+        companyId: session.companyId,
+        currentUserId: session.uid,
         role: profile.role,
         managerTeamId: profile.teamId,
         child: child,
@@ -1454,7 +1456,7 @@ class _MobileNavItemButton extends StatelessWidget {
 Future<void> _showMobileMoreSheet(BuildContext context) {
   final authState = context.read<AuthBloc>().state;
   final companyMetadata = authState.companyMetadata;
-  final role = authState.userProfile?.role;
+  final role = authState.protectedCompanySession?.profile.role;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -2354,9 +2356,8 @@ Future<void> _showGlobalSearchDialog(
   String initialQuery = '',
 }) {
   final authState = context.read<AuthBloc>().state;
-  final profile = authState.userProfile;
-  final user = authState.user;
-  if (profile == null || user == null) {
+  final session = authState.protectedCompanySession;
+  if (session == null) {
     return showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -2386,11 +2387,11 @@ Future<void> _showGlobalSearchDialog(
       return BlocProvider(
         create: (_) => GlobalSearchCubit(
           searchGlobalDataUseCase: SearchGlobalDataUseCase(repository),
-          companyId: profile.companyId,
-          currentUserId: user.uid,
-          role: profile.role,
-          includeUsers: profile.role == UserRole.admin ||
-              profile.role == UserRole.manager,
+          companyId: session.companyId,
+          currentUserId: session.uid,
+          role: session.profile.role,
+          includeUsers: session.profile.role == UserRole.admin ||
+              session.profile.role == UserRole.manager,
           enabledModules: _enabledSearchModules(authState),
         )..queryChanged(initialQuery),
         child: AlertDialog(
@@ -2482,7 +2483,7 @@ class _GlobalSearchDialogContentState extends State<_GlobalSearchDialogContent> 
               if (state.status == GlobalSearchStatus.loading) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(child: MasarLogoLoader(size: 34)),
                 );
               }
 
@@ -2544,7 +2545,7 @@ List<MapEntry<GlobalSearchModule, List<GlobalSearchResult>>> _groupSearchResults
 
 Set<GlobalSearchModule> _enabledSearchModules(AuthState authState) {
   final metadata = authState.companyMetadata;
-  final role = authState.userProfile?.role;
+  final role = authState.protectedCompanySession?.profile.role;
   return {
     if (metadata.isFeatureEnabled(CompanyFeature.leads))
       GlobalSearchModule.leads,

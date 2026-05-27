@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -14,6 +15,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/deal.dart';
 import '../cubit/deals_cubit.dart';
 import '../cubit/deals_state.dart';
@@ -29,7 +31,17 @@ class EditDealPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DealsScope(child: _EditDealView(dealId: dealId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return DealsScope(
+          key: ValueKey(
+            session?.scopeKey('edit-deal-scope') ?? 'edit-deal-scope:loading',
+          ),
+          child: _EditDealView(dealId: dealId),
+        );
+      },
+    );
   }
 }
 
@@ -44,34 +56,47 @@ class _EditDealView extends StatefulWidget {
 
 class _EditDealViewState extends State<_EditDealView> {
   bool _isSubmitting = false;
-  @override
-  void initState() {
-    super.initState();
-    final authState = context.read<AuthBloc>().state;
-    final companyId = authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    if (companyId.isNotEmpty &&
-        role != null &&
-        uid.isNotEmpty &&
-        PermissionService.can(role, AppPermission.editDeal)) {
-      context.read<DealsCubit>().watchDeals(
-        companyId: companyId,
-        role: role,
-        currentUserId: uid,
-      );
+  String? _watchKey;
+
+  void _watchDealWhenAllowed(ProtectedCompanySession session) {
+    final role = session.profile.role;
+    if (!PermissionService.can(role, AppPermission.editDeal)) {
+      return;
     }
+    final key = session.scopeKey('edit-deal-watch');
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<DealsCubit>().watchDeals(
+      companyId: session.companyId,
+      role: role,
+      currentUserId: session.uid,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final userProfile = authState.userProfile;
-    final user = authState.user;
-    final role = userProfile?.role ?? user?.role;
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.deals,
+        title: l.editDeal,
+        child: const AppLoading(),
+      );
+    }
+
+    final userProfile = session?.profile;
+    final user = session?.user;
+    final role = userProfile?.role;
     final canEdit = role != null && PermissionService.can(role, AppPermission.editDeal);
     final canEditAssignment = role == UserRole.admin || role == UserRole.manager;
+    if (session != null && canEdit) {
+      _watchDealWhenAllowed(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.deals,

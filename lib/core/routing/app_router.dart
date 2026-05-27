@@ -43,7 +43,11 @@ import '../../features/teams/presentation/pages/teams_page.dart';
 import '../../features/tasks/presentation/pages/create_task_page.dart';
 import '../../features/tasks/presentation/pages/edit_task_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
+import '../auth/protected_company_session.dart';
+import '../constants/role_constants.dart';
+import '../permissions/app_permission.dart';
 import '../permissions/company_feature_gate.dart';
+import '../permissions/permission_service.dart';
 import '../widgets/app_error_view.dart';
 import '../widgets/crm_app_shell.dart';
 import 'route_names.dart';
@@ -135,8 +139,30 @@ abstract final class AppRouter {
 
         if (isAuthenticated &&
             isUsersRoute &&
-            authBloc.state.userProfile?.role.name != 'admin') {
+            authBloc.state.protectedCompanySession?.profile.role !=
+                UserRole.admin) {
           return RouteNames.dashboard;
+        }
+
+        if (isAuthenticated &&
+            !isPlatformRoute &&
+            !isFeatureUnavailableRoute &&
+            !isAccountUtilityRoute &&
+            !isForceChangePasswordRoute) {
+          final session = authBloc.state.protectedCompanySession;
+          if (session == null) {
+            return state.matchedLocation == RouteNames.dashboard
+                ? null
+                : RouteNames.dashboard;
+          }
+
+          final blockedRoute = _blockedCompanyRouteForRole(
+            state.matchedLocation,
+            session.profile.role,
+          );
+          if (blockedRoute) {
+            return RouteNames.dashboard;
+          }
         }
 
         if (isAuthenticated &&
@@ -265,6 +291,13 @@ abstract final class AppRouter {
           pageBuilder: (context, state) => _calmPage(
             state,
             PlatformPage.withDependencies(initialNotifications: true),
+          ),
+        ),
+        GoRoute(
+          path: RouteNames.platformMonitoring,
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PlatformPage.withDependencies(initialMonitoring: true),
           ),
         ),
         GoRoute(
@@ -407,6 +440,87 @@ abstract final class AppRouter {
       ],
     );
   }
+}
+
+bool _blockedCompanyRouteForRole(String location, UserRole role) {
+  if (location == RouteNames.users || location == RouteNames.dataHealth) {
+    return role != UserRole.admin;
+  }
+  if (location == RouteNames.teams) {
+    return role != UserRole.admin && role != UserRole.manager;
+  }
+
+  final permission = _permissionForCompanyLocation(location);
+  return permission != null && !PermissionService.can(role, permission);
+}
+
+AppPermission? _permissionForCompanyLocation(String location) {
+  if (location == RouteNames.dashboard) {
+    return AppPermission.viewDashboard;
+  }
+  if (location == RouteNames.reports) {
+    return AppPermission.viewReports;
+  }
+  if (location == RouteNames.leadsCreate) {
+    return AppPermission.createLead;
+  }
+  if (location.startsWith('${RouteNames.leads}/') && location.endsWith('/edit')) {
+    return AppPermission.editLead;
+  }
+  if (location == RouteNames.leads || location.startsWith('${RouteNames.leads}/')) {
+    return AppPermission.viewLeads;
+  }
+  if (location == RouteNames.clientsCreate) {
+    return AppPermission.createClient;
+  }
+  if (location.startsWith('${RouteNames.clients}/') && location.endsWith('/edit')) {
+    return AppPermission.editClient;
+  }
+  if (location == RouteNames.clients ||
+      location.startsWith('${RouteNames.clients}/')) {
+    return AppPermission.viewClients;
+  }
+  if (location == RouteNames.tasksCreate) {
+    return AppPermission.createTask;
+  }
+  if (location.startsWith('${RouteNames.tasks}/') && location.endsWith('/edit')) {
+    return AppPermission.viewTasks;
+  }
+  if (location == RouteNames.tasks || location.startsWith('${RouteNames.tasks}/')) {
+    return AppPermission.viewTasks;
+  }
+  if (location == RouteNames.appointmentsCreate) {
+    return AppPermission.createAppointment;
+  }
+  if (location.startsWith('${RouteNames.appointments}/') &&
+      location.endsWith('/edit')) {
+    return AppPermission.viewAppointments;
+  }
+  if (location == RouteNames.appointments ||
+      location.startsWith('${RouteNames.appointments}/')) {
+    return AppPermission.viewAppointments;
+  }
+  if (location == RouteNames.dealsCreate) {
+    return AppPermission.createDeal;
+  }
+  if (location.startsWith('${RouteNames.deals}/') && location.endsWith('/edit')) {
+    return AppPermission.editDeal;
+  }
+  if (location == RouteNames.deals || location.startsWith('${RouteNames.deals}/')) {
+    return AppPermission.viewDeals;
+  }
+  if (location == RouteNames.propertiesCreate) {
+    return AppPermission.createProperty;
+  }
+  if (location.startsWith('${RouteNames.properties}/') &&
+      location.endsWith('/edit')) {
+    return AppPermission.editProperty;
+  }
+  if (location == RouteNames.properties ||
+      location.startsWith('${RouteNames.properties}/')) {
+    return AppPermission.viewProperties;
+  }
+  return null;
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {

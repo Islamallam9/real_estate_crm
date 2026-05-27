@@ -13,6 +13,8 @@ class CreateCompanyWithAdminUseCase {
     required String adminPhone,
     required String locale,
     required String timezone,
+    int? trialDays,
+    String trialDurationUnit = 'days',
   }) {
     return _repository.createCompanyWithAdmin(
       companyId: companyId,
@@ -22,6 +24,8 @@ class CreateCompanyWithAdminUseCase {
       adminPhone: adminPhone,
       locale: locale,
       timezone: timezone,
+      trialDays: trialDays,
+      trialDurationUnit: trialDurationUnit,
     );
   }
 }

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,14 +9,32 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'app.dart';
 import 'core/firebase/firebase_initializer.dart';
 import 'core/localization/locale_cubit.dart';
+import 'core/observability/app_error_reporter.dart';
+import 'core/widgets/masar_loading_view.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  VisibilityDetectorController.instance.updateInterval = const Duration(
-    milliseconds: 500,
-  );
+  await runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      MasarObservabilityReporter.instance.installGlobalErrorHandlers();
+      Bloc.observer = MasarBlocObserver(MasarObservabilityReporter.instance);
+      VisibilityDetectorController.instance.updateInterval = const Duration(
+        milliseconds: 500,
+      );
 
-  runApp(const _MasarBootstrapApp());
+      runApp(const _MasarBootstrapApp());
+    },
+    (error, stackTrace) {
+      unawaited(
+        MasarObservabilityReporter.instance.reportUnhandledError(
+          error,
+          stackTrace,
+          module: 'zone',
+          fatal: true,
+        ),
+      );
+    },
+  );
 }
 
 class _MasarBootstrapApp extends StatefulWidget {
@@ -123,15 +144,7 @@ class _MasarStartupLoading extends StatelessWidget {
         child: const ColoredBox(
           color: _background,
           child: Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.8,
-                color: _primary,
-                backgroundColor: Color(0x24D9952E),
-              ),
-            ),
+            child: MasarLogoLoader(size: 46),
           ),
         ),
       ),

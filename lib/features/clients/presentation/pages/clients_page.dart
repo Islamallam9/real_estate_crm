@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -47,18 +48,17 @@ class ClientsPage extends StatelessWidget {
       title: localizations.clients,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           final role = profile.role;
           if (companyId.isEmpty) {
             return AppErrorView(message: localizations.missingCompanyProfile);
@@ -87,12 +87,12 @@ class ClientsPage extends StatelessWidget {
               ? profile.uid
               : null;
           final managerId = role == UserRole.manager ? profile.uid : null;
-          final scopeKey = ValueKey('clients-scope:$companyId:${profile.uid}:${role.name}');
+          final scopeKey = ValueKey(session.scopeKey('clients-scope'));
 
           return ClientsScope(
             key: scopeKey,
             child: _ClientsListContent(
-              key: ValueKey('clients-content:$companyId:${profile.uid}:${role.name}'),
+              key: ValueKey(session.scopeKey('clients-content')),
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,

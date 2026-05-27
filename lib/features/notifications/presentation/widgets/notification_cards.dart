@@ -14,12 +14,14 @@ class NotificationCard extends StatelessWidget {
     required this.notification,
     required this.onOpen,
     required this.onMarkRead,
+    this.onClear,
     this.isMarking = false,
   });
 
   final CrmNotification notification;
   final VoidCallback onOpen;
   final VoidCallback onMarkRead;
+  final VoidCallback? onClear;
   final bool isMarking;
 
   @override
@@ -111,15 +113,29 @@ class NotificationCard extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (onClear != null)
+                    SizedBox.square(
+                      dimension: 30,
+                      child: IconButton(
+                        tooltip: l.clearNotification,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 30,
+                          height: 30,
+                        ),
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close_rounded, size: 17),
+                      ),
+                    ),
                   if (unread)
                     SizedBox.square(
-                      dimension: 32,
+                      dimension: 30,
                       child: IconButton(
                         tooltip: l.markRead,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 32,
+                          width: 30,
+                          height: 30,
                         ),
                         onPressed: isMarking ? null : onMarkRead,
                         icon: isMarking
@@ -129,7 +145,7 @@ class NotificationCard extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.done, size: 18),
+                            : const Icon(Icons.done, size: 17),
                       ),
                     ),
                   Icon(
@@ -154,10 +170,12 @@ class AttentionReminderCard extends StatelessWidget {
     super.key,
     required this.reminder,
     required this.onOpen,
+    this.onClear,
   });
 
   final AttentionReminder reminder;
   final VoidCallback onOpen;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -236,12 +254,31 @@ class AttentionReminderCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Directionality.of(context) == TextDirection.rtl
-                    ? Icons.chevron_left
-                    : Icons.chevron_right,
-                size: 20,
-                color: AppColors.textSecondaryColor(context),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onClear != null)
+                    SizedBox.square(
+                      dimension: 30,
+                      child: IconButton(
+                        tooltip: l.clearNotification,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 30,
+                          height: 30,
+                        ),
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close_rounded, size: 17),
+                      ),
+                    ),
+                  Icon(
+                    Directionality.of(context) == TextDirection.rtl
+                        ? Icons.chevron_left
+                        : Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                ],
               ),
             ],
           ),

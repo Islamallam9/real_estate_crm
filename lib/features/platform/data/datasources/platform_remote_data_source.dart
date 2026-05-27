@@ -10,11 +10,16 @@ import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../models/company_data_health_report_model.dart';
 import '../models/platform_company_user_model.dart';
+import '../models/platform_payment_history_model.dart';
 
 abstract interface class PlatformRemoteDataSource {
   Stream<List<CompanyMetadata>> watchCompanies();
 
   Stream<List<PlatformCompanyUser>> watchCompanyUsers({
+    required String companyId,
+  });
+
+  Stream<List<PlatformPaymentHistoryModel>> watchPaymentHistory({
     required String companyId,
   });
 
@@ -26,6 +31,8 @@ abstract interface class PlatformRemoteDataSource {
     required String adminPhone,
     required String locale,
     required String timezone,
+    int? trialDays,
+    String trialDurationUnit = 'days',
   });
 
   Future<void> addUserToCompany({
@@ -73,6 +80,9 @@ abstract interface class PlatformRemoteDataSource {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+    DateTime? trialEndsAt,
+    int? trialDurationValue,
+    String? trialDurationUnit,
   });
 
   Future<CompanyDataHealthReportModel> getCompanyDataHealthReport({
@@ -86,6 +96,36 @@ abstract interface class PlatformRemoteDataSource {
   });
 
   Future<void> refreshCompanyStorageUsage({required String companyId});
+
+  Future<void> markCompanyPaymentPaid({
+    required String companyId,
+    required double amount,
+    required String currency,
+    required DateTime paymentDate,
+    required DateTime nextPaymentDueAt,
+    required String paymentCycle,
+    required String notes,
+  });
+
+  Future<void> extendCompanyPaymentDueDate({
+    required String companyId,
+    required DateTime nextPaymentDueAt,
+    required String notes,
+  });
+
+  Future<void> updateCompanyPaymentStatus({
+    required String companyId,
+    required String paymentStatus,
+    DateTime? nextPaymentDueAt,
+    DateTime? gracePeriodEndsAt,
+    String? suspendedReason,
+    String? notes,
+  });
+
+  Future<Map<String, dynamic>> exportCompanyData({
+    required String companyId,
+    List<String>? collections,
+  });
 }
 
 class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
@@ -126,6 +166,23 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
   }
 
   @override
+  Stream<List<PlatformPaymentHistoryModel>> watchPaymentHistory({
+    required String companyId,
+  }) {
+    return _firestore
+        .collection('${FirebasePaths.company(companyId)}/payment_history')
+        .orderBy('createdAt', descending: true)
+        .limit(60)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(PlatformPaymentHistoryModel.fromFirestore)
+              .where((item) => item.companyId == companyId)
+              .toList();
+        });
+  }
+
+  @override
   Future<void> createCompanyWithAdmin({
     required String companyId,
     required String companyName,
@@ -134,6 +191,8 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
     required String adminPhone,
     required String locale,
     required String timezone,
+    int? trialDays,
+    String trialDurationUnit = 'days',
   }) async {
     await _call('createCompanyWithAdmin', {
       'companyId': companyId,
@@ -143,6 +202,11 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       'adminPhone': adminPhone,
       'locale': locale,
       'timezone': timezone,
+      if (trialDays != null && trialDays > 0) ...{
+        'trialDurationValue': trialDays,
+        'trialDurationUnit': trialDurationUnit,
+        'trialDays': _legacyTrialDays(trialDays, trialDurationUnit),
+      },
     });
   }
 
@@ -240,6 +304,9 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
     Map<String, Object?>? settings,
     Map<String, Object?>? limits,
     Map<String, Object?>? features,
+    DateTime? trialEndsAt,
+    int? trialDurationValue,
+    String? trialDurationUnit,
   }) async {
     await _call('updateCompanyPlatformSettings', {
       'companyId': companyId,
@@ -250,6 +317,9 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       if (settings != null) 'settings': settings,
       if (limits != null) 'limits': limits,
       if (features != null) 'features': features,
+      if (trialEndsAt != null) 'trialEndsAt': trialEndsAt.toUtc().toIso8601String(),
+      if (trialDurationValue != null) 'trialDurationValue': trialDurationValue,
+      if (trialDurationUnit != null) 'trialDurationUnit': trialDurationUnit,
     });
   }
 
@@ -279,6 +349,72 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
   @override
   Future<void> refreshCompanyStorageUsage({required String companyId}) async {
     await _call('refreshCompanyStorageUsage', {'companyId': companyId});
+  }
+
+  @override
+  Future<void> markCompanyPaymentPaid({
+    required String companyId,
+    required double amount,
+    required String currency,
+    required DateTime paymentDate,
+    required DateTime nextPaymentDueAt,
+    required String paymentCycle,
+    required String notes,
+  }) async {
+    await _call('markCompanyPaymentPaid', {
+      'companyId': companyId,
+      'amount': amount,
+      'currency': currency,
+      'paymentDate': paymentDate.toUtc().toIso8601String(),
+      'nextPaymentDueAt': nextPaymentDueAt.toUtc().toIso8601String(),
+      'paymentCycle': paymentCycle,
+      'notes': notes,
+    });
+  }
+
+  @override
+  Future<void> extendCompanyPaymentDueDate({
+    required String companyId,
+    required DateTime nextPaymentDueAt,
+    required String notes,
+  }) async {
+    await _call('extendCompanyPaymentDueDate', {
+      'companyId': companyId,
+      'nextPaymentDueAt': nextPaymentDueAt.toUtc().toIso8601String(),
+      'notes': notes,
+    });
+  }
+
+  @override
+  Future<void> updateCompanyPaymentStatus({
+    required String companyId,
+    required String paymentStatus,
+    DateTime? nextPaymentDueAt,
+    DateTime? gracePeriodEndsAt,
+    String? suspendedReason,
+    String? notes,
+  }) async {
+    await _call('updateCompanyPaymentStatus', {
+      'companyId': companyId,
+      'paymentStatus': paymentStatus,
+      if (nextPaymentDueAt != null)
+        'nextPaymentDueAt': nextPaymentDueAt.toUtc().toIso8601String(),
+      if (gracePeriodEndsAt != null)
+        'gracePeriodEndsAt': gracePeriodEndsAt.toUtc().toIso8601String(),
+      if (suspendedReason != null) 'suspendedReason': suspendedReason,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportCompanyData({
+    required String companyId,
+    List<String>? collections,
+  }) {
+    return _callMap('exportCompanyDataForPlatform', {
+      'companyId': companyId,
+      if (collections != null && collections.isNotEmpty) 'collections': collections,
+    });
   }
 
   Future<void> _call(String name, Map<String, Object?> data) async {
@@ -316,4 +452,15 @@ String _mapFirebaseError(FirebaseException error) {
     default:
       return AppErrorMessages.unknown;
   }
+}
+
+int _legacyTrialDays(int value, String unit) {
+  final normalized = unit.trim().toLowerCase();
+  if (normalized == 'minutes') {
+    return (value / (60 * 24)).ceil().clamp(1, 3650).toInt();
+  }
+  if (normalized == 'hours') {
+    return (value / 24).ceil().clamp(1, 3650).toInt();
+  }
+  return value;
 }

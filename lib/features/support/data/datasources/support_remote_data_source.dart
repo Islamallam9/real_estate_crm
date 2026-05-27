@@ -6,6 +6,8 @@ import '../../domain/entities/support_ticket.dart';
 import '../../domain/entities/support_ticket_draft.dart';
 import '../models/support_ticket_model.dart';
 
+const _platformTicketsStreamLimit = 150;
+
 abstract interface class SupportRemoteDataSource {
   Future<void> createTicket(SupportTicketDraft draft);
 
@@ -77,8 +79,14 @@ class FirebaseSupportRemoteDataSource implements SupportRemoteDataSource {
 
   @override
   Stream<List<SupportTicketModel>> watchPlatformTickets() {
-    return _tickets.snapshots().map((snapshot) {
-      final tickets = snapshot.docs.map(SupportTicketModel.fromFirestore).toList()
+    return _tickets
+        .orderBy('createdAt', descending: true)
+        .limit(_platformTicketsStreamLimit)
+        .snapshots()
+        .map((snapshot) {
+      final tickets = snapshot.docs
+          .map(SupportTicketModel.fromFirestore)
+          .toList()
         ..sort(_compareTickets);
       return tickets;
     });

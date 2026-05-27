@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -18,6 +19,7 @@ import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/deal.dart';
 import '../cubit/deals_cubit.dart';
 import '../cubit/deals_state.dart';
@@ -32,7 +34,18 @@ class DealDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DealsScope(child: _DealDetailsView(dealId: dealId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return DealsScope(
+          key: ValueKey(
+            session?.scopeKey('deal-details-scope') ??
+                'deal-details-scope:loading',
+          ),
+          child: _DealDetailsView(dealId: dealId),
+        );
+      },
+    );
   }
 }
 
@@ -46,43 +59,55 @@ class _DealDetailsView extends StatefulWidget {
 }
 
 class _DealDetailsViewState extends State<_DealDetailsView> {
-  @override
-  void initState() {
-    super.initState();
-    final authState = context.read<AuthBloc>().state;
-    final companyId = authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
-    final role = authState.userProfile?.role ?? authState.user?.role;
-    final uid = authState.user?.uid ?? '';
-    if (companyId.isNotEmpty &&
-        role != null &&
-        uid.isNotEmpty &&
-        PermissionService.can(role, AppPermission.viewDeals)) {
-      context.read<DealsCubit>().watchDeals(
-        companyId: companyId,
-        role: role,
-        currentUserId: uid,
-        archiveFilter: role == UserRole.admin || role == UserRole.manager
-            ? ArchiveFilter.all
-            : ArchiveFilter.active,
-      );
+  String? _watchKey;
+
+  void _watchDealWhenAllowed(ProtectedCompanySession session) {
+    final role = session.profile.role;
+    if (!PermissionService.can(role, AppPermission.viewDeals)) {
+      return;
     }
+    final archiveFilter = role == UserRole.admin || role == UserRole.manager
+        ? ArchiveFilter.all
+        : ArchiveFilter.active;
+    final key = '${session.scopeKey('deal-details-watch')}:${archiveFilter.name}';
+    if (_watchKey == key) {
+      return;
+    }
+    _watchKey = key;
+    context.read<DealsCubit>().watchDeals(
+      companyId: session.companyId,
+      role: role,
+      currentUserId: session.uid,
+      archiveFilter: archiveFilter,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final userProfile = authState.userProfile;
-    final user = authState.user;
-    final role = userProfile?.role ?? user?.role;
-    final companyId = userProfile?.companyId ?? user?.companyId ?? '';
-    final uid = user?.uid ?? '';
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.deals,
+        title: l.dealDetails,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
     final canView =
         role != null && PermissionService.can(role, AppPermission.viewDeals);
     final canEdit = role != null && PermissionService.can(role, AppPermission.editDeal);
     final canArchive =
         role != null && PermissionService.can(role, AppPermission.archiveDeal);
     final canUpdateStage = role != null && role != UserRole.viewer && canView;
+    if (session != null && canView) {
+      _watchDealWhenAllowed(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.deals,

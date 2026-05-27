@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
@@ -32,6 +33,7 @@ import '../../domain/entities/lead.dart';
 import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/leads_scope.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class LeadsListPage extends StatelessWidget {
   const LeadsListPage({super.key});
@@ -48,28 +50,27 @@ class LeadsListPage extends StatelessWidget {
       title: localizations.leads,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState.status == AuthStatus.initial ||
-              authState.status == AuthStatus.loading) {
+          if (authState.isWaitingForProtectedCompanySession) {
             return const AppLoading();
           }
 
-          final user = authState.user;
-          final profile = authState.userProfile;
-          if (user == null || profile == null || profile.uid != user.uid) {
+          final session = authState.protectedCompanySession;
+          if (session == null) {
             return const AppLoading();
           }
 
-          final companyId = profile.companyId;
+          final profile = session.profile;
+          final companyId = session.companyId;
           if (companyId.isEmpty) {
             return AppErrorView(message: localizations.missingCompanyProfile);
           }
 
-          final scopeKey = ValueKey('leads-scope:$companyId:${profile.uid}:${profile.role.name}');
+          final scopeKey = ValueKey(session.scopeKey('leads-scope'));
 
           return LeadsScope(
             key: scopeKey,
             child: _LeadsListContent(
-              key: ValueKey('leads-content:$companyId:${profile.uid}:${profile.role.name}'),
+              key: ValueKey(session.scopeKey('leads-content')),
               companyId: companyId,
               uid: profile.uid,
               actorName: profile.fullName.trim().isEmpty
@@ -1122,11 +1123,7 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                 ).cardSurface.withValues(alpha: 0.70),
                 alignment: Alignment.topCenter,
                 padding: const EdgeInsets.only(top: AppSpacing.md),
-                child: const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
+                child: const MasarLogoLoader(size: 34),
               ),
             ),
           ),
@@ -2112,7 +2109,7 @@ class _LeadTitle extends StatelessWidget {
 }
 
 bool _can(AuthState state, AppPermission permission) {
-  final role = state.userProfile?.role ?? state.user?.role;
+  final role = state.protectedCompanySession?.profile.role;
   return role != null && PermissionService.can(role, permission);
 }
 

@@ -5,24 +5,21 @@ import '../../firebase_options.dart';
 
 abstract final class FirebaseInitializer {
   static Future<void> initialize() async {
-    if (Firebase.apps.isNotEmpty) {
-      return;
-    }
-
     try {
-      if (kIsWeb) {
-        _validateWebOptions();
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-      } else {
-        await Firebase.initializeApp();
+      if (Firebase.apps.isEmpty) {
+        if (kIsWeb) {
+          _validateWebOptions();
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+        } else {
+          await Firebase.initializeApp();
+        }
       }
     } on FirebaseException catch (error) {
-      if (error.code == 'duplicate-app') {
-        return;
+      if (error.code != 'duplicate-app') {
+        rethrow;
       }
-      rethrow;
     }
   }
 

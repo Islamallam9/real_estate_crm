@@ -18,6 +18,8 @@ class PlatformInvitationRepositoryImpl
     required String locale,
     required String timezone,
     required DateTime expiresAt,
+    int? trialDays,
+    String trialDurationUnit = 'days',
     required String notes,
   }) {
     return remoteDataSource.createCompanyInvitation(
@@ -29,6 +31,8 @@ class PlatformInvitationRepositoryImpl
       locale: locale,
       timezone: timezone,
       expiresAt: expiresAt,
+      trialDays: trialDays,
+      trialDurationUnit: trialDurationUnit,
       notes: notes,
     );
   }

@@ -16,6 +16,7 @@ import '../../domain/entities/attention_reminder.dart';
 import '../cubit/notifications_cubit.dart';
 import '../cubit/notifications_state.dart';
 import 'notification_cards.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class NotificationBellButton extends StatelessWidget {
   const NotificationBellButton({super.key, this.compact = false});
@@ -156,7 +157,7 @@ Future<void> _showNotificationsPanel({
   );
 }
 
-class _NotificationsPanel extends StatelessWidget {
+class _NotificationsPanel extends StatefulWidget {
   const _NotificationsPanel({
     required this.companyId,
     required this.currentUserId,
@@ -164,6 +165,13 @@ class _NotificationsPanel extends StatelessWidget {
 
   final String companyId;
   final String currentUserId;
+
+  @override
+  State<_NotificationsPanel> createState() => _NotificationsPanelState();
+}
+
+class _NotificationsPanelState extends State<_NotificationsPanel> {
+  bool _attentionExpanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +198,7 @@ class _NotificationsPanel extends StatelessWidget {
               ),
               child: BlocBuilder<NotificationsCubit, NotificationsState>(
                 builder: (context, state) {
+                  final reminders = _latestPanelReminders(state.reminders);
                   return Column(
                     mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,8 +221,8 @@ class _NotificationsPanel extends StatelessWidget {
                                 : () => context
                                     .read<NotificationsCubit>()
                                     .markAllRead(
-                                      companyId: companyId,
-                                      currentUserId: currentUserId,
+                                      companyId: widget.companyId,
+                                      currentUserId: widget.currentUserId,
                                     ),
                             child: state.markingAllRead
                                 ? const SizedBox.square(
@@ -234,24 +243,46 @@ class _NotificationsPanel extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (state.reminders.isNotEmpty) ...[
+                              if (reminders.isNotEmpty) ...[
                                 const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  l.attentionNeeded,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelLarge
-                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                _AttentionPanelHeader(
+                                  count: reminders.length,
+                                  expanded: _attentionExpanded,
+                                  onToggle: () {
+                                    setState(() {
+                                      _attentionExpanded = !_attentionExpanded;
+                                    });
+                                  },
                                 ),
-                                const SizedBox(height: AppSpacing.xs),
-                                for (final reminder in _latestPanelReminders(
-                                  state.reminders,
-                                ))
-                                  AttentionReminderCard(
-                                    reminder: reminder,
-                                    onOpen: () =>
-                                        _openRoute(context, reminder.route),
+                                AnimatedCrossFade(
+                                  firstChild: const SizedBox.shrink(),
+                                  secondChild: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: AppSpacing.xs,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        for (final reminder in reminders)
+                                          AttentionReminderCard(
+                                            reminder: reminder,
+                                            onClear: () => context
+                                                .read<NotificationsCubit>()
+                                                .clearAttentionReminder(
+                                                  reminder.id,
+                                                ),
+                                            onOpen: () => _openRoute(
+                                              context,
+                                              reminder.route,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
+                                  crossFadeState: _attentionExpanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: const Duration(milliseconds: 180),
+                                ),
                               ],
                               const SizedBox(height: AppSpacing.sm),
                               Text(
@@ -263,7 +294,7 @@ class _NotificationsPanel extends StatelessWidget {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               _PanelNotificationList(
-                                companyId: companyId,
+                                companyId: widget.companyId,
                                 state: state,
                               ),
                             ],
@@ -287,6 +318,75 @@ class _NotificationsPanel extends StatelessWidget {
                 },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttentionPanelHeader extends StatelessWidget {
+  const _AttentionPanelHeader({
+    required this.count,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final int count;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final textColor = AppColors.textSecondaryColor(context);
+    return Material(
+      color: AppColors.inputSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: AppRadius.large,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 8, 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.notifications_active_outlined,
+                size: 17,
+                color: AppColors.warningColor(context),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  '${l.attentionNeeded} ($count)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.textPrimaryColor(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              Text(
+                expanded ? l.collapseAttentionNeeded : l.expandAttentionNeeded,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: textColor,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -324,7 +424,7 @@ class _PanelNotificationList extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     if (state.status == NotificationsStatus.loading &&
         state.notifications.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: MasarLogoLoader(size: 36));
     }
     if (state.status == NotificationsStatus.failure &&
         state.notifications.isEmpty) {
@@ -369,6 +469,10 @@ class _PanelNotificationList extends StatelessWidget {
           notification: notification,
           isMarking: state.markingNotificationId == notification.id,
           onMarkRead: () => context.read<NotificationsCubit>().markAsRead(
+                companyId: companyId,
+                notification: notification,
+              ),
+          onClear: () => context.read<NotificationsCubit>().clearNotification(
                 companyId: companyId,
                 notification: notification,
               ),

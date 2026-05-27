@@ -2,12 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_shadows.dart';
-import '../theme/app_spacing.dart';
 
 class MasarTabItem {
   const MasarTabItem({
@@ -48,6 +46,7 @@ class _MasarTabBarState extends State<MasarTabBar> {
     if (_controller == controller) {
       return;
     }
+
     _controller?.removeListener(_handleControllerChange);
     _controller = controller;
     _lastControllerIndex = controller?.index;
@@ -65,6 +64,7 @@ class _MasarTabBarState extends State<MasarTabBar> {
     if (!mounted || nextIndex == _lastControllerIndex) {
       return;
     }
+
     _lastControllerIndex = nextIndex;
     setState(() {});
   }
@@ -77,8 +77,6 @@ class _MasarTabBarState extends State<MasarTabBar> {
     }
 
     final isDark = AppColors.isDark(context);
-    final primary = AppColors.primaryColor(context);
-    final selectedForeground = isDark ? const Color(0xFF050505) : AppColors.textStrong;
     final surface = isDark
         ? AppColors.darkSurfaceAlt.withValues(alpha: 0.84)
         : AppColors.cardSurface(context).withValues(alpha: 0.92);
@@ -101,111 +99,33 @@ class _MasarTabBarState extends State<MasarTabBar> {
             boxShadow: isMobileWeb
                 ? null
                 : isDark
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.20),
-                          blurRadius: 14,
-                          offset: const Offset(0, 8),
-                        ),
-                      ]
-                    : AppShadows.card,
+                ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ]
+                : AppShadows.card,
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: widget.fullWidth ? constraints.maxWidth : 0,
-                  ),
-                  child: GNav(
-                    selectedIndex: (controller.index.clamp(0, widget.tabs.length - 1) as int),
-                    onTabChange: (index) {
-                      if (controller.index != index) {
-                        controller.animateTo(
-                          index,
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOutCubic,
-                        );
-                      }
-                    },
-                    gap: widget.compact ? 5 : 7,
-                    iconSize: widget.compact ? 18 : 20,
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    backgroundColor: Colors.transparent,
-                    color: AppColors.textSecondaryColor(context),
-                    activeColor: selectedForeground,
-                    textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: selectedForeground,
-                          fontWeight: FontWeight.w900,
-                          fontSize: widget.compact ? 11 : 12,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    tabBackgroundColor: primary.withValues(alpha: 0.96),
-                    tabBorderRadius: widget.compact ? 14 : 20,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: widget.compact ? 10 : 13,
-                      vertical: widget.compact ? 8 : 11,
-                    ),
-                    tabs: [
-                      for (final tab in widget.tabs)
-                        GButton(
-                          icon: tab.icon,
-                          text: tab.badge == null ? tab.label : '${tab.label}  ${tab.badge}',
-                          leading: tab.badge == null
-                              ? null
-                              : _TabBadgeIcon(icon: tab.icon, badge: tab.badge!),
-                        ),
-                    ],
-                  ),
-                ),
-              );
+          child: _SegmentedTabButtons(
+            tabs: widget.tabs,
+            selectedIndex:
+            controller.index.clamp(0, widget.tabs.length - 1).toInt(),
+            compact: widget.compact,
+            fullWidth: widget.fullWidth,
+            onChanged: (index) {
+              if (controller.index != index) {
+                controller.animateTo(
+                  index,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                );
+              }
             },
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TabBadgeIcon extends StatelessWidget {
-  const _TabBadgeIcon({required this.icon, required this.badge});
-
-  final IconData icon;
-  final String badge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(icon, size: 20),
-        PositionedDirectional(
-          top: -8,
-          end: -9,
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: AppColors.errorColor(context),
-              borderRadius: AppRadius.large,
-              border: Border.all(color: AppColors.cardSurface(context), width: 1.2),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              badge,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -243,8 +163,6 @@ class MasarSwitchTabBar extends StatelessWidget {
     }
 
     final isDark = AppColors.isDark(context);
-    final primary = AppColors.primaryColor(context);
-    final selectedForeground = isDark ? const Color(0xFF050505) : AppColors.textStrong;
     final surface = isDark
         ? AppColors.darkSurfaceAlt.withValues(alpha: 0.84)
         : AppColors.cardSurface(context).withValues(alpha: 0.92);
@@ -267,58 +185,28 @@ class MasarSwitchTabBar extends StatelessWidget {
             boxShadow: isMobileWeb
                 ? null
                 : isDark
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.20),
-                          blurRadius: 14,
-                          offset: const Offset(0, 8),
-                        ),
-                      ]
-                    : AppShadows.card,
+                ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ]
+                : AppShadows.card,
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: GNav(
-                    selectedIndex: (selectedIndex.clamp(0, tabs.length - 1) as int),
-                    onTabChange: onChanged,
-                    gap: compact ? 5 : 7,
-                    iconSize: compact ? 18 : 20,
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    backgroundColor: Colors.transparent,
-                    color: AppColors.textSecondaryColor(context),
-                    activeColor: selectedForeground,
-                    textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: selectedForeground,
-                          fontWeight: FontWeight.w900,
-                          fontSize: compact ? 11 : 12,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    tabBackgroundColor: primary.withValues(alpha: 0.96),
-                    tabBorderRadius: compact ? 14 : 20,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? 10 : 13,
-                      vertical: compact ? 8 : 11,
-                    ),
-                    tabs: [
-                      for (final tab in tabs)
-                        GButton(
-                          icon: tab.icon,
-                          text: tab.badge == null ? tab.label : '${tab.label}  ${tab.badge}',
-                          leading: tab.badge == null
-                              ? null
-                              : _TabBadgeIcon(icon: tab.icon, badge: tab.badge!),
-                        ),
-                    ],
-                  ),
+          child: _SegmentedTabButtons(
+            tabs: [
+              for (final tab in tabs)
+                MasarTabItem(
+                  label: tab.label,
+                  icon: tab.icon,
+                  badge: tab.badge,
                 ),
-              );
-            },
+            ],
+            selectedIndex: selectedIndex.clamp(0, tabs.length - 1).toInt(),
+            compact: compact,
+            fullWidth: true,
+            onChanged: onChanged,
           ),
         ),
       ),
@@ -326,8 +214,149 @@ class MasarSwitchTabBar extends StatelessWidget {
   }
 }
 
+class _SegmentedTabButtons extends StatelessWidget {
+  const _SegmentedTabButtons({
+    required this.tabs,
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.compact,
+    required this.fullWidth,
+  });
+
+  final List<MasarTabItem> tabs;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final bool compact;
+  final bool fullWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tabs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = AppColors.isDark(context);
+    final primary = AppColors.primaryColor(context);
+    final selectedForeground =
+    isDark ? const Color(0xFF050505) : AppColors.textStrong;
+    final inactiveForeground = AppColors.textSecondaryColor(context);
+
+    Widget buildButton(int index) {
+      final tab = tabs[index];
+      final selected = index == selectedIndex;
+      final textColor = selected ? selectedForeground : inactiveForeground;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: selected ? primary.withValues(alpha: 0.96) : Colors.transparent,
+          borderRadius: BorderRadius.circular(compact ? 14 : 20),
+          child: InkWell(
+            onTap: () => onChanged(index),
+            borderRadius: BorderRadius.circular(compact ? 14 : 20),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 10 : 13,
+                vertical: compact ? 8 : 11,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        tab.icon,
+                        size: compact ? 18 : 20,
+                        color: textColor,
+                      ),
+                      if (tab.badge != null)
+                        PositionedDirectional(
+                          top: -8,
+                          end: -9,
+                          child: Container(
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            padding: const EdgeInsetsDirectional.symmetric(
+                              horizontal: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorColor(context),
+                              borderRadius: AppRadius.large,
+                              border: Border.all(
+                                color: AppColors.cardSurface(context),
+                                width: 1.2,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              tab.badge!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      tab.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: textColor,
+                        fontWeight:
+                        selected ? FontWeight.w900 : FontWeight.w700,
+                        fontSize: compact ? 11 : 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (fullWidth) {
+      return Row(
+        children: [
+          for (var index = 0; index < tabs.length; index++)
+            Expanded(child: buildButton(index)),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < tabs.length; index++) buildButton(index),
+        ],
+      ),
+    );
+  }
+}
+
 class _OptionalTabBlur extends StatelessWidget {
-  const _OptionalTabBlur({required this.enabled, required this.child});
+  const _OptionalTabBlur({
+    required this.enabled,
+    required this.child,
+  });
 
   final bool enabled;
   final Widget child;
@@ -337,6 +366,7 @@ class _OptionalTabBlur extends StatelessWidget {
     if (!enabled) {
       return child;
     }
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
       child: child,

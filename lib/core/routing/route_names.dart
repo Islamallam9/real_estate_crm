@@ -19,6 +19,7 @@ abstract final class RouteNames {
   static const profile = '/profile';
   static const settings = '/settings';
   static const platform = '/platform';
+  static const platformMonitoring = '/platform/monitoring';
   static const platformNotifications = '/platform/notifications';
   static const platformSupport = '/platform/support';
   static const featureUnavailable = '/feature-unavailable';

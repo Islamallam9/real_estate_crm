@@ -68,15 +68,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   int _invalidCredentialAttempts = 0;
   DateTime? _lockedUntil;
   int _sessionGeneration = 0;
+  String? _pendingUnauthenticatedMessage;
+  AuthErrorCode? _pendingUnauthenticatedErrorCode;
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
     final generation = _nextSessionGeneration();
+    _clearPendingUnauthenticatedMessage();
 
     emit(
       state.copyWith(
         status: AuthStatus.loading,
         clearMessage: true,
         clearErrorCode: true,
+        isPlatformAdmin: false,
         passwordResetSent: false,
       ),
     );
@@ -92,13 +96,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
-      await _loadProfileAndEmitAuthenticated(
-        emit: emit,
-        user: user,
-        signOutOnFailure: false,
-        recordLoginActivity: false,
-        expectedGeneration: generation,
-      );
+    await _loadProfileAndEmitAuthenticated(
+      emit: emit,
+      user: user,
+      signOutOnFailure: false,
+      recordLoginActivity: false,
+      expectedGeneration: generation,
+    );
   }
 
   Future<void> _onSignInRequested(
@@ -106,6 +110,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     final generation = _nextSessionGeneration();
+    _clearPendingUnauthenticatedMessage();
     final remaining = _lockoutSecondsRemaining();
     if (remaining > 0) {
       emit(
@@ -127,6 +132,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         clearErrorCode: true,
         clearUserProfile: true,
         clearCompanyMetadata: true,
+        isPlatformAdmin: false,
         lockoutSecondsRemaining: 0,
         passwordResetSent: false,
       ),
@@ -236,6 +242,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     _nextSessionGeneration();
+    _clearPendingUnauthenticatedMessage();
     emit(
       state.copyWith(
         status: AuthStatus.loading,
@@ -244,6 +251,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         clearUser: true,
         clearUserProfile: true,
         clearCompanyMetadata: true,
+        isPlatformAdmin: false,
         passwordResetSent: false,
       ),
     );
@@ -268,6 +276,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) {
     final updatedProfile = event.profile ?? state.userProfile;
+    if (updatedProfile != null &&
+        state.user != null &&
+        updatedProfile.uid != state.user!.uid) {
+      return;
+    }
     final updatedName = event.fullName ?? updatedProfile?.fullName ?? state.user?.fullName;
     final updatedPhotoUrl = event.photoUrl ?? updatedProfile?.photoUrl ?? state.user?.photoUrl;
 
@@ -288,12 +301,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (event.user == null) {
+      final pendingMessage = _pendingUnauthenticatedMessage;
+      final pendingErrorCode = _pendingUnauthenticatedErrorCode;
+      _clearPendingUnauthenticatedMessage();
       _nextSessionGeneration();
-      emit(const AuthState(status: AuthStatus.unauthenticated));
+      emit(
+        AuthState(
+          status: AuthStatus.unauthenticated,
+          message: pendingMessage,
+          errorCode: pendingErrorCode,
+        ),
+      );
       return;
     }
 
     final nextUser = event.user!;
+    _clearPendingUnauthenticatedMessage();
     final generation = _nextSessionGeneration();
     final currentUid = state.user?.uid;
     final currentProfileUid = state.userProfile?.uid;
@@ -304,6 +327,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           user: nextUser,
           clearUserProfile: true,
           clearCompanyMetadata: true,
+          isPlatformAdmin: false,
           clearMessage: true,
           clearErrorCode: true,
         ),
@@ -366,6 +390,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       if (!resolution.isCompanyActive) {
+        if (resolution.company?.isTrialExpired == true && !resolution.isPlatformAdmin) {
+          await _signOutBlockedSession(
+            message: AuthErrorMessages.companyTrialEnded,
+            errorCode: AuthErrorCode.companyTrialEnded,
+          );
+          throw const AuthException(
+            AuthErrorMessages.companyTrialEnded,
+            code: AuthErrorCode.companyTrialEnded,
+          );
+        }
         if (resolution.isPlatformAdmin) {
           if (!_isCurrentSession(user.uid, expectedGeneration)) {
             return;
@@ -380,10 +414,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           return;
         }
 
-        if (signOutOnFailure) {
-          await _signOutUseCase();
-        }
-
+        await _signOutBlockedSession(
+          message: AuthErrorMessages.companyInactive,
+          errorCode: AuthErrorCode.companyInactive,
+        );
         throw const AuthException(
           AuthErrorMessages.companyInactive,
           code: AuthErrorCode.companyInactive,
@@ -432,10 +466,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           return;
         }
 
-        if (signOutOnFailure) {
-          await _signOutUseCase();
-        }
-
+        await _signOutBlockedSession(
+          message: AuthErrorMessages.inactiveAccount,
+          errorCode: AuthErrorCode.inactiveAccount,
+        );
         throw const AuthException(
           AuthErrorMessages.inactiveAccount,
           code: AuthErrorCode.inactiveAccount,
@@ -624,6 +658,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   int _nextSessionGeneration() {
     _sessionGeneration += 1;
     return _sessionGeneration;
+  }
+
+  Future<void> _signOutBlockedSession({
+    required String message,
+    required AuthErrorCode errorCode,
+  }) async {
+    _pendingUnauthenticatedMessage = message;
+    _pendingUnauthenticatedErrorCode = errorCode;
+    try {
+      await _signOutUseCase();
+    } catch (_) {
+      // If local sign-out fails, the caller still emits the blocking error.
+    }
+  }
+
+  void _clearPendingUnauthenticatedMessage() {
+    _pendingUnauthenticatedMessage = null;
+    _pendingUnauthenticatedErrorCode = null;
   }
 
   bool _isCurrentSession(String uid, int expectedGeneration) {

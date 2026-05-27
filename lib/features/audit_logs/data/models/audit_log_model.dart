@@ -117,6 +117,7 @@ AuditLogAction auditLogActionFromValue(String value) {
     'cancel' => AuditLogAction.cancel,
     'imageAdded' => AuditLogAction.imageAdded,
     'imageRemoved' => AuditLogAction.imageRemoved,
+    'exportGenerated' => AuditLogAction.exportGenerated,
     _ => AuditLogAction.update,
   };
 }
@@ -131,6 +132,7 @@ AuditLogModule auditLogModuleFromValue(String value) {
     'properties' => AuditLogModule.properties,
     'tasks' => AuditLogModule.tasks,
     'deals' => AuditLogModule.deals,
+    'reports' => AuditLogModule.reports,
     'leads' => AuditLogModule.leads,
     _ => AuditLogModule.leads,
   };

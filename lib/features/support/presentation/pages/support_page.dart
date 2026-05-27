@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../core/utils/external_link_opener.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
@@ -21,7 +22,6 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
-import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -258,7 +258,6 @@ class _SupportTabBar extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     return MasarTabBar(
       compact: true,
-      fullWidth: true,
       tabs: [
         MasarTabItem(label: l.requestTypeSupport, icon: Icons.support_agent_outlined),
         MasarTabItem(label: l.requestTypeFeedback, icon: Icons.rate_review_outlined),

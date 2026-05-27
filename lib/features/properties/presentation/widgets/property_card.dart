@@ -10,6 +10,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/property.dart';
 import 'property_labels.dart';
@@ -286,11 +287,7 @@ class _PropertyCardNetworkImage extends StatelessWidget {
           return ColoredBox(
             color: AppColors.appBackground(context),
             child: const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: MasarLogoLoader(size: 30),
             ),
           );
         },
@@ -313,11 +310,7 @@ class _PropertyCardNetworkImage extends StatelessWidget {
       placeholder: (context, url) => ColoredBox(
         color: AppColors.appBackground(context),
         child: const Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: MasarLogoLoader(size: 30),
         ),
       ),
       errorWidget: (context, url, error) => ColoredBox(

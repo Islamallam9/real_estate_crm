@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -14,6 +15,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../domain/entities/property.dart';
 import '../cubit/properties_cubit.dart';
 import '../cubit/properties_state.dart';
@@ -27,7 +29,18 @@ class EditPropertyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PropertiesScope(child: _EditPropertyView(propertyId: propertyId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return PropertiesScope(
+          key: ValueKey(
+            session?.scopeKey('edit-property-scope') ??
+                'edit-property-scope:loading',
+          ),
+          child: _EditPropertyView(propertyId: propertyId),
+        );
+      },
+    );
   }
 }
 
@@ -42,24 +55,39 @@ class _EditPropertyView extends StatefulWidget {
 
 class _EditPropertyViewState extends State<_EditPropertyView> {
   bool _isSubmitting = false;
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty) {
-      context.read<PropertiesCubit>().watchProperties(companyId: companyId);
+  String? _watchKey;
+
+  void _watchPropertiesWhenReady(ProtectedCompanySession session) {
+    final key = session.scopeKey('edit-property-watch');
+    if (_watchKey == key) {
+      return;
     }
+    _watchKey = key;
+    context.read<PropertiesCubit>().watchProperties(companyId: session.companyId);
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.properties,
+        title: l.editProperty,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
     final canEdit =
         role != null && PermissionService.can(role, AppPermission.editProperty);
-    final companyId = _companyId(context);
-    final uid = authState.user?.uid ?? '';
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
+    if (session != null && canEdit) {
+      _watchPropertiesWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.properties,
@@ -169,11 +197,6 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
             ),
     );
   }
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 String localizationsErrorFallback(

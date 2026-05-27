@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -14,6 +15,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -22,6 +24,7 @@ import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/lead_form.dart';
 import '../widgets/leads_scope.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class EditLeadPage extends StatelessWidget {
   const EditLeadPage({super.key, required this.leadId});
@@ -30,7 +33,17 @@ class EditLeadPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LeadsScope(child: _EditLeadView(leadId: leadId));
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final session = authState.protectedCompanySession;
+        return LeadsScope(
+          key: ValueKey(
+            session?.scopeKey('edit-lead-scope') ?? 'edit-lead-scope:loading',
+          ),
+          child: _EditLeadView(leadId: leadId),
+        );
+      },
+    );
   }
 }
 
@@ -44,31 +57,48 @@ class _EditLeadView extends StatefulWidget {
 }
 
 class _EditLeadViewState extends State<_EditLeadView> {
-  @override
-  void initState() {
-    super.initState();
-    final companyId = _companyId(context);
-    if (companyId.isNotEmpty) {
-      context.read<LeadsCubit>().loadLead(
-        companyId: companyId,
-        leadId: widget.leadId,
-      );
+  String? _loadKey;
+
+  void _loadLeadWhenReady(ProtectedCompanySession session) {
+    if (widget.leadId.isEmpty) {
+      return;
     }
+    final key = '${session.scopeKey('edit-lead-load')}:${widget.leadId}';
+    if (_loadKey == key) {
+      return;
+    }
+    _loadKey = key;
+    context.read<LeadsCubit>().loadLead(
+      companyId: session.companyId,
+      leadId: widget.leadId,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final authState = context.read<AuthBloc>().state;
-    final role = authState.userProfile?.role ?? authState.user?.role;
+    final authState = context.watch<AuthBloc>().state;
+    final session = authState.protectedCompanySession;
+
+    if (authState.isWaitingForProtectedCompanySession) {
+      return CrmAppShell(
+        selectedItem: CrmNavigationItem.leads,
+        title: localizations.editLead,
+        child: const AppLoading(),
+      );
+    }
+
+    final role = session?.profile.role;
     final canEdit =
         role != null && PermissionService.can(role, AppPermission.editLead);
     final canAssign =
         role != null && PermissionService.can(role, AppPermission.assignLead);
-    final companyId = _companyId(context);
-    final uid = authState.user?.uid ?? '';
-    final actorName =
-        authState.userProfile?.fullName ?? authState.user?.fullName ?? '';
+    final companyId = session?.companyId ?? '';
+    final uid = session?.uid ?? '';
+    final actorName = session?.profile.fullName ?? '';
+    if (session != null && canEdit) {
+      _loadLeadWhenReady(session);
+    }
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.leads,
@@ -121,7 +151,7 @@ class _EditLeadViewState extends State<_EditLeadView> {
                   stream: _watchActiveUsers(companyId),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(child: MasarLogoLoader(size: 40));
                     }
                     if (snapshot.hasError) {
                       return AppErrorView(
@@ -165,8 +195,7 @@ class _EditLeadViewState extends State<_EditLeadView> {
                                       canAssign: canAssign,
                                       assignmentUsers: users,
                                       onSubmit: (updatedLead) {
-                                        final currentProfile =
-                                            authState.userProfile;
+                                        final currentProfile = session?.profile;
                                         final isAssignedOnlyRole =
                                             role?.name == 'salesAgent' ||
                                             role?.name == 'marketing' ||
@@ -250,11 +279,6 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
     case LeadsAction.none:
       return l.leadUpdatedSuccessfully;
   }
-}
-
-String _companyId(BuildContext context) {
-  final authState = context.read<AuthBloc>().state;
-  return authState.userProfile?.companyId ?? authState.user?.companyId ?? '';
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

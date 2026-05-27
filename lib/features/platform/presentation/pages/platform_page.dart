@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
+import 'package:archive/archive.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -11,6 +15,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
+import '../../../../core/utils/file_downloader.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
@@ -43,41 +48,57 @@ import '../../../platform_notifications/domain/usecases/watch_platform_notificat
 import '../../../platform_notifications/domain/usecases/watch_platform_unread_notifications_count_usecase.dart';
 import '../../../platform_notifications/presentation/cubit/platform_notifications_cubit.dart';
 import '../../../platform_notifications/presentation/widgets/platform_notifications_panel.dart';
+import '../../../platform_observability/data/datasources/platform_observability_remote_data_source.dart';
+import '../../../platform_observability/data/repositories/platform_observability_repository_impl.dart';
+import '../../../platform_observability/domain/usecases/mark_platform_error_resolved_usecase.dart';
+import '../../../platform_observability/domain/usecases/watch_platform_error_logs_usecase.dart';
+import '../../../platform_observability/presentation/cubit/platform_observability_cubit.dart';
+import '../../../platform_observability/presentation/widgets/platform_monitoring_panel.dart';
 import '../../../support/presentation/pages/platform_support_inbox_panel.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../data/datasources/platform_remote_data_source.dart';
 import '../../data/repositories/platform_repository_impl.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_payment_history.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
+import '../../domain/usecases/export_company_data_usecase.dart';
+import '../../domain/usecases/extend_company_payment_due_date_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
+import '../../domain/usecases/mark_company_payment_paid_usecase.dart';
 import '../../domain/usecases/refresh_company_storage_usage_usecase.dart';
 import '../../domain/usecases/set_company_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_active_status_usecase.dart';
 import '../../domain/usecases/set_company_user_email_usecase.dart';
 import '../../domain/usecases/set_company_user_password_usecase.dart';
 import '../../domain/usecases/update_company_platform_settings_usecase.dart';
+import '../../domain/usecases/update_company_payment_status_usecase.dart';
 import '../../domain/usecases/watch_platform_companies_usecase.dart';
 import '../../domain/usecases/watch_platform_company_users_usecase.dart';
+import '../../domain/usecases/watch_platform_payment_history_usecase.dart';
 import '../cubit/platform_cubit.dart';
 import '../cubit/platform_state.dart';
+import '../../../../core/widgets/masar_loading_view.dart';
 
 class PlatformPage extends StatelessWidget {
   const PlatformPage({
     super.key,
     this.initialSupportInbox = false,
     this.initialNotifications = false,
+    this.initialMonitoring = false,
   });
 
   final bool initialSupportInbox;
   final bool initialNotifications;
+  final bool initialMonitoring;
 
   static Widget withDependencies({
     bool initialSupportInbox = false,
     bool initialNotifications = false,
+    bool initialMonitoring = false,
   }) {
     final remoteDataSource = FirebasePlatformRemoteDataSource();
     final repository = PlatformRepositoryImpl(
@@ -93,6 +114,11 @@ class PlatformPage extends StatelessWidget {
     final notificationsRepository = PlatformNotificationRepositoryImpl(
       remoteDataSource: notificationsRemoteDataSource,
     );
+    final observabilityRemoteDataSource =
+        FirebasePlatformObservabilityRemoteDataSource();
+    final observabilityRepository = PlatformObservabilityRepositoryImpl(
+      remoteDataSource: observabilityRemoteDataSource,
+    );
 
     return MultiBlocProvider(
       providers: [
@@ -102,6 +128,8 @@ class PlatformPage extends StatelessWidget {
             watchCompanyUsersUseCase: WatchPlatformCompanyUsersUseCase(
               repository,
             ),
+            watchPaymentHistoryUseCase:
+                WatchPlatformPaymentHistoryUseCase(repository),
             createCompanyWithAdminUseCase: CreateCompanyWithAdminUseCase(
               repository,
             ),
@@ -125,6 +153,13 @@ class PlatformPage extends StatelessWidget {
                 BackfillAssignedRecordSnapshotsUseCase(repository),
             refreshCompanyStorageUsageUseCase:
                 RefreshCompanyStorageUsageUseCase(repository),
+            exportCompanyDataUseCase: ExportCompanyDataUseCase(repository),
+            markCompanyPaymentPaidUseCase:
+                MarkCompanyPaymentPaidUseCase(repository),
+            extendCompanyPaymentDueDateUseCase:
+                ExtendCompanyPaymentDueDateUseCase(repository),
+            updateCompanyPaymentStatusUseCase:
+                UpdateCompanyPaymentStatusUseCase(repository),
           )..watchCompanies(),
         ),
         BlocProvider(
@@ -153,10 +188,22 @@ class PlatformPage extends StatelessWidget {
             ),
           )..watch(),
         ),
+        BlocProvider(
+          create: (_) => PlatformObservabilityCubit(
+            watchErrorLogsUseCase:
+                WatchPlatformErrorLogsUseCase(observabilityRepository),
+            markResolvedUseCase:
+                MarkPlatformErrorResolvedUseCase(observabilityRepository),
+          )..watch(),
+        ),
       ],
       child: PlatformPage(
+        key: ValueKey(
+          'platform-page:$initialSupportInbox:$initialNotifications:$initialMonitoring',
+        ),
         initialSupportInbox: initialSupportInbox,
         initialNotifications: initialNotifications,
+        initialMonitoring: initialMonitoring,
       ),
     );
   }
@@ -205,6 +252,7 @@ class PlatformPage extends StatelessWidget {
                         state: state,
                         initialSupportInbox: initialSupportInbox,
                         initialNotifications: initialNotifications,
+                        initialMonitoring: initialMonitoring,
                       );
                     },
                   ),
@@ -225,15 +273,13 @@ class _PlatformTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final compact = MediaQuery.sizeOf(context).width < 760;
 
     return Container(
-      height: compact ? 74 : 66,
       padding: const EdgeInsetsDirectional.fromSTEB(
         AppSpacing.md,
-        AppSpacing.xs,
+        AppSpacing.sm,
         AppSpacing.md,
-        AppSpacing.xs,
+        AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: AppColors.chromeSurface(context).withValues(alpha: 0.96),
@@ -246,60 +292,267 @@ class _PlatformTopBar extends StatelessWidget {
           final greeting = _platformGreeting(l, DateTime.now());
           final adminPhotoUrl = (authState.user?.photoUrl ?? '').trim();
 
-          return Row(
-            children: [
-              _PlatformAvatar(name: adminName, photoUrl: adminPhotoUrl),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 900;
+              final title = _PlatformHeaderTitle(
+                adminName: adminName,
+                greeting: greeting,
+                photoUrl: adminPhotoUrl,
+              );
+              final actions = const _PlatformTopActions();
+
+              if (compact) {
+                return Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      l.platformDashboard,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.textPrimaryColor(context),
-                            fontWeight: FontWeight.w800,
-                          ),
+                    Row(
+                      children: [
+                        Expanded(child: title),
+                        const SizedBox(width: AppSpacing.xs),
+                        actions,
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$greeting, $adminName',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryColor(context),
-                            fontWeight: FontWeight.w600,
+                    const SizedBox(height: AppSpacing.sm),
+                    const _PlatformTopCompanySelector(),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 4, child: title),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    flex: 3,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: AppSearchField(
+                        hint: l.platformSearchHint,
+                        onChanged:
+                            context.read<PlatformCubit>().updateSearchQuery,
+                        onClear: () => context
+                            .read<PlatformCubit>()
+                            .updateSearchQuery(''),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    flex: 3,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 260),
+                      child: const _PlatformTopCompanySelector(),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  actions,
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PlatformHeaderTitle extends StatelessWidget {
+  const _PlatformHeaderTitle({
+    required this.adminName,
+    required this.greeting,
+    required this.photoUrl,
+  });
+
+  final String adminName;
+  final String greeting;
+  final String photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        _PlatformAvatar(name: adminName, photoUrl: photoUrl),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.platformDashboard,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.textPrimaryColor(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$greeting, $adminName',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlatformTopActions extends StatelessWidget {
+  const _PlatformTopActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PlatformNotificationsBell(
+          onPressed: () => context.go(RouteNames.platformNotifications),
+          compact: true,
+        ),
+        const _PlatformLanguageButton(),
+        const _PlatformThemeButton(),
+        const SizedBox(width: AppSpacing.xs),
+        const _PlatformProfileMenu(),
+      ],
+    );
+  }
+}
+
+class _PlatformTopCompanySelector extends StatelessWidget {
+  const _PlatformTopCompanySelector({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return BlocBuilder<PlatformCubit, PlatformState>(
+      buildWhen: (previous, current) =>
+          previous.selectedCompanyId != current.selectedCompanyId ||
+          previous.companies != current.companies,
+      builder: (context, state) {
+        final companies = state.companies;
+        final selected = state.selectedCompany;
+        if (companies.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return PopupMenuButton<String>(
+          tooltip: l.allCompanies,
+          onSelected: (companyId) =>
+              context.read<PlatformCubit>().selectCompany(companyId),
+          itemBuilder: (context) => [
+            for (final company in companies)
+              PopupMenuItem<String>(
+                value: company.id,
+                child: Row(
+                  children: [
+                    Icon(
+                      state.selectedCompanyId == company.id
+                          ? Icons.check_circle
+                          : Icons.apartment_outlined,
+                      size: 18,
+                      color: state.selectedCompanyId == company.id
+                          ? AppColors.primaryColor(context)
+                          : AppColors.textSecondaryColor(context),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _companyTitle(company),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
+                          Text(
+                            company.id,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textSecondaryColor(context),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (!compact) ...[
-                SizedBox(
-                  width: 360,
-                  child: AppSearchField(
-                    hint: l.platformSearchHint,
-                    onChanged: context.read<PlatformCubit>().updateSearchQuery,
-                    onClear: () => context.read<PlatformCubit>().updateSearchQuery(''),
-                  ),
+          ],
+          child: Container(
+            height: 44,
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? AppSpacing.sm : AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.inputSurface(context),
+              border: Border.all(color: AppColors.borderColor(context)),
+              borderRadius: AppRadius.large,
+            ),
+            child: Row(
+              mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+              children: [
+                Icon(
+                  Icons.apartment_outlined,
+                  size: 20,
+                  color: AppColors.primaryColor(context),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                if (!compact) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.allCompanies,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: AppColors.textSecondaryColor(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        Text(
+                          selected == null ? l.noCompanySelected : _companyTitle(selected),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: AppColors.textSecondaryColor(context),
+                ),
               ],
-              PlatformNotificationsBell(
-                onPressed: () => context.go(RouteNames.platformNotifications),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              const _PlatformLanguageButton(),
-              const _PlatformThemeButton(),
-              const SizedBox(width: AppSpacing.xs),
-              const _PlatformProfileMenu(),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -642,6 +895,7 @@ String _platformUserName(AuthState state, String fallback) {
 
 enum _PlatformSection {
   overview,
+  monitoring,
   notifications,
   invitations,
   companies,
@@ -652,6 +906,7 @@ enum _PlatformSection {
 
 enum _WorkspaceTab {
   summary,
+  payments,
   users,
   features,
   limits,
@@ -665,11 +920,13 @@ class _PlatformWorkspace extends StatefulWidget {
     required this.state,
     required this.initialSupportInbox,
     required this.initialNotifications,
+    required this.initialMonitoring,
   });
 
   final PlatformState state;
   final bool initialSupportInbox;
   final bool initialNotifications;
+  final bool initialMonitoring;
 
   @override
   State<_PlatformWorkspace> createState() => _PlatformWorkspaceState();
@@ -683,9 +940,23 @@ class _PlatformWorkspaceState extends State<_PlatformWorkspace> {
     super.initState();
     _section = widget.initialNotifications
         ? _PlatformSection.notifications
+        : widget.initialMonitoring
+            ? _PlatformSection.monitoring
         : widget.initialSupportInbox
             ? _PlatformSection.support
             : _PlatformSection.overview;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlatformWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.initialNotifications && widget.initialNotifications) {
+      _section = _PlatformSection.notifications;
+    } else if (!oldWidget.initialMonitoring && widget.initialMonitoring) {
+      _section = _PlatformSection.monitoring;
+    } else if (!oldWidget.initialSupportInbox && widget.initialSupportInbox) {
+      _section = _PlatformSection.support;
+    }
   }
 
   @override
@@ -749,6 +1020,9 @@ class _PlatformSectionContent extends StatelessWidget {
           onOpenWorkspace: () => onSectionSelected(_PlatformSection.workspace),
           onOpenActivity: () => onSectionSelected(_PlatformSection.activity),
         ),
+      ],
+      _PlatformSection.monitoring => [
+        PlatformMonitoringPanel(companies: state.companies),
       ],
       _PlatformSection.invitations => const [_PlatformInvitationsPanel()],
       _PlatformSection.notifications => const [PlatformNotificationsPanel()],
@@ -1649,6 +1923,13 @@ class _DashboardCompaniesPanelState extends State<_DashboardCompaniesPanel> {
         PlatformCompanyFilter.inactive =>
           !company.isActive || company.status == 'inactive',
         PlatformCompanyFilter.trial => company.status == 'trial',
+        PlatformCompanyFilter.trialExpired => company.status == 'trialExpired',
+        PlatformCompanyFilter.paid => _paymentStatus(company) == 'paid',
+        PlatformCompanyFilter.dueSoon => _paymentStatus(company) == 'dueSoon',
+        PlatformCompanyFilter.overdue => _paymentStatus(company) == 'overdue',
+        PlatformCompanyFilter.gracePeriod =>
+          _paymentStatus(company) == 'gracePeriod',
+        PlatformCompanyFilter.suspended => _paymentStatus(company) == 'suspended',
       };
       return matchesQuery && matchesFilter;
     }).toList();
@@ -2344,6 +2625,7 @@ class _CompanyWorkspacePanelState extends State<_CompanyWorkspacePanel> {
         const SizedBox(height: AppSpacing.md),
         switch (_tab) {
           _WorkspaceTab.summary => _CompanyDetailsPanel(state: widget.state),
+          _WorkspaceTab.payments => _CompanyPaymentPanel(state: widget.state),
           _WorkspaceTab.users => _CompanyUsersPanel(state: widget.state),
           _WorkspaceTab.features => _CompanyFeaturesPanel(state: widget.state),
           _WorkspaceTab.limits => _CompanyLimitsPanel(state: widget.state),
@@ -2382,6 +2664,15 @@ class _WorkspaceHeader extends StatelessWidget {
             onPressed: () => _openPreview(context, company),
           ),
           AppButton(
+            label: l.exportCompanyData,
+            icon: Icons.file_download_outlined,
+            variant: AppButtonVariant.secondary,
+            isLoading: state.activeCompanyActionId == 'export:${company.id}',
+            onPressed: state.activeCompanyActionId == 'export:${company.id}'
+                ? null
+                : () => _exportCompanyData(context, company),
+          ),
+          AppButton(
             label: companyActive ? l.deactivateCompany : l.activateCompany,
             icon: companyActive ? Icons.block : Icons.check_circle_outline,
             variant: companyActive
@@ -2411,6 +2702,18 @@ class _WorkspaceHeader extends StatelessWidget {
         children: [
           _InfoChip(label: l.companyIdSlug, value: company.id),
           _InfoChip(label: l.status, value: _statusLabel(l, company)),
+          _InfoChip(
+            label: l.paymentStatus,
+            value: _paymentStatusLabel(l, _paymentStatus(company)),
+          ),
+          if (company.nextPaymentDueAt != null)
+            _InfoChip(
+              label: l.nextPaymentDue,
+              value: _formatDate(context, company.nextPaymentDueAt!),
+            ),
+          _InfoChip(label: l.amount, value: _paymentAmountLabel(company)),
+          if (company.trialEndsAt != null)
+            _InfoChip(label: l.trialEndsAt, value: _formatDate(context, company.trialEndsAt!)),
           _InfoChip(
             label: l.usersUsed,
             value: _usersUsedLabel(context, state, company),
@@ -2534,6 +2837,18 @@ class _CompanyDetailsPanel extends StatelessWidget {
             children: [
               _InfoChip(label: l.companyIdSlug, value: company.id),
               _InfoChip(label: l.status, value: _statusLabel(l, company)),
+              _InfoChip(
+                label: l.paymentStatus,
+                value: _paymentStatusLabel(l, _paymentStatus(company)),
+              ),
+              if (company.nextPaymentDueAt != null)
+                _InfoChip(
+                  label: l.nextPaymentDue,
+                  value: _formatDate(context, company.nextPaymentDueAt!),
+                ),
+              _InfoChip(label: l.amount, value: _paymentAmountLabel(company)),
+              if (company.trialEndsAt != null)
+                _InfoChip(label: l.trialEndsAt, value: _formatDate(context, company.trialEndsAt!)),
               _InfoChip(
                 label: l.createdAt,
                 value: _formatDate(context, company.createdAt),
@@ -2686,6 +3001,229 @@ class _CompanyUsersPanel extends StatefulWidget {
   @override
   State<_CompanyUsersPanel> createState() => _CompanyUsersPanelState();
 }
+
+class _CompanyPaymentPanel extends StatelessWidget {
+  const _CompanyPaymentPanel({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final company = state.selectedCompany;
+    if (company == null) {
+      return _Panel(
+        title: l.paymentFollowUp,
+        child: AppEmptyState(
+          icon: Icons.payments_outlined,
+          title: l.noCompanySelected,
+          message: l.noCompanySelectedMessage,
+        ),
+      );
+    }
+
+    final status = _paymentStatus(company);
+    final busy = state.activeSettingsActionId == 'payment:${company.id}';
+    return _Panel(
+      title: l.paymentFollowUp,
+      action: AppStatusBadge(
+        label: _paymentStatusLabel(l, status),
+        tone: _paymentStatusTone(status),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 900 ? 4 : constraints.maxWidth >= 560 ? 2 : 1;
+              return GridView.count(
+                crossAxisCount: columns,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: AppSpacing.sm,
+                mainAxisSpacing: AppSpacing.sm,
+                childAspectRatio: constraints.maxWidth < 560 ? 2.8 : 2.25,
+                children: [
+                  _KpiCard(
+                    label: l.paidCompanies,
+                    value: state.companies.where((item) => _paymentStatus(item) == 'paid').length.toString(),
+                    icon: Icons.verified_outlined,
+                    tone: AppStatusTone.success,
+                  ),
+                  _KpiCard(
+                    label: l.dueSoon,
+                    value: state.companies.where((item) => _paymentStatus(item) == 'dueSoon').length.toString(),
+                    icon: Icons.schedule_outlined,
+                    tone: AppStatusTone.warning,
+                  ),
+                  _KpiCard(
+                    label: l.overdue,
+                    value: state.companies.where((item) => _paymentStatus(item) == 'overdue').length.toString(),
+                    icon: Icons.warning_amber_outlined,
+                    tone: AppStatusTone.error,
+                  ),
+                  _KpiCard(
+                    label: l.expectedThisMonth,
+                    value: _expectedThisMonthLabel(state.companies, company.paymentCurrency),
+                    icon: Icons.payments_outlined,
+                    tone: AppStatusTone.info,
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _InfoChip(label: l.paymentStatus, value: _paymentStatusLabel(l, status)),
+              _InfoChip(label: l.nextPaymentDue, value: _dateOrEmpty(context, company.nextPaymentDueAt)),
+              _InfoChip(label: l.lastPayment, value: _dateOrEmpty(context, company.lastPaymentAt)),
+              _InfoChip(label: l.amount, value: _paymentAmountLabel(company)),
+              _InfoChip(label: l.paymentCycle, value: _paymentCycleLabel(l, company.paymentCycle)),
+              _InfoChip(label: l.daysRemaining, value: _paymentDaysLabel(context, company)),
+              if ((company.paymentNotes ?? '').trim().isNotEmpty)
+                _InfoChip(label: l.paymentNotes, value: company.paymentNotes!.trim()),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              AppButton(
+                label: l.markAsPaid,
+                icon: Icons.check_circle_outline,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.markPaid),
+              ),
+              AppButton(
+                label: l.extendDueDate,
+                icon: Icons.event_available_outlined,
+                variant: AppButtonVariant.secondary,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.extend),
+              ),
+              AppButton(
+                label: l.addNote,
+                icon: Icons.note_add_outlined,
+                variant: AppButtonVariant.secondary,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.note),
+              ),
+              AppButton(
+                label: l.moveToGracePeriod,
+                icon: Icons.hourglass_bottom_outlined,
+                variant: AppButtonVariant.secondary,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.grace),
+              ),
+              AppButton(
+                label: l.suspendCompany,
+                icon: Icons.block,
+                variant: AppButtonVariant.danger,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.suspend),
+              ),
+              AppButton(
+                label: l.reactivateCompany,
+                icon: Icons.restart_alt,
+                variant: AppButtonVariant.secondary,
+                isLoading: busy,
+                onPressed: busy ? null : () => _showPaymentDialog(context, company, _PaymentAction.reactivate),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            l.paymentHistory,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (state.paymentHistory.isEmpty)
+            AppEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: l.paymentHistory,
+              message: l.noPaymentHistory,
+            )
+          else
+            Column(
+              children: [
+                for (final item in state.paymentHistory.take(12))
+                  _PaymentHistoryRow(item: item),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentHistoryRow extends StatelessWidget {
+  const _PaymentHistoryRow({required this.item});
+
+  final PlatformPaymentHistory item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final amount = item.amount <= 0 ? '-' : '${item.amount.toStringAsFixed(item.amount.truncateToDouble() == item.amount ? 0 : 2)} ${item.currency}';
+    final subtitle = [
+      amount,
+      if (item.nextPaymentDueAt != null) '${l.nextPaymentDue}: ${_formatDate(context, item.nextPaymentDueAt!)}',
+      if (item.notes.trim().isNotEmpty) item.notes.trim(),
+    ].where((value) => value.trim().isNotEmpty).join(' - ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.appBackground(context),
+          border: Border.all(color: AppColors.borderColor(context)),
+          borderRadius: AppRadius.large,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.receipt_long_outlined, color: AppColors.primaryColor(context)),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _paymentActionLabel(l, item.action),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (item.createdAt != null)
+              Text(
+                _shortDate(context, item.createdAt!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _PaymentAction { markPaid, extend, note, grace, suspend, reactivate }
 
 class _CompanyUsersPanelState extends State<_CompanyUsersPanel> {
   final _searchController = TextEditingController();
@@ -3623,6 +4161,15 @@ class _CompanyTile extends StatelessWidget {
                           ? AppStatusTone.success
                           : AppStatusTone.neutral,
                     ),
+                    AppStatusBadge(
+                      label: _paymentStatusLabel(l, _paymentStatus(company)),
+                      tone: _paymentStatusTone(_paymentStatus(company)),
+                    ),
+                    if (company.nextPaymentDueAt != null)
+                      _InfoChip(
+                        label: l.nextPaymentDue,
+                        value: _shortDate(context, company.nextPaymentDueAt!),
+                      ),
                     _InfoChip(
                       label: l.userLimit,
                       value: _limitLabel(context, company.limits['users']),
@@ -3673,7 +4220,7 @@ class _CompanyTile extends StatelessWidget {
   }
 }
 
-enum _CompanyAction { workspace, preview }
+enum _CompanyAction { workspace, preview, export }
 
 class _CompanyActionsMenu extends StatelessWidget {
   const _CompanyActionsMenu({
@@ -3698,6 +4245,9 @@ class _CompanyActionsMenu extends StatelessWidget {
           case _CompanyAction.preview:
             _openPreview(context, company);
             return;
+          case _CompanyAction.export:
+            _exportCompanyData(context, company);
+            return;
         }
       },
       itemBuilder: (context) => [
@@ -3713,6 +4263,13 @@ class _CompanyActionsMenu extends StatelessWidget {
           child: _MenuItem(
             icon: Icons.dashboard_customize_outlined,
             label: l.previewDashboard,
+          ),
+        ),
+        PopupMenuItem<_CompanyAction>(
+          value: _CompanyAction.export,
+          child: _MenuItem(
+            icon: Icons.file_download_outlined,
+            label: l.exportCompanyData,
           ),
         ),
       ],
@@ -4454,7 +5011,7 @@ class _InvitationCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _directionalIsolate(invitation.codePreview),
+                  _directionalIsolate(invitation.invitationCode),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -4512,6 +5069,30 @@ class _InvitationCard extends StatelessWidget {
                 _InfoChip(
                   label: l.companyIdSlug,
                   value: _directionalIsolate(invitation.companyId),
+                ),
+              if (invitation.status == 'used' &&
+                  invitation.companyName.isNotEmpty)
+                _InfoChip(
+                  label: l.companyName,
+                  value: _directionalIsolate(invitation.companyName),
+                ),
+              if (invitation.status == 'used' &&
+                  invitation.companyStatus.isNotEmpty)
+                _InfoChip(
+                  label: l.status,
+                  value: _directionalIsolate(invitation.companyStatus),
+                ),
+              if (invitation.status == 'used' &&
+                  invitation.acceptedAdminEmail.isNotEmpty)
+                _InfoChip(
+                  label: l.adminEmail,
+                  value: _directionalIsolate(invitation.acceptedAdminEmail),
+                ),
+              if (invitation.status == 'used' &&
+                  invitation.companyCreatedAt != null)
+                _InfoChip(
+                  label: l.createdAt,
+                  value: _formatDate(context, invitation.companyCreatedAt!),
                 ),
             ],
           ),
@@ -4663,6 +5244,8 @@ class _EditCompanySettingsDialogState
   late final TextEditingController _storageLimit;
   late String _locale;
   late String _status;
+  late final TextEditingController _trialDuration;
+  var _trialDurationUnit = 'days';
   var _saving = false;
 
   @override
@@ -4683,6 +5266,9 @@ class _EditCompanySettingsDialogState
       text: (_limitValue(company.limits['storageMb']) ?? 1024).toString(),
     );
     _locale = _localeValue(company);
+    final initialTrial = _trialInputFromCompany(company);
+    _trialDuration = TextEditingController(text: initialTrial.value.toString());
+    _trialDurationUnit = initialTrial.unit;
     _status = company.status == 'trial'
         ? 'trial'
         : (_isOperationalCompany(company) ? 'active' : 'inactive');
@@ -4695,6 +5281,7 @@ class _EditCompanySettingsDialogState
     _timezone.dispose();
     _userLimit.dispose();
     _storageLimit.dispose();
+    _trialDuration.dispose();
     super.dispose();
   }
 
@@ -4775,6 +5362,18 @@ class _EditCompanySettingsDialogState
                     enabled: !_saving,
                     validator: (value) => _required(value, l),
                   ),
+                  if (_status == 'trial') ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _TrialOptions(
+                      enabled: true,
+                      controller: _trialDuration,
+                      unit: _trialDurationUnit,
+                      saving: _saving,
+                      showSwitch: false,
+                      onChanged: (_) {},
+                      onUnitChanged: (value) => setState(() => _trialDurationUnit = value),
+                    ),
+                  ],
                 ] else
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -4857,6 +5456,13 @@ class _EditCompanySettingsDialogState
               'storageMb': int.parse(_storageLimit.text.trim()),
             }
           : null,
+      trialEndsAt: null,
+      trialDurationValue: !widget.limitsOnly && _status == 'trial'
+          ? int.parse(_trialDuration.text.trim())
+          : null,
+      trialDurationUnit: !widget.limitsOnly && _status == 'trial'
+          ? _trialDurationUnit
+          : null,
       actionId: widget.limitsOnly ? 'limits' : 'settings',
     );
     if (!mounted) {
@@ -4869,6 +5475,156 @@ class _EditCompanySettingsDialogState
       Navigator.of(context).pop();
     }
   }
+}
+
+
+class _TrialOptions extends StatelessWidget {
+  const _TrialOptions({
+    required this.enabled,
+    required this.controller,
+    required this.unit,
+    required this.saving,
+    required this.onChanged,
+    required this.onUnitChanged,
+    this.showSwitch = true,
+  });
+
+  final bool enabled;
+  final TextEditingController controller;
+  final String unit;
+  final bool saving;
+  final ValueChanged<bool> onChanged;
+  final ValueChanged<String> onUnitChanged;
+  final bool showSwitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.appBackground(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showSwitch)
+            SwitchListTile.adaptive(
+              value: enabled,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                l.enableTrial,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              subtitle: Text(l.enableTrialSubtitle),
+              onChanged: saving ? null : onChanged,
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Text(
+                l.enableTrialSubtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                    ),
+              ),
+            ),
+          if (enabled) ...[
+            const SizedBox(height: AppSpacing.xs),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 420;
+                final valueField = AppTextField(
+                  controller: controller,
+                  label: l.trialPeriodDays,
+                  keyboardType: TextInputType.number,
+                  enabled: !saving,
+                  validator: (value) => _positiveInteger(value, l),
+                );
+                final unitField = AppDropdown<String>(
+                  label: l.status,
+                  value: unit,
+                  items: const ['minutes', 'hours', 'days'],
+                  itemLabelBuilder: (value) => _trialUnitLabel(context, value),
+                  enabled: !saving,
+                  onChanged: onUnitChanged,
+                );
+                if (narrow) {
+                  return Column(
+                    children: [
+                      valueField,
+                      const SizedBox(height: AppSpacing.sm),
+                      unitField,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: valueField),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: unitField),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _trialUnitLabel(BuildContext context, String unit) {
+  final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+  return switch (unit) {
+    'minutes' => isArabic ? 'دقائق' : 'Minutes',
+    'hours' => isArabic ? 'ساعات' : 'Hours',
+    _ => isArabic ? 'أيام' : 'Days',
+  };
+}
+
+_TrialInput _trialInputFromCompany(CompanyMetadata company) {
+  final storedValue = company.trialDurationValue;
+  final storedUnit = _normalizeTrialDurationUnit(company.trialDurationUnit);
+  if (company.status == 'trial' && storedValue != null && storedValue > 0) {
+    return _TrialInput(value: storedValue, unit: storedUnit);
+  }
+
+  final remaining = company.trialEndsAt?.difference(DateTime.now());
+  if (company.status != 'trial' || remaining == null || remaining.inSeconds <= 0) {
+    return const _TrialInput(value: 14, unit: 'days');
+  }
+
+  if (remaining.inHours < 1) {
+    final minutes = (remaining.inSeconds / 60).ceil().clamp(1, 1440).toInt();
+    return _TrialInput(value: minutes, unit: 'minutes');
+  }
+  if (remaining.inDays < 2) {
+    final hours = (remaining.inMinutes / 60).ceil().clamp(1, 168).toInt();
+    return _TrialInput(value: hours, unit: 'hours');
+  }
+  final days = (remaining.inHours / 24).ceil().clamp(1, 3650).toInt();
+  return _TrialInput(value: days, unit: 'days');
+}
+
+String _normalizeTrialDurationUnit(String? unit) {
+  return switch (unit) {
+    'minutes' || 'hours' || 'days' => unit!,
+    _ => 'days',
+  };
+}
+
+class _TrialInput {
+  const _TrialInput({required this.value, required this.unit});
+
+  final int value;
+  final String unit;
 }
 
 class _CreateInvitationDialog extends StatefulWidget {
@@ -4887,9 +5643,12 @@ class _CreateInvitationDialogState extends State<_CreateInvitationDialog> {
   final _userLimit = TextEditingController(text: '25');
   final _storageLimit = TextEditingController(text: '1024');
   final _expiresInDays = TextEditingController(text: '14');
+  final _trialDays = TextEditingController(text: '14');
+  var _trialDurationUnit = 'days';
   final _timezone = TextEditingController(text: 'Africa/Cairo');
   final _notes = TextEditingController();
   var _locale = 'en';
+  var _trialEnabled = false;
   var _saving = false;
   final Map<String, bool> _features = {
     for (final feature in _featureKeys) feature: true,
@@ -4902,6 +5661,7 @@ class _CreateInvitationDialogState extends State<_CreateInvitationDialog> {
     _userLimit.dispose();
     _storageLimit.dispose();
     _expiresInDays.dispose();
+    _trialDays.dispose();
     _timezone.dispose();
     _notes.dispose();
     super.dispose();
@@ -4991,6 +5751,15 @@ class _CreateInvitationDialogState extends State<_CreateInvitationDialog> {
                   validator: (value) => _required(value, l),
                 ),
                 const SizedBox(height: AppSpacing.md),
+                _TrialOptions(
+                  enabled: _trialEnabled,
+                  controller: _trialDays,
+                  unit: _trialDurationUnit,
+                  saving: _saving,
+                  onUnitChanged: (value) => setState(() => _trialDurationUnit = value),
+                  onChanged: (value) => setState(() => _trialEnabled = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
                 AppTextField(
                   controller: _notes,
                   label: l.notes,
@@ -5061,6 +5830,8 @@ class _CreateInvitationDialogState extends State<_CreateInvitationDialog> {
       locale: _locale,
       timezone: _timezone.text.trim(),
       expiresAt: expiresAt,
+      trialDays: _trialEnabled ? int.parse(_trialDays.text.trim()) : null,
+      trialDurationUnit: _trialDurationUnit,
       notes: _notes.text.trim(),
     );
     if (!mounted) {
@@ -5091,7 +5862,10 @@ class _CreateCompanyDialogState extends State<_CreateCompanyDialog> {
   final _adminEmail = TextEditingController();
   final _adminPhone = TextEditingController();
   final _timezone = TextEditingController(text: 'Africa/Cairo');
+  final _trialDays = TextEditingController(text: '14');
+  var _trialDurationUnit = 'days';
   var _locale = 'en';
+  var _trialEnabled = false;
   var _saving = false;
 
   @override
@@ -5102,6 +5876,7 @@ class _CreateCompanyDialogState extends State<_CreateCompanyDialog> {
     _adminEmail.dispose();
     _adminPhone.dispose();
     _timezone.dispose();
+    _trialDays.dispose();
     super.dispose();
   }
 
@@ -5179,6 +5954,15 @@ class _CreateCompanyDialogState extends State<_CreateCompanyDialog> {
                     ),
                   ],
                 ),
+                const SizedBox(height: AppSpacing.md),
+                _TrialOptions(
+                  enabled: _trialEnabled,
+                  controller: _trialDays,
+                  unit: _trialDurationUnit,
+                  saving: _saving,
+                  onUnitChanged: (value) => setState(() => _trialDurationUnit = value),
+                  onChanged: (value) => setState(() => _trialEnabled = value),
+                ),
               ],
             ),
           ),
@@ -5213,6 +5997,8 @@ class _CreateCompanyDialogState extends State<_CreateCompanyDialog> {
       adminPhone: _adminPhone.text.trim(),
       locale: _locale,
       timezone: _timezone.text.trim(),
+      trialDays: _trialEnabled ? int.parse(_trialDays.text.trim()) : null,
+      trialDurationUnit: _trialDurationUnit,
     );
     if (!mounted) {
       return;
@@ -5501,7 +6287,7 @@ class _GenerateResetLinkDialogState extends State<_GenerateResetLinkDialog> {
             ),
             const SizedBox(height: AppSpacing.md),
             if (_loading)
-              const Center(child: CircularProgressIndicator())
+              const Center(child: MasarLogoLoader(size: 42))
             else if ((_link ?? '').isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
@@ -5674,7 +6460,240 @@ class _AddUserDialogState extends State<_AddUserDialog> {
   }
 }
 
+Future<void> _showPaymentDialog(
+  BuildContext context,
+  CompanyMetadata company,
+  _PaymentAction action,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return BlocProvider.value(
+        value: context.read<PlatformCubit>(),
+        child: _PaymentActionDialog(company: company, action: action),
+      );
+    },
+  );
+}
+
+class _PaymentActionDialog extends StatefulWidget {
+  const _PaymentActionDialog({
+    required this.company,
+    required this.action,
+  });
+
+  final CompanyMetadata company;
+  final _PaymentAction action;
+
+  @override
+  State<_PaymentActionDialog> createState() => _PaymentActionDialogState();
+}
+
+class _PaymentActionDialogState extends State<_PaymentActionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _amount;
+  late final TextEditingController _currency;
+  late final TextEditingController _paymentDate;
+  late final TextEditingController _nextDue;
+  late final TextEditingController _graceEnds;
+  late final TextEditingController _notes;
+  var _cycle = 'monthly';
+  var _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _amount = TextEditingController(
+      text: widget.company.paymentAmount == null || widget.company.paymentAmount == 0
+          ? ''
+          : widget.company.paymentAmount!.toStringAsFixed(2),
+    );
+    _currency = TextEditingController(text: widget.company.paymentCurrency ?? 'EGP');
+    _paymentDate = TextEditingController(text: _dateInput(now));
+    _nextDue = TextEditingController(
+      text: _dateInput(widget.company.nextPaymentDueAt ?? now.add(const Duration(days: 30))),
+    );
+    _graceEnds = TextEditingController(
+      text: _dateInput(widget.company.gracePeriodEndsAt ?? now.add(const Duration(days: 7))),
+    );
+    _notes = TextEditingController(text: widget.company.paymentNotes ?? '');
+    _cycle = widget.company.paymentCycle ?? 'monthly';
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _currency.dispose();
+    _paymentDate.dispose();
+    _nextDue.dispose();
+    _graceEnds.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(_paymentDialogTitle(l, widget.action)),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.action == _PaymentAction.markPaid) ...[
+                  AppTextField(
+                    controller: _amount,
+                    label: l.amount,
+                    keyboardType: TextInputType.number,
+                    enabled: !_saving,
+                    validator: (value) => _money(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppTextField(
+                    controller: _currency,
+                    label: l.paymentCurrency,
+                    enabled: !_saving,
+                    validator: (value) => _currencyValidator(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppTextField(
+                    controller: _paymentDate,
+                    label: l.lastPayment,
+                    hint: 'YYYY-MM-DD',
+                    enabled: !_saving,
+                    validator: (value) => _dateValidator(value, l, futureOnly: false),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<String>(
+                    label: l.paymentCycle,
+                    value: _cycle,
+                    items: const ['monthly', 'quarterly', 'semiAnnual', 'yearly', 'custom'],
+                    itemLabelBuilder: (value) => _paymentCycleLabel(l, value),
+                    enabled: !_saving,
+                    onChanged: (value) => setState(() => _cycle = value),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (widget.action == _PaymentAction.markPaid ||
+                    widget.action == _PaymentAction.extend ||
+                    widget.action == _PaymentAction.reactivate) ...[
+                  AppTextField(
+                    controller: _nextDue,
+                    label: l.nextPaymentDue,
+                    hint: 'YYYY-MM-DD',
+                    enabled: !_saving,
+                    validator: (value) => _dateValidator(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (widget.action == _PaymentAction.grace) ...[
+                  AppTextField(
+                    controller: _graceEnds,
+                    label: l.gracePeriodEndsAt,
+                    hint: 'YYYY-MM-DD',
+                    enabled: !_saving,
+                    validator: (value) => _dateValidator(value, l),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                AppTextField(
+                  controller: _notes,
+                  label: widget.action == _PaymentAction.suspend
+                      ? l.suspendedReason
+                      : l.paymentNotes,
+                  maxLines: 3,
+                  enabled: !_saving,
+                  validator: widget.action == _PaymentAction.suspend
+                      ? (value) => _required(value, l)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.save,
+          isLoading: _saving,
+          onPressed: _saving ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() => _saving = true);
+    final cubit = context.read<PlatformCubit>();
+    final companyId = widget.company.id;
+    final notes = _notes.text.trim();
+    final success = switch (widget.action) {
+      _PaymentAction.markPaid => await cubit.markCompanyPaymentPaid(
+          companyId: companyId,
+          amount: double.parse(_amount.text.trim()),
+          currency: _currency.text.trim(),
+          paymentDate: _parseDateInput(_paymentDate.text)!,
+          nextPaymentDueAt: _parseDateInput(_nextDue.text)!,
+          paymentCycle: _cycle,
+          notes: notes,
+        ),
+      _PaymentAction.extend => await cubit.extendCompanyPaymentDueDate(
+          companyId: companyId,
+          nextPaymentDueAt: _parseDateInput(_nextDue.text)!,
+          notes: notes,
+        ),
+      _PaymentAction.note => await cubit.updateCompanyPaymentStatus(
+          companyId: companyId,
+          paymentStatus: _paymentStatus(widget.company),
+          notes: notes,
+        ),
+      _PaymentAction.grace => await cubit.updateCompanyPaymentStatus(
+          companyId: companyId,
+          paymentStatus: 'gracePeriod',
+          gracePeriodEndsAt: _parseDateInput(_graceEnds.text)!,
+          notes: notes,
+        ),
+      _PaymentAction.suspend => await cubit.updateCompanyPaymentStatus(
+          companyId: companyId,
+          paymentStatus: 'suspended',
+          suspendedReason: notes,
+          notes: notes,
+        ),
+      _PaymentAction.reactivate => await cubit.updateCompanyPaymentStatus(
+          companyId: companyId,
+          paymentStatus: 'paid',
+          nextPaymentDueAt: _parseDateInput(_nextDue.text)!,
+          notes: notes,
+        ),
+    };
+    if (!mounted) {
+      return;
+    }
+    setState(() => _saving = false);
+    if (success) {
+      AppFeedback.success(context, AppLocalizations.of(context)!.settingsSaved);
+      Navigator.of(context).pop();
+    }
+  }
+}
+
 String _statusLabel(AppLocalizations l, CompanyMetadata company) {
+  if (company.isTrialExpired || company.status == 'trialExpired') {
+    return l.trialEnded;
+  }
   if (!company.isActive || company.status == 'inactive') {
     return l.inactive;
   }
@@ -5684,8 +6703,194 @@ String _statusLabel(AppLocalizations l, CompanyMetadata company) {
   return l.active;
 }
 
+String _paymentStatus(CompanyMetadata company) {
+  final status = company.paymentStatus?.trim();
+  if (status != null && status.isNotEmpty) {
+    return status;
+  }
+  if (company.status == 'trial') return 'trial';
+  if (company.status == 'trialExpired') return 'trialExpired';
+  if (!company.isActive || company.status == 'inactive') return 'inactive';
+  return 'paid';
+}
+
+String _paymentStatusLabel(AppLocalizations l, String status) {
+  return switch (status) {
+    'paid' => l.paid,
+    'dueSoon' => l.dueSoon,
+    'overdue' => l.overdue,
+    'gracePeriod' => l.gracePeriod,
+    'suspended' => l.suspended,
+    'trial' => l.trial,
+    'trialExpired' => l.trialEnded,
+    'inactive' => l.inactive,
+    _ => status,
+  };
+}
+
+AppStatusTone _paymentStatusTone(String status) {
+  return switch (status) {
+    'paid' => AppStatusTone.success,
+    'dueSoon' => AppStatusTone.warning,
+    'overdue' => AppStatusTone.error,
+    'gracePeriod' => AppStatusTone.warning,
+    'suspended' => AppStatusTone.error,
+    'trial' => AppStatusTone.info,
+    'trialExpired' => AppStatusTone.error,
+    'inactive' => AppStatusTone.neutral,
+    _ => AppStatusTone.neutral,
+  };
+}
+
+String _paymentCycleLabel(AppLocalizations l, String? cycle) {
+  return switch ((cycle ?? '').trim()) {
+    'monthly' => l.monthly,
+    'quarterly' => l.quarterly,
+    'semiAnnual' => l.semiAnnual,
+    'yearly' => l.yearly,
+    'custom' => l.custom,
+    _ => l.notAvailable,
+  };
+}
+
+String _paymentActionLabel(AppLocalizations l, String action) {
+  return switch (action) {
+    'markedPaid' => l.markedPaid,
+    'extended' => l.extended,
+    'statusChanged' => l.statusChangedEvent,
+    'suspended' => l.suspended,
+    'reactivated' => l.reactivated,
+    'noteAdded' => l.noteAdded,
+    _ => action,
+  };
+}
+
+String _paymentDialogTitle(AppLocalizations l, _PaymentAction action) {
+  return switch (action) {
+    _PaymentAction.markPaid => l.markAsPaid,
+    _PaymentAction.extend => l.extendDueDate,
+    _PaymentAction.note => l.addNote,
+    _PaymentAction.grace => l.moveToGracePeriod,
+    _PaymentAction.suspend => l.suspendCompany,
+    _PaymentAction.reactivate => l.reactivateCompany,
+  };
+}
+
+String _paymentAmountLabel(CompanyMetadata company) {
+  final amount = company.paymentAmount;
+  final currency = (company.paymentCurrency ?? '').trim();
+  if (amount == null || amount <= 0) {
+    return '-';
+  }
+  final text = amount.truncateToDouble() == amount
+      ? amount.toStringAsFixed(0)
+      : amount.toStringAsFixed(2);
+  return currency.isEmpty ? text : '$text $currency';
+}
+
+String _expectedThisMonthLabel(
+    List<CompanyMetadata> companies,
+    String? preferredCurrency,
+    ) {
+  final now = DateTime.now();
+  var total = 0.0;
+  String? currency;
+
+  for (final company in companies) {
+    final due = company.nextPaymentDueAt;
+    final amount = company.paymentAmount;
+
+    if (due == null || amount == null || amount <= 0) {
+      continue;
+    }
+
+    if (due.year == now.year && due.month == now.month) {
+      total += amount;
+
+      final companyCurrency = (company.paymentCurrency ?? '').trim();
+      if (currency == null && companyCurrency.isNotEmpty) {
+        currency = companyCurrency;
+      }
+    }
+  }
+
+  if (total <= 0) {
+    return '-';
+  }
+
+  final fallbackCurrency = (preferredCurrency ?? '').trim();
+  final safeCurrency = (currency ?? fallbackCurrency).trim();
+  final value = total.toStringAsFixed(
+    total.truncateToDouble() == total ? 0 : 2,
+  );
+
+  return safeCurrency.isEmpty ? value : '$value $safeCurrency';
+}
+String _paymentDaysLabel(BuildContext context, CompanyMetadata company) {
+  final l = AppLocalizations.of(context)!;
+  final target = _paymentStatus(company) == 'gracePeriod'
+      ? company.gracePeriodEndsAt
+      : company.nextPaymentDueAt;
+  if (target == null) {
+    return l.notAvailable;
+  }
+  final days = target.difference(DateTime.now()).inDays;
+  if (days >= 0) {
+    return l.daysRemainingCount(days);
+  }
+  return l.overdueDaysCount(days.abs());
+}
+
+String _dateOrEmpty(BuildContext context, DateTime? value) {
+  return value == null ? '-' : _formatDate(context, value);
+}
+
+String _shortDate(BuildContext context, DateTime value) {
+  final localeName = Localizations.localeOf(context).toString();
+  return DateFormat.yMd(localeName).format(value.toLocal());
+}
+
+String _dateInput(DateTime value) {
+  return DateFormat('yyyy-MM-dd').format(value.toLocal());
+}
+
+DateTime? _parseDateInput(String value) {
+  final clean = value.trim();
+  if (clean.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(clean);
+}
+
+String? _dateValidator(String? value, AppLocalizations l, {bool futureOnly = true}) {
+  final date = _parseDateInput(value ?? '');
+  if (date == null) {
+    return l.requiredField;
+  }
+  if (futureOnly && !date.isAfter(DateTime.now())) {
+    return l.futureDateRequired;
+  }
+  return null;
+}
+
+String? _money(String? value, AppLocalizations l) {
+  final amount = double.tryParse((value ?? '').trim());
+  if (amount == null || amount < 0) {
+    return l.enterValidNumber;
+  }
+  return null;
+}
+
+String? _currencyValidator(String? value, AppLocalizations l) {
+  final clean = (value ?? '').trim();
+  if (!RegExp(r'^[A-Za-z]{3}$').hasMatch(clean)) {
+    return l.requiredField;
+  }
+  return null;
+}
+
 bool _isOperationalCompany(CompanyMetadata company) {
-  return company.isActive && company.status != 'inactive';
+  return company.isUsable;
 }
 
 String _companyFilterLabel(AppLocalizations l, PlatformCompanyFilter filter) {
@@ -5694,12 +6899,19 @@ String _companyFilterLabel(AppLocalizations l, PlatformCompanyFilter filter) {
     PlatformCompanyFilter.active => l.active,
     PlatformCompanyFilter.inactive => l.inactive,
     PlatformCompanyFilter.trial => l.trial,
+    PlatformCompanyFilter.trialExpired => l.trialEnded,
+    PlatformCompanyFilter.paid => l.paid,
+    PlatformCompanyFilter.dueSoon => l.dueSoon,
+    PlatformCompanyFilter.overdue => l.overdue,
+    PlatformCompanyFilter.gracePeriod => l.gracePeriod,
+    PlatformCompanyFilter.suspended => l.suspended,
   };
 }
 
 String _sectionLabel(AppLocalizations l, _PlatformSection section) {
   return switch (section) {
     _PlatformSection.overview => l.platformOverview,
+    _PlatformSection.monitoring => l.platformMonitoring,
     _PlatformSection.notifications => l.platformNotifications,
     _PlatformSection.invitations => l.invitations,
     _PlatformSection.companies => l.platformCompanies,
@@ -5745,6 +6957,7 @@ AppStatusTone _invitationStatusTone(String status) {
 IconData _sectionIcon(_PlatformSection section) {
   return switch (section) {
     _PlatformSection.overview => Icons.space_dashboard_outlined,
+    _PlatformSection.monitoring => Icons.monitor_heart_outlined,
     _PlatformSection.notifications => Icons.notifications_active_outlined,
     _PlatformSection.invitations => Icons.mark_email_unread_outlined,
     _PlatformSection.companies => Icons.apartment_outlined,
@@ -5757,6 +6970,7 @@ IconData _sectionIcon(_PlatformSection section) {
 String _workspaceTabLabel(AppLocalizations l, _WorkspaceTab tab) {
   return switch (tab) {
     _WorkspaceTab.summary => l.companyDetails,
+    _WorkspaceTab.payments => l.paymentFollowUp,
     _WorkspaceTab.users => l.companyUsers,
     _WorkspaceTab.features => l.companyFeatures,
     _WorkspaceTab.limits => l.companyLimits,
@@ -5822,6 +7036,7 @@ String _dataHealthSuggestedAction(AppLocalizations l, DataHealthIssue issue) {
 IconData _workspaceTabIcon(_WorkspaceTab tab) {
   return switch (tab) {
     _WorkspaceTab.summary => Icons.summarize_outlined,
+    _WorkspaceTab.payments => Icons.payments_outlined,
     _WorkspaceTab.users => Icons.people_outline,
     _WorkspaceTab.features => Icons.extension_outlined,
     _WorkspaceTab.limits => Icons.speed_outlined,
@@ -5878,6 +7093,559 @@ void _openPreview(BuildContext context, CompanyMetadata company) {
   final name = Uri.encodeComponent(_companyTitle(company));
   context.go('${RouteNames.platformCompanyDashboard(company.id)}?name=$name');
 }
+
+
+Future<void> _exportCompanyData(BuildContext context, CompanyMetadata company) async {
+  final l = AppLocalizations.of(context)!;
+  final selectedCollections = await _showPlatformExportPicker(context);
+  if (!context.mounted || selectedCollections == null || selectedCollections.isEmpty) {
+    return;
+  }
+
+  final data = await context.read<PlatformCubit>().exportCompanyData(
+        companyId: company.id,
+        collections: selectedCollections,
+      );
+  if (!context.mounted || data == null) {
+    return;
+  }
+
+  final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+  final fileName = 'masar_${company.id}_export_$timestamp.xlsx';
+  final bytes = _buildPlatformExportWorkbook(
+    context: context,
+    company: company,
+    payload: data,
+    collections: selectedCollections,
+  );
+  final downloaded = await downloadBytes(
+    fileName: fileName,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    bytes: bytes,
+  );
+  if (!context.mounted) {
+    return;
+  }
+  if (downloaded) {
+    AppFeedback.success(context, l.companyDataExported);
+  } else {
+    AppFeedback.error(context, l.exportDownloadFailed);
+  }
+}
+
+Future<List<String>?> _showPlatformExportPicker(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  final options = _platformExportOptions(l);
+  final selected = options.map((option) => option.collection).toSet();
+  return showModalBottomSheet<List<String>>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    backgroundColor: AppColors.cardSurface(context),
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l.exportCompanyData,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      for (final option in options)
+                        FilterChip(
+                          selected: selected.contains(option.collection),
+                          label: Text(option.label),
+                          avatar: Icon(option.icon, size: 18),
+                          onSelected: (value) {
+                            setModalState(() {
+                              if (value) {
+                                selected.add(option.collection);
+                              } else {
+                                selected.remove(option.collection);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: Text(l.cancel),
+                      ),
+                      const Spacer(),
+                      AppButton(
+                        label: l.generateExport,
+                        icon: Icons.file_download_outlined,
+                        onPressed: selected.isEmpty
+                            ? null
+                            : () => Navigator.of(sheetContext)
+                                .pop(selected.toList(growable: false)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+List<_PlatformExportOption> _platformExportOptions(AppLocalizations l) {
+  return [
+    _PlatformExportOption('users', l.companyUsers, Icons.people_alt_outlined),
+    _PlatformExportOption('leads', l.leads, Icons.group_add_outlined),
+    _PlatformExportOption('clients', l.clients, Icons.person_outline),
+    _PlatformExportOption('properties', l.properties, Icons.apartment_outlined),
+    _PlatformExportOption('tasks', l.tasks, Icons.check_circle_outline),
+    _PlatformExportOption('deals', l.deals, Icons.handshake_outlined),
+    _PlatformExportOption('appointments', l.appointments, Icons.calendar_today_outlined),
+    _PlatformExportOption('notifications', l.notifications, Icons.notifications_none_outlined),
+    _PlatformExportOption('audit_logs', l.auditLogs, Icons.history_outlined),
+    _PlatformExportOption('teams', l.teams, Icons.groups_outlined),
+  ];
+}
+
+class _PlatformExportOption {
+  const _PlatformExportOption(this.collection, this.label, this.icon);
+
+  final String collection;
+  final String label;
+  final IconData icon;
+}
+
+Uint8List _buildPlatformExportWorkbook({
+  required BuildContext context,
+  required CompanyMetadata company,
+  required Map<String, dynamic> payload,
+  required List<String> collections,
+}) {
+  final l = AppLocalizations.of(context)!;
+  final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+  final options = {
+    for (final option in _platformExportOptions(l)) option.collection: option.label,
+  };
+  final exportedAt = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+  final data = payload['data'] is Map
+      ? Map<String, dynamic>.from(payload['data'] as Map)
+      : <String, dynamic>{};
+  final sheets = <_SimpleXlsxSheet>[
+    _SimpleXlsxSheet(
+      name: l.reportSummary,
+      rows: [
+        ['Masar CRM'],
+        [l.exportCompanyData],
+        const <String>[],
+        [l.company, _companyTitle(company)],
+        [l.companyIdSlug, company.id],
+        [l.generatedAt, exportedAt],
+        [l.status, _statusLabel(l, company)],
+        [l.features, collections.map((key) => options[key] ?? key).join(', ')],
+        if (company.trialEndsAt != null)
+          [l.trialEndsAt, _formatDate(context, company.trialEndsAt!)],
+      ],
+      titleRows: const {0, 1},
+      rtl: isArabic,
+      minVisibleColumns: 8,
+    ),
+  ];
+
+  for (final collection in collections) {
+    final list = data[collection] is List
+        ? List<Object?>.from(data[collection] as List)
+        : const <Object?>[];
+    final maps = [
+      for (final item in list)
+        if (item is Map) Map<String, dynamic>.from(item),
+    ];
+    final columns = _platformExportColumns(context, collection);
+    final rows = <List<String>>[
+      [options[collection] ?? _humanizeExportKey(collection)],
+      ['${l.company}: ${_companyTitle(company)}  -  ${l.generatedAt}: $exportedAt'],
+      const <String>[],
+      [for (final column in columns) column.label],
+      for (final row in maps)
+        [
+          for (final column in columns)
+            _exportCellText(
+              _platformExportValue(row, column.keys),
+              context: context,
+              isPhone: column.isPhone,
+              isEnum: column.isEnum,
+              isDate: column.isDate,
+            ),
+        ],
+    ];
+    sheets.add(
+      _SimpleXlsxSheet(
+        name: options[collection] ?? _humanizeExportKey(collection),
+        rows: rows,
+        titleRows: const {0},
+        subtitleRows: const {1},
+        headerRows: const {3},
+        freezeRows: 4,
+        autoFilterRow: 3,
+        rtl: isArabic,
+        minVisibleColumns: columns.length,
+      ),
+    );
+  }
+
+  final archive = Archive();
+  archive.addFile(ArchiveFile.string('[Content_Types].xml', _simpleContentTypes(sheets.length)));
+  archive.addFile(ArchiveFile.string('_rels/.rels', _simpleRootRels()));
+  archive.addFile(ArchiveFile.string('xl/workbook.xml', _simpleWorkbook(sheets)));
+  archive.addFile(ArchiveFile.string('xl/_rels/workbook.xml.rels', _simpleWorkbookRels(sheets.length)));
+  archive.addFile(ArchiveFile.string('xl/styles.xml', _simpleStyles()));
+  for (var index = 0; index < sheets.length; index++) {
+    archive.addFile(ArchiveFile.string('xl/worksheets/sheet${index + 1}.xml', _simpleWorksheet(sheets[index])));
+  }
+  return Uint8List.fromList(ZipEncoder().encode(archive));
+}
+
+class _PlatformExportColumn {
+  const _PlatformExportColumn(
+    this.label,
+    this.keys, {
+    this.isPhone = false,
+    this.isDate = false,
+    this.isEnum = false,
+  });
+
+  final String label;
+  final List<String> keys;
+  final bool isPhone;
+  final bool isDate;
+  final bool isEnum;
+}
+
+List<_PlatformExportColumn> _platformExportColumns(
+  BuildContext context,
+  String collection,
+) {
+  final l = AppLocalizations.of(context)!;
+  final ar = Localizations.localeOf(context).languageCode == 'ar';
+  String t(String en, String arabic) => ar ? arabic : en;
+
+  switch (collection) {
+    case 'users':
+      return [
+        _PlatformExportColumn(l.fullName, const ['fullName', 'name', 'displayName']),
+        _PlatformExportColumn(l.email, const ['email']),
+        _PlatformExportColumn(l.phone, const ['phone'], isPhone: true),
+        _PlatformExportColumn(l.role, const ['role'], isEnum: true),
+        _PlatformExportColumn(l.status, const ['isActive', 'status'], isEnum: true),
+        _PlatformExportColumn(l.team, const ['teamName']),
+        _PlatformExportColumn(l.manager, const ['managerName']),
+        _PlatformExportColumn(t('Last login', 'آخر دخول'), const ['lastLoginAt'], isDate: true),
+        _PlatformExportColumn(t('Login platform', 'منصة الدخول'), const ['lastLoginPlatform', 'lastLoginDeviceType']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+    case 'leads':
+      return [
+        _PlatformExportColumn(l.fullName, const ['fullName', 'name', 'leadName', 'title']),
+        _PlatformExportColumn(l.phone, const ['phone'], isPhone: true),
+        _PlatformExportColumn(l.email, const ['email']),
+        _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+        _PlatformExportColumn(l.priority, const ['priority'], isEnum: true),
+        _PlatformExportColumn(l.source, const ['source'], isEnum: true),
+        _PlatformExportColumn(l.assignedAgent, const ['assignedToName', 'assignedUserName']),
+        _PlatformExportColumn(l.team, const ['teamName']),
+        _PlatformExportColumn(l.manager, const ['managerName']),
+        _PlatformExportColumn(l.budget, const ['budget', 'budgetMin', 'expectedBudget']),
+        _PlatformExportColumn(l.nextFollowUp, const ['nextFollowUpAt', 'nextFollowUpDate', 'nextFollowUp'], isDate: true),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+      ];
+    case 'clients':
+      return [
+        _PlatformExportColumn(l.fullName, const ['fullName', 'name', 'clientName', 'title']),
+        _PlatformExportColumn(l.phone, const ['phone'], isPhone: true),
+        _PlatformExportColumn(l.email, const ['email']),
+        _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+        _PlatformExportColumn(l.assignedAgent, const ['assignedToName', 'assignedUserName']),
+        _PlatformExportColumn(l.team, const ['teamName']),
+        _PlatformExportColumn(l.manager, const ['managerName']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+    case 'properties':
+      return [
+        _PlatformExportColumn(l.title, const ['title', 'name', 'propertyName']),
+        _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+        _PlatformExportColumn(l.type, const ['type', 'propertyType'], isEnum: true),
+        _PlatformExportColumn(t('Listing', 'نوع العرض'), const ['listingType'], isEnum: true),
+        _PlatformExportColumn(l.price, const ['price', 'amount', 'value']),
+        _PlatformExportColumn(l.location, const ['location', 'address', 'city']),
+        _PlatformExportColumn(t('Area', 'المساحة'), const ['area', 'areaSqm', 'size']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+    case 'tasks':
+      return [
+        _PlatformExportColumn(l.title, const ['title', 'name']),
+        _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+        _PlatformExportColumn(l.priority, const ['priority'], isEnum: true),
+        _PlatformExportColumn(l.dueDate, const ['dueDate', 'dueAt'], isDate: true),
+        _PlatformExportColumn(l.assignedAgent, const ['assignedToName', 'assignedUserName']),
+        _PlatformExportColumn(t('Related record', 'السجل المرتبط'), const ['relatedTitle']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+    case 'deals':
+      return [
+        _PlatformExportColumn(l.title, const ['title', 'name', 'dealName']),
+        _PlatformExportColumn(l.client, const ['clientName', 'clientTitle']),
+        _PlatformExportColumn(l.property, const ['propertyTitle', 'propertyName']),
+        _PlatformExportColumn(l.stage, const ['stage', 'status'], isEnum: true),
+        _PlatformExportColumn(l.value, const ['value', 'amount', 'price']),
+        _PlatformExportColumn(l.assignedAgent, const ['assignedToName', 'assignedUserName']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+    case 'appointments':
+      return [
+        _PlatformExportColumn(l.title, const ['title', 'name']),
+        _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+        _PlatformExportColumn(t('Date', 'التاريخ'), const ['startAt', 'startsAt', 'appointmentAt'], isDate: true),
+        _PlatformExportColumn(t('End time', 'وقت الانتهاء'), const ['endAt', 'endsAt'], isDate: true),
+        _PlatformExportColumn(l.location, const ['location']),
+        _PlatformExportColumn(l.assignedAgent, const ['assignedToName', 'assignedUserName']),
+        _PlatformExportColumn(t('Related record', 'السجل المرتبط'), const ['relatedTitle']),
+      ];
+    case 'notifications':
+      return [
+        _PlatformExportColumn(l.title, const ['title']),
+        _PlatformExportColumn(l.message, const ['message']),
+        _PlatformExportColumn(l.type, const ['type'], isEnum: true),
+        _PlatformExportColumn(l.status, const ['isRead', 'read'], isEnum: true),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+      ];
+    case 'audit_logs':
+      return [
+        _PlatformExportColumn(t('Actor', 'المنفذ'), const ['actorName']),
+        _PlatformExportColumn(l.email, const ['actorEmail']),
+        _PlatformExportColumn(l.module, const ['module'], isEnum: true),
+        _PlatformExportColumn(l.action, const ['action'], isEnum: true),
+        _PlatformExportColumn(t('Record', 'السجل'), const ['recordTitle', 'title']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+      ];
+    case 'teams':
+      return [
+        _PlatformExportColumn(l.team, const ['name', 'teamName']),
+        _PlatformExportColumn(l.manager, const ['managerName']),
+        _PlatformExportColumn(l.status, const ['isActive', 'status'], isEnum: true),
+        _PlatformExportColumn(t('Members', 'الأعضاء'), const ['memberCount', 'membersCount']),
+        _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+        _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+      ];
+  }
+  return [
+    _PlatformExportColumn(l.fullName, const ['name', 'title', 'displayName']),
+    _PlatformExportColumn(l.status, const ['status'], isEnum: true),
+    _PlatformExportColumn(l.createdAt, const ['createdAt'], isDate: true),
+    _PlatformExportColumn(l.updatedAt, const ['updatedAt'], isDate: true),
+  ];
+}
+
+Object? _platformExportValue(Map<String, dynamic> row, List<String> keys) {
+  for (final key in keys) {
+    if (row.containsKey(key) && row[key] != null) {
+      final value = row[key];
+      if (value is String && value.trim().isEmpty) {
+        continue;
+      }
+      return value;
+    }
+  }
+  return null;
+}
+
+String _exportCellText(
+  Object? value, {
+  required BuildContext context,
+  bool isPhone = false,
+  bool isDate = false,
+  bool isEnum = false,
+}) {
+  final l = AppLocalizations.of(context)!;
+  if (value == null) return '-';
+  if (value is bool) return value ? l.yes : l.no;
+  if (value is num) return isPhone ? value.toStringAsFixed(0) : value.toString();
+  final text = value.toString().trim();
+  if (text.isEmpty) return '-';
+  final parsedDate = _parseExportDate(value);
+  if (isDate && parsedDate != null) {
+    return DateFormat('yyyy-MM-dd HH:mm').format(parsedDate);
+  }
+  if (value is Map || value is List) {
+    return _compactExportObject(value);
+  }
+  if (isEnum) {
+    return _humanizeExportKey(text);
+  }
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    return '-';
+  }
+  if (_looksLikeUid(text)) {
+    return '-';
+  }
+  return text;
+}
+
+DateTime? _parseExportDate(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  if (value is Map && value.containsKey('_seconds')) {
+    final seconds = value['_seconds'];
+    if (seconds is num) {
+      return DateTime.fromMillisecondsSinceEpoch(seconds.toInt() * 1000);
+    }
+  }
+  if (value is String) {
+    return DateTime.tryParse(value);
+  }
+  return null;
+}
+
+String _compactExportObject(Object value) {
+  if (value is List) {
+    return value.isEmpty ? '-' : '${value.length}';
+  }
+  if (value is Map) {
+    final readable = <String>[];
+    for (final entry in value.entries) {
+      final key = entry.key.toString();
+      final child = entry.value;
+      if (child == null || key.startsWith('_')) continue;
+      if (child is String && child.trim().isEmpty) continue;
+      if (child is Map || child is List) continue;
+      readable.add('${_humanizeExportKey(key)}: $child');
+      if (readable.length == 3) break;
+    }
+    return readable.isEmpty ? '-' : readable.join(' | ');
+  }
+  return value.toString();
+}
+
+String _humanizeExportKey(String value) {
+  final cleaned = value
+      .replaceAll('_', ' ')
+      .replaceAll('-', ' ')
+      .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m.group(1)} ${m.group(2)}')
+      .trim();
+  if (cleaned.isEmpty) return '-';
+  return cleaned
+      .split(RegExp(r'\s+'))
+      .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+      .join(' ');
+}
+
+class _SimpleXlsxSheet {
+  const _SimpleXlsxSheet({
+    required this.name,
+    required this.rows,
+    this.titleRows = const {},
+    this.subtitleRows = const {},
+    this.headerRows = const {},
+    this.freezeRows = 0,
+    this.autoFilterRow,
+    this.rtl = false,
+    this.minVisibleColumns = 8,
+  });
+
+  final String name;
+  final List<List<String>> rows;
+  final Set<int> titleRows;
+  final Set<int> subtitleRows;
+  final Set<int> headerRows;
+  final int freezeRows;
+  final int? autoFilterRow;
+  final bool rtl;
+  final int minVisibleColumns;
+}
+
+String _simpleContentTypes(int sheetCount) => '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${List.generate(sheetCount, (i) => '<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join()}</Types>''';
+
+String _simpleRootRels() => '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>''';
+
+String _simpleWorkbook(List<_SimpleXlsxSheet> sheets) => '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${List.generate(sheets.length, (i) => '<sheet name="${_xml(_safeSheetName(sheets[i].name))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>').join()}</sheets></workbook>''';
+
+String _simpleWorkbookRels(int sheetCount) => '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${List.generate(sheetCount, (i) => '<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>').join()}<Relationship Id="rId${sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>''';
+
+String _simpleStyles() => '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Arial"/><color rgb="FF1F2933"/></font><font><b/><sz val="18"/><name val="Arial"/><color rgb="FF111827"/></font><font><b/><sz val="11"/><name val="Arial"/><color rgb="FF111827"/></font><font><sz val="10"/><name val="Arial"/><color rgb="FF6B6256"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF8EA"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4BE45"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFE6D8C1"/></left><right style="thin"><color rgb="FFE6D8C1"/></right><top style="thin"><color rgb="FFE6D8C1"/></top><bottom style="thin"><color rgb="FFE6D8C1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="2" borderId="0" applyFill="1"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>''';
+
+String _simpleWorksheet(_SimpleXlsxSheet sheet) {
+  final maxColumns = sheet.rows.fold<int>(
+    sheet.minVisibleColumns,
+    (value, row) => row.length > value ? row.length : value,
+  ).clamp(1, 40).toInt();
+  final actualRowCount = sheet.rows.length;
+  final minRows = actualRowCount < 30 ? 30 : actualRowCount;
+  final rows = <String>[];
+  for (var r = 0; r < minRows; r++) {
+    final source = r < sheet.rows.length ? sheet.rows[r] : const <String>[];
+    final cells = <String>[];
+    for (var c = 0; c < maxColumns; c++) {
+      final text = c < source.length ? source[c] : '';
+      final style = sheet.titleRows.contains(r)
+          ? 1
+          : sheet.headerRows.contains(r)
+              ? 2
+              : sheet.subtitleRows.contains(r)
+                  ? 4
+                  : 3;
+      cells.add('<c r="${_col(c)}${r + 1}" t="inlineStr" s="$style"><is><t>${_xml(text)}</t></is></c>');
+    }
+    rows.add('<row r="${r + 1}">${cells.join()}</row>');
+  }
+  final cols = '<cols>${List.generate(maxColumns, (i) => '<col min="${i + 1}" max="${i + 1}" width="${i == 0 ? 22 : 18}" customWidth="1"/>').join()}</cols>';
+  final freeze = sheet.freezeRows > 0
+      ? '<sheetViews><sheetView workbookViewId="0"${sheet.rtl ? ' rightToLeft="1"' : ''}><pane ySplit="${sheet.freezeRows}" topLeftCell="A${sheet.freezeRows + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+      : '<sheetViews><sheetView workbookViewId="0"${sheet.rtl ? ' rightToLeft="1"' : ''}/></sheetViews>';
+  final filterLastRow = actualRowCount < 1 ? 1 : actualRowCount;
+  final filter = sheet.autoFilterRow == null
+      ? ''
+      : '<autoFilter ref="A${sheet.autoFilterRow! + 1}:${_col(maxColumns - 1)}$filterLastRow"/>';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${_col(maxColumns - 1)}$minRows"/>$freeze$cols<sheetData>${rows.join()}</sheetData>$filter</worksheet>';
+}
+
+String _col(int index) {
+  var n = index + 1;
+  var result = '';
+  while (n > 0) {
+    final r = (n - 1) % 26;
+    result = String.fromCharCode(65 + r) + result;
+    n = (n - r - 1) ~/ 26;
+  }
+  return result;
+}
+
+String _safeSheetName(String value) {
+  final clean = value.replaceAll(RegExp(r'[\/\?\*\[\]:]'), ' ').trim();
+  return (clean.isEmpty ? 'Sheet' : clean).characters.take(31).toString();
+}
+
+String _xml(Object? value) => (value ?? '').toString().replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+
 
 int? _limitValue(Object? value) {
   if (value is int) {
