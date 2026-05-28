@@ -178,6 +178,7 @@ const NOTIFICATION_TYPES = new Set([
   'dataHealthIssue',
 ]);
 const NOTIFICATION_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
+const NOTIFICATION_ACTION_STATES = new Set(['none', 'actionNeeded', 'resolved', 'dismissed']);
 const PLATFORM_NOTIFICATION_TYPES = new Set([
   'companyRegistered',
   'companyCreated',
@@ -272,6 +273,14 @@ const MAJOR_DEAL_OUTCOMES = new Set([
   'lost',
   'closedWon',
   'closedLost',
+]);
+const DEAL_STAGES = new Set([
+  'new',
+  'qualified',
+  'proposal',
+  'negotiation',
+  'won',
+  'lost',
 ]);
 
 exports.createCompanyInvitation = onCall(async (request) => {
@@ -2567,10 +2576,13 @@ exports.expireTrialCompanies = onSchedule('every 1 minutes', async () => {
       route: '/platform',
       companyId,
       companyName: companyNotificationName(companyId, company),
-      metadata: {
-        status: 'trialExpired',
+      metadata: trialLocalizedNotificationMetadata({
+        milestone: 3,
         trialEndsAt: trialEndsAt.toISOString(),
-      },
+        companyName: companyNotificationName(companyId, company),
+        expired: true,
+        extra: { status: 'trialExpired' },
+      }),
     });
 
     const admins = await listCompanyAdminUsers(companyId);
@@ -2594,10 +2606,13 @@ exports.expireTrialCompanies = onSchedule('every 1 minutes', async () => {
         actorUid: 'system:trial',
         actorName: 'Masar CRM',
         priority: 'urgent',
-        metadata: {
-          status: 'trialExpired',
+        metadata: trialLocalizedNotificationMetadata({
+          milestone: 3,
           trialEndsAt: trialEndsAt.toISOString(),
-        },
+          companyName: companyNotificationName(companyId, company),
+          expired: true,
+          extra: { status: 'trialExpired' },
+        }),
         fallbackTitle: text.title,
         fallbackBody: text.body,
         dedupeKey: `trial_expired_${companyId}_admin_${admin.uid}`,
@@ -3241,6 +3256,175 @@ exports.saveLeadRecord = onCall(async (request) => {
   return { companyId, leadId };
 });
 
+
+exports.saveDealRecord = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actorUid = request.auth.uid;
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  const operation = requiredString(data.operation, 'operation');
+  const dealInput = requiredObject(data.deal || {}, 'deal');
+  validateCompanyId(companyId);
+
+  if (!['create', 'update'].includes(operation)) {
+    throw new HttpsError('invalid-argument', 'Deal operation is invalid.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to save deals.');
+  }
+
+  let dealId = optionalString(dealInput.id);
+  const dealsCollection = db.collection(`companies/${companyId}/deals`);
+  if (operation === 'create' && !dealId) {
+    dealId = dealsCollection.doc().id;
+  }
+  if (!dealId) {
+    throw new HttpsError('invalid-argument', 'Deal ID is required.');
+  }
+
+  const dealRef = dealsCollection.doc(dealId);
+  const dealSnapshot = await dealRef.get();
+  const existingDeal = dealSnapshot.exists ? (dealSnapshot.data() || {}) : null;
+
+  if (operation === 'create' && dealSnapshot.exists) {
+    throw new HttpsError('already-exists', 'Deal already exists.');
+  }
+  if (operation === 'update' && !dealSnapshot.exists) {
+    throw new HttpsError('not-found', 'Deal was not found.');
+  }
+
+  if (actorRole === 'manager' && existingDeal) {
+    const managerTeamId = optionalString(actor.teamId);
+    const canManageExisting = optionalString(existingDeal.assignedTo) === actorUid ||
+      optionalString(existingDeal.managerId) === actorUid ||
+      (managerTeamId && optionalString(existingDeal.teamId) === managerTeamId);
+    if (!canManageExisting) {
+      throw new HttpsError('permission-denied', 'You can save only deals in your team.');
+    }
+  }
+
+  const assignedTo = requiredString(dealInput.assignedTo, 'assignedTo');
+  const assigneeSnapshot = await db.doc(`companies/${companyId}/users/${assignedTo}`).get();
+  if (!assigneeSnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Selected assignee was not found.');
+  }
+  const assignee = assigneeSnapshot.data() || {};
+  if (optionalString(assignee.companyId) && optionalString(assignee.companyId) !== companyId) {
+    throw new HttpsError('permission-denied', 'Selected assignee does not belong to this company.');
+  }
+  if (assignee.isActive !== true) {
+    throw new HttpsError('failed-precondition', 'Selected assignee is inactive.');
+  }
+  const assigneeRole = optionalString(assignee.role);
+  if (!['salesAgent', 'admin', 'manager'].includes(assigneeRole)) {
+    throw new HttpsError('failed-precondition', 'Deals can only be assigned to active sales, manager, or admin users.');
+  }
+
+  if (actorRole === 'manager') {
+    const managerTeamId = optionalString(actor.teamId);
+    const assigneeManagerId = optionalString(assignee.managerId);
+    const assigneeTeamId = optionalString(assignee.teamId);
+    const canAssignToUser = assignedTo === actorUid ||
+      assigneeManagerId === actorUid ||
+      (managerTeamId && assigneeTeamId === managerTeamId);
+    if (!canAssignToUser) {
+      throw new HttpsError('permission-denied', 'You can assign deals only to yourself or your team.');
+    }
+  }
+
+  const clientId = requiredString(dealInput.clientId, 'clientId');
+  const propertyId = requiredString(dealInput.propertyId, 'propertyId');
+  const [clientSnapshot, propertySnapshot] = await Promise.all([
+    db.doc(`companies/${companyId}/clients/${clientId}`).get(),
+    db.doc(`companies/${companyId}/properties/${propertyId}`).get(),
+  ]);
+  if (!clientSnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Selected client was not found.');
+  }
+  if (!propertySnapshot.exists) {
+    throw new HttpsError('failed-precondition', 'Selected property was not found.');
+  }
+  const client = clientSnapshot.data() || {};
+  const property = propertySnapshot.data() || {};
+  if (optionalString(client.companyId) !== companyId || optionalString(property.companyId) !== companyId) {
+    throw new HttpsError('permission-denied', 'Selected records do not belong to this company.');
+  }
+  if (client.isActive === false || client.isArchived === true) {
+    throw new HttpsError('failed-precondition', 'Selected client is inactive or archived.');
+  }
+
+  const stage = enumValue(dealInput.stage || 'new', DEAL_STAGES, 'stage');
+  const lostReason = stage === 'lost'
+    ? sanitizePlainString(requiredString(dealInput.lostReason, 'lostReason'), 500)
+    : '';
+  const now = FieldValue.serverTimestamp();
+  const assignment = assignmentSnapshotFromAssignee(assignedTo, assignee);
+
+  const payload = {
+    id: dealId,
+    companyId,
+    clientId,
+    clientName: sanitizePlainString(optionalString(client.fullName) || optionalString(dealInput.clientName), 180),
+    clientEmail: sanitizePlainString(optionalString(client.email) || optionalString(dealInput.clientEmail), 180),
+    clientPhone: sanitizePlainString(optionalString(client.phone) || optionalString(dealInput.clientPhone), 80),
+    leadId: sanitizePlainString(optionalString(dealInput.leadId), 160),
+    leadName: sanitizePlainString(optionalString(dealInput.leadName), 180),
+    leadPhone: sanitizePlainString(optionalString(dealInput.leadPhone), 80),
+    propertyId,
+    propertyTitle: sanitizePlainString(optionalString(property.title) || optionalString(dealInput.propertyTitle), 220),
+    propertyLocation: sanitizePlainString(optionalString(property.location) || optionalString(dealInput.propertyLocation), 220),
+    ...assignment,
+    stage,
+    expectedValue: numberValue(dealInput.expectedValue, 'expectedValue'),
+    commission: numberValue(dealInput.commission, 'commission'),
+    closingDate: optionalCallableTimestamp(dealInput.closingDate),
+    lostReason,
+    notes: sanitizePlainString(optionalString(dealInput.notes), 4000),
+    isActive: true,
+    isArchived: existingDeal && existingDeal.isArchived === true ? true : false,
+    archivedAt: existingDeal && existingDeal.archivedAt ? existingDeal.archivedAt : null,
+    archivedBy: existingDeal ? optionalString(existingDeal.archivedBy) : '',
+    archivedByName: existingDeal ? optionalString(existingDeal.archivedByName) : '',
+    archiveReason: existingDeal ? optionalString(existingDeal.archiveReason) : '',
+    restoredAt: existingDeal && existingDeal.restoredAt ? existingDeal.restoredAt : null,
+    restoredBy: existingDeal ? optionalString(existingDeal.restoredBy) : '',
+    restoredByName: existingDeal ? optionalString(existingDeal.restoredByName) : '',
+    updatedAt: now,
+    updatedBy: actorUid,
+  };
+
+  if (operation === 'create') {
+    payload.createdAt = now;
+    payload.createdBy = actorUid;
+    payload.isActive = true;
+    payload.isArchived = false;
+    payload.archivedAt = null;
+    payload.archivedBy = '';
+    payload.archivedByName = '';
+    payload.archiveReason = '';
+    payload.restoredAt = null;
+    payload.restoredBy = '';
+    payload.restoredByName = '';
+  } else {
+    payload.createdAt = existingDeal.createdAt || now;
+    payload.createdBy = optionalString(existingDeal.createdBy) || actorUid;
+  }
+
+  if (operation === 'create') {
+    await dealRef.set(payload);
+  } else {
+    await dealRef.set(payload, { merge: true });
+  }
+
+  return { companyId, dealId };
+});
+
 exports.assignClientRecord = onCall(async (request) => {
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Sign in is required.');
@@ -3546,6 +3730,355 @@ exports.saveAppointmentRecord = onCall(async (request) => {
   return { companyId, appointmentId };
 });
 
+
+
+exports.refreshActionableReminderNotifications = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    const actorUid = optionalString(request.auth && request.auth.uid);
+    if (!actorUid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+    const payload = request.data || {};
+    const companyId = optionalString(payload.companyId);
+    validateCompanyId(companyId);
+
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    if (!actor || actor.isActive !== true) {
+      throw new HttpsError('permission-denied', 'You do not have access to this company.');
+    }
+    const role = optionalString(actor.role);
+    if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(role)) {
+      return { checked: 0, created: 0 };
+    }
+    return refreshActionableReminderWindow({
+      companyId,
+      actorUid,
+      actor,
+      nowDate: new Date(),
+      limit: 180,
+    });
+  },
+);
+
+exports.createActionableReminderNotifications = onSchedule(
+  {
+    schedule: '*/5 * * * *',
+    timeZone: 'Africa/Cairo',
+    region: 'us-east1',
+  },
+  async () => {
+    await refreshActionableReminderWindow({
+      nowDate: new Date(),
+      limit: 400,
+    });
+  },
+);
+
+async function refreshActionableReminderWindow({ companyId, actorUid, actor, nowDate, limit }) {
+  const now = nowDate instanceof Date ? nowDate : new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const staleDealCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const dueEnd = admin.firestore.Timestamp.fromDate(todayEnd);
+  const staleDealTimestamp = admin.firestore.Timestamp.fromDate(staleDealCutoff);
+  let checked = 0;
+  let created = 0;
+
+  const leadQuery = reminderCollectionQuery({ companyId, collection: 'leads' })
+    .where('nextFollowUpAt', '<=', dueEnd)
+    .limit(limit || 180);
+  const taskQuery = reminderCollectionQuery({ companyId, collection: 'tasks' })
+    .where('dueDate', '<=', dueEnd)
+    .limit(limit || 180);
+  const dealQuery = reminderCollectionQuery({ companyId, collection: 'deals' })
+    .where('updatedAt', '<=', staleDealTimestamp)
+    .limit(Math.min(limit || 180, 160));
+
+  const [leadSnapshot, taskSnapshot, dealSnapshot] = await Promise.all([
+    leadQuery.get(),
+    taskQuery.get(),
+    dealQuery.get(),
+  ]);
+
+  for (const document of leadSnapshot.docs) {
+    const lead = document.data() || {};
+    const resolvedCompanyId = optionalString(lead.companyId) || companyIdFromScopedPath(document.ref.path);
+    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
+      continue;
+    }
+    if (lead.isArchived === true) {
+      continue;
+    }
+    const status = normalizedWorkflowValue(lead.status);
+    if (['won', 'lost', 'converted', 'closed'].includes(status)) {
+      continue;
+    }
+    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: lead })) {
+      continue;
+    }
+    const dueAt = timestampToDateSafe(lead.nextFollowUpAt);
+    if (!dueAt || dueAt > todayEnd) {
+      continue;
+    }
+    checked += 1;
+    const reminderType = dueAt < todayStart ? 'followUpOverdue' : 'followUpDueToday';
+    const recipients = await actionableReminderRecipients({
+      companyId: resolvedCompanyId,
+      record: lead,
+      actorUid,
+      actor,
+      fallbackAdminForUnassigned: true,
+    });
+    for (const recipient of recipients) {
+      const id = await createCompanyNotification({
+        companyId: resolvedCompanyId,
+        recipientUid: recipient.uid,
+        recipientRole: recipient.role,
+        type: reminderType,
+        module: 'leads',
+        recordId: optionalString(lead.id) || document.id,
+        recordTitle: optionalString(lead.fullName) || 'Lead follow-up',
+        recordSubtitle: optionalString(lead.phone) || optionalString(lead.source),
+        route: `/leads/${optionalString(lead.id) || document.id}`,
+        actorUid: '',
+        actorName: '',
+        teamId: optionalString(lead.teamId),
+        teamName: optionalString(lead.teamName),
+        managerId: optionalString(lead.managerId),
+        priority: reminderType === 'followUpOverdue' ? 'high' : 'normal',
+        actionState: 'actionNeeded',
+        metadata: {
+          rule: reminderType,
+          dueAt: dueAt.toISOString(),
+          titleEn: reminderType === 'followUpOverdue' ? 'Follow-up overdue' : 'Follow-up due today',
+          titleAr: reminderType === 'followUpOverdue' ? 'متابعة متأخرة' : 'متابعة مستحقة اليوم',
+          bodyEn: 'Open the lead and complete the next follow-up action.',
+          bodyAr: 'افتح العميل المحتمل وأنهِ إجراء المتابعة التالي.',
+        },
+        dedupeKey: `actionable_${reminderType}_${optionalString(lead.id) || document.id}_${recipient.uid}_${dateKey(todayStart)}`,
+      });
+      if (id) created += 1;
+    }
+  }
+
+  for (const document of taskSnapshot.docs) {
+    const task = document.data() || {};
+    const resolvedCompanyId = optionalString(task.companyId) || companyIdFromScopedPath(document.ref.path);
+    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
+      continue;
+    }
+    if (task.isActive === false) {
+      continue;
+    }
+    const status = normalizedWorkflowValue(task.status);
+    if (['completed', 'cancelled', 'canceled', 'closed'].includes(status)) {
+      continue;
+    }
+    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: task })) {
+      continue;
+    }
+    const dueAt = timestampToDateSafe(task.dueDate);
+    if (!dueAt || dueAt > todayEnd) {
+      continue;
+    }
+    checked += 1;
+    const reminderType = dueAt < todayStart ? 'taskOverdue' : 'taskDueToday';
+    const recipients = await actionableReminderRecipients({
+      companyId: resolvedCompanyId,
+      record: task,
+      actorUid,
+      actor,
+      fallbackAdminForUnassigned: false,
+    });
+    for (const recipient of recipients) {
+      const id = await createCompanyNotification({
+        companyId: resolvedCompanyId,
+        recipientUid: recipient.uid,
+        recipientRole: recipient.role,
+        type: reminderType,
+        module: 'tasks',
+        recordId: optionalString(task.id) || document.id,
+        recordTitle: optionalString(task.title) || 'Task',
+        recordSubtitle: optionalString(task.relatedTitle) || optionalString(task.relatedSubtitle),
+        route: `/tasks/${optionalString(task.id) || document.id}/edit`,
+        actorUid: '',
+        actorName: '',
+        teamId: optionalString(task.teamId),
+        teamName: optionalString(task.teamName),
+        managerId: optionalString(task.managerId),
+        priority: reminderType === 'taskOverdue' ? 'high' : 'normal',
+        actionState: 'actionNeeded',
+        metadata: {
+          rule: reminderType,
+          dueAt: dueAt.toISOString(),
+          titleEn: reminderType === 'taskOverdue' ? 'Task overdue' : 'Task due today',
+          titleAr: reminderType === 'taskOverdue' ? 'مهمة متأخرة' : 'مهمة مستحقة اليوم',
+          bodyEn: 'Open the task and finish the required action.',
+          bodyAr: 'افتح المهمة وأنهِ الإجراء المطلوب.',
+        },
+        dedupeKey: `actionable_${reminderType}_${optionalString(task.id) || document.id}_${recipient.uid}_${dateKey(todayStart)}`,
+      });
+      if (id) created += 1;
+    }
+  }
+
+  for (const document of dealSnapshot.docs) {
+    const deal = document.data() || {};
+    const resolvedCompanyId = optionalString(deal.companyId) || companyIdFromScopedPath(document.ref.path);
+    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
+      continue;
+    }
+    if (deal.isActive === false) {
+      continue;
+    }
+    const stage = normalizedWorkflowValue(deal.stage);
+    if (['won', 'lost', 'closedwon', 'closedlost', 'closed'].includes(stage)) {
+      continue;
+    }
+    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: deal })) {
+      continue;
+    }
+    checked += 1;
+    const recipients = await actionableReminderRecipients({
+      companyId: resolvedCompanyId,
+      record: deal,
+      actorUid,
+      actor,
+      fallbackAdminForUnassigned: false,
+    });
+    for (const recipient of recipients) {
+      const dealId = optionalString(deal.id) || document.id;
+      const id = await createCompanyNotification({
+        companyId: resolvedCompanyId,
+        recipientUid: recipient.uid,
+        recipientRole: recipient.role,
+        type: 'systemInfo',
+        module: 'deals',
+        recordId: dealId,
+        recordTitle: dealTitle(deal, dealId),
+        recordSubtitle: optionalString(deal.propertyLocation) || optionalString(deal.clientPhone),
+        route: `/deals/${dealId}`,
+        actorUid: '',
+        actorName: '',
+        teamId: optionalString(deal.teamId),
+        teamName: optionalString(deal.teamName),
+        managerId: optionalString(deal.managerId),
+        priority: 'high',
+        actionState: 'actionNeeded',
+        metadata: {
+          rule: 'dealStuck',
+          titleEn: 'Deal needs movement',
+          titleAr: 'صفقة تحتاج تحريك',
+          bodyEn: 'This deal has not moved for more than 7 days. Review the next step.',
+          bodyAr: 'هذه الصفقة لم تتحرك منذ أكثر من 7 أيام. راجع الخطوة التالية.',
+        },
+        fallbackTitle: 'Deal needs movement',
+        fallbackBody: 'This deal has not moved for more than 7 days. Review the next step.',
+        dedupeKey: `actionable_dealStuck_${dealId}_${recipient.uid}_${dateKey(todayStart)}`,
+      });
+      if (id) created += 1;
+    }
+  }
+
+  return { checked, created };
+}
+
+function reminderCollectionQuery({ companyId, collection }) {
+  const cleanCompanyId = optionalString(companyId);
+  if (cleanCompanyId) {
+    return db.collection(`companies/${cleanCompanyId}/${collection}`);
+  }
+  return db.collectionGroup(collection);
+}
+
+function actorCanReceiveReminder({ actorUid, actor, record }) {
+  if (!actor) {
+    return true;
+  }
+  const role = optionalString(actor.role);
+  if (role === 'admin') {
+    return true;
+  }
+  if (role === 'manager') {
+    const actorTeamId = optionalString(actor.teamId);
+    return optionalString(record.assignedTo) === actorUid ||
+      optionalString(record.managerId) === actorUid ||
+      (actorTeamId && optionalString(record.teamId) === actorTeamId);
+  }
+  if (role === 'salesAgent' || role === 'marketing') {
+    return optionalString(record.assignedTo) === actorUid;
+  }
+  return false;
+}
+
+async function actionableReminderRecipients({ companyId, record, actorUid, actor, fallbackAdminForUnassigned }) {
+  const recipients = new Map();
+  const addRecipient = async (uid) => {
+    const cleanUid = optionalString(uid);
+    if (!cleanUid) return;
+    const user = await loadCompanyUserSafe(companyId, cleanUid);
+    if (!user || user.isActive !== true) return;
+    const role = optionalString(user.role);
+    if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(role)) return;
+    recipients.set(cleanUid, { uid: cleanUid, role });
+  };
+
+  if (actor) {
+    const role = optionalString(actor.role);
+    if (role === 'admin') {
+      const assignedTo = optionalString(record.assignedTo);
+      if (assignedTo) {
+        await addRecipient(assignedTo);
+      } else {
+        await addRecipient(actorUid);
+      }
+    } else if (role === 'manager') {
+      await addRecipient(optionalString(record.assignedTo) || actorUid);
+      await addRecipient(actorUid);
+    } else {
+      await addRecipient(actorUid);
+    }
+  } else {
+    await addRecipient(optionalString(record.assignedTo));
+    await addRecipient(optionalString(record.managerId));
+    if (recipients.size === 0 && fallbackAdminForUnassigned) {
+      const admins = await db.collection(`companies/${companyId}/users`)
+        .where('role', '==', 'admin')
+        .where('isActive', '==', true)
+        .limit(20)
+        .get();
+      for (const doc of admins.docs) {
+        recipients.set(doc.id, { uid: doc.id, role: 'admin' });
+      }
+    }
+  }
+  return [...recipients.values()];
+}
+
+function timestampToDateSafe(value) {
+  if (!value) return null;
+  if (value instanceof admin.firestore.Timestamp) return value.toDate();
+  if (value.toDate && typeof value.toDate === 'function') return value.toDate();
+  if (value instanceof Date) return value;
+  return null;
+}
+
+function companyIdFromScopedPath(path) {
+  const parts = optionalString(path).split('/');
+  const companiesIndex = parts.indexOf('companies');
+  if (companiesIndex < 0 || companiesIndex + 1 >= parts.length) {
+    return '';
+  }
+  return parts[companiesIndex + 1];
+}
+
+function dateKey(date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}${month}${day}`;
+}
 
 exports.refreshAppointmentTimingNotifications = onCall(
   { region: 'us-east1' },
@@ -5555,6 +6088,44 @@ function trialNotificationText({
   };
 }
 
+function trialLocalizedNotificationMetadata({
+  milestone,
+  trialEndsAt = '',
+  trialStartedAt = '',
+  remainingEn = '',
+  remainingAr = '',
+  companyName = '',
+  expired = false,
+  extra = {},
+}) {
+  const english = trialNotificationText({
+    locale: 'en',
+    milestone,
+    remaining: remainingEn,
+    companyName,
+    expired,
+  });
+  const arabic = trialNotificationText({
+    locale: 'ar',
+    milestone,
+    remaining: remainingAr,
+    companyName,
+    expired,
+  });
+  return {
+    ...extra,
+    milestone,
+    trialEndsAt,
+    trialStartedAt,
+    titleEn: english.title,
+    bodyEn: english.body,
+    messageEn: english.platformBody,
+    titleAr: arabic.title,
+    bodyAr: arabic.body,
+    messageAr: arabic.platformBody,
+  };
+}
+
 async function notifyTrialMilestone({ companyId, company, milestone, trialEndsAt, now }) {
   if (!milestone || milestone < 1 || milestone > 3) {
     return;
@@ -5580,11 +6151,14 @@ async function notifyTrialMilestone({ companyId, company, milestone, trialEndsAt
     route: '/platform',
     companyId,
     companyName,
-    metadata: {
+    metadata: trialLocalizedNotificationMetadata({
       milestone,
       trialEndsAt: endIso,
       trialStartedAt: trialStartedAt ? trialStartedAt.toISOString() : '',
-    },
+      remainingEn: trialRemainingText(trialEndsAt, now, 'en'),
+      remainingAr: trialRemainingText(trialEndsAt, now, 'ar'),
+      companyName,
+    }),
   });
 
   const admins = await listCompanyAdminUsers(companyId);
@@ -5608,11 +6182,14 @@ async function notifyTrialMilestone({ companyId, company, milestone, trialEndsAt
       actorUid: 'system:trial',
       actorName: 'Masar CRM',
       priority: milestone === 3 ? 'urgent' : 'high',
-      metadata: {
+      metadata: trialLocalizedNotificationMetadata({
         milestone,
         trialEndsAt: endIso,
         trialStartedAt: trialStartedAt ? trialStartedAt.toISOString() : '',
-      },
+        remainingEn: trialRemainingText(trialEndsAt, now, 'en'),
+        remainingAr: trialRemainingText(trialEndsAt, now, 'ar'),
+        companyName,
+      }),
       fallbackTitle: text.title,
       fallbackBody: text.body,
       dedupeKey: `trial_milestone_${companyId}_${startKey}_${milestone}_admin_${admin.uid}`,
@@ -7314,6 +7891,7 @@ async function createCompanyNotification({
   teamName,
   managerId,
   priority,
+  actionState,
   metadata,
   fallbackTitle,
   fallbackBody,
@@ -7346,6 +7924,7 @@ async function createCompanyNotification({
   const cleanPriority = NOTIFICATION_PRIORITIES.has(optionalString(priority))
     ? optionalString(priority)
     : 'normal';
+  const cleanActionState = notificationActionStateOrDefault(actionState, cleanType);
   const cleanModule = sanitizePlainString(optionalString(module) || 'system', 40);
   const cleanRecordId = sanitizePlainString(optionalString(recordId), 160);
   const cleanRecordTitle = sanitizePlainString(
@@ -7372,6 +7951,9 @@ async function createCompanyNotification({
     priority: cleanPriority,
     isRead: false,
     readAt: null,
+    actionState: cleanActionState,
+    resolvedAt: null,
+    dismissedAt: null,
     createdAt: now,
     updatedAt: now,
     metadata: safeNotificationMetadata(metadata),
@@ -7381,6 +7963,31 @@ async function createCompanyNotification({
 
   await notificationRef.set(payload, { merge: false });
   return notificationRef.id;
+}
+
+
+function notificationActionStateOrDefault(actionState, type) {
+  const cleanState = optionalString(actionState);
+  if (NOTIFICATION_ACTION_STATES.has(cleanState)) {
+    return cleanState;
+  }
+  return notificationTypeNeedsAction(type) ? 'actionNeeded' : 'none';
+}
+
+function notificationTypeNeedsAction(type) {
+  return [
+    'followUpDueToday',
+    'followUpOverdue',
+    'taskDueToday',
+    'taskOverdue',
+    'appointmentDueSoon',
+    'appointmentDueNow',
+    'appointmentMissed',
+    'teamAppointmentDueSoon',
+    'teamAppointmentDueNow',
+    'teamAppointmentMissed',
+    'dataHealthIssue',
+  ].includes(optionalString(type));
 }
 
 async function loadCompanyUserSafe(companyId, uid) {

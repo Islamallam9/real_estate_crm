@@ -394,6 +394,10 @@ service cloud.firestore {
         : assignmentSnapshotMatches(companyId, data, allowedRoles);
     }
 
+    function validDealCreateAssignmentSnapshot(companyId, data) {
+      return validAssignmentSnapshot(companyId, data, ['salesAgent']);
+    }
+
     function assignmentFieldsUnchangedOrValid(companyId, data, allowedRoles) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'assignedTo',
@@ -1206,11 +1210,24 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'isRead',
           'readAt',
-          'updatedAt'
+          'updatedAt',
+          'actionState',
+          'resolvedAt',
+          'dismissedAt'
         ])
         && request.resource.data.isRead is bool
         && isTimestampOrNull(request.resource.data.readAt)
-        && isTimestampOrNull(request.resource.data.updatedAt);
+        && isTimestampOrNull(request.resource.data.updatedAt)
+        && optionalStringField(request.resource.data, 'actionState')
+        && (!request.resource.data.keys().hasAny(['actionState'])
+          || request.resource.data.actionState in [
+            'none',
+            'actionNeeded',
+            'resolved',
+            'dismissed'
+          ])
+        && isTimestampOrNull(request.resource.data.resolvedAt)
+        && isTimestampOrNull(request.resource.data.dismissedAt);
     }
 
     function validSupportTicketCreate(ticketId) {
@@ -1632,7 +1649,7 @@ service cloud.firestore {
             || managerCanCreateAssignedRecord(companyId, request.resource.data))
           && validTaskData(companyId, taskId)
           && validBaseCreate(companyId, taskId)
-          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent', 'marketing'])
+          && validAssignmentSnapshot(companyId, request.resource.data, ['admin', 'manager', 'salesAgent', 'marketing'])
           && request.resource.data.isActive == true;
         allow update: if isActiveCompanyUser(companyId)
           && canUpdateTask(companyId)
@@ -1641,7 +1658,7 @@ service cloud.firestore {
           && assignmentFieldsUnchangedOrValid(
             companyId,
             request.resource.data,
-            ['salesAgent', 'marketing']
+            ['admin', 'manager', 'salesAgent', 'marketing']
           );
         allow delete: if false;
       }
@@ -1659,7 +1676,7 @@ service cloud.firestore {
             || managerCanCreateAssignedRecord(companyId, request.resource.data))
           && validDealData(companyId, dealId)
           && validBaseCreate(companyId, dealId)
-          && validAssignmentSnapshot(companyId, request.resource.data, ['salesAgent'])
+          && validDealCreateAssignmentSnapshot(companyId, request.resource.data)
           && request.resource.data.isActive == true
           && (request.resource.data.isArchived == null
             || request.resource.data.isArchived == false);
