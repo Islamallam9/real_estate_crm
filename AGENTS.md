@@ -2,64 +2,104 @@
 
 ## Project identity
 
-Masar CRM is a production-grade real estate CRM built with Flutter Web/Mobile and Firebase.
+Masar CRM is a production-grade real estate CRM SaaS built with Flutter Web/Mobile and Firebase.
 
-Primary goals:
-- Company-scoped CRM for real estate sales operations.
-- Arabic and English support.
-- RTL/LTR support.
-- Role-based access for platform owner, admin, manager, salesAgent, marketing, and viewer.
-- Clean, professional Masar CRM design system with warm premium styling.
-- Secure Firebase rules and server-side privileged operations through Cloud Functions where needed.
-- SaaS-ready onboarding where the platform owner controls invitations/subscription access and each company admin owns company setup and staff management.
+Product identity:
+- English name: `Masar CRM`
+- Arabic name: `مسار`
+- Meaning: path / journey / workflow.
+- Business scope: real estate CRM for the full journey from lead → client → appointment → property → deal → task/follow-up.
+- Live Hosting: `https://masarcrm.web.app`
+- Current active branch: `dev`
+- Working path: `C:\Users\islam\Desktop\real_estate_crm`
 
-Brand identity:
-- Product name: Masar CRM.
-- Arabic name: مسار.
-- Meaning: path / journey / workflow, from real estate lead to client, appointment, property, deal, and follow-up.
-- New SVG logo/mark should be used consistently across splash, onboarding, app shell/sidebar, favicon, web icons, and mobile launcher icons where supported.
-- Avoid old/generic apartment icons after the logo migration.
+Current release context:
+- Latest known deployed/stable release: around `2.8.0+38`.
+- Always verify `pubspec.yaml`, `AppConstants.appVersion`, and `AppConstants.appBuildNumber` before bumping.
+- Latest huge release included production hardening, protected sessions, trial server-time security, manual payment follow-up, platform owner controls, Excel export, observability, notification improvements, profile image fixes, Reports/Support tab fixes, and performance/query-limit cleanup.
+- The current active phase is **Release Lock QA**. Do not start new features until release-lock QA passes.
 
-## Current branch rule
+Important Hosting/cache note:
+- If the live web app still shows an older version after deploy, test with a cache-busting query param:
+  - `https://masarcrm.web.app/?v=<build-number>`
+- Use hard refresh `Ctrl + Shift + R` or Incognito after each Flutter Web deploy.
 
-Work on `dev` unless the user explicitly says otherwise.
+---
 
-Do not run Flutter, Firebase, Git, npm, dart, or other CLI commands unless the user explicitly asks.
+## Absolute rules for Codex / assistant work
 
-Do not commit, push, deploy, or run migrations unless the user explicitly asks.
+These rules are mandatory.
+
+- Follow this `AGENTS.md` first.
+- Work on `dev` unless the user explicitly says otherwise.
+- Do not run Flutter, Firebase, Git, npm, Dart, analyzer, build, deploy, commit, push, or migrations unless the user explicitly allows.
+- Do not commit, push, deploy, or run migrations unless the user explicitly asks.
+- Do not use `git add .` blindly.
+- Do not stage temp files, zip files, local patches, screenshots, generated throwaway files, or local editor folders.
+- Do not claim `flutter analyze`, build, deploy, rules deploy, or Functions deploy passed unless it was actually run or the user confirmed it.
+- Keep every change scoped to the user’s exact request.
+- Do not touch unrelated files.
+- Do not add new features during stabilization/release-lock phases.
+- Do not rewrite large parts of the app unless the user explicitly asks.
+- Do not weaken Firestore rules to make UI pass.
+- Firestore rules are not filters.
+- Do not query broad company data for restricted roles and then filter client-side.
+- Do not broaden role permissions silently.
+- Do not hide security problems behind UI checks.
+- Use BLoC/Cubit only.
+- Keep Firebase access inside data sources or Cloud Functions, not widgets.
+- All visible UI text must be localized through ARB/l10n.
+- Support Arabic RTL and English LTR in every UI change.
+- Follow the existing Masar design system. Do not create generic admin-template UI.
+- Be direct, precise, and honest in reports.
+- No emojis.
+
+---
 
 ## User preferences
 
-- The user prefers strong mega prompts for Codex instead of many small prompts.
-- Keep guidance direct and specific.
-- Do not use emojis.
-- Be honest about uncertainty and risks.
-- Do not claim that analyze/build/deploy passed unless actually run or confirmed by the user.
-- Mention exact deploy requirements based on touched files.
-- The user often wants full updated context before moving chats.
-- The user prefers practical real-market CRM behavior over decorative-only features.
+- The user prefers strong mega prompts for Codex over many small prompts.
+- The user often asks for required files only, not a full ZIP.
+- The user wants practical real-market CRM behavior, not decorative-only features.
+- The user dislikes generic/AI-looking designs.
+- The user wants direct reports with exact files changed, exact risks, and exact deploy requirements.
+- The user is strict about role security and permissions.
+- The user expects app design consistency across all modules.
+- The user expects Arabic wording to be natural, not machine-translated.
+- The user expects all new phases to be treated seriously when they affect money, security, access, roles, exports, or customer data.
+
+---
 
 ## Architecture rules
 
 Use feature-first Clean Architecture:
 
+```text
 lib/features/<feature>/
-- data/
-- domain/
-- presentation/
+  data/
+  domain/
+  presentation/
+```
 
 Layer direction:
+
+```text
 UI → Cubit/BLoC → Use Case → Repository → Data Source → Firebase/API
+```
 
 Rules:
-- Use BLoC/Cubit only.
-- Do not use Riverpod, Provider, GetX, MobX, or other state-management patterns.
-- Keep Firebase calls inside data sources only.
-- Do not call Firestore/Storage/Auth/Functions directly from widgets or Cubits except through existing repository/data source boundaries.
-- Keep business logic out of widgets when possible.
-- Keep changes scoped to the requested task.
-- Do not touch unrelated files.
-- Reuse existing widgets/styles/patterns where possible.
+- Use `flutter_bloc`, `bloc`, `equatable` patterns already in the repo.
+- Do not introduce Riverpod, Provider, GetX, MobX, or other state-management patterns.
+- Keep Firebase calls inside data sources or Cloud Functions.
+- Cubits should call use cases/repositories, not Firestore directly.
+- Widgets should not call Firestore/Storage/Auth/Functions directly.
+- Keep business logic out of widgets when practical.
+- Prefer existing reusable widgets and app patterns.
+- Use safe `mounted` checks after async UI callbacks.
+- Dispose controllers, timers, focus nodes, and subscriptions.
+- Avoid launching async work repeatedly from `build()`.
+
+---
 
 ## Localization and directionality
 
@@ -68,108 +108,457 @@ Supported languages:
 - Arabic
 
 Rules:
-- All visible UI text must be localized through ARB/l10n.
-- Do not hardcode visible strings in widgets.
-- Keep Arabic RTL and English LTR correct.
-- Use Directional widgets when layout depends on language:
-  - EdgeInsetsDirectional
-  - AlignmentDirectional
-  - BorderRadiusDirectional where appropriate
-- Test mixed Arabic/English/numbers in RTL screens.
-- For old/new value display in Arabic, do not rely on a raw arrow if it reverses visually. Prefer: `من old إلى new` with directional isolation where needed.
+- All visible UI text must be localized through `app_en.arb`, `app_ar.arb`, and generated l10n files.
+- Do not hardcode visible UI strings in widgets.
+- Do not mix Arabic UI with English notifications/messages.
+- Arabic must be natural and business-friendly.
+- Use RTL-safe layout:
+  - `EdgeInsetsDirectional`
+  - `AlignmentDirectional`
+  - `PositionedDirectional`
+  - `BorderRadiusDirectional` where appropriate
+- Test mixed Arabic/English/numbers in RTL.
+- For old/new values in Arabic, prefer:
+  - `من old إلى new`
+  with directional isolation where needed.
+- User-facing server-side notifications from Cloud Functions must also respect target language where possible.
 
-## Design system rules
+---
 
-The app uses the Masar CRM warm premium design system.
+## Masar design system rules
 
-All modules should visually match:
-- same app shell/header style
-- same sidebar behavior and spacing
-- same card style
-- same page title/header pattern
-- same search/filter bar style
-- same primary/secondary/destructive action button styles
-- same action button positions
-- same compact density
-- same empty/loading/error states
-- same snackbar/feedback style
-- same dark mode behavior
-- same Arabic RTL and English LTR behavior
+The whole app, including Platform Owner, must follow one Masar CRM design language.
 
-Do not create generic admin-template screens.
-Do not create separate-looking Platform UI.
-Do not place action buttons randomly.
-Do not create huge blank cards or wide repeated action buttons.
+Use:
+- warm premium surfaces
+- professional CRM card layout
+- compact density
+- consistent section headers
+- consistent search/filter/action bars
+- consistent action button positions
+- consistent segmented tabs
+- consistent status badges
+- consistent empty/loading/error states
+- consistent snackbar/feedback style
+- consistent dark/light behavior
+- RTL/LTR-safe spacing and alignment
 
-Loading pattern:
-- Use circular progress indicators.
-- Prefer overlay loading when existing content can remain visible.
-- Keep networked buttons disabled while saving and show progress feedback.
-- Branded loading/splash can use the Masar mark and premium visual language, but button/network action loading should remain clear and compact.
+Do not:
+- create generic admin-template screens
+- create a separate-looking Platform UI
+- use random gradients/glassmorphism/AI-looking effects
+- place action buttons randomly
+- create huge blank cards
+- create huge repeated bordered boxes
+- make mobile screens scroll too much when compact layout is possible
+- use old/GNav-style tabs that hide labels or show weird ellipsis
 
-## Branding, splash, onboarding, and public entry rules
+Tabs:
+- Use the shared Masar segmented tab style.
+- Reports, Support, Appointments, Dashboard, and Platform workspace tabs must look consistent.
+- On mobile, avoid squeezing many tabs into one unreadable full-width row; use scroll/segmented behavior that keeps names readable.
 
-Masar must feel premium at first launch.
+Loading:
+- Page/panel-level loading should use the Masar logo loader where applicable.
+- Button/action-level loading can stay compact circular progress.
+- Existing content should remain visible with overlay loading when possible.
 
-Splash:
-- Use the new Masar logo/mark from `assets/branding/`.
-- Full-screen splash with premium warm background.
-- No long text or paragraphs on splash.
-- Logo/mark should be large and professional, not tiny.
-- Use modern loading dots/progress and optional floating CRM/property mockups.
-- Splash should last roughly 3–5 seconds when configured that way.
-- If using `MasarSplashGate` in `app.dart`, make sure `lib/core/widgets/masar_splash_gate.dart` actually defines `class MasarSplashGate`.
-- If `MasarBrandMark` is inside `_LogoHalo`, pass an explicit size; do not rely on the default 48px size.
-- If the logo still appears small, inspect/crop `assets/branding/masar_mark.svg` because the SVG viewBox may contain too much empty space.
+Brand/logo:
+- Use Masar logo/mark consistently.
+- In dark mode, keep a light backing where needed so black logo strokes remain visible.
+- Do not let logo invert into invisible black-on-black.
+- Do not use generic apartment icons where the Masar logo should appear.
 
-Onboarding:
-- Onboarding should be shown once, then remembered as seen/skipped.
-- Mobile onboarding should support horizontal PageView, Next, Back, Skip, page dots, and smooth animation.
-- Onboarding must not start protected Firestore/company/platform streams while logged out.
-- Login/register/onboarding must support language switch and dark/light mode before authentication.
-
-Public routes:
-- `/onboarding`
-- `/login`
-- `/register-company`
-- `/register-company?code=...`
-- `/force-change-password`
-
-Public route rules:
-- Unauthenticated users must be able to access `/login`, `/onboarding`, and `/register-company`.
-- Public pages must not read protected company/platform data.
-- No permission-denied snackbar should appear after logout on public pages.
-
-Fonts:
-- Do not set `GoogleFonts.config.allowRuntimeFetching = false` unless the required fonts are bundled locally.
-- The app previously used Google Fonts (`PlusJakartaSans`, `IBMPlexSansArabic`). On emulator/offline, runtime Google Fonts may fail.
-- Immediate safe fallback is to remove direct GoogleFonts theme calls and use system font fallback (`Roboto`, `Tahoma`, `Noto Sans Arabic`, `Segoe UI`, etc.).
-- Long-term better fix is to bundle fonts locally under `assets/fonts/`, register them in `pubspec.yaml`, and then disable runtime fetching safely.
-- Never share font files with the user.
+---
 
 ## Versioning rule
 
-For every major user-facing, security, data, or platform phase:
+For every major user-facing, security, data, platform, trial, payment, export, Functions, or rules phase:
 - Update `pubspec.yaml` version.
 - Update `AppConstants.appVersion`.
 - Update `AppConstants.appBuildNumber`.
-- Settings must show the current app version/build.
 - Mention the version update in the final report.
 
 Do not bump version for tiny compile-only fixes unless the user asks.
 
-Current known version after Phase B invitation onboarding:
-- Around `1.6.0+15`.
+Latest known deployed/stable release:
+- Around `2.8.0+38`.
+- Verify in files before bumping again.
 
-If only doing branding/splash compile fixes, do not bump again unless the user explicitly asks.
+---
 
 ## Firebase structure
 
 Company-scoped data lives under:
 
+```text
 companies/{companyId}/...
+```
 
-Important collections include:
+Important company collections:
+- `users`
+- `leads`
+- `clients`
+- `properties`
+- `tasks`
+- `deals`
+- `appointments`
+- `notifications`
+- `audit_logs`
+- `teams`
+- `payment_history`
+
+Platform/global collections include:
+- `platform_admins/{uid}`
+- `users/{uid}`
+- `users/{uid}/memberships/{companyId}`
+- `companies/{companyId}`
+- `platform_invitations/{invitationId}`
+- `platform_invitation_uses/{invitationId}`
+- `platform_notifications/{notificationId}`
+- `platform_error_logs/{logId}` or current observability collection structure
+
+---
+
+## Security rules principles
+
+Firestore rules are not filters.
+
+Never:
+- use broad reads and filter client-side for restricted roles
+- use `allow read, write: if true`
+- weaken rules to make UI pass
+- expose cross-company data
+- expose platform data to normal company users
+- let normal company users write platform/payment/privilege fields
+- let client-side UI be the source of truth for money/access decisions
+
+Protect sensitive fields:
+- `role`
+- `isActive`
+- `companyId`
+- `teamId`
+- `teamName`
+- `managerId`
+- `managerName`
+- `email` when controlled by privileged flow
+- login activity/IP/device fields
+- password/reset-link fields
+- `mustChangePassword`
+- `passwordSetupMethod`
+- platform admin fields
+- invitation hashes/secret invitation codes
+- trial/payment access fields
+- payment history records
+- payment reminder state
+
+Privileged platform operations must go through Cloud Functions/Admin SDK.
+
+If rules change:
+- report exact reason
+- keep them strict
+- mention deploy requirement:
+  - `firebase deploy --only firestore:rules`
+
+---
+
+## Role visibility and permission policy
+
+### Platform owner/admin
+
+- Can access `/platform` without company membership.
+- Can manage companies through safe platform flows.
+- Can manage company users through safe functions.
+- Can preview company dashboards read-only.
+- Can access platform monitoring, platform notifications, platform support inbox, company export, and payment follow-up.
+- Must not be forced into normal company dashboard if no company membership exists.
+- Platform export and payment management must remain platform-owner only.
+
+### Company Admin
+
+- Sees all company CRM records.
+- Sees unassigned leads.
+- Sees all company teams and users.
+- Can assign/reassign records to eligible users across the company.
+- Sees company-wide dashboard, reports, and recent activity.
+- Can access Company User Management `/users`.
+- Can create company users according to current policy.
+- Cannot access `/platform`.
+- Cannot write payment fields directly.
+- Cannot bypass trial/payment block.
+
+### Manager
+
+- Sees own team records only.
+- Can assign/reassign only to eligible users in own team.
+- Dashboard and reports must be team-only.
+- Recent Activity must be team-only.
+- Must not see other managers’ teams, records, or activity.
+- Must not access `/users` or Platform.
+- Must not query all company data and filter client-side.
+
+### Sales Agent
+
+- Sees only own assigned records.
+- Must not see all company leads/clients/tasks/deals.
+- Must not see unassigned leads.
+- Must not see other users’ records.
+- Can update own assigned records only where current policy allows.
+- Must not access `/users` or Platform.
+
+### Marketing
+
+- Sees only own assigned records unless an explicit policy changes this.
+- Must not see unassigned leads by default.
+- Must not access other users’ records through search, filters, reports, exports, or direct routes.
+- Must not access `/users` or Platform.
+
+### Viewer
+
+- Restricted/read-only according to current policy.
+- Must not appear as assignable.
+- Must not access team/platform/user-management/payment data unless explicitly allowed.
+
+---
+
+## Assignment policy
+
+Final assignable-role policy:
+
+Leads:
+- `salesAgent`
+- `marketing`
+
+Tasks:
+- `salesAgent`
+- `marketing`
+
+Clients:
+- `salesAgent`
+
+Deals:
+- `salesAgent`
+
+Properties:
+- `salesAgent` only if property assignment exists in current business flow.
+- Do not over-restrict property viewing if properties are intended as shared inventory.
+
+Admin and Manager can manage assignment but should not appear as normal operational assignee options.
+Viewer must never appear as assignable.
+
+Assigned records should store snapshots where module supports assignment:
+- `assignedTo`
+- `assignedToName`
+- `assignedToEmail` where supported
+- `teamId`
+- `teamName`
+- `managerId`
+- `managerName`
+
+When creating/reassigning:
+- Copy snapshots from `companies/{companyId}/users/{uid}`.
+- Do not trust manually typed team/manager values from UI.
+- If `assignedTo` is empty, team/manager snapshot fields should be empty.
+- If `assignedTo` is not empty, snapshots should match the selected assignee profile.
+
+Old records:
+- Must still load safely.
+- Do not run destructive migration automatically.
+- When edited/reassigned, refresh snapshots safely from assignee profile.
+
+---
+
+## Account switching and protected sessions
+
+This has been a major production hardening area.
+
+Rules:
+- Protected module streams must wait for a fresh loaded `UserProfile`.
+- `profile.uid` must match current Firebase Auth user uid.
+- Company metadata must be active/usable for access.
+- Protected scopes/Cubits should be keyed by `companyId + uid + role + teamId + managerId` where relevant.
+- On logout/account switch, stale profile/company/session state must be cleared.
+- Old Cubits/streams must be disposed and rebuilt.
+- Public routes after logout must not start protected company/platform streams.
+- Do not show old Admin data after logging in as Sales/Manager.
+- Hot restart must not be required to clear state.
+
+Protected routes/pages to watch:
+- Dashboard
+- Leads
+- Clients
+- Properties
+- Tasks
+- Deals
+- Appointments
+- Reports
+- Export
+- Notifications
+- Support
+- Team Management
+- Company Users
+- Platform pages
+
+---
+
+## Trial system rules
+
+Trial system is money-sensitive. Treat it as critical.
+
+Current behavior:
+- Trial can be set from:
+  - platform invitation creation
+  - manual company creation
+  - editing company status/settings
+- Trial duration supports:
+  - minutes
+  - hours
+  - days
+- Trial duration is customizable.
+- Trial end time must be calculated on the server, not browser/client time.
+- Dashboard remaining time must use server-time logic, not `DateTime.now()` from laptop.
+- Changing laptop/device time must not fake remaining trial time.
+- Expired trial access must be blocked by Firestore rules using `request.time`.
+- Scheduler is cleanup/notification only, not the only enforcement layer.
+- Trial company can be converted to active/paid without deleting data.
+- Trial badge must appear immediately in company dashboard after company becomes trial.
+- Trial expired company must show clean localized block message.
+
+Trial notifications/warnings:
+- Company admin gets warnings around:
+  - 1/3 of trial period
+  - 2/3 of trial period
+  - final warning before expiry
+- Warning dialogs must not dismiss by tapping outside; user must acknowledge.
+- Saved company notifications should be localized Arabic/English.
+- Platform owner gets near-ending and expired trial alerts.
+- No duplicate notification spam every minute.
+- Use reminder/checkpoint markers.
+
+Arabic wording examples:
+- `تنبيه فترة التجربة`
+- `فترة التجربة أوشكت على الانتهاء`
+- `انتهت فترة التجربة`
+- `تبقى تقريبًا {remaining} على انتهاء فترة التجربة. يرجى التواصل مع الدعم أو الاشتراك للاستمرار في استخدام مسار.`
+- `انتهت فترة التجربة. يرجى التواصل مع الدعم أو الاشتراك لإعادة تفعيل الشركة.`
+
+---
+
+## Payment follow-up rules
+
+Payment follow-up is implemented for direct client payments.
+
+This is not:
+- Stripe
+- online billing
+- payment gateway
+- online invoice payment
+
+It is:
+- platform-owner-controlled manual payment tracking and company access control.
+
+Current payment metadata on `companies/{companyId}`:
+- `paymentStatus`
+- `nextPaymentDueAt`
+- `lastPaymentAt`
+- `paymentAmount`
+- `paymentCurrency`
+- `paymentCycle`
+- `paymentNotes`
+- `gracePeriodEndsAt`
+- `suspendedAt`
+- `suspendedReason`
+- `paymentUpdatedAt`
+- `paymentUpdatedBy`
+- `paymentReminderState`
+
+Payment statuses:
+- `paid`
+- `dueSoon`
+- `overdue`
+- `gracePeriod`
+- `suspended`
+- `trial`
+- `trialExpired`
+- `inactive`
+
+Payment history:
+- stored under `companies/{companyId}/payment_history`
+- platform-owner readable only
+- normal company users must not write it
+
+Cloud Functions:
+- `markCompanyPaymentPaid`
+- `extendCompanyPaymentDueDate`
+- `updateCompanyPaymentStatus`
+- `runPaymentReminderSweep`
+
+Access behavior:
+- Paid/active company works normally.
+- Due soon works normally while owner sees reminders.
+- Overdue does not automatically delete data.
+- Grace-period company works until `gracePeriodEndsAt` using server/rules time.
+- Suspended company is blocked from CRM access.
+- Trial/trialExpired behavior remains separate.
+- Reactivating/switching to paid keeps all company data.
+
+Rules:
+- Payment writes must go through Cloud Functions/Admin SDK.
+- Company Admin/Manager/Sales/Marketing/Viewer must not write payment fields.
+- Money/access decisions must not depend on client/laptop time.
+- Existing active legacy companies with missing payment fields must remain usable if `isActive == true`.
+- Missing payment metadata must not crash Platform UI.
+- Missing payment metadata must not accidentally block old clients.
+
+Reminder logic:
+- Owner reminders for:
+  - due in 7 days
+  - due tomorrow
+  - overdue
+  - grace ending soon
+  - suspended/reactivated/marked paid
+- Store reminder markers to avoid repeated spam.
+- Company admin payment notices must be localized and clean, with no raw technical status.
+
+---
+
+## Platform owner rules
+
+Platform Dashboard must follow the normal Masar design system.
+
+Platform owner can:
+- access `/platform` without company membership
+- manage companies
+- manage company users through safe functions
+- create/revoke invitations
+- preview company dashboard read-only
+- view platform notifications
+- view platform support inbox
+- view platform monitoring/error logs
+- export selected company data to Excel
+- manage trial/payment status
+- suspend/reactivate companies
+
+Platform owner cannot:
+- weaken tenant role rules
+- bypass tenant data isolation from normal user UI
+- expose platform controls to company roles
+
+Platform UI requirements:
+- Must look like Masar CRM, not generic admin UI.
+- Company data chips/cards must be aligned and compact.
+- Payment section must remain compact.
+- Top bar and company selector must match the app design.
+- Error monitoring must include copy buttons and avoid exposing secrets/tokens.
+- Platform export should use professional Excel, not JSON.
+
+---
+
+## Platform owner Excel export rules
+
+Platform owner export is Excel-only, not JSON.
+
+Owner can choose sections:
 - users
 - leads
 - clients
@@ -178,261 +567,142 @@ Important collections include:
 - deals
 - appointments
 - notifications
-- audit_logs
+- audit logs
 - teams
 
-Platform/global collections include:
-- platform_admins/{uid}
-- users/{uid}
-- users/{uid}/memberships/{companyId}
-- companies/{companyId}
-- platform_invitations/{invitationId}
-- platform_invitation_uses/{invitationId}
+Rules:
+- Export remains platform-owner only through Cloud Function/Admin SDK.
+- Normal company roles do not get platform export access.
+- Output must be professional:
+  - Summary sheet
+  - section/data sheets
+  - clean headers
+  - filters
+  - readable widths
+  - frozen headers where supported
+  - Arabic RTL where supported
+  - no black/garbage cells
+  - no raw UID/Firestore-looking visible main columns
+  - no image URLs
+  - no storage paths
+  - no token URLs
+  - no `createdBy`/`updatedBy` as primary visible columns unless intentionally hidden/excluded
+- Use localized readable status/role/module/action labels when practical.
 
-## Security rules principles
+---
 
-Firestore rules are not filters.
+## Reports export rules
 
-Never query broad company data for restricted roles and then filter client-side.
-Queries must match security rules.
+Normal Reports Export is Excel-only.
 
-Do not weaken rules to make UI pass.
-Do not use broad `allow read, write: if true`.
-Do not allow client-side writes to privilege fields.
-Do not expose cross-company data.
-Do not expose platform data to normal company users.
+No PDF.
+No preview.
 
-Sensitive fields must be protected:
-- role
-- isActive
-- companyId
-- teamId/teamName/managerId/managerName when not being changed by safe flow
-- email when controlled by platform owner/admin function
-- login activity/IP fields
-- password/reset-link fields
-- mustChangePassword/passwordSetupMethod fields
-- platform admin fields
-- invitation hashes / secret invitation codes
+Workflow:
+1. Choose report type.
+2. Choose filters.
+3. Choose columns.
+4. Generate Excel.
 
-Privileged platform operations should go through Cloud Functions/Admin SDK.
+Design:
+- Export is a real Reports tab.
+- Export tab should be compact on mobile.
+- Report types should be a grid, not long vertical cards.
+- Export tab should be last on mobile if that is the current design.
+- Use existing Masar filters/action button style.
 
-## Role visibility policy
+Role scope:
+- Admin company-wide.
+- Manager own team only.
+- Sales/Marketing assigned-only where allowed.
+- Viewer blocked/restricted.
+- No broad restricted-role fetch then client filtering.
 
-Platform owner/admin:
-- Can access `/platform` without company membership.
-- Can manage companies and company users through safe functions.
-- Can preview company dashboards read-only.
-- Must not be forced into a company dashboard if no company membership exists.
+Excel quality:
+- Summary/Data sheets
+- frozen/styled headers
+- filters
+- readable widths
+- phone as text
+- date/currency formatting
+- Arabic RTL
+- no raw enum names
+- no raw Firestore-looking IDs unless intentionally required
 
-Admin:
-- Sees all company CRM records.
-- Sees unassigned leads.
-- Sees all company teams and users.
-- Can assign/reassign records to eligible users across the company.
-- Sees company-wide dashboard, reports, and recent activity.
-- Can access Company User Management (`/users`).
-- Can create company users for manager, salesAgent, marketing, and viewer roles.
+---
 
-Manager:
-- Sees own team records only.
-- Can assign/reassign only to eligible users in own team.
-- Dashboard and reports must be team-only.
-- Recent Activity must be team-only.
-- Must not see other managers’ teams/records/activity.
-- Must not access `/users` or Data Health.
+## Notifications rules
 
-Sales Agent:
-- Sees only own assigned records.
-- Must not see all company leads/clients/tasks/deals.
-- Must not see unassigned leads.
-- Must not see other users’ records.
-- Can update own assigned records only where current policy allows.
-- Must not access `/users`.
+Current notification system includes:
+- notification bell
+- dropdown panel
+- notification center
+- attention-needed section
+- platform notifications
+- trial/payment/support/error notifications
 
-Marketing:
-- Sees only own assigned records unless an explicit policy changes this.
-- Must not see unassigned leads by default.
-- Must not access other users’ records through search, filters, reports, or direct routes.
-- Must not access `/users`.
+Rules:
+- Attention needed in dropdown must be collapsible.
+- Each attention item can be cleared from current session.
+- Each normal notification can be cleared/marked read.
+- Mark all read must remain working.
+- Notification streams must not start when feature is disabled or profile/session is invalid.
+- Notification text must match Arabic/English target user/company/platform locale.
+- No duplicate spam for trial/payment reminders.
+- Do not use notification UI as a replacement for rules/access control.
 
-Viewer:
-- Restricted/read-only according to policy.
-- Must not appear as assignable.
-- Must not access team/platform/user-management data unless explicitly allowed.
+---
 
-## Assignment policy
+## Support rules
 
-Final assignable-role policy:
+Support Center exists:
+- Support
+- Feedback
+- My Requests
+- Contact
 
-Leads:
-- salesAgent
-- marketing
+Platform support inbox exists.
 
-Tasks:
-- salesAgent
-- marketing
+Rules:
+- Contact actions use WhatsApp/email icons according to design.
+- Do not show raw phone/email if design says icons only.
+- Web external link opener must work.
+- Support/feedback status updates should notify ticket owner through company notifications.
+- Platform support should be limited/paginated where practical.
 
-Clients:
-- salesAgent
+---
 
-Deals:
-- salesAgent
+## Observability / error monitoring rules
 
-Properties:
-- salesAgent only if property assignment exists in the current business flow.
-- Do not over-restrict property viewing if properties are intended as inventory.
+Platform Observability exists:
+- `platform_error_logs`
+- owner-only Monitoring UI
+- KPI cards, filters, detail sheet, mark-resolved flow
+- sanitized metadata
+- global Flutter/Bloc error reporting
+- selected Cloud Function error logging helper
 
-Admin and Manager can manage assignment but should not appear as normal operational assignee options.
-Viewer must never appear as assignable.
+Cloud Functions include:
+- `reportClientError`
+- `markPlatformErrorResolved`
+- platform-safe error list/watch path, depending on current implementation
 
-## Assignment snapshot requirements
+Rules:
+- Normal company users must not access monitoring data.
+- Platform monitoring must not throw permission snackbars.
+- Copy error action must avoid secrets/tokens.
+- Flutter Web hot restart metadata errors should not crash app.
+- Do not spam platform owner with noisy non-serious errors.
 
-Assigned records should store snapshots where module supports assignment:
-- assignedTo
-- assignedToName
-- assignedToEmail where supported
-- teamId
-- teamName
-- managerId
-- managerName
-
-When creating/reassigning:
-- Copy snapshots from `companies/{companyId}/users/{uid}`.
-- Do not trust manually typed team/manager values from UI.
-- If assignedTo is empty, team/manager snapshot fields should be empty.
-- If assignedTo is not empty, snapshots should match the selected assignee profile.
-
-Old records:
-- Must still load safely.
-- Do not run destructive migration automatically.
-- When edited/reassigned, refresh snapshots safely from assignee profile.
-
-## Invitation onboarding rules
-
-Invitation-code onboarding is the preferred SaaS company onboarding flow.
-
-Platform owner creates invitation:
-- Owner creates only invitation package/settings.
-- Owner does not enter company name.
-- Owner does not enter company email.
-- Owner does not enter admin email.
-- Invitation settings include plan/package, user limit, storage limit, enabled features, locale, timezone, expiry, and optional notes.
-- Create Invitation should be shown as a polished modal bottom sheet, especially on mobile.
-- Generated links must use the public web URL and hash route:
-  `https://masarcrm.web.app/#/register-company?code=MASAR-XXXX-XXXX`
-- Never use `Uri.base.origin` blindly on mobile because mobile may use `file://` and crash.
-
-Company admin registration:
-- Public route: `/register-company`.
-- Link route: `/register-company?code=MASAR-XXXX-XXXX`.
-- Invitation code can be auto-filled from the link.
-- No company email field.
-- No editable company ID field.
-- Company ID/slug is generated automatically from company name and must be revalidated server-side.
-- Admin email is enough as initial contact email.
-- Admin enters his own password during company registration.
-- Backend creates Firebase Auth user, company doc, company admin profile, global user doc, and membership doc.
-- Registered admin must have full company admin powers.
-
-Invitation reuse protection:
-- A successfully accepted invitation must never be reusable.
-- Deleting the created company must not make the same invitation code valid again.
-- Use a permanent server-side usage marker outside the company doc, such as:
-  `platform_invitation_uses/{invitationId}`.
-- `validateCompanyInvitation` and `acceptCompanyInvitation` must check both invitation status and usage marker.
-
-Duplicate checks:
-- Use Firebase Auth `getUserByEmail` and global `users` email checks.
-- Avoid broad `collectionGroup('users')` duplicate scans during registration unless a proper index/registry strategy is in place.
-- Previous failure happened at `check_admin_email_company_users` due to a fragile collection-group query / `FAILED_PRECONDITION` style problem.
-
-## Password and user-creation rules
-
-First company admin:
-- The first company admin chooses his own password in the Register Company form.
-- Do not generate a setup link for the first admin.
-- Do not store the password in Firestore.
-- Do not log the password.
-- Password is sent once to Firebase Auth createUser.
-
-Normal company users created by company Admin:
-- Default flow: create user and return setup/reset link.
-- Admin sends setup/reset link to the user.
-- User sets his own password.
-- Admin should not know user passwords in the default flow.
-
-Optional temporary password flow:
-- Admin may optionally set a temporary password for a new user.
-- Do not store the temporary password in Firestore.
-- Backend creates Firebase Auth user with that temporary password.
-- Company user profile must get:
-  - `mustChangePassword: true`
-  - `passwordSetupMethod: temporaryPassword`
-- On login, the app must force `/force-change-password` before dashboard/CRM access.
-- The user enters current temporary password + new password + confirm.
-- `completeRequiredPasswordChange` clears `mustChangePassword` and updates safe password metadata.
-- Normal Settings password change must remain working.
-
-User management:
-- Company Admin User Management route is `/users`.
-- Sidebar item must appear only for Admin, above Team Management.
-- Manager/Sales/Marketing/Viewer must be blocked from `/users` even by direct route.
-- Create user dialog must access `CompanyUsersCubit` correctly, including when opened via `showDialog`/bottom sheet. Use `BlocProvider.value` when passing the existing Cubit into dialogs.
-
-## Notifications and feature flags
-
-Notifications + reminders are stable and must remain role/team scoped.
-
-When company feature `notifications` is disabled:
-- notification bell should hide or show disabled state according to design.
-- notification streams must not start.
-- `/notifications` must be blocked.
-- notification center/menu entries must be hidden/disabled.
-- no permission/error spam should appear.
-- existing notification docs must not be deleted just because the feature is disabled.
-
-## Audit logs and recent activity
-
-Real audit logs are used for dashboard recent activity.
-
-Audit logs should include:
-- actor id/name/email/role
-- module
-- action
-- record id/title/subtitle
-- createdAt
-- metadata/details where useful
-- assignedTo when relevant
-- teamId/teamName when relevant
-- managerId/managerName when relevant
-
-Admin Recent Activity:
-- Company-wide.
-
-Manager Recent Activity:
-- Own team only.
-- Must be scoped by managerId/teamId/actor fallback safely.
-- Must not query all logs then filter client-side.
-- Must not show other team activity.
-
-Sales/Marketing/Viewer:
-- No team/company activity unless an explicit future policy says otherwise.
-
-Timeline and audit detail requirements:
-- Normal record edits should create visible timeline/audit details where supported.
-- Lead timeline must include normal `updated` events.
-- Lead timeline should show changes for status, assignment, contact/follow-up, source/source details, budget, notes, preferred details, phone/email/name, etc.
-- Admin/Manager recent activity should show useful changed-field details, not only generic text.
-- Arabic old/new values should use `من old إلى new` with directional isolation where needed.
+---
 
 ## Profile image rules
 
-Profile images should be consistent across:
-- app shell avatar
-- mobile header avatar
-- account menu avatar
+Profile images should display consistently across:
+- app shell/avatar menu
 - profile page
-- settings account area if applicable
+- settings account area
+- company user rows/cards
 - platform user rows/cards
 - team/member rows/cards
 - assignee dropdowns where supported
@@ -444,53 +714,137 @@ Source priority:
 
 Rules:
 - Do not store image bytes in Firestore.
-- Do not clear `photoUrl` automatically just because an image load fails.
+- Do not clear `photoUrl` because image load fails.
 - Only clear profile image when user explicitly removes it.
-- Use safe image loading and fallback initials.
-- Do not log full profile image URLs/tokens in production or normal debug output.
-- Remove noisy diagnostic prints before final handoff.
+- Use safe image loading and initials fallback.
+- Do not log full image URLs/tokens.
+- Cache-bust only when image changes, not constantly.
+- Storage rules must not make all profile images globally public.
 
-Storage rules:
-- Users can upload/remove only their own profile image unless a safe server-side owner flow exists.
-- Same company active users may need read access for avatars/user lists.
-- Platform owner may need read access for platform user lists.
-- Do not make all profile images globally public.
+---
 
-## Platform rules
+## Invitation onboarding rules
 
-Platform Dashboard must follow the same Masar CRM design system.
+Invitation-code onboarding remains preferred SaaS company onboarding.
 
-Platform owner/admin:
-- Accesses `/platform` without company membership.
-- Can manage companies and users through safe functions.
-- Can preview selected company read-only.
-- Can create invitation codes/links.
-- Still keeps manual company/admin/user creation powers as a support/manual fallback.
+Platform owner creates invitation:
+- Owner creates package/settings only.
+- Owner does not enter company name/email/admin email.
+- Invitation settings include plan/package, user limit, storage limit, enabled features, locale, timezone, expiry, trial option, trial duration unit/value, and optional notes.
+- Generated links must use public web URL and hash route:
+  - `https://masarcrm.web.app/#/register-company?code=MASAR-XXXX-XXXX`
+- Do not use `Uri.base.origin` blindly on mobile because mobile may use `file://`.
 
-Platform UI requirements:
-- Must not feel like a separate app.
-- Must reuse/match normal CRM shell/header/sidebar/cards/buttons/spacing.
-- Company users should not be duplicated in multiple sections.
-- User row actions should be compact action menus, not many wide buttons.
-- Platform avatar menu must match normal role menu.
-- Platform dashboard should stay organized like a SaaS control center: owner chip, company selector, KPI row, selected company operations, companies list, activity/login records, workspace summary.
-- Security tab should not come back as a redundant tab; useful security/login info belongs in Overview/Workspace/Activity.
+Company admin registration:
+- Public route: `/register-company`.
+- Link route: `/register-company?code=...`.
+- Code can auto-fill from link.
+- Company ID/slug generated from company name and revalidated server-side.
+- Admin enters own password.
+- Backend creates Firebase Auth user, company doc, company admin profile, global user doc, and membership doc.
+- Registered admin has full company admin powers.
 
-Platform account menu:
-- Profile
-- Settings
-- Logout
+Invitation reuse protection:
+- Accepted invitation must never be reusable.
+- Deleting company must not make same invitation code valid again.
+- Use permanent usage marker:
+  - `platform_invitation_uses/{invitationId}`
 
-Data Health:
-- Platform Data Health is SaaS monitoring mode plus safe snapshot backfill only.
-- Company Admin Data Health is operational action mode.
-- Company Admin can run health checks, backfill safe assignment snapshots, reassign invalid/missing/inactive/ineligible assignee records, and notify the responsible manager through saved notifications.
-- Data Health is Admin-only inside normal CRM. Managers must not see Data Health navigation or access `/data-health`.
-- Platform owner must not manually reassign tenant business records.
-- Backfill/reassign actions must use Cloud Functions/Admin SDK, not direct client-side mass writes.
-- Data Health reports should remain visible after one run, including last run date/time, until the user runs the check again.
-- After a successful repair/reassign action, remove the affected issue from the visible report without clearing the whole report.
-- Do not perform destructive backfills automatically.
+Duplicate checks:
+- Use Firebase Auth `getUserByEmail` and global users email checks.
+- User-facing duplicate message should be safe/generic:
+  - “Please try another admin email.”
+  - “جرّب بريدًا آخر للمسؤول.”
+- Do not expose detailed duplicate internals to end user.
+
+---
+
+## Password and user creation rules
+
+First company admin:
+- Chooses own password in Register Company form.
+- Do not generate setup link for first admin.
+- Do not store or log password.
+- Password sent once to Firebase Auth createUser.
+
+Normal company users:
+- Default flow: create user and return setup/reset link.
+- Admin/platform owner sends setup/reset link.
+- User sets own password.
+- Admin should not know user passwords in default flow.
+
+Temporary password flow:
+- Optional.
+- Do not store password in Firestore.
+- Backend creates Firebase Auth user with temporary password.
+- User profile gets:
+  - `mustChangePassword: true`
+  - `passwordSetupMethod: temporaryPassword`
+- On login, force `/force-change-password`.
+- User changes password, then `mustChangePassword` clears.
+
+Company Admin User Management:
+- Route: `/users`.
+- Admin only.
+- Manager/Sales/Marketing/Viewer blocked even by direct route.
+- Dialogs must receive Cubit correctly with `BlocProvider.value` when opened via dialog/sheet.
+
+---
+
+## Audit logs and recent activity
+
+Real audit logs feed dashboard recent activity.
+
+Audit logs should include:
+- actor id/name/email/role
+- module
+- action
+- record id/title/subtitle
+- createdAt
+- useful metadata/details
+- assignedTo where relevant
+- teamId/teamName where relevant
+- managerId/managerName where relevant
+
+Admin Recent Activity:
+- company-wide
+
+Manager Recent Activity:
+- own team only
+- must not query all logs then filter client-side
+
+Sales/Marketing/Viewer:
+- no broad team/company activity unless future policy explicitly allows.
+
+Future phase:
+- Full Audit Log Viewer after release-lock QA.
+
+---
+
+## Team Management rules
+
+Admin:
+- sees all teams and members
+- can create/edit teams
+- can assign/remove/move Sales/Marketing members
+- can manage team managers
+
+Manager:
+- sees only own team
+- sees all active members of own team
+- read-only My Team view
+- no create/edit/manage/remove/backfill actions
+- must not see other managers’ teams/members
+
+Sales/Marketing/Viewer:
+- no Team Management nav unless explicitly allowed
+
+Team snapshots:
+- Moving user teams should update assigned record snapshots through safe flow/Cloud Functions where needed.
+- Manual backfill is a repair tool, not normal workflow.
+- Do not broaden manager visibility to fix missing snapshots.
+
+---
 
 ## Mobile behavior rules
 
@@ -502,267 +856,349 @@ Mobile More sheet:
 - No Profile/Settings/Logout.
 - Dismiss by tapping outside.
 - Dismiss by dragging down.
-- Dismiss after selecting a module.
+- Dismiss after selecting module.
 
 Mobile bottom nav:
 - Hide on downward scroll.
 - Show on upward scroll/top.
 - Do not flicker.
-- Do not hide while text input/keyboard interaction would hurt usability.
-- Desktop/tablet navigation unaffected.
+- Do not hide while keyboard/text input interaction would hurt usability.
+- Must not cover important action buttons.
 
-Tabs policy:
-Use tabs only for section-heavy pages.
+Mobile layout:
+- Make module cards tappable where that is the current pattern.
+- Avoid separate “details eye” buttons on mobile if cards are tappable.
+- Avoid long messy vertical sections where compact grid/wrap works.
+- Ensure Reports/Export/Support/Team/User Management are compact and aligned.
 
-Tabs should exist or be considered for:
-- Dashboard
-- Lead Details
-- Reports
-- Team Management on mobile/narrow only
-- Platform workspace if useful
-
-Do not force tabs into normal list pages:
-- Leads list
-- Clients list
-- Properties list
-- Tasks list
-- Deals list
-
-Team Management specific:
-- Mobile/narrow width: tabs are allowed.
-- Web/desktop: no tabs; use professional dashboard-style sections.
+---
 
 ## Global Search rules
 
 Global Search is Firebase-only for now.
 
 Rules:
-- Debounce search around 300 ms.
+- Debounce around 300 ms.
 - Minimum query length around 2 characters.
 - Use limited one-shot queries where possible.
 - No permanent global search streams.
 - Group results by module.
-- Tapping result opens correct details page if allowed.
+- Tapping result opens detail page if allowed.
 - Do not show forbidden results.
 
 Scope:
-- Admin: company-wide allowed results.
-- Manager: own team only.
-- Sales/Marketing: own assigned only.
-- Viewer: restricted.
-- Platform owner: platform-safe search in platform context.
+- Admin company-wide allowed results.
+- Manager own team only.
+- Sales/Marketing own assigned only.
+- Viewer restricted.
+- Platform owner platform-safe search in platform context.
 
 Do not introduce external search engines unless explicitly requested.
 
-## Performance and lifecycle rules
+---
 
-Optimize for mobile scrolling and large app shell stability.
+## Performance and lifecycle rules
 
 Avoid:
 - unnecessary app shell rebuilds
 - broad streams for restricted roles
-- starting streams for hidden/forbidden tabs
-- expensive sorting/filtering in build()
-- huge nested scrolls that cause jank
+- streams for hidden/forbidden tabs
+- expensive sorting/filtering in `build()`
+- huge nested scrolls
 - `shrinkWrap` on long lists unless justified
 - leaking controllers/listeners/focus nodes
 - noisy debug prints
-- async work launched repeatedly from `build()`
+- repeated async work from `build()`
+- loading all company data for dashboard/reports when only small recent lists/counts are needed
 
 Use:
-- ListView.builder/GridView.builder for long lists
+- `ListView.builder` / `GridView.builder` for long lists
+- query limits
+- date windows
 - debounced search
-- stable keys where needed
+- stable keys
 - const widgets where safe
-- local sorting only on small already-scoped result sets
-- circular progress indicators for loading states
 - mounted guards after async callbacks
-- dispose timers/controllers/subscriptions/focus nodes
-- unfocus before dialog/form submit on web/mobile when needed
+- proper dispose
+- small role-scoped streams
 
-Flutter Web hot restart / AppInspector / EngineFlutterView logs can be tooling noise, but app-owned timers/controllers must still be cleaned up.
+---
 
-## Current Cloud Functions and privileged flows
+## Cloud Functions and privileged flows
 
-Important callable functions include:
-- `saveLeadRecord` for lead create/update/reassign with server-side role/team/assignee validation.
-- `getCompanyDataHealthReport` for platform SaaS monitoring.
-- `getOperationalDataHealthReport` for company Admin Data Health.
-- `backfillAssignedRecordSnapshots` for safe assignment/team snapshot backfill.
-- `reassignDataHealthRecord` for company Admin operational reassignment repair.
-- `createCompanyInvitation` for platform invitation creation.
-- `validateCompanyInvitation` for public invite validation.
-- `acceptCompanyInvitation` for company/admin registration through invite.
-- `revokeCompanyInvitation` for platform invite revoke.
-- `listCompanyInvitations` for platform invite management.
-- `addUserToCompany` for platform owner/manual setup and company Admin user creation.
-- `completeRequiredPasswordChange` for clearing temporary-password enforcement after user changes password.
-- Platform user/company tools such as `createCompanyWithAdmin`, `setCompanyUserEmail`, `setCompanyUserPassword`, `generateCompanyUserPasswordResetLink`, `updateCompanyPlatformSettings`, `assignUserToTeam`, and `removeUserFromTeam`.
+Important existing/new callable or scheduled functions include:
+- `saveLeadRecord`
+- `getServerTime`
+- `expireTrialCompanies`
+- `createCompanyInvitation`
+- `validateCompanyInvitation`
+- `acceptCompanyInvitation`
+- `revokeCompanyInvitation`
+- `listCompanyInvitations`
+- `createCompanyWithAdmin`
+- `addUserToCompany`
+- `setCompanyActiveStatus`
+- `setCompanyUserActiveStatus`
+- `setCompanyUserEmail`
+- `setCompanyUserPassword`
+- `generateCompanyUserPasswordResetLink`
+- `updateCompanyPlatformSettings`
+- `assignUserToTeam`
+- `removeUserFromTeam`
+- `reportClientError`
+- `markPlatformErrorResolved`
+- `exportCompanyDataForPlatform`
+- `markCompanyPaymentPaid`
+- `extendCompanyPaymentDueDate`
+- `updateCompanyPaymentStatus`
+- `runPaymentReminderSweep`
+- Data Health functions:
+  - `getCompanyDataHealthReport`
+  - `getOperationalDataHealthReport`
+  - `backfillAssignedRecordSnapshots`
+  - `reassignDataHealthRecord`
 
 Rules:
-- Keep privileged business-data repair/reassignment server-side.
-- Do not move these flows into direct Flutter Firestore writes.
-- When changing function names or adding new callables, report exact deploy commands.
-- Do not log passwords, full invite codes, reset links, tokens, or secrets.
+- Keep privileged repair/reassignment/platform/payment/trial/export operations server-side.
+- Do not move them into direct Flutter Firestore writes.
+- When changing Functions, report exact deploy commands.
+- Do not log passwords, invite secrets, reset links, tokens, or sensitive URLs.
+
+---
 
 ## Deployment reporting rules
 
-In every final report, mention exact deployment needs:
-
-If Firestore rules changed:
-- `firebase deploy --only firestore:rules`
-
-If Storage rules changed:
-- `firebase deploy --only storage`
-  or combined with Firestore if both changed.
+Every final report must state exact deployment needs.
 
 If Functions changed:
-- `firebase deploy --only functions:<functionName>`
-  or `firebase deploy --only functions` if individual deploy fails.
+```powershell
+firebase deploy --only functions:<functionName>
+```
+or:
+```powershell
+firebase deploy --only functions
+```
+
+If Firestore rules changed:
+```powershell
+firebase deploy --only firestore:rules
+```
+
+If Storage rules changed:
+```powershell
+firebase deploy --only storage
+```
 
 If Flutter UI changed:
-- `flutter build web --release --dart-define-from-file=config/firebase.local.json`
-- `firebase deploy --only hosting`
+```powershell
+flutter build web --release --dart-define-from-file=config/firebase.local.json
+firebase deploy --only hosting
+```
 
-If mobile assets/icons/native configuration changed:
-- rebuild/reinstall the mobile app.
+If mobile assets/native config changed:
+- rebuild/reinstall mobile app.
 
-Do not claim deployment happened unless the user confirms it.
+Do not claim deployment happened unless user confirms.
 
-## Current latest known stable/in-progress fixes
+Recommended full deployment order when Functions + rules + UI changed:
+```powershell
+firebase deploy --only functions
+firebase deploy --only firestore:rules
+flutter build web --release --dart-define-from-file=config/firebase.local.json
+firebase deploy --only hosting
+```
 
-The latest confirmed good state includes:
-- Notifications + Reminders Foundation is stable.
-- Saved notifications persist after refresh and read/unread behavior is stable.
-- Manager/team notification routing works and notifications connect assigned users and managers.
-- Appointments + Calendar Foundation added a company-scoped appointments workspace.
-- Appointments support role-scoped schedules, related record snapshots, assignment/team snapshots, status actions, and appointment notifications.
-- Lead create/update/reassign is stabilized through the `saveLeadRecord` Cloud Function.
-- Admin can create/assign/reassign leads company-wide.
-- Manager can assign/reassign only inside own team.
-- Sales/Marketing can update own assigned leads where policy allows.
-- Manager Recent Activity works and is scoped to team.
-- Sales can edit own assigned lead after rules/snapshot fixes.
-- Profile image debug console spam removed.
-- Normal lead edits appear in lead timeline.
-- Admin/Manager Recent Activity shows edit details.
-- Arabic old/new value direction fixed using `من old إلى new`.
-- Platform Data Health remains SaaS monitoring mode.
-- Company Admin Data Health is implemented as Admin-only operational repair mode.
-- Data Health reports persist after running until a new check is triggered.
-- Data Health hides raw missing-assignee UIDs and shows clean issue labels.
-- Data Health reassign/backfill repairs update the visible report without clearing it.
-- Data Health Notify Manager is implemented for Admin through saved notifications.
-- Phase A Admin/Owner Operations UI Cleanup is implemented: Admin Team Management is compact, Platform Security is merged into overview/workspace/activity, Platform login records are readable.
-- Platform Owner dashboard reference polish is implemented: premium SaaS control-center layout with owner chip, company selector, KPI row, selected company operations, companies list, activity/login records, and workspace summary.
-- Phase B invitation onboarding works after removing the fragile `check_admin_email_company_users` collectionGroup scan.
-- Invitation reuse after company deletion is fixed using `platform_invitation_uses/{invitationId}`.
-- Company Admin User Management exists and Admin can create company users.
-- Optional temporary password flow exists and must force `/force-change-password`.
-- Mobile onboarding/login/register/public route polish is mostly implemented.
-- Splash/branding/logo work is in progress and needs final compile/runtime stabilization.
-- Mobile More remains module navigation only; Profile/Settings/Logout belong to avatar menu.
+---
 
-Known current issue to resolve first:
-- `MasarSplashGate` compile issue in `app.dart` even though `app.dart` imports `core/widgets/masar_splash_gate.dart`. Inspect actual `lib/core/widgets/masar_splash_gate.dart` and ensure the class is defined and file is saved correctly.
-- GoogleFonts runtime/offline issue should be resolved either by system fallback or local bundled fonts.
-- Splash logo still needs to be made larger and more premium.
+## Git hygiene rules
 
+Never stage blindly.
 
-## Current emergency handoff — account switching, role-scoped streams, team members, and archive/UI phase
+Do not commit:
+- `.vscode/`
+- `*.zip`
+- `*.patch`
+- screenshots
+- pasted text files
+- temporary scripts
+- `apply_masar_branding_assets.py`
+- font zip files
+- local secrets/config unless intentionally tracked
+- `assets/IBM_Plex_Sans_Arabic.zip`
+- `assets/Plus_Jakarta_Sans.zip`
+- `whatsapp_icon_support_page.patch`
 
-This section supersedes older “known current issue” notes when they conflict with the latest chat state.
+Be careful with:
+- `.metadata`
+- `windows/`
+- `test/`
+- local config files
 
-Latest completed or mostly implemented work in the current chat:
-- Branding/public entry work was done earlier: Masar logo assets, local fonts, public onboarding/login/register polish, splash/logo sizing iterations, and removal of duplicate Flutter splash behavior.
-- Support Center and Feedback foundation was added under `lib/features/support/`, with tabs for Support, Feedback, My Requests, and Contact.
-- Support contact actions now use WhatsApp and email icons only. WhatsApp should open `https://wa.me/201208090241` with a prefilled support message. Do not show the raw phone number/email in the UI.
-- Platform Notifications were added under `lib/features/platform_notifications/` with platform bell/unread badge and `platform_notifications/{notificationId}`.
-- Support/feedback status updates now notify the ticket owner through normal company notifications.
-- User Management was made a platform-controlled feature flag (`userManagement`), but this must not block Team Management user reads.
-- Team Hierarchy/Manager Teams exists. Admin can create teams and assign Sales/Marketing users. Manager should have read-only “My Team”.
-- Automatic team assignment snapshot logic was added/expected:
-  - When Sales/Marketing user joins a team, all existing records assigned to that user should be stamped with `teamId/teamName/managerId/managerName`.
-  - When moved to another team, assigned records should move to the new team snapshots.
-  - When removed from a team, assigned records remain assigned to the user but team/manager snapshots are cleared.
-  - Manual “Backfill snapshots” remains a repair tool, not normal workflow.
-- Archive Standardization phase was implemented by Codex but not fully validated:
-  - `archiveCrmRecord` / `restoreCrmRecord` functions added.
-  - Leads, Clients, Deals archive UI/data were wired.
-  - Properties got archive metadata/rules support only; do not replace existing deactivate flow yet.
-  - Version was bumped to around `1.9.0+19`.
-- Reports tab scroll and Clients mobile compact card polish were attempted, but still need runtime verification.
-- AppFeedback Edge crash fix should use a global `ScaffoldMessengerKey`, not stale page `BuildContext`.
+Safe staging for this project is usually:
+```powershell
+git add lib
+git add functions/src/index.js
+git add firestore.rules
+git add pubspec.yaml
+git add pubspec.lock
+```
 
-Current unresolved critical problem:
-- After logging out from Admin and logging in as Sales/Manager, many modules still show permission errors or stale/no data.
-- This is not only Tasks. It affects Leads, Clients, Tasks, Appointments, Reports, and possibly Deals.
-- Team Management for Manager may show the team but not all members, while Admin sees members correctly.
-- Root suspicion: stale AuthBloc/UserProfile/module Cubit scopes after account switching, and/or role-scoped streams created before the fresh profile is loaded.
-- Do not fix by loosening Firestore rules.
-- Do not make Manager or Sales roles broader.
-- Correct fix must ensure every module waits for the current loaded `UserProfile` where `profile.uid == FirebaseAuth.currentUser.uid`, keys scopes by `companyId + uid + role`, and disposes/recreates old Cubits/streams on account switch.
-- Also inspect logout flow in `AuthBloc` and any profile/company resolver caching. On logout, old company/user/profile state must be cleared before the next login session starts.
-- Public routes after logout must not start protected streams.
+Then inspect:
+```powershell
+git status --short
+git diff --cached --stat
+```
 
-Immediate next phase:
-Production Stabilization — Account Switching + Role-Scoped Stream Reset + Team Member Visibility.
+Do not commit unless staged files match intended scope.
 
-Required next prompt focus:
-1. Inspect `AuthBloc`, auth state, profile/company resolver, app router redirects, shell scopes, and module scopes.
-2. Fix stale profile/session cleanup on logout.
-3. For each module page/scope (`Leads`, `Clients`, `Tasks`, `Appointments`, `Deals`, `Reports`, `Teams`, Dashboard if needed), ensure streams do not start until fresh current `UserProfile` is loaded and matches current Firebase Auth uid.
-4. Key module scopes/Cubits using `companyId`, `uid`, and `role`.
-5. On account switch, old Cubits/streams must be disposed and rebuilt.
-6. Keep queries role-scoped:
-   - Admin broad company.
-   - Manager own team only.
-   - Sales/Marketing own assigned only.
-   - Viewer restricted.
-7. Team Management:
-   - Admin sees all teams and members.
-   - Manager sees only own team and all active members of that team.
-   - Manager Team page is read-only and should not expose create/edit/manage/backfill/remove actions.
-   - Manager member read should work with `teamId == manager.teamId` and/or `managerId == manager.uid`, but not broad company reads.
-8. Reports:
-   - Do not start streams forbidden for the current role.
-   - Manager reports team-only; Sales/Marketing own-only; Admin company-wide.
-9. Avoid broad Firestore reads then client filtering.
-10. No Firestore rules changes unless inspection proves a precise rules/query mismatch. If rules change, keep them strict and explain deploy need.
-11. No Functions changes unless needed for team snapshot lifecycle/backfill bug. If functions change, run/suggest `node --check functions/src/index.js`.
-12. After fix, run `flutter analyze`, `node --check functions/src/index.js` if functions changed, and test role switching without hot restart.
+---
 
-Testing checklist for the next phase:
-- Start as Admin, open Leads/Clients/Tasks/Appointments/Deals/Reports/Teams.
-- Logout.
-- Login as Sales. Sales sees only own assigned Leads/Clients/Tasks/Deals/Appointments where applicable; no permission cards on allowed pages.
-- Logout.
-- Login as Manager. Manager sees only own team records and own team members; no other team data.
-- Logout.
-- Login as Admin again. Admin sees all.
-- Browser refresh on each role still works.
-- Hot restart should not be required to clear old state.
-- Direct forbidden routes show clean localized permission/feature-unavailable state, not raw Firebase errors.
-- Team Management on mobile/narrow scrolls fully and bottom nav does not hide members/actions.
-- Reports tabs/sections scroll correctly.
-- Clients mobile cards are compact.
-- Archive active/archived flow works for Admin and Manager-scoped records.
+## Current latest completed phases
 
-Do not proceed to Reports Export / BI, Global Search, or launch prep until this stabilization passes.
+The latest confirmed good/deployed state includes:
 
-## Recommended next phases
+1. Protected session and role-scoped account switching hardening.
+2. Firebase token/session invalidation for disabled user/company behavior.
+3. Export cleanup:
+   - Excel-only
+   - no PDF
+   - no preview
+   - compact Reports Export UI
+   - role-scoped export
+4. Shared Masar segmented tab system replacing `google_nav_bar/GNav`.
+5. Global dark-mode logo visibility fix.
+6. Masar logo page-level loader where applicable.
+7. Company Users layout crash fix.
+8. Profile image refresh/caching fix.
+9. Reports/Support/Appointments tab consistency.
+10. Mobile Reports Export compact grid.
+11. Performance/query-limit cleanup.
+12. App Check skipped and removed.
+13. Platform observability/error monitoring.
+14. Platform owner trial system:
+   - minutes/hours/days
+   - server-time calculation
+   - dashboard badge
+   - localized milestone notifications
+   - Firestore request-time expiry enforcement
+15. Platform owner Excel export for selected company sections.
+16. Notification dropdown collapsible attention-needed and clear actions.
+17. Manual Payment Follow-up:
+   - payment statuses
+   - payment history
+   - mark paid / extend / grace / suspend / reactivate
+   - reminder sweep
+   - strict platform-owner control
+18. Latest Hosting deploy succeeded; browser cache required hard refresh/query-param to show new version.
 
-Immediate next phase:
-- Phase B compile/runtime stabilization and release lock.
-- Fix splash/branding compile issue, GoogleFonts runtime issue, logo size, public onboarding final polish.
-- Run `flutter analyze` and `node --check functions/src/index.js` only if explicitly allowed.
-- Deploy required functions/rules/hosting only after validation.
-- Commit/push only after final confirmation.
+---
 
-After Phase B is locked:
-1. Production Release QA + Deployment Stabilization.
-2. Reports + Export / Business Intelligence phase.
-3. Scheduled reminders engine Phase 2.
-4. Global Search upgrade.
-5. Final mobile/browser polish.
-6. Public launch preparation.
+## Current active phase
+
+**Release Lock QA ONLY**
+
+Do not start another feature until release-lock QA passes.
+
+Release Lock QA must verify:
+- Platform owner dashboard
+- Trial lifecycle
+- Payment follow-up
+- Suspended/grace company access
+- Existing active legacy companies without payment fields
+- Company export Excel
+- Monitoring/errors
+- Notifications
+- Admin/Manager/Sales/Marketing/Viewer scopes
+- Arabic/English
+- Mobile web
+- Dark/light mode
+- Logout/login account switching
+- Build/deploy cache behavior
+
+Required checks if user approves:
+```powershell
+flutter analyze
+node --check functions/src/index.js
+flutter build web --release --dart-define-from-file=config/firebase.local.json
+```
+
+Do not deploy again unless needed.
+
+---
+
+## Next phases after Release Lock QA passes
+
+1. Final Production Release Lock / Tag / Backup
+   - verify commit/tag
+   - verify Firebase deploy state
+   - verify rules/functions/hosting all live
+   - final smoke test
+   - document rollback point
+
+2. UI/UX Professional Polish
+   - platform top bar polish
+   - payment section density
+   - mobile/narrow cleanup
+   - dashboard responsive details
+   - no business logic changes
+
+3. Full Audit Log Viewer
+   - filter by module/user/action/date
+   - manager team-scoped view
+   - readable before/after changes
+   - export audit logs
+   - open related record
+
+4. Global Search
+   - role-scoped only
+   - grouped result UI
+   - open details
+   - no forbidden data
+   - no broad client-side filtering
+
+5. Appointments Calendar Upgrade
+   - month/week/day views
+   - today schedule
+   - missed appointments dashboard
+   - reschedule flow
+   - appointment outcome
+   - link related records
+
+6. FCM / Push Notifications
+   - only after in-app notifications are stable
+   - web push
+   - mobile push
+   - token registration/cleanup
+   - foreground/background handling
+   - appointment/payment/trial/support/error alerts
+
+7. Public Website / Domain Setup
+   - domain
+   - landing page
+   - login route
+   - invite registration route
+   - privacy policy
+   - terms
+   - support/contact page
+   - screenshots
+   - SEO
+   - favicon/app icons
+
+8. Data Health/Admin Tools Upgrade
+   - missing team snapshots
+   - invalid/inactive assignees
+   - companies with no admin
+   - duplicated leads/clients
+   - safe one-click repairs
+
+9. Windows/Desktop Packaging
+   - optional later
+   - Windows build
+   - app icon
+   - installer
+   - update strategy
+
+Skipped/removed:
+- Full Stripe/billing gateway.
+- App Check.
+- Online payment gateway.
