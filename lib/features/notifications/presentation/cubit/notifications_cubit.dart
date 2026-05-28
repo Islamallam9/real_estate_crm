@@ -9,7 +9,9 @@ import '../../domain/entities/attention_reminder.dart';
 import '../../domain/entities/crm_notification.dart';
 import '../../domain/errors/notification_exception.dart';
 import '../../domain/usecases/mark_all_notifications_read_usecase.dart';
+import '../../domain/usecases/dismiss_notification_usecase.dart';
 import '../../domain/usecases/mark_notification_read_usecase.dart';
+import '../../domain/usecases/mark_notification_resolved_usecase.dart';
 import '../../domain/usecases/watch_attention_reminders_usecase.dart';
 import '../../domain/usecases/watch_notifications_usecase.dart';
 import '../../domain/usecases/watch_unread_notifications_count_usecase.dart';
@@ -21,11 +23,15 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     required WatchUnreadNotificationsCountUseCase watchUnreadCountUseCase,
     required WatchAttentionRemindersUseCase watchAttentionRemindersUseCase,
     required MarkNotificationReadUseCase markNotificationReadUseCase,
+    required MarkNotificationResolvedUseCase markNotificationResolvedUseCase,
+    required DismissNotificationUseCase dismissNotificationUseCase,
     required MarkAllNotificationsReadUseCase markAllNotificationsReadUseCase,
   })  : _watchNotificationsUseCase = watchNotificationsUseCase,
         _watchUnreadCountUseCase = watchUnreadCountUseCase,
         _watchAttentionRemindersUseCase = watchAttentionRemindersUseCase,
         _markNotificationReadUseCase = markNotificationReadUseCase,
+        _markNotificationResolvedUseCase = markNotificationResolvedUseCase,
+        _dismissNotificationUseCase = dismissNotificationUseCase,
         _markAllNotificationsReadUseCase = markAllNotificationsReadUseCase,
         super(const NotificationsState.initial());
 
@@ -33,6 +39,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   final WatchUnreadNotificationsCountUseCase _watchUnreadCountUseCase;
   final WatchAttentionRemindersUseCase _watchAttentionRemindersUseCase;
   final MarkNotificationReadUseCase _markNotificationReadUseCase;
+  final MarkNotificationResolvedUseCase _markNotificationResolvedUseCase;
+  final DismissNotificationUseCase _dismissNotificationUseCase;
   final MarkAllNotificationsReadUseCase _markAllNotificationsReadUseCase;
 
   StreamSubscription<List<CrmNotification>>? _notificationsSubscription;
@@ -221,12 +229,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       ),
     );
 
-    if (notification.isRead) {
-      return;
-    }
-
     try {
-      await _markNotificationReadUseCase(
+      await _dismissNotificationUseCase(
         companyId: companyId,
         notificationId: notification.id,
       );
@@ -237,6 +241,55 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     } catch (_) {
       if (!isClosed) {
         emit(state.copyWith(message: AppErrorMessages.unknown));
+      }
+    }
+  }
+
+  Future<void> markResolved({
+    required String companyId,
+    required CrmNotification notification,
+  }) async {
+    if (notification.isResolved || notification.isDismissed) {
+      return;
+    }
+    emit(state.copyWith(markingNotificationId: notification.id));
+    try {
+      await _markNotificationResolvedUseCase(
+        companyId: companyId,
+        notificationId: notification.id,
+      );
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            notifications: _markNotificationResolvedInList(
+              state.notifications,
+              notification.id,
+            ),
+            unreadCount: notification.isRead
+                ? state.unreadCount
+                : _decrementUnreadCount(state.unreadCount),
+            clearMarkingNotificationId: true,
+            clearMessage: true,
+          ),
+        );
+      }
+    } on NotificationException catch (error) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            message: error.message,
+            clearMarkingNotificationId: true,
+          ),
+        );
+      }
+    } catch (_) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            message: AppErrorMessages.unknown,
+            clearMarkingNotificationId: true,
+          ),
+        );
       }
     }
   }
@@ -315,6 +368,26 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         .map(
           (notification) => notification.id == notificationId
               ? notification.copyWith(isRead: true, readAt: now)
+              : notification,
+        )
+        .toList();
+  }
+
+
+  List<CrmNotification> _markNotificationResolvedInList(
+    List<CrmNotification> notifications,
+    String notificationId,
+  ) {
+    final now = DateTime.now();
+    return notifications
+        .map(
+          (notification) => notification.id == notificationId
+              ? notification.copyWith(
+                  isRead: true,
+                  readAt: now,
+                  actionState: CrmNotificationActionState.resolved,
+                  resolvedAt: now,
+                )
               : notification,
         )
         .toList();

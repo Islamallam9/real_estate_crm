@@ -54,6 +54,8 @@ enum CrmNotificationType {
 
 enum CrmNotificationPriority { low, normal, high, urgent }
 
+enum CrmNotificationActionState { none, actionNeeded, resolved, dismissed }
+
 class CrmNotification extends Equatable {
   const CrmNotification({
     required this.id,
@@ -75,6 +77,9 @@ class CrmNotification extends Equatable {
     required this.isRead,
     required this.readAt,
     required this.createdAt,
+    required this.actionState,
+    required this.resolvedAt,
+    required this.dismissedAt,
     required this.metadata,
     this.fallbackTitle = '',
     this.fallbackBody = '',
@@ -99,13 +104,25 @@ class CrmNotification extends Equatable {
   final bool isRead;
   final DateTime? readAt;
   final DateTime? createdAt;
+  final CrmNotificationActionState actionState;
+  final DateTime? resolvedAt;
+  final DateTime? dismissedAt;
   final Map<String, Object?> metadata;
   final String fallbackTitle;
   final String fallbackBody;
 
+  bool get needsAction => actionState == CrmNotificationActionState.actionNeeded;
+
+  bool get isDismissed => actionState == CrmNotificationActionState.dismissed;
+
+  bool get isResolved => actionState == CrmNotificationActionState.resolved;
+
   CrmNotification copyWith({
     bool? isRead,
     DateTime? readAt,
+    CrmNotificationActionState? actionState,
+    DateTime? resolvedAt,
+    DateTime? dismissedAt,
   }) {
     return CrmNotification(
       id: id,
@@ -127,6 +144,9 @@ class CrmNotification extends Equatable {
       isRead: isRead ?? this.isRead,
       readAt: readAt ?? this.readAt,
       createdAt: createdAt,
+      actionState: actionState ?? this.actionState,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      dismissedAt: dismissedAt ?? this.dismissedAt,
       metadata: metadata,
       fallbackTitle: fallbackTitle,
       fallbackBody: fallbackBody,
@@ -154,6 +174,9 @@ class CrmNotification extends Equatable {
         isRead,
         readAt,
         createdAt,
+        actionState,
+        resolvedAt,
+        dismissedAt,
         metadata,
         fallbackTitle,
         fallbackBody,
@@ -180,4 +203,32 @@ CrmNotificationPriority notificationPriorityFromValue(String value) {
 
 String notificationPriorityToValue(CrmNotificationPriority priority) {
   return priority.name;
+}
+
+CrmNotificationActionState notificationActionStateFromValue(String value) {
+  return CrmNotificationActionState.values.firstWhere(
+    (state) => state.name == value,
+    orElse: () => CrmNotificationActionState.none,
+  );
+}
+
+String notificationActionStateToValue(CrmNotificationActionState state) {
+  return state.name;
+}
+
+bool notificationTypeUsuallyNeedsAction(CrmNotificationType type) {
+  return switch (type) {
+    CrmNotificationType.followUpDueToday ||
+    CrmNotificationType.followUpOverdue ||
+    CrmNotificationType.taskDueToday ||
+    CrmNotificationType.taskOverdue ||
+    CrmNotificationType.appointmentDueSoon ||
+    CrmNotificationType.appointmentDueNow ||
+    CrmNotificationType.appointmentMissed ||
+    CrmNotificationType.teamAppointmentDueSoon ||
+    CrmNotificationType.teamAppointmentDueNow ||
+    CrmNotificationType.teamAppointmentMissed ||
+    CrmNotificationType.dataHealthIssue => true,
+    _ => false,
+  };
 }

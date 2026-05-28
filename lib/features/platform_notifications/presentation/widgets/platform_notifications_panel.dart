@@ -749,10 +749,43 @@ String _filterLabel(AppLocalizations l, PlatformNotificationFilter filter) {
   };
 }
 
+String _localizedPlatformNotificationText(
+  AppLocalizations l,
+  PlatformNotification notification, {
+  required String arabicKey,
+  required String englishKey,
+  required String fallback,
+}) {
+  final preferredKey = l.localeName.toLowerCase().startsWith('ar')
+      ? arabicKey
+      : englishKey;
+  final alternateKey = preferredKey == arabicKey ? englishKey : arabicKey;
+  final preferred = (notification.metadata[preferredKey] ?? '').toString().trim();
+  if (preferred.isNotEmpty) {
+    return preferred;
+  }
+  final alternate = (notification.metadata[alternateKey] ?? '').toString().trim();
+  if (alternate.isNotEmpty && fallback.trim().isEmpty) {
+    return alternate;
+  }
+  return fallback;
+}
+
 String _notificationTitle(
   AppLocalizations l,
   PlatformNotification notification,
 ) {
+  final customTitle = _localizedPlatformNotificationText(
+    l,
+    notification,
+    arabicKey: 'titleAr',
+    englishKey: 'titleEn',
+    fallback: notification.title.trim(),
+  );
+  if (notification.type == PlatformNotificationType.unknown &&
+      customTitle.isNotEmpty) {
+    return customTitle;
+  }
   return switch (notification.type) {
     PlatformNotificationType.companyRegistered =>
       l.platformNotificationCompanyRegistered,
@@ -801,7 +834,13 @@ String _notificationMessage(
   AppLocalizations l,
   PlatformNotification notification,
 ) {
-  final customMessage = notification.message.trim();
+  final customMessage = _localizedPlatformNotificationText(
+    l,
+    notification,
+    arabicKey: 'messageAr',
+    englishKey: 'messageEn',
+    fallback: notification.message.trim(),
+  );
   if (customMessage.isNotEmpty) {
     return customMessage;
   }

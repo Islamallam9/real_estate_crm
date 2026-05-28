@@ -14,6 +14,7 @@ class NotificationCard extends StatelessWidget {
     required this.notification,
     required this.onOpen,
     required this.onMarkRead,
+    this.onResolve,
     this.onClear,
     this.isMarking = false,
   });
@@ -21,6 +22,7 @@ class NotificationCard extends StatelessWidget {
   final CrmNotification notification;
   final VoidCallback onOpen;
   final VoidCallback onMarkRead;
+  final VoidCallback? onResolve;
   final VoidCallback? onClear;
   final bool isMarking;
 
@@ -28,18 +30,24 @@ class NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final unread = !notification.isRead;
-    final borderColor = unread
-        ? AppColors.primaryColor(context).withValues(alpha: 0.42)
-        : AppColors.borderColor(context);
+    final needsAction = notification.needsAction;
+    final resolved = notification.isResolved;
+    final borderColor = needsAction
+        ? _priorityColor(context, notification).withValues(alpha: 0.42)
+        : unread
+            ? AppColors.primaryColor(context).withValues(alpha: 0.42)
+            : AppColors.borderColor(context);
     final title = notificationTitle(l, notification);
     final body = notificationBody(l, notification).trim();
 
     return Card(
       elevation: 0,
       margin: const EdgeInsetsDirectional.only(bottom: AppSpacing.xs),
-      color: unread
-          ? AppColors.primaryColor(context).withValues(alpha: 0.035)
-          : AppColors.cardSurface(context),
+      color: needsAction
+          ? _priorityColor(context, notification).withValues(alpha: 0.035)
+          : unread
+              ? AppColors.primaryColor(context).withValues(alpha: 0.035)
+              : AppColors.cardSurface(context),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.large,
         side: BorderSide(color: borderColor),
@@ -66,6 +74,17 @@ class NotificationCard extends StatelessWidget {
                             label: moduleLabel(l, notification.module),
                           ),
                         ),
+                        if (needsAction || resolved) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Flexible(
+                            child: _StatePill(
+                              label: needsAction ? l.attentionNeeded : l.resolved,
+                              color: needsAction
+                                  ? _priorityColor(context, notification)
+                                  : AppColors.successColor(context),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: AppSpacing.xs),
                         Expanded(
                           child: Text(
@@ -306,6 +325,68 @@ class _UnreadDot extends StatelessWidget {
           shape: BoxShape.circle,
         ),
       ),
+    );
+  }
+}
+
+
+Color _priorityColor(BuildContext context, CrmNotification notification) {
+  return switch (notification.priority) {
+    CrmNotificationPriority.urgent => AppColors.errorColor(context),
+    CrmNotificationPriority.high => AppColors.warningColor(context),
+    CrmNotificationPriority.low => AppColors.textSecondaryColor(context),
+    CrmNotificationPriority.normal => AppColors.primaryColor(context),
+  };
+}
+
+class _StatePill extends StatelessWidget {
+  const _StatePill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineActionChip extends StatelessWidget {
+  const _InlineActionChip({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 15),
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      onPressed: onPressed,
     );
   }
 }

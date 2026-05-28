@@ -42,6 +42,16 @@ abstract interface class NotificationsRemoteDataSource {
     required String recipientUid,
     int limit,
   });
+
+  Future<void> markResolved({
+    required String companyId,
+    required String notificationId,
+  });
+
+  Future<void> dismiss({
+    required String companyId,
+    required String notificationId,
+  });
 }
 
 class FirestoreNotificationsRemoteDataSource
@@ -74,7 +84,7 @@ class FirestoreNotificationsRemoteDataSource
           notification: notification,
         );
         return notification;
-      }).toList()
+      }).where((notification) => !notification.isDismissed).toList()
         ..sort(_compareNotificationRecency);
       return notifications.take(limit).toList();
     }).handleError((Object error) {
@@ -91,6 +101,7 @@ class FirestoreNotificationsRemoteDataSource
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? unreadSub;
     Timer? timingRefreshTimer;
     var timingRefreshInFlight = false;
+    DateTime? lastActionableRefreshAt;
 
     Future<void> refreshTimingNotifications() async {
       if (timingRefreshInFlight || controller.isClosed) {
@@ -99,6 +110,12 @@ class FirestoreNotificationsRemoteDataSource
       timingRefreshInFlight = true;
       try {
         await _refreshAppointmentTimingNotifications(companyId: companyId);
+        final now = DateTime.now();
+        final lastRefresh = lastActionableRefreshAt;
+        if (lastRefresh == null || now.difference(lastRefresh).inMinutes >= 5) {
+          lastActionableRefreshAt = now;
+          await _refreshActionableReminderNotifications(companyId: companyId);
+        }
       } on FirebaseFunctionsException {
         // Best-effort safety net. Keep the bell usable if the callable has not
         // been deployed yet or the network is temporarily unavailable.
@@ -125,7 +142,7 @@ class FirestoreNotificationsRemoteDataSource
               recipientUid: recipientUid,
               notification: notification,
             );
-            if (!notification.isRead) {
+            if (!notification.isRead && !notification.isDismissed) {
               unreadCount += 1;
             }
           }
@@ -185,6 +202,7 @@ class FirestoreNotificationsRemoteDataSource
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? appointmentsSub;
     Timer? appointmentTicker;
     var timingRefreshInFlight = false;
+    DateTime? lastActionableRefreshAt;
 
     Future<void> refreshTimingNotifications() async {
       if (timingRefreshInFlight || controller.isClosed) {
@@ -193,6 +211,12 @@ class FirestoreNotificationsRemoteDataSource
       timingRefreshInFlight = true;
       try {
         await _refreshAppointmentTimingNotifications(companyId: companyId);
+        final now = DateTime.now();
+        final lastRefresh = lastActionableRefreshAt;
+        if (lastRefresh == null || now.difference(lastRefresh).inMinutes >= 5) {
+          lastActionableRefreshAt = now;
+          await _refreshActionableReminderNotifications(companyId: companyId);
+        }
       } on FirebaseFunctionsException {
         // Timing refresh is a best-effort safety net. The scheduled backend
         // function remains the source of truth, so do not break the
@@ -366,6 +390,47 @@ class FirestoreNotificationsRemoteDataSource
       if (hasUpdates) {
         await batch.commit();
       }
+    } on FirebaseException catch (error) {
+      throw NotificationException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const NotificationException(AppErrorMessages.unknown);
+    }
+  }
+
+
+  @override
+  Future<void> markResolved({
+    required String companyId,
+    required String notificationId,
+  }) async {
+    try {
+      await _notificationsCollection(companyId).doc(notificationId).update({
+        'isRead': true,
+        'readAt': FieldValue.serverTimestamp(),
+        'actionState': 'resolved',
+        'resolvedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (error) {
+      throw NotificationException(_mapFirestoreError(error));
+    } catch (_) {
+      throw const NotificationException(AppErrorMessages.unknown);
+    }
+  }
+
+  @override
+  Future<void> dismiss({
+    required String companyId,
+    required String notificationId,
+  }) async {
+    try {
+      await _notificationsCollection(companyId).doc(notificationId).update({
+        'isRead': true,
+        'readAt': FieldValue.serverTimestamp(),
+        'actionState': 'dismissed',
+        'dismissedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } on FirebaseException catch (error) {
       throw NotificationException(_mapFirestoreError(error));
     } catch (_) {
@@ -627,6 +692,18 @@ class FirestoreNotificationsRemoteDataSource
   }) async {
     final callable = _functions.httpsCallable(
       'refreshAppointmentTimingNotifications',
+    );
+    await callable.call(<String, Object?>{
+      'companyId': companyId,
+    });
+  }
+
+
+  Future<void> _refreshActionableReminderNotifications({
+    required String companyId,
+  }) async {
+    final callable = _functions.httpsCallable(
+      'refreshActionableReminderNotifications',
     );
     await callable.call(<String, Object?>{
       'companyId': companyId,

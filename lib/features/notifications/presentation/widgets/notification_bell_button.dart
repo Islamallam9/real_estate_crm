@@ -476,6 +476,12 @@ class _PanelNotificationList extends StatelessWidget {
                 companyId: companyId,
                 notification: notification,
               ),
+          onResolve: notification.needsAction
+              ? () => context.read<NotificationsCubit>().markResolved(
+                    companyId: companyId,
+                    notification: notification,
+                  )
+              : null,
           onOpen: () async {
             await context.read<NotificationsCubit>().markAsRead(
                   companyId: companyId,

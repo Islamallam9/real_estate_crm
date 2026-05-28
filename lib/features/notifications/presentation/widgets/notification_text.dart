@@ -85,16 +85,38 @@ String notificationTitle(AppLocalizations l, CrmNotification notification) {
     CrmNotificationType.taskDueToday => l.notificationTaskDueTodayTitle,
     CrmNotificationType.taskOverdue => l.notificationTaskOverdueTitle,
     CrmNotificationType.dataHealthIssue => l.notificationDataHealthIssueTitle,
-    CrmNotificationType.systemInfo => notification.fallbackTitle.trim().isEmpty
-        ? l.notificationSystemInfoTitle
-        : notification.fallbackTitle.trim(),
-    CrmNotificationType.unknown => notification.fallbackTitle.trim().isEmpty
-        ? l.notificationGenericTitle
-        : notification.fallbackTitle.trim(),
+    CrmNotificationType.systemInfo => _localizedNotificationText(
+          l,
+          notification,
+          arabicKey: 'titleAr',
+          englishKey: 'titleEn',
+          fallback: notification.fallbackTitle.trim().isEmpty
+              ? l.notificationSystemInfoTitle
+              : notification.fallbackTitle.trim(),
+        ),
+    CrmNotificationType.unknown => _localizedNotificationText(
+          l,
+          notification,
+          arabicKey: 'titleAr',
+          englishKey: 'titleEn',
+          fallback: notification.fallbackTitle.trim().isEmpty
+              ? l.notificationGenericTitle
+              : notification.fallbackTitle.trim(),
+        ),
   };
 }
 
 String notificationBody(AppLocalizations l, CrmNotification notification) {
+  final localizedBody = _localizedNotificationText(
+    l,
+    notification,
+    arabicKey: 'bodyAr',
+    englishKey: 'bodyEn',
+    fallback: '',
+  ).trim();
+  if (localizedBody.isNotEmpty) {
+    return localizedBody;
+  }
   final record = _recordLabel(l, notification.recordTitle);
   final actor = notification.actorName.trim();
   if (notification.type == CrmNotificationType.leadRemovedFromYou) {
@@ -194,9 +216,15 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
   }
   if (notification.type == CrmNotificationType.systemInfo ||
       notification.type == CrmNotificationType.unknown) {
-    return notification.fallbackBody.trim().isEmpty
-        ? l.notificationGenericBody(record)
-        : notification.fallbackBody.trim();
+    return _localizedNotificationText(
+      l,
+      notification,
+      arabicKey: 'bodyAr',
+      englishKey: 'bodyEn',
+      fallback: notification.fallbackBody.trim().isEmpty
+          ? l.notificationGenericBody(record)
+          : notification.fallbackBody.trim(),
+    );
   }
   if (notification.type == CrmNotificationType.dataHealthIssue) {
     final issueType = (notification.metadata['issueType'] ?? '')
@@ -211,6 +239,28 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
     return l.notificationRecordByActorBody(record, actor);
   }
   return l.notificationRecordBody(record);
+}
+
+String _localizedNotificationText(
+  AppLocalizations l,
+  CrmNotification notification, {
+  required String arabicKey,
+  required String englishKey,
+  required String fallback,
+}) {
+  final preferredKey = l.localeName.toLowerCase().startsWith('ar')
+      ? arabicKey
+      : englishKey;
+  final alternateKey = preferredKey == arabicKey ? englishKey : arabicKey;
+  final preferred = (notification.metadata[preferredKey] ?? '').toString().trim();
+  if (preferred.isNotEmpty) {
+    return preferred;
+  }
+  final alternate = (notification.metadata[alternateKey] ?? '').toString().trim();
+  if (alternate.isNotEmpty && fallback.trim().isEmpty) {
+    return alternate;
+  }
+  return fallback;
 }
 
 String reminderTitle(AppLocalizations l, AttentionReminder reminder) {

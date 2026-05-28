@@ -32,4 +32,14 @@ abstract interface class NotificationRepository {
     required String recipientUid,
     int limit,
   });
+
+  Future<void> markResolved({
+    required String companyId,
+    required String notificationId,
+  });
+
+  Future<void> dismiss({
+    required String companyId,
+    required String notificationId,
+  });
 }

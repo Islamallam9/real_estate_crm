@@ -23,6 +23,9 @@ class CrmNotificationModel extends CrmNotification {
     required super.isRead,
     required super.readAt,
     required super.createdAt,
+    required super.actionState,
+    required super.resolvedAt,
+    required super.dismissedAt,
     required super.metadata,
     super.fallbackTitle,
     super.fallbackBody,
@@ -57,6 +60,9 @@ class CrmNotificationModel extends CrmNotification {
       isRead: data['isRead'] as bool? ?? false,
       readAt: _dateTimeFromValue(data['readAt']),
       createdAt: _dateTimeFromValue(data['createdAt']),
+      actionState: _actionStateFromData(data),
+      resolvedAt: _dateTimeFromValue(data['resolvedAt']),
+      dismissedAt: _dateTimeFromValue(data['dismissedAt']),
       metadata: _metadataFromValue(data['metadata']),
       fallbackTitle: data['fallbackTitle'] as String? ?? '',
       fallbackBody: data['fallbackBody'] as String? ?? '',
@@ -82,4 +88,16 @@ DateTime? _dateTimeFromValue(Object? value) {
     return value;
   }
   return null;
+}
+
+CrmNotificationActionState _actionStateFromData(Map<String, dynamic> data) {
+  final stored = (data['actionState'] as String? ?? '').trim();
+  if (stored.isNotEmpty) {
+    return notificationActionStateFromValue(stored);
+  }
+  final type = notificationTypeFromValue(data['type'] as String? ?? '');
+  if (notificationTypeUsuallyNeedsAction(type)) {
+    return CrmNotificationActionState.actionNeeded;
+  }
+  return CrmNotificationActionState.none;
 }

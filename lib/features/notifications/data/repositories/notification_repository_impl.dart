@@ -76,4 +76,26 @@ class NotificationRepositoryImpl implements NotificationRepository {
       limit: limit,
     );
   }
+
+  @override
+  Future<void> markResolved({
+    required String companyId,
+    required String notificationId,
+  }) {
+    return _remoteDataSource.markResolved(
+      companyId: companyId,
+      notificationId: notificationId,
+    );
+  }
+
+  @override
+  Future<void> dismiss({
+    required String companyId,
+    required String notificationId,
+  }) {
+    return _remoteDataSource.dismiss(
+      companyId: companyId,
+      notificationId: notificationId,
+    );
+  }
 }
