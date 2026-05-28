@@ -36,7 +36,9 @@ import '../widgets/leads_scope.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 
 class LeadsListPage extends StatelessWidget {
-  const LeadsListPage({super.key});
+  const LeadsListPage({super.key, this.initialFilters = const {}});
+
+  final Map<String, String> initialFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +82,7 @@ class LeadsListPage extends StatelessWidget {
               canEdit: PermissionService.can(profile.role, AppPermission.editLead),
               canArchive: PermissionService.can(profile.role, AppPermission.archiveLead),
               roleName: profile.role.name,
+              initialFilters: initialFilters,
             ),
           );
         },
@@ -98,6 +101,7 @@ class _LeadsListContent extends StatefulWidget {
     required this.canEdit,
     required this.canArchive,
     required this.roleName,
+    required this.initialFilters,
   });
 
   final String companyId;
@@ -107,12 +111,15 @@ class _LeadsListContent extends StatefulWidget {
   final bool canEdit;
   final bool canArchive;
   final String roleName;
+  final Map<String, String> initialFilters;
 
   @override
   State<_LeadsListContent> createState() => _LeadsListContentState();
 }
 
 class _LeadsListContentState extends State<_LeadsListContent> {
+  String? _appliedFilterSignature;
+
   String? get _assignedToFilter {
     return widget.roleName == 'salesAgent' ||
             widget.roleName == 'marketing' ||
@@ -138,6 +145,9 @@ class _LeadsListContentState extends State<_LeadsListContent> {
         oldWidget.uid != widget.uid ||
         oldWidget.roleName != widget.roleName) {
       _watchScopedLeads();
+    } else if (_filterSignature(oldWidget.initialFilters) !=
+        _filterSignature(widget.initialFilters)) {
+      _applyInitialFiltersIfNeeded();
     }
   }
 
@@ -151,6 +161,25 @@ class _LeadsListContentState extends State<_LeadsListContent> {
       managerId: _managerIdFilter,
       archiveFilter: context.read<LeadsCubit>().state.archiveFilter,
     );
+    _applyInitialFiltersIfNeeded();
+  }
+
+  void _applyInitialFiltersIfNeeded() {
+    final signature = _filterSignature(widget.initialFilters);
+    if (signature.isEmpty || _appliedFilterSignature == signature) {
+      return;
+    }
+    _appliedFilterSignature = signature;
+    final cubit = context.read<LeadsCubit>();
+    final filters = widget.initialFilters;
+    cubit.setStatusFilter(_enumByName(LeadStatus.values, filters['status']));
+    cubit.setSourceFilter(_enumByName(LeadSource.values, filters['source']));
+    cubit.setPriorityFilter(_enumByName(LeadPriority.values, filters['priority']));
+    if (filters.containsKey('assignedTo')) {
+      cubit.setAssignedToFilter(filters['assignedTo'] ?? '');
+    }
+    cubit.setFollowUpFilter(_leadFollowUpFilter(filters['followUp']));
+    cubit.setWorkQueueFilter(_enumByName(LeadWorkQueueFilter.values, filters['queue']));
   }
 
   @override
@@ -336,6 +365,7 @@ class _LeadFilters extends StatelessWidget {
             previous.priorityFilter != current.priorityFilter ||
             previous.assignedToFilter != current.assignedToFilter ||
             previous.followUpFilter != current.followUpFilter ||
+            previous.workQueueFilter != current.workQueueFilter ||
             previous.archiveFilter != current.archiveFilter;
       },
       builder: (context, state) {
@@ -360,7 +390,8 @@ class _LeadFilters extends StatelessWidget {
                 state.sourceFilter != null ||
                 state.priorityFilter != null ||
                 state.assignedToFilter != null ||
-                state.followUpFilter != null;
+                state.followUpFilter != null ||
+                state.workQueueFilter != null;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -397,6 +428,7 @@ class _LeadFilters extends StatelessWidget {
                           cubit.setPriorityFilter(null);
                           cubit.setAssignedToFilter(null);
                           cubit.setFollowUpFilter(null);
+                          cubit.setWorkQueueFilter(null);
                         },
                       ),
                     ],
@@ -511,6 +543,8 @@ class _LeadActiveFilterChips extends StatelessWidget {
         _FilterChipPill(label: _priorityLabel(l, state.priorityFilter)),
       if (state.followUpFilter != null)
         _FilterChipPill(label: _followUpFilterLabel(l, state.followUpFilter)),
+      if (state.workQueueFilter != null)
+        _FilterChipPill(label: _workQueueFilterLabel(l, state.workQueueFilter!)),
       if (showAssignee && state.assignedToFilter != null)
         _FilterChipPill(
           label: _userNameForFilter(
@@ -589,6 +623,14 @@ class _MobileLeadFilters extends StatelessWidget {
     }
 
     final cubit = context.read<LeadsCubit>();
+    final hasFilters =
+        state.searchQuery.trim().isNotEmpty ||
+        state.statusFilter != null ||
+        state.sourceFilter != null ||
+        state.priorityFilter != null ||
+        state.assignedToFilter != null ||
+        state.followUpFilter != null ||
+        state.workQueueFilter != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -615,6 +657,31 @@ class _MobileLeadFilters extends StatelessWidget {
             ),
           ],
         ),
+        if (hasFilters) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: AppButton(
+              label: localizations.clearFilters,
+              variant: AppButtonVariant.secondary,
+              onPressed: () {
+                cubit.setSearchQuery('');
+                cubit.setStatusFilter(null);
+                cubit.setSourceFilter(null);
+                cubit.setPriorityFilter(null);
+                cubit.setAssignedToFilter(null);
+                cubit.setFollowUpFilter(null);
+                cubit.setWorkQueueFilter(null);
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          _LeadActiveFilterChips(
+            state: state,
+            users: users,
+            showAssignee: showAssignee,
+          ),
+        ],
         if (showArchiveFilter) ...[
           const SizedBox(height: AppSpacing.sm),
           _LeadArchiveSegmentedFilter(
@@ -714,6 +781,7 @@ List<_LeadFilterOption<String>> _assigneeFilterOptions(
 
   return [
     _LeadFilterOption<String>.all(),
+    const _LeadFilterOption<String>.value(''),
     for (final user in assignableUsers)
       _LeadFilterOption<String>.value(user.uid),
   ];
@@ -758,6 +826,7 @@ void _showLeadFiltersSheet(
       LeadPriority? priority = state.priorityFilter;
       String? assignee = state.assignedToFilter;
       LeadFollowUpFilter? followUp = state.followUpFilter;
+      LeadWorkQueueFilter? workQueue = state.workQueueFilter;
 
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -883,6 +952,25 @@ void _showLeadFiltersSheet(
                           },
                         ),
                       ),
+                      SizedBox(
+                        width: 210,
+                        child:
+                        AppDropdown<_LeadFilterOption<LeadWorkQueueFilter>>(
+                          label: localizations.dashboardOverviewTab,
+                          value: _LeadFilterOption.fromValue(workQueue),
+                          items: _leadFilterOptions(LeadWorkQueueFilter.values),
+                          itemLabelBuilder: (item) => item.isAll
+                              ? localizations.viewAll
+                              : _workQueueFilterLabel(
+                            localizations,
+                            item.value!,
+                          ),
+                          onChanged: (option) {
+                            setSheetState(() => workQueue = option.value);
+                            cubit.setWorkQueueFilter(option.value);
+                          },
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -896,12 +984,14 @@ void _showLeadFiltersSheet(
                         priority = null;
                         assignee = null;
                         followUp = null;
+                        workQueue = null;
                       });
                       cubit.setStatusFilter(null);
                       cubit.setSourceFilter(null);
                       cubit.setPriorityFilter(null);
                       cubit.setAssignedToFilter(null);
                       cubit.setFollowUpFilter(null);
+                      cubit.setWorkQueueFilter(null);
                       Navigator.of(sheetContext).pop();
                     },
                   ),
@@ -2113,6 +2203,37 @@ bool _can(AuthState state, AppPermission permission) {
   return role != null && PermissionService.can(role, permission);
 }
 
+String _filterSignature(Map<String, String> filters) {
+  final entries = filters.entries
+      .where((entry) => entry.value.trim().isNotEmpty || entry.key == 'assignedTo')
+      .toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  final clean = name?.trim();
+  if (clean == null || clean.isEmpty) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == clean) {
+      return value;
+    }
+  }
+  return null;
+}
+
+LeadFollowUpFilter? _leadFollowUpFilter(String? value) {
+  return switch (value?.trim()) {
+    'overdue' => LeadFollowUpFilter.overdue,
+    'dueToday' => LeadFollowUpFilter.dueToday,
+    'upcoming' => LeadFollowUpFilter.upcoming,
+    'noFollowUp' || 'notScheduled' => LeadFollowUpFilter.notScheduled,
+    _ => null,
+  };
+}
+
 class _LeadListColors {
   const _LeadListColors({
     required this.cardSurface,
@@ -2305,6 +2426,18 @@ String _followUpFilterLabel(
     LeadFollowUpFilter.dueToday => localizations.dueToday,
     LeadFollowUpFilter.upcoming => localizations.upcoming,
     LeadFollowUpFilter.notScheduled => localizations.notScheduled,
+  };
+}
+
+String _workQueueFilterLabel(
+  AppLocalizations localizations,
+  LeadWorkQueueFilter filter,
+) {
+  return switch (filter) {
+    LeadWorkQueueFilter.active => localizations.activeLeads,
+    LeadWorkQueueFilter.hot => localizations.dashboardKpiHotOpportunities,
+    LeadWorkQueueFilter.stale => localizations.staleLead,
+    LeadWorkQueueFilter.unassigned => localizations.unassignedLeads,
   };
 }
 

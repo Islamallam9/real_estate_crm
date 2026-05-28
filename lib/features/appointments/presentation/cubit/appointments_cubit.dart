@@ -202,10 +202,27 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       state.copyWith(
         dateFilter: dateFilter,
         clearDateFilter: dateFilter == null,
+        clearSelectedDateFilter: true,
         filteredAppointments: _applyFilters(
           state.appointments,
           dateFilter: dateFilter,
           overrideDateFilter: true,
+          selectedDateFilter: null,
+          overrideSelectedDateFilter: true,
+        ),
+      ),
+    );
+  }
+
+  void setSelectedDateFilter(DateTime? selectedDateFilter) {
+    emit(
+      state.copyWith(
+        selectedDateFilter: selectedDateFilter,
+        clearSelectedDateFilter: selectedDateFilter == null,
+        filteredAppointments: _applyFilters(
+          state.appointments,
+          selectedDateFilter: selectedDateFilter,
+          overrideSelectedDateFilter: true,
         ),
       ),
     );
@@ -229,16 +246,19 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         clearStatusFilter: true,
         clearTypeFilter: true,
         clearDateFilter: true,
+        clearSelectedDateFilter: true,
         filteredAppointments: _applyFilters(
           state.appointments,
           searchQuery: '',
           statusFilter: null,
           typeFilter: null,
           dateFilter: null,
+          selectedDateFilter: null,
           assignedToFilter: '',
           overrideStatusFilter: true,
           overrideTypeFilter: true,
           overrideDateFilter: true,
+          overrideSelectedDateFilter: true,
         ),
       ),
     );
@@ -418,10 +438,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     AppointmentStatus? statusFilter,
     AppointmentType? typeFilter,
     AppointmentDateFilter? dateFilter,
+    DateTime? selectedDateFilter,
     String? assignedToFilter,
     bool overrideStatusFilter = false,
     bool overrideTypeFilter = false,
     bool overrideDateFilter = false,
+    bool overrideSelectedDateFilter = false,
   }) {
     final query = (searchQuery ?? state.searchQuery).trim().toLowerCase();
     final selectedStatus = overrideStatusFilter
@@ -429,9 +451,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         : statusFilter ?? state.statusFilter;
     final selectedType =
         overrideTypeFilter ? typeFilter : typeFilter ?? state.typeFilter;
-    final selectedDateFilter = overrideDateFilter
+    final selectedDatePreset = overrideDateFilter
         ? dateFilter
         : dateFilter ?? state.dateFilter;
+    final selectedSpecificDate = overrideSelectedDateFilter
+        ? selectedDateFilter
+        : selectedDateFilter ?? state.selectedDateFilter;
     final selectedAssignedTo =
         (assignedToFilter ?? state.assignedToFilter).trim();
     final now = DateTime.now();
@@ -448,8 +473,10 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           _effectiveStatus(appointment, now) == selectedStatus;
       final matchesType =
           selectedType == null || appointment.type == selectedType;
-      final matchesDate = selectedDateFilter == null ||
-          _matchesDateFilter(appointment, selectedDateFilter, now);
+      final matchesDate = selectedSpecificDate == null
+          ? selectedDatePreset == null ||
+              _matchesDateFilter(appointment, selectedDatePreset, now)
+          : _matchesSelectedDate(appointment, selectedSpecificDate);
       final matchesAssignedTo = selectedAssignedTo.isEmpty ||
           appointment.assignedTo == selectedAssignedTo;
       return matchesSearch &&
@@ -489,9 +516,23 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
             (day == today || scheduledAt.isAfter(now));
       case AppointmentDateFilter.missed:
         return isMissed;
+      case AppointmentDateFilter.feedbackNeeded:
+        final endAt = (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
+        return appointment.status == AppointmentStatus.completed &&
+            appointment.outcomeNotes.trim().isEmpty &&
+            endAt != null &&
+            endAt.isBefore(now);
       case AppointmentDateFilter.all:
         return true;
     }
+  }
+
+  bool _matchesSelectedDate(Appointment appointment, DateTime selectedDate) {
+    final scheduledAt = appointment.scheduledAt;
+    if (scheduledAt == null) {
+      return false;
+    }
+    return _dateOnly(scheduledAt.toLocal()) == _dateOnly(selectedDate);
   }
 
   int _compareAppointments(Appointment a, Appointment b, DateTime now) {

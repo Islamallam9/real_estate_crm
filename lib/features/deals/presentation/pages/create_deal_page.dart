@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../users/domain/entities/user_profile.dart';
 import '../cubit/deals_cubit.dart';
 import '../cubit/deals_state.dart';
 import '../widgets/deal_form.dart';
@@ -111,13 +112,19 @@ class _CreateDealView extends StatelessWidget {
                               assignedTo: canEditAssignment ? null : user.uid,
                               managerId: role == UserRole.manager ? user.uid : null,
                               builder: (context, data) {
+                                final eligibleDealUsers = eligibleDealAssigneesForRole(
+                                  users: data.users,
+                                  role: role,
+                                  currentUserId: user.uid,
+                                  currentTeamId: userProfile.teamId,
+                                );
                                 return DealForm(
                                   companyId: userProfile.companyId,
                                   actorUid: user.uid,
                                   clients: data.clients,
                                   leads: data.leads,
                                   properties: data.properties,
-                                  users: data.users,
+                                  users: eligibleDealUsers,
                                   canEditAssignment: canEditAssignment,
                                   assignedTo: assignedTo,
                                   assignedToName: assignedToName,
@@ -163,6 +170,36 @@ class _CreateDealView extends StatelessWidget {
             ),
     );
   }
+}
+
+
+List<UserProfile> eligibleDealAssigneesForRole({
+  required List<UserProfile> users,
+  required UserRole role,
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final normalizedTeamId = currentTeamId.trim();
+  return users.where((candidate) {
+    if (!candidate.isActive || candidate.role != UserRole.salesAgent) {
+      return false;
+    }
+    if (role == UserRole.manager) {
+      final sameManager = candidate.managerId.trim() == currentUserId;
+      final sameTeam = normalizedTeamId.isNotEmpty &&
+          candidate.teamId.trim() == normalizedTeamId;
+      return sameManager || sameTeam;
+    }
+    if (role == UserRole.admin) {
+      return true;
+    }
+    return candidate.uid == currentUserId;
+  }).toList()
+    ..sort((a, b) {
+      final aLabel = a.fullName.trim().isEmpty ? a.email : a.fullName;
+      final bLabel = b.fullName.trim().isEmpty ? b.email : b.fullName;
+      return aLabel.compareTo(bLabel);
+    });
 }
 
 String localizeDealFormError(AppLocalizations l, String? message) {

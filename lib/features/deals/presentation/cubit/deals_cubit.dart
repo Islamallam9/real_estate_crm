@@ -172,6 +172,20 @@ class DealsCubit extends Cubit<DealsState> {
     );
   }
 
+  void setWorkQueueFilter(DealWorkQueueFilter? filter) {
+    emit(
+      state.copyWith(
+        workQueueFilter: filter,
+        clearWorkQueueFilter: filter == null,
+        filteredDeals: _applyFilters(
+          state.deals,
+          workQueueFilter: filter,
+          overrideWorkQueueFilter: true,
+        ),
+      ),
+    );
+  }
+
   void clearFilters() {
     emit(
       state.copyWith(
@@ -179,14 +193,17 @@ class DealsCubit extends Cubit<DealsState> {
         assignedToFilter: '',
         clearStageFilter: true,
         clearClosingDateFilter: true,
+        clearWorkQueueFilter: true,
         filteredDeals: _applyFilters(
           state.deals,
           searchQuery: '',
           stageFilter: null,
           assignedToFilter: '',
           closingDateFilter: null,
+          workQueueFilter: null,
           overrideStageFilter: true,
           overrideClosingDateFilter: true,
+          overrideWorkQueueFilter: true,
         ),
       ),
     );
@@ -459,8 +476,10 @@ class DealsCubit extends Cubit<DealsState> {
     DealStage? stageFilter,
     String? assignedToFilter,
     DealClosingDateFilter? closingDateFilter,
+    DealWorkQueueFilter? workQueueFilter,
     bool overrideStageFilter = false,
     bool overrideClosingDateFilter = false,
+    bool overrideWorkQueueFilter = false,
   }) {
     final query = (searchQuery ?? state.searchQuery).trim().toLowerCase();
     final selectedStage = overrideStageFilter
@@ -470,6 +489,9 @@ class DealsCubit extends Cubit<DealsState> {
     final selectedClosingFilter = overrideClosingDateFilter
         ? closingDateFilter
         : closingDateFilter ?? state.closingDateFilter;
+    final selectedWorkQueueFilter = overrideWorkQueueFilter
+        ? workQueueFilter
+        : workQueueFilter ?? state.workQueueFilter;
     final now = DateTime.now();
 
     return deals.where((deal) {
@@ -492,11 +514,42 @@ class DealsCubit extends Cubit<DealsState> {
           selectedAssignedTo.isEmpty || deal.assignedTo == selectedAssignedTo;
       final matchesClosingDate = selectedClosingFilter == null ||
           _matchesClosingDate(deal, selectedClosingFilter, now);
+      final matchesWorkQueue = selectedWorkQueueFilter == null ||
+          _matchesWorkQueue(deal, selectedWorkQueueFilter, now);
       return matchesSearch &&
           matchesStage &&
           matchesAssignee &&
-          matchesClosingDate;
+          matchesClosingDate &&
+          matchesWorkQueue;
     }).toList();
+  }
+
+  bool _matchesWorkQueue(
+    Deal deal,
+    DealWorkQueueFilter filter,
+    DateTime now,
+  ) {
+    final open = !deal.isArchived &&
+        deal.stage != DealStage.won &&
+        deal.stage != DealStage.lost;
+    switch (filter) {
+      case DealWorkQueueFilter.open:
+        return open;
+      case DealWorkQueueFilter.atRisk:
+        if (!open) {
+          return false;
+        }
+        final closingDate = deal.closingDate;
+        if (closingDate != null &&
+            !_dateOnly(closingDate.toLocal()).isAfter(_dateOnly(now))) {
+          return true;
+        }
+        final lastActivity = deal.updatedAt ?? deal.createdAt;
+        if (lastActivity == null) {
+          return false;
+        }
+        return now.difference(lastActivity.toLocal()).inDays >= 14;
+    }
   }
 
   bool _matchesClosingDate(
@@ -519,6 +572,10 @@ class DealsCubit extends Cubit<DealsState> {
       case DealClosingDateFilter.thisMonth:
         return day.year == today.year && day.month == today.month;
     }
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
 
   String _dealErrorMessage(Object error) {

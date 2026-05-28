@@ -28,6 +28,11 @@ class TaskForm extends StatefulWidget {
     this.assignedTo = '',
     this.relatedRecordsAssignedTo,
     this.relatedRecordsManagerId,
+    this.initialRelatedType,
+    this.initialRelatedId = '',
+    this.initialRelatedTitle = '',
+    this.initialRelatedSubtitle = '',
+    this.initialTitle = '',
     this.isSaving = false,
     this.submitLabel,
   });
@@ -42,6 +47,11 @@ class TaskForm extends StatefulWidget {
   final String assignedTo;
   final String? relatedRecordsAssignedTo;
   final String? relatedRecordsManagerId;
+  final TaskRelatedType? initialRelatedType;
+  final String initialRelatedId;
+  final String initialRelatedTitle;
+  final String initialRelatedSubtitle;
+  final String initialTitle;
   final bool isSaving;
   final String? submitLabel;
 
@@ -76,6 +86,19 @@ class _TaskFormState extends State<TaskForm> {
     _assignedTo = task?.assignedTo ?? widget.assignedTo;
     _syncAssignedSnapshot();
     if (task == null) {
+      _titleController.text = widget.initialTitle;
+      _relatedType = widget.initialRelatedType ?? TaskRelatedType.general;
+      _relatedId = widget.initialRelatedId.trim();
+      _relatedTitle = widget.initialRelatedTitle.trim();
+      _relatedSubtitle = widget.initialRelatedSubtitle.trim();
+      if (_relatedType != TaskRelatedType.general) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _loadRelatedOptions(_relatedType);
+        });
+      }
       return;
     }
 

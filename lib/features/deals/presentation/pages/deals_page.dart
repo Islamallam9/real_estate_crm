@@ -11,7 +11,6 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -37,7 +36,9 @@ import '../widgets/deal_list_table.dart';
 import '../widgets/deals_scope.dart';
 
 class DealsPage extends StatelessWidget {
-  const DealsPage({super.key});
+  const DealsPage({super.key, this.initialFilters = const {}});
+
+  final Map<String, String> initialFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +51,7 @@ class DealsPage extends StatelessWidget {
 
         return DealsScope(
           key: scopeKey,
-          child: const _DealsView(),
+          child: _DealsView(initialFilters: initialFilters),
         );
       },
     );
@@ -58,7 +59,9 @@ class DealsPage extends StatelessWidget {
 }
 
 class _DealsView extends StatefulWidget {
-  const _DealsView();
+  const _DealsView({required this.initialFilters});
+
+  final Map<String, String> initialFilters;
 
   @override
   State<_DealsView> createState() => _DealsViewState();
@@ -67,10 +70,23 @@ class _DealsView extends StatefulWidget {
 class _DealsViewState extends State<_DealsView> {
   final _searchController = TextEditingController();
   String? _watchKey;
+  String? _appliedFilterSignature;
+  String? _activeUsersCompanyId;
+  Stream<List<UserProfile>>? _activeUsersStream;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  Stream<List<UserProfile>> _activeUsersStreamFor(String companyId) {
+    if (_activeUsersCompanyId == companyId && _activeUsersStream != null) {
+      return _activeUsersStream!;
+    }
+
+    _activeUsersCompanyId = companyId;
+    _activeUsersStream = _watchActiveUsers(companyId).asBroadcastStream();
+    return _activeUsersStream!;
   }
 
   void _watchScopedDeals({
@@ -90,6 +106,36 @@ class _DealsViewState extends State<_DealsView> {
       currentUserId: uid,
       archiveFilter: archiveFilter,
     );
+    _applyInitialFiltersIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DealsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_filterSignature(oldWidget.initialFilters) !=
+        _filterSignature(widget.initialFilters)) {
+      _applyInitialFiltersIfNeeded();
+    }
+  }
+
+  void _applyInitialFiltersIfNeeded() {
+    final signature = _filterSignature(widget.initialFilters);
+    if (signature.isEmpty || _appliedFilterSignature == signature) {
+      return;
+    }
+    _appliedFilterSignature = signature;
+    final filters = widget.initialFilters;
+    final cubit = context.read<DealsCubit>();
+    cubit.setWorkQueueFilter(
+      _enumByName(DealWorkQueueFilter.values, filters['queue']),
+    );
+    cubit.setStageFilter(_enumByName(DealStage.values, filters['stage']));
+    cubit.setClosingDateFilter(
+      _enumByName(DealClosingDateFilter.values, filters['closing']),
+    );
+    if (filters.containsKey('assignedTo')) {
+      cubit.setAssignedToFilter(filters['assignedTo'] ?? '');
+    }
   }
 
   @override
@@ -147,7 +193,7 @@ class _DealsViewState extends State<_DealsView> {
       child: !canView
           ? AppErrorView(message: l.permissionDenied)
           : StreamBuilder<List<UserProfile>>(
-              stream: canFilterAssignee ? _watchActiveUsers(companyId) : null,
+              stream: canFilterAssignee ? _activeUsersStreamFor(companyId) : null,
               builder: (context, usersSnapshot) {
                 final users = usersSnapshot.data ?? const <UserProfile>[];
                 return BlocListener<DealsCubit, DealsState>(
@@ -233,18 +279,46 @@ class _DealsViewState extends State<_DealsView> {
                           );
 
                           if (isMobile) {
-                            return SingleChildScrollView(
-                              physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  header,
-                                  const SizedBox(height: AppSpacing.sm),
-                                  filters,
-                                  const SizedBox(height: AppSpacing.sm),
-                                  body,
-                                  const SizedBox(height: 96),
-                                ],
+                            return RefreshIndicator(
+                              displacement: 28,
+                              edgeOffset: 0,
+                              notificationPredicate: (notification) =>
+                                  notification.depth == 0,
+                              onRefresh: () async {
+                                if (!context.mounted) {
+                                  return;
+                                }
+
+                                context.read<DealsCubit>().watchDeals(
+                                      companyId: companyId,
+                                      role: role,
+                                      currentUserId: uid,
+                                      archiveFilter: state.archiveFilter,
+                                    );
+
+                                // Keep current stream content visible while Firestore
+                                // re-subscribes. This restores pull-to-refresh without
+                                // using the previous custom overscroll wrapper that could
+                                // leave mobile/web in a blank layer.
+                                await Future<void>.delayed(
+                                  const Duration(milliseconds: 420),
+                                );
+                              },
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: ClampingScrollPhysics(),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    header,
+                                    const SizedBox(height: AppSpacing.sm),
+                                    filters,
+                                    const SizedBox(height: AppSpacing.sm),
+                                    body,
+                                    const SizedBox(height: 96),
+                                  ],
+                                ),
                               ),
                             );
                           }
@@ -300,6 +374,7 @@ class _DealsFilters extends StatelessWidget {
     final hasFilters = state.searchQuery.trim().isNotEmpty ||
         state.stageFilter != null ||
         state.closingDateFilter != null ||
+        state.workQueueFilter != null ||
         state.assignedToFilter.trim().isNotEmpty;
 
     void clearFilters() {
@@ -439,6 +514,10 @@ class _DealsActiveFilterChips extends StatelessWidget {
         _DealFilterChipPill(
           label: _closingFilterLabel(l, state.closingDateFilter!),
         ),
+      if (state.workQueueFilter != null)
+        _DealFilterChipPill(
+          label: _workQueueFilterLabel(l, state.workQueueFilter!),
+        ),
       if (canFilterAssignee && state.assignedToFilter.trim().isNotEmpty)
         _DealFilterChipPill(
           label: _assigneeLabel(l, users, state.assignedToFilter),
@@ -534,6 +613,18 @@ class _DealsFilterControls extends StatelessWidget {
             onChanged: (option) => cubit.setClosingDateFilter(option.value),
           ),
         ),
+        SizedBox(
+          width: 210,
+          child: AppDropdown<_DealFilterOption<DealWorkQueueFilter>>(
+            label: l.dashboardWorkQueue,
+            value: _DealFilterOption.fromValue(state.workQueueFilter),
+            items: _filterOptions(DealWorkQueueFilter.values),
+            itemLabelBuilder: (option) => option.isAll
+                ? l.viewAll
+                : _workQueueFilterLabel(l, option.value!),
+            onChanged: (option) => cubit.setWorkQueueFilter(option.value),
+          ),
+        ),
         if (canFilterAssignee)
           SizedBox(
             width: 230,
@@ -552,6 +643,7 @@ class _DealsFilterControls extends StatelessWidget {
         if (state.searchQuery.trim().isNotEmpty ||
             state.stageFilter != null ||
             state.closingDateFilter != null ||
+            state.workQueueFilter != null ||
             state.assignedToFilter.trim().isNotEmpty)
           AppButton(
             label: l.clearFilters,
@@ -1086,9 +1178,37 @@ String _closingFilterLabel(AppLocalizations l, DealClosingDateFilter filter) {
   }
 }
 
+String _workQueueFilterLabel(AppLocalizations l, DealWorkQueueFilter filter) {
+  return switch (filter) {
+    DealWorkQueueFilter.open => l.openDeals,
+    DealWorkQueueFilter.atRisk => l.salesCommandMetricRisk,
+  };
+}
+
 double _tableHeightForRows(int count) {
   final rows = count.clamp(1, 8);
   return 49 + (rows * 58);
+}
+
+String _filterSignature(Map<String, String> filters) {
+  final entries = filters.entries
+      .where((entry) => entry.value.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  final clean = name?.trim();
+  if (clean == null || clean.isEmpty) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == clean) {
+      return value;
+    }
+  }
+  return null;
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

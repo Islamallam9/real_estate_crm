@@ -216,11 +216,17 @@ abstract final class AppRouter {
         ),
         GoRoute(
           path: RouteNames.leads,
-          pageBuilder: (context, state) => _calmPage(state, const LeadsListPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            LeadsListPage(initialFilters: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.properties,
-          pageBuilder: (context, state) => _calmPage(state, const PropertiesPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            PropertiesPage(initialFilters: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.clients,
@@ -228,15 +234,24 @@ abstract final class AppRouter {
         ),
         GoRoute(
           path: RouteNames.tasks,
-          pageBuilder: (context, state) => _calmPage(state, const TasksPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            TasksPage(initialFilters: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.appointments,
-          pageBuilder: (context, state) => _calmPage(state, const AppointmentsPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            AppointmentsPage(initialFilters: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.deals,
-          pageBuilder: (context, state) => _calmPage(state, const DealsPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            DealsPage(initialFilters: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.reports,
@@ -345,13 +360,16 @@ abstract final class AppRouter {
         ),
         GoRoute(
           path: RouteNames.tasksCreate,
-          pageBuilder: (context, state) => _calmPage(state, const CreateTaskPage()),
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            CreateTaskPage(initialValues: state.uri.queryParameters),
+          ),
         ),
         GoRoute(
           path: RouteNames.appointmentsCreate,
           pageBuilder: (context, state) => _calmPage(
             state,
-            const CreateAppointmentPage(),
+            CreateAppointmentPage(initialValues: state.uri.queryParameters),
           ),
         ),
         GoRoute(

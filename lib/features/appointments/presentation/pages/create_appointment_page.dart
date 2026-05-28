@@ -16,22 +16,29 @@ import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../domain/entities/appointment.dart';
 import '../cubit/appointments_cubit.dart';
 import '../cubit/appointments_state.dart';
 import '../widgets/appointment_form.dart';
 import '../widgets/appointments_scope.dart';
 
 class CreateAppointmentPage extends StatelessWidget {
-  const CreateAppointmentPage({super.key});
+  const CreateAppointmentPage({super.key, this.initialValues = const {}});
+
+  final Map<String, String> initialValues;
 
   @override
   Widget build(BuildContext context) {
-    return const AppointmentsScope(child: _CreateAppointmentView());
+    return AppointmentsScope(
+      child: _CreateAppointmentView(initialValues: initialValues),
+    );
   }
 }
 
 class _CreateAppointmentView extends StatelessWidget {
-  const _CreateAppointmentView();
+  const _CreateAppointmentView({required this.initialValues});
+
+  final Map<String, String> initialValues;
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +122,23 @@ class _CreateAppointmentView extends StatelessWidget {
                                     actorUid: user.uid,
                                     users: users,
                                     canEditAssignment: true,
+                                    assignedTo:
+                                        initialValues['assignedTo']?.trim() ??
+                                            '',
                                     relatedRecordsManagerId:
                                         role == UserRole.manager ? user.uid : null,
+                                    initialRelatedType:
+                                        _initialRelatedType(initialValues),
+                                    initialRelatedId:
+                                        initialValues['relatedId'] ?? '',
+                                    initialRelatedTitle:
+                                        initialValues['relatedTitle'] ?? '',
+                                    initialRelatedSubtitle:
+                                        initialValues['relatedSubtitle'] ?? '',
+                                    initialTitle: _initialTitle(
+                                      l,
+                                      initialValues['relatedTitle'],
+                                    ),
                                     isSaving: isSaving,
                                     submitLabel: l.saveAppointment,
                                     onSubmit: (appointment) {
@@ -154,6 +176,18 @@ class _CreateAppointmentView extends StatelessWidget {
                                             role == UserRole.marketing
                                         ? user.uid
                                         : null,
+                                initialRelatedType:
+                                    _initialRelatedType(initialValues),
+                                initialRelatedId:
+                                    initialValues['relatedId'] ?? '',
+                                initialRelatedTitle:
+                                    initialValues['relatedTitle'] ?? '',
+                                initialRelatedSubtitle:
+                                    initialValues['relatedSubtitle'] ?? '',
+                                initialTitle: _initialTitle(
+                                  l,
+                                  initialValues['relatedTitle'],
+                                ),
                                 isSaving: isSaving,
                                 submitLabel: l.saveAppointment,
                                 onSubmit: (appointment) {
@@ -192,4 +226,24 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+AppointmentRelatedType? _initialRelatedType(
+  Map<String, String> initialValues,
+) {
+  final value = initialValues['relatedType']?.trim();
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  for (final type in AppointmentRelatedType.values) {
+    if (type.name == value) {
+      return type;
+    }
+  }
+  return null;
+}
+
+String _initialTitle(AppLocalizations l, String? relatedTitle) {
+  final title = relatedTitle?.trim() ?? '';
+  return title.isEmpty ? '' : '${l.newAppointment}: $title';
 }

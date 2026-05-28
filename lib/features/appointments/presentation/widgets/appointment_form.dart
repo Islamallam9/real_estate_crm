@@ -28,6 +28,11 @@ class AppointmentForm extends StatefulWidget {
     this.assignedTo = '',
     this.relatedRecordsAssignedTo,
     this.relatedRecordsManagerId,
+    this.initialRelatedType,
+    this.initialRelatedId = '',
+    this.initialRelatedTitle = '',
+    this.initialRelatedSubtitle = '',
+    this.initialTitle = '',
     this.isSaving = false,
     this.submitLabel,
   });
@@ -42,6 +47,11 @@ class AppointmentForm extends StatefulWidget {
   final String assignedTo;
   final String? relatedRecordsAssignedTo;
   final String? relatedRecordsManagerId;
+  final AppointmentRelatedType? initialRelatedType;
+  final String initialRelatedId;
+  final String initialRelatedTitle;
+  final String initialRelatedSubtitle;
+  final String initialTitle;
   final bool isSaving;
   final String? submitLabel;
 
@@ -83,6 +93,19 @@ class _AppointmentFormState extends State<AppointmentForm> {
       final now = DateTime.now().add(const Duration(hours: 1));
       _date = DateTime(now.year, now.month, now.day);
       _startTime = TimeOfDay(hour: now.hour, minute: 0);
+      _titleController.text = widget.initialTitle;
+      _relatedType = widget.initialRelatedType ?? AppointmentRelatedType.general;
+      _relatedId = widget.initialRelatedId.trim();
+      _relatedTitle = widget.initialRelatedTitle.trim();
+      _relatedSubtitle = widget.initialRelatedSubtitle.trim();
+      if (_relatedType != AppointmentRelatedType.general) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _loadRelatedOptions(_relatedType);
+        });
+      }
       return;
     }
 

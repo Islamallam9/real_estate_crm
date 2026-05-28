@@ -9,6 +9,8 @@ enum LeadsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
 enum LeadFollowUpFilter { overdue, dueToday, upcoming, notScheduled }
 
+enum LeadWorkQueueFilter { active, hot, stale, unassigned }
+
 enum LeadsAction {
   none,
   createLead,
@@ -35,6 +37,7 @@ class LeadsState extends Equatable {
     this.priorityFilter,
     this.assignedToFilter,
     this.followUpFilter,
+    this.workQueueFilter,
     this.archiveFilter = ArchiveFilter.active,
     this.message,
     this.lastAction = LeadsAction.none,
@@ -53,6 +56,7 @@ class LeadsState extends Equatable {
       priorityFilter = null,
       assignedToFilter = null,
       followUpFilter = null,
+      workQueueFilter = null,
       archiveFilter = ArchiveFilter.active,
       message = null,
       lastAction = LeadsAction.none;
@@ -69,6 +73,7 @@ class LeadsState extends Equatable {
   final LeadPriority? priorityFilter;
   final String? assignedToFilter;
   final LeadFollowUpFilter? followUpFilter;
+  final LeadWorkQueueFilter? workQueueFilter;
   final ArchiveFilter archiveFilter;
   final String? message;
   final LeadsAction lastAction;
@@ -86,6 +91,7 @@ class LeadsState extends Equatable {
     LeadPriority? priorityFilter,
     String? assignedToFilter,
     LeadFollowUpFilter? followUpFilter,
+    LeadWorkQueueFilter? workQueueFilter,
     ArchiveFilter? archiveFilter,
     String? message,
     LeadsAction? lastAction,
@@ -97,6 +103,7 @@ class LeadsState extends Equatable {
     bool clearPriorityFilter = false,
     bool clearAssignedToFilter = false,
     bool clearFollowUpFilter = false,
+    bool clearWorkQueueFilter = false,
   }) {
     return LeadsState(
       status: status ?? this.status,
@@ -123,6 +130,9 @@ class LeadsState extends Equatable {
       followUpFilter: clearFollowUpFilter
           ? null
           : followUpFilter ?? this.followUpFilter,
+      workQueueFilter: clearWorkQueueFilter
+          ? null
+          : workQueueFilter ?? this.workQueueFilter,
       archiveFilter: archiveFilter ?? this.archiveFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
@@ -145,6 +155,7 @@ class LeadsState extends Equatable {
     priorityFilter,
     assignedToFilter,
     followUpFilter,
+    workQueueFilter,
     archiveFilter,
     message,
     lastAction,

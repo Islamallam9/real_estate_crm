@@ -87,6 +87,7 @@ class TasksState extends Equatable {
     bool clearLastAction = false,
     bool clearSelectedTask = false,
     bool clearRelatedRecords = false,
+    bool clearAssignedToFilter = false,
   }) {
     return TasksState(
       status: status ?? this.status,
@@ -101,7 +102,9 @@ class TasksState extends Equatable {
       dueDateFilter: clearDueDateFilter
           ? null
           : dueDateFilter ?? this.dueDateFilter,
-      assignedToFilter: assignedToFilter ?? this.assignedToFilter,
+      assignedToFilter: clearAssignedToFilter
+          ? ''
+          : assignedToFilter ?? this.assignedToFilter,
       relatedRecordsStatus: clearRelatedRecords
           ? TaskRelatedRecordsStatus.initial
           : relatedRecordsStatus ?? this.relatedRecordsStatus,

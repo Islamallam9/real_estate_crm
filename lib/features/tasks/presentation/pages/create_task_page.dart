@@ -18,24 +18,27 @@ import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../domain/entities/crm_task.dart';
 import '../cubit/tasks_cubit.dart';
 import '../cubit/tasks_state.dart';
 import '../widgets/task_form.dart';
 import '../widgets/tasks_scope.dart';
 
 class CreateTaskPage extends StatelessWidget {
-  const CreateTaskPage({super.key});
+  const CreateTaskPage({super.key, this.initialValues = const {}});
 
+  final Map<String, String> initialValues;
 
   @override
   Widget build(BuildContext context) {
-    return const TasksScope(child: _CreateTaskView());
+    return TasksScope(child: _CreateTaskView(initialValues: initialValues));
   }
 }
 
 class _CreateTaskView extends StatelessWidget {
-  const _CreateTaskView();
+  const _CreateTaskView({required this.initialValues});
 
+  final Map<String, String> initialValues;
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +123,16 @@ class _CreateTaskView extends StatelessWidget {
                                   );
                                 }
                                 final users = usersSnapshot.data ?? const [];
+                                final taskAssignees = eligibleTaskAssigneesForRole(
+                                  users: users,
+                                  role: role,
+                                  currentUserId: user.uid,
+                                  currentTeamId: userProfile.teamId,
+                                );
                                 return TaskForm(
                                   companyId: userProfile.companyId,
                                   actorUid: user.uid,
-                                  users: users,
+                                  users: taskAssignees,
                                   canEditAssignment:
                                       role == UserRole.admin ||
                                       role == UserRole.manager,
@@ -131,6 +140,23 @@ class _CreateTaskView extends StatelessWidget {
                                       role == UserRole.salesAgent ? user.uid : null,
                                   relatedRecordsManagerId:
                                       role == UserRole.manager ? user.uid : null,
+                                  assignedTo: _initialAssignee(
+                                    role: role,
+                                    currentUserId: user.uid,
+                                    initialValues: initialValues,
+                                  ),
+                                  initialRelatedType:
+                                      _initialRelatedType(initialValues),
+                                  initialRelatedId:
+                                      initialValues['relatedId'] ?? '',
+                                  initialRelatedTitle:
+                                      initialValues['relatedTitle'] ?? '',
+                                  initialRelatedSubtitle:
+                                      initialValues['relatedSubtitle'] ?? '',
+                                  initialTitle: _initialTitle(
+                                    l,
+                                    initialValues['relatedTitle'],
+                                  ),
                                   isSaving: isSaving,
                                   submitLabel: l.createTask,
                                   onSubmit: (task) {
@@ -142,13 +168,20 @@ class _CreateTaskView extends StatelessWidget {
                                       );
                                       return;
                                     }
-                                    if (role == UserRole.manager &&
-                                        task.managerId.trim() != user.uid) {
-                                      AppFeedback.warning(
-                                        context,
-                                        l.canOnlyAssignRecordsToYourTeam,
-                                      );
-                                      return;
+                                    if (role == UserRole.manager) {
+                                      final managerTeamId = userProfile.teamId.trim();
+                                      final inManagerScope =
+                                          task.assignedTo.trim() == user.uid ||
+                                          task.managerId.trim() == user.uid ||
+                                          (managerTeamId.isNotEmpty &&
+                                              task.teamId.trim() == managerTeamId);
+                                      if (!inManagerScope) {
+                                        AppFeedback.warning(
+                                          context,
+                                          l.canOnlyAssignRecordsToYourTeam,
+                                        );
+                                        return;
+                                      }
                                     }
                                     context.read<TasksCubit>().createTask(
                                       companyId: userProfile.companyId,
@@ -182,4 +215,70 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+TaskRelatedType? _initialRelatedType(Map<String, String> initialValues) {
+  final value = initialValues['relatedType']?.trim();
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  for (final type in TaskRelatedType.values) {
+    if (type.name == value) {
+      return type;
+    }
+  }
+  return null;
+}
+
+String _initialAssignee({
+  required UserRole role,
+  required String currentUserId,
+  required Map<String, String> initialValues,
+}) {
+  if (role == UserRole.salesAgent || role == UserRole.marketing) {
+    return currentUserId;
+  }
+  return initialValues['assignedTo']?.trim() ?? '';
+}
+
+String _initialTitle(AppLocalizations l, String? relatedTitle) {
+  final title = relatedTitle?.trim() ?? '';
+  return title.isEmpty ? '' : '${l.followUps}: $title';
+}
+
+List<UserProfile> eligibleTaskAssigneesForRole({
+  required List<UserProfile> users,
+  required UserRole role,
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final normalizedTeamId = currentTeamId.trim();
+  return users.where((candidate) {
+    if (!candidate.isActive) {
+      return false;
+    }
+    final canOwnTask = candidate.role == UserRole.admin ||
+        candidate.role == UserRole.manager ||
+        candidate.role == UserRole.salesAgent ||
+        candidate.role == UserRole.marketing;
+    if (!canOwnTask) {
+      return false;
+    }
+    if (role == UserRole.admin) {
+      return true;
+    }
+    if (role == UserRole.manager) {
+      final isSelf = candidate.uid == currentUserId;
+      final sameManager = candidate.managerId.trim() == currentUserId;
+      final sameTeam = normalizedTeamId.isNotEmpty &&
+          candidate.teamId.trim() == normalizedTeamId;
+      return isSelf || sameManager || sameTeam;
+    }
+    return candidate.uid == currentUserId;
+  }).toList()
+    ..sort((a, b) {
+      final aLabel = a.fullName.trim().isEmpty ? a.email : a.fullName;
+      final bLabel = b.fullName.trim().isEmpty ? b.email : b.fullName;
+      return aLabel.compareTo(bLabel);
+    });
 }

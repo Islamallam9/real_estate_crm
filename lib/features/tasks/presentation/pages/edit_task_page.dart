@@ -167,11 +167,17 @@ class _EditTaskViewState extends State<_EditTaskView> {
                             );
                           }
                           final users = usersSnapshot.data ?? const [];
+                          final taskAssignees = eligibleTaskAssigneesForRole(
+                            users: users,
+                            role: role!,
+                            currentUserId: uid,
+                            currentTeamId: session?.profile.teamId ?? '',
+                          );
                           return TaskForm(
                             companyId: companyId,
                             actorUid: uid,
                             task: task,
-                            users: users,
+                            users: taskAssignees,
                             canEditAssignment: true,
                             canEditStatus: true,
                             relatedRecordsAssignedTo:
@@ -184,13 +190,20 @@ class _EditTaskViewState extends State<_EditTaskView> {
                               if (_isSubmitting) {
                                 return;
                               }
-                              if (role == UserRole.manager &&
-                                  updatedTask.managerId.trim() != uid) {
-                                AppFeedback.warning(
-                                  context,
-                                  l.canOnlyAssignRecordsToYourTeam,
-                                );
-                                return;
+                              if (role == UserRole.manager) {
+                                final managerTeamId = session?.profile.teamId.trim() ?? '';
+                                final inManagerScope =
+                                    updatedTask.assignedTo.trim() == uid ||
+                                    updatedTask.managerId.trim() == uid ||
+                                    (managerTeamId.isNotEmpty &&
+                                        updatedTask.teamId.trim() == managerTeamId);
+                                if (!inManagerScope) {
+                                  AppFeedback.warning(
+                                    context,
+                                    l.canOnlyAssignRecordsToYourTeam,
+                                  );
+                                  return;
+                                }
                               }
                               setState(() => _isSubmitting = true);
                               context.read<TasksCubit>().updateTask(
@@ -261,4 +274,42 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+
+List<UserProfile> eligibleTaskAssigneesForRole({
+  required List<UserProfile> users,
+  required UserRole role,
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final normalizedTeamId = currentTeamId.trim();
+  return users.where((candidate) {
+    if (!candidate.isActive) {
+      return false;
+    }
+    final canOwnTask = candidate.role == UserRole.admin ||
+        candidate.role == UserRole.manager ||
+        candidate.role == UserRole.salesAgent ||
+        candidate.role == UserRole.marketing;
+    if (!canOwnTask) {
+      return false;
+    }
+    if (role == UserRole.admin) {
+      return true;
+    }
+    if (role == UserRole.manager) {
+      final isSelf = candidate.uid == currentUserId;
+      final sameManager = candidate.managerId.trim() == currentUserId;
+      final sameTeam = normalizedTeamId.isNotEmpty &&
+          candidate.teamId.trim() == normalizedTeamId;
+      return isSelf || sameManager || sameTeam;
+    }
+    return candidate.uid == currentUserId;
+  }).toList()
+    ..sort((a, b) {
+      final aLabel = a.fullName.trim().isEmpty ? a.email : a.fullName;
+      final bLabel = b.fullName.trim().isEmpty ? b.email : b.fullName;
+      return aLabel.compareTo(bLabel);
+    });
 }

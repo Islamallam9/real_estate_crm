@@ -290,7 +290,8 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collection(FirebasePaths.companyClients(companyId))
-        .where('isActive', isEqualTo: true);
+        .where('isActive', isEqualTo: true)
+        .where('isArchived', isEqualTo: false);
     if (managerId != null && managerId.trim().isNotEmpty) {
       query = query.where('managerId', isEqualTo: managerId.trim());
     } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
@@ -303,6 +304,10 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       final data = document.data();
       if ((data['companyId'] as String? ?? '') != companyId) {
         throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      if ((data['isActive'] as bool? ?? true) == false ||
+          (data['isArchived'] as bool? ?? false)) {
+        continue;
       }
       options.add(
         TaskRelatedRecordOption(
@@ -341,7 +346,8 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       if ((data['companyId'] as String? ?? '') != companyId) {
         throw const TaskException(AppErrorMessages.permissionDenied);
       }
-      if ((data['status'] as String? ?? '') == 'inactive') {
+      if ((data['status'] as String? ?? '') == 'inactive' ||
+          (data['isArchived'] as bool? ?? false)) {
         continue;
       }
       final location = data['location'] as String? ?? '';
@@ -379,6 +385,10 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       final data = document.data();
       if ((data['companyId'] as String? ?? '') != companyId) {
         throw const TaskException(AppErrorMessages.permissionDenied);
+      }
+      if ((data['isActive'] as bool? ?? true) == false ||
+          (data['isArchived'] as bool? ?? false)) {
+        continue;
       }
       final clientName = data['clientName'] as String? ?? '';
       final propertyTitle = data['propertyTitle'] as String? ?? '';

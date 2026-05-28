@@ -134,6 +134,7 @@ class LeadsCubit extends Cubit<LeadsState> {
               priorityFilter: state.priorityFilter,
               assignedToFilter: state.assignedToFilter,
               followUpFilter: state.followUpFilter,
+              workQueueFilter: state.workQueueFilter,
             );
             emit(
               state.copyWith(
@@ -192,6 +193,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
+          workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
@@ -210,6 +212,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
+          workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
@@ -228,6 +231,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
+          workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
@@ -246,6 +250,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: priority,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
+          workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
@@ -264,6 +269,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: assignedTo,
           followUpFilter: state.followUpFilter,
+          workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
@@ -282,6 +288,26 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: followUpFilter,
+          workQueueFilter: state.workQueueFilter,
+        ),
+      ),
+    );
+  }
+
+  void setWorkQueueFilter(LeadWorkQueueFilter? workQueueFilter) {
+    emit(
+      state.copyWith(
+        workQueueFilter: workQueueFilter,
+        clearWorkQueueFilter: workQueueFilter == null,
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: state.searchQuery,
+          statusFilter: state.statusFilter,
+          sourceFilter: state.sourceFilter,
+          priorityFilter: state.priorityFilter,
+          assignedToFilter: state.assignedToFilter,
+          followUpFilter: state.followUpFilter,
+          workQueueFilter: workQueueFilter,
         ),
       ),
     );
@@ -1075,6 +1101,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     LeadPriority? priorityFilter,
     String? assignedToFilter,
     LeadFollowUpFilter? followUpFilter,
+    LeadWorkQueueFilter? workQueueFilter,
   }) {
     final query = (searchQuery ?? '').trim().toLowerCase();
     final status = statusFilter;
@@ -1082,6 +1109,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     final priority = priorityFilter;
     final assignedTo = assignedToFilter;
     final followUp = followUpFilter;
+    final workQueue = workQueueFilter;
 
     final filtered = leads.where((lead) {
       final matchesQuery =
@@ -1096,12 +1124,15 @@ class LeadsCubit extends Cubit<LeadsState> {
           assignedTo == null || lead.assignedTo == assignedTo;
       final matchesFollowUp =
           followUp == null || _matchesFollowUpFilter(lead, followUp);
+      final matchesWorkQueue =
+          workQueue == null || _matchesWorkQueueFilter(lead, workQueue);
       return matchesQuery &&
           matchesStatus &&
           matchesSource &&
           matchesPriority &&
           matchesAssignee &&
-          matchesFollowUp;
+          matchesFollowUp &&
+          matchesWorkQueue;
     }).toList();
 
     filtered.sort(_compareByFollowUpUrgency);
@@ -1139,6 +1170,59 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
     LeadFollowUpFilter.upcoming => followUpOnly.isAfter(todayOnly),
     LeadFollowUpFilter.notScheduled => false,
   };
+}
+
+bool _matchesWorkQueueFilter(Lead lead, LeadWorkQueueFilter filter) {
+  return switch (filter) {
+    LeadWorkQueueFilter.active => _isActiveLead(lead),
+    LeadWorkQueueFilter.hot => _isHotLead(lead),
+    LeadWorkQueueFilter.stale => _isStaleLead(lead),
+    LeadWorkQueueFilter.unassigned =>
+      _isActiveLead(lead) && lead.assignedTo.trim().isEmpty,
+  };
+}
+
+bool _isActiveLead(Lead lead) {
+  return !lead.isArchived &&
+      lead.status != LeadStatus.won &&
+      lead.status != LeadStatus.lost;
+}
+
+bool _isHotLead(Lead lead) {
+  return _isActiveLead(lead) &&
+      (lead.priority == LeadPriority.high ||
+          lead.status == LeadStatus.interested ||
+          lead.status == LeadStatus.visitScheduled ||
+          lead.status == LeadStatus.negotiation);
+}
+
+bool _isStaleLead(Lead lead) {
+  if (!_isActiveLead(lead)) {
+    return false;
+  }
+  final lastTouch = _latestDate([
+    lead.lastContactAt,
+    lead.updatedAt,
+    lead.createdAt,
+  ]);
+  if (lastTouch == null) {
+    return false;
+  }
+  final today = _dateOnly(DateTime.now());
+  return today.difference(_dateOnly(lastTouch.toLocal())).inDays > 5;
+}
+
+DateTime? _latestDate(List<DateTime?> dates) {
+  DateTime? latest;
+  for (final date in dates) {
+    if (date == null) {
+      continue;
+    }
+    if (latest == null || date.isAfter(latest)) {
+      latest = date;
+    }
+  }
+  return latest;
 }
 
 int _compareByFollowUpUrgency(Lead a, Lead b) {

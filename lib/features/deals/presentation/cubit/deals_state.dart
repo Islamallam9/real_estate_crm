@@ -9,6 +9,8 @@ enum DealsAction { none, createDeal, updateDeal, updateStage, archiveDeal, resto
 
 enum DealClosingDateFilter { past, thisWeek, thisMonth }
 
+enum DealWorkQueueFilter { open, atRisk }
+
 class DealsState extends Equatable {
   const DealsState({
     required this.status,
@@ -18,6 +20,7 @@ class DealsState extends Equatable {
     this.stageFilter,
     this.assignedToFilter = '',
     this.closingDateFilter,
+    this.workQueueFilter,
     this.archiveFilter = ArchiveFilter.active,
     this.message,
     this.lastAction = DealsAction.none,
@@ -31,6 +34,7 @@ class DealsState extends Equatable {
       stageFilter = null,
       assignedToFilter = '',
       closingDateFilter = null,
+      workQueueFilter = null,
       archiveFilter = ArchiveFilter.active,
       message = null,
       lastAction = DealsAction.none;
@@ -42,6 +46,7 @@ class DealsState extends Equatable {
   final DealStage? stageFilter;
   final String assignedToFilter;
   final DealClosingDateFilter? closingDateFilter;
+  final DealWorkQueueFilter? workQueueFilter;
   final ArchiveFilter archiveFilter;
   final String? message;
   final DealsAction lastAction;
@@ -54,11 +59,13 @@ class DealsState extends Equatable {
     DealStage? stageFilter,
     String? assignedToFilter,
     DealClosingDateFilter? closingDateFilter,
+    DealWorkQueueFilter? workQueueFilter,
     ArchiveFilter? archiveFilter,
     String? message,
     DealsAction? lastAction,
     bool clearStageFilter = false,
     bool clearClosingDateFilter = false,
+    bool clearWorkQueueFilter = false,
     bool clearMessage = false,
     bool clearLastAction = false,
   }) {
@@ -72,6 +79,9 @@ class DealsState extends Equatable {
       closingDateFilter: clearClosingDateFilter
           ? null
           : closingDateFilter ?? this.closingDateFilter,
+      workQueueFilter: clearWorkQueueFilter
+          ? null
+          : workQueueFilter ?? this.workQueueFilter,
       archiveFilter: archiveFilter ?? this.archiveFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? DealsAction.none : lastAction ?? this.lastAction,
@@ -87,6 +97,7 @@ class DealsState extends Equatable {
     stageFilter,
     assignedToFilter,
     closingDateFilter,
+    workQueueFilter,
     archiveFilter,
     message,
     lastAction,

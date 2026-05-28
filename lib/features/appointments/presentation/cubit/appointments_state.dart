@@ -16,7 +16,7 @@ enum AppointmentAction {
   reschedule,
 }
 
-enum AppointmentDateFilter { today, thisWeek, upcoming, missed, all }
+enum AppointmentDateFilter { today, thisWeek, upcoming, missed, feedbackNeeded, all }
 
 class AppointmentsState extends Equatable {
   const AppointmentsState({
@@ -28,6 +28,7 @@ class AppointmentsState extends Equatable {
     required this.statusFilter,
     required this.typeFilter,
     required this.dateFilter,
+    required this.selectedDateFilter,
     required this.assignedToFilter,
     required this.message,
     required this.lastAction,
@@ -46,6 +47,7 @@ class AppointmentsState extends Equatable {
         statusFilter = null,
         typeFilter = null,
         dateFilter = AppointmentDateFilter.today,
+        selectedDateFilter = null,
         assignedToFilter = '',
         message = null,
         lastAction = null,
@@ -62,6 +64,7 @@ class AppointmentsState extends Equatable {
   final AppointmentStatus? statusFilter;
   final AppointmentType? typeFilter;
   final AppointmentDateFilter? dateFilter;
+  final DateTime? selectedDateFilter;
   final String assignedToFilter;
   final String? message;
   final AppointmentAction? lastAction;
@@ -79,6 +82,7 @@ class AppointmentsState extends Equatable {
     AppointmentStatus? statusFilter,
     AppointmentType? typeFilter,
     AppointmentDateFilter? dateFilter,
+    DateTime? selectedDateFilter,
     String? assignedToFilter,
     String? message,
     AppointmentAction? lastAction,
@@ -92,6 +96,7 @@ class AppointmentsState extends Equatable {
     bool clearStatusFilter = false,
     bool clearTypeFilter = false,
     bool clearDateFilter = false,
+    bool clearSelectedDateFilter = false,
     bool clearRelatedRecords = false,
     bool clearRelatedRecordsMessage = false,
   }) {
@@ -109,6 +114,9 @@ class AppointmentsState extends Equatable {
           : statusFilter ?? this.statusFilter,
       typeFilter: clearTypeFilter ? null : typeFilter ?? this.typeFilter,
       dateFilter: clearDateFilter ? null : dateFilter ?? this.dateFilter,
+      selectedDateFilter: clearSelectedDateFilter
+          ? null
+          : selectedDateFilter ?? this.selectedDateFilter,
       assignedToFilter: assignedToFilter ?? this.assignedToFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? null : lastAction ?? this.lastAction,
@@ -136,6 +144,7 @@ class AppointmentsState extends Equatable {
         statusFilter,
         typeFilter,
         dateFilter,
+        selectedDateFilter,
         assignedToFilter,
         message,
         lastAction,

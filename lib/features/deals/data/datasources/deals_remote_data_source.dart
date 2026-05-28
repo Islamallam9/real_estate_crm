@@ -163,10 +163,60 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         updatedBy: deal.updatedBy,
         isArchived: false,
       );
-      await document.set(dealToSave.toFirestore());
-      return dealToSave;
+
+      final callable = _functions.httpsCallable('saveDealRecord');
+      final result = await callable.call<Map<String, dynamic>>({
+        'companyId': companyId,
+        'operation': 'create',
+        'deal': _dealFunctionsPayload(dealToSave),
+      });
+      final savedDealId = _stringFromCallableResult(result.data, 'dealId');
+      if (savedDealId.isEmpty) {
+        throw const DealException(AppErrorMessages.unknown);
+      }
+
+      // Do not immediately read the created document here. If local Firestore
+      // rules/indexes are not deployed yet, that follow-up read can fail with
+      // permission-denied even though the callable created the deal correctly.
+      // The Deals list stream will pick up the server-side document after the
+      // callable succeeds.
+      return DealModel(
+        id: savedDealId,
+        companyId: dealToSave.companyId,
+        clientId: dealToSave.clientId,
+        clientName: dealToSave.clientName,
+        clientEmail: dealToSave.clientEmail,
+        clientPhone: dealToSave.clientPhone,
+        leadId: dealToSave.leadId,
+        leadName: dealToSave.leadName,
+        leadPhone: dealToSave.leadPhone,
+        propertyId: dealToSave.propertyId,
+        propertyTitle: dealToSave.propertyTitle,
+        propertyLocation: dealToSave.propertyLocation,
+        assignedTo: dealToSave.assignedTo,
+        assignedToName: dealToSave.assignedToName,
+        assignedToEmail: dealToSave.assignedToEmail,
+        teamId: dealToSave.teamId,
+        teamName: dealToSave.teamName,
+        managerId: dealToSave.managerId,
+        managerName: dealToSave.managerName,
+        stage: dealToSave.stage,
+        expectedValue: dealToSave.expectedValue,
+        commission: dealToSave.commission,
+        closingDate: dealToSave.closingDate,
+        lostReason: dealToSave.lostReason,
+        notes: dealToSave.notes,
+        isActive: true,
+        createdAt: dealToSave.createdAt,
+        updatedAt: dealToSave.updatedAt,
+        createdBy: dealToSave.createdBy,
+        updatedBy: dealToSave.updatedBy,
+        isArchived: false,
+      );
     } on DealException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw DealException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw DealException(_mapFirestoreError(error));
     } catch (_) {
@@ -182,46 +232,106 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     _ensureSameCompany(companyId: companyId, deal: deal);
     _validateLostReason(deal.stage, deal.lostReason);
     try {
-      final document = _dealsCollection(companyId).doc(deal.id);
-      final snapshot = await document.get();
-      if (!snapshot.exists) {
-        throw const DealException(AppErrorMessages.notFound);
-      }
-      final existingDeal = DealModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, deal: existingDeal);
-      await document.update({
-        'clientId': deal.clientId,
-        'clientName': deal.clientName,
-        'clientEmail': deal.clientEmail,
-        'clientPhone': deal.clientPhone,
-        'leadId': deal.leadId,
-        'leadName': deal.leadName,
-        'leadPhone': deal.leadPhone,
-        'propertyId': deal.propertyId,
-        'propertyTitle': deal.propertyTitle,
-        'propertyLocation': deal.propertyLocation,
-        'assignedTo': deal.assignedTo,
-        'assignedToName': deal.assignedToName,
-        'assignedToEmail': deal.assignedToEmail,
-        'teamId': deal.teamId,
-        'teamName': deal.teamName,
-        'managerId': deal.managerId,
-        'managerName': deal.managerName,
-        'stage': dealStageToValue(deal.stage),
-        'expectedValue': deal.expectedValue,
-        'commission': deal.commission,
-        'closingDate': deal.closingDate == null
-            ? null
-            : Timestamp.fromDate(deal.closingDate!),
-        'lostReason': deal.stage == DealStage.lost ? deal.lostReason : '',
-        'notes': deal.notes,
-        'updatedAt': Timestamp.now(),
-        'updatedBy': deal.updatedBy,
+      final now = DateTime.now();
+      final dealToSave = DealModel(
+        id: deal.id,
+        companyId: companyId,
+        clientId: deal.clientId,
+        clientName: deal.clientName,
+        clientEmail: deal.clientEmail,
+        clientPhone: deal.clientPhone,
+        leadId: deal.leadId,
+        leadName: deal.leadName,
+        leadPhone: deal.leadPhone,
+        propertyId: deal.propertyId,
+        propertyTitle: deal.propertyTitle,
+        propertyLocation: deal.propertyLocation,
+        assignedTo: deal.assignedTo,
+        assignedToName: deal.assignedToName,
+        assignedToEmail: deal.assignedToEmail,
+        teamId: deal.teamId,
+        teamName: deal.teamName,
+        managerId: deal.managerId,
+        managerName: deal.managerName,
+        stage: deal.stage,
+        expectedValue: deal.expectedValue,
+        commission: deal.commission,
+        closingDate: deal.closingDate,
+        lostReason: deal.stage == DealStage.lost ? deal.lostReason : '',
+        notes: deal.notes,
+        isActive: deal.isActive,
+        createdAt: deal.createdAt,
+        updatedAt: now,
+        createdBy: deal.createdBy,
+        updatedBy: deal.updatedBy,
+        isArchived: deal.isArchived,
+        archivedAt: deal.archivedAt,
+        archivedBy: deal.archivedBy,
+        archivedByName: deal.archivedByName,
+        archiveReason: deal.archiveReason,
+        restoredAt: deal.restoredAt,
+        restoredBy: deal.restoredBy,
+        restoredByName: deal.restoredByName,
+      );
+
+      final callable = _functions.httpsCallable('saveDealRecord');
+      final result = await callable.call<Map<String, dynamic>>({
+        'companyId': companyId,
+        'operation': 'update',
+        'deal': _dealFunctionsPayload(dealToSave),
       });
-      final updatedSnapshot = await document.get();
-      return DealModel.fromFirestore(updatedSnapshot);
+      final savedDealId = _stringFromCallableResult(result.data, 'dealId');
+      if (savedDealId.isEmpty) {
+        throw const DealException(AppErrorMessages.unknown);
+      }
+
+      // The callable validates permissions and writes with Admin SDK. Returning
+      // the local model avoids a fragile immediate Firestore read after save,
+      // while the role-scoped Deals stream refreshes from the server.
+      return DealModel(
+        id: savedDealId,
+        companyId: dealToSave.companyId,
+        clientId: dealToSave.clientId,
+        clientName: dealToSave.clientName,
+        clientEmail: dealToSave.clientEmail,
+        clientPhone: dealToSave.clientPhone,
+        leadId: dealToSave.leadId,
+        leadName: dealToSave.leadName,
+        leadPhone: dealToSave.leadPhone,
+        propertyId: dealToSave.propertyId,
+        propertyTitle: dealToSave.propertyTitle,
+        propertyLocation: dealToSave.propertyLocation,
+        assignedTo: dealToSave.assignedTo,
+        assignedToName: dealToSave.assignedToName,
+        assignedToEmail: dealToSave.assignedToEmail,
+        teamId: dealToSave.teamId,
+        teamName: dealToSave.teamName,
+        managerId: dealToSave.managerId,
+        managerName: dealToSave.managerName,
+        stage: dealToSave.stage,
+        expectedValue: dealToSave.expectedValue,
+        commission: dealToSave.commission,
+        closingDate: dealToSave.closingDate,
+        lostReason: dealToSave.lostReason,
+        notes: dealToSave.notes,
+        isActive: dealToSave.isActive,
+        createdAt: dealToSave.createdAt,
+        updatedAt: dealToSave.updatedAt,
+        createdBy: dealToSave.createdBy,
+        updatedBy: dealToSave.updatedBy,
+        isArchived: dealToSave.isArchived,
+        archivedAt: dealToSave.archivedAt,
+        archivedBy: dealToSave.archivedBy,
+        archivedByName: dealToSave.archivedByName,
+        archiveReason: dealToSave.archiveReason,
+        restoredAt: dealToSave.restoredAt,
+        restoredBy: dealToSave.restoredBy,
+        restoredByName: dealToSave.restoredByName,
+      );
     } on DealException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      throw DealException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       throw DealException(_mapFirestoreError(error));
     } catch (_) {
@@ -239,19 +349,17 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
   }) async {
     _validateLostReason(stage, lostReason);
     try {
-      final document = _dealsCollection(companyId).doc(dealId);
-      final snapshot = await document.get();
-      if (!snapshot.exists) {
-        throw const DealException(AppErrorMessages.notFound);
-      }
-      final existingDeal = DealModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, deal: existingDeal);
-      await document.update({
-        'stage': dealStageToValue(stage),
-        'lostReason': stage == DealStage.lost ? lostReason.trim() : '',
-        'updatedAt': Timestamp.now(),
-        'updatedBy': updatedBy,
+      await _functions.httpsCallable('saveDealRecord').call<Map<String, dynamic>>({
+        'companyId': companyId,
+        'operation': 'stage',
+        'deal': {
+          'id': dealId,
+          'stage': dealStageToValue(stage),
+          'lostReason': stage == DealStage.lost ? lostReason.trim() : '',
+        },
       });
+    } on FirebaseFunctionsException catch (error) {
+      throw DealException(_mapFunctionsError(error));
     } on DealException {
       rethrow;
     } on FirebaseException catch (error) {
@@ -309,6 +417,58 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
 
   CollectionReference<Map<String, dynamic>> _dealsCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyDeals(companyId));
+  }
+
+
+  Map<String, dynamic> _dealFunctionsPayload(DealModel deal) {
+    return {
+      'id': deal.id,
+      'companyId': deal.companyId,
+      'clientId': deal.clientId,
+      'clientName': deal.clientName,
+      'clientEmail': deal.clientEmail,
+      'clientPhone': deal.clientPhone,
+      'leadId': deal.leadId,
+      'leadName': deal.leadName,
+      'leadPhone': deal.leadPhone,
+      'propertyId': deal.propertyId,
+      'propertyTitle': deal.propertyTitle,
+      'propertyLocation': deal.propertyLocation,
+      'assignedTo': deal.assignedTo,
+      'assignedToName': deal.assignedToName,
+      'assignedToEmail': deal.assignedToEmail,
+      'teamId': deal.teamId,
+      'teamName': deal.teamName,
+      'managerId': deal.managerId,
+      'managerName': deal.managerName,
+      'stage': dealStageToValue(deal.stage),
+      'expectedValue': deal.expectedValue,
+      'commission': deal.commission,
+      'closingDate': deal.closingDate?.toIso8601String(),
+      'lostReason': deal.stage == DealStage.lost ? deal.lostReason : '',
+      'notes': deal.notes,
+    };
+  }
+
+  String _stringFromCallableResult(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    return value is String ? value : '';
+  }
+
+  String _mapFunctionsError(FirebaseFunctionsException error) {
+    switch (error.code) {
+      case 'unavailable':
+      case 'deadline-exceeded':
+        return AppErrorMessages.unableToConnect;
+      case 'permission-denied':
+        return AppErrorMessages.permissionDenied;
+      case 'unauthenticated':
+        return AppErrorMessages.unauthenticated;
+      case 'not-found':
+        return AppErrorMessages.notFound;
+      default:
+        return error.message ?? AppErrorMessages.unknown;
+    }
   }
 }
 

@@ -154,6 +154,12 @@ class _EditDealViewState extends State<_EditDealView> {
                                       ? user.uid
                                       : null,
                                   builder: (context, data) {
+                                    final eligibleDealUsers = eligibleDealAssigneesForRole(
+                                      users: data.users,
+                                      role: role,
+                                      currentUserId: user.uid,
+                                      currentTeamId: userProfile.teamId,
+                                    );
                                     return DealForm(
                                       companyId: userProfile.companyId,
                                       actorUid: user.uid,
@@ -161,7 +167,7 @@ class _EditDealViewState extends State<_EditDealView> {
                                       clients: data.clients,
                                       leads: data.leads,
                                       properties: data.properties,
-                                      users: data.users,
+                                      users: eligibleDealUsers,
                                       canEditAssignment: canEditAssignment,
                                       assignedTo: deal.assignedTo,
                                       assignedToName: deal.assignedToName,
