@@ -29,6 +29,12 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/entities/dashboard_analytics.dart';
+import '../../domain/entities/sales_command_center.dart';
+import '../../domain/usecases/build_dashboard_analytics_usecase.dart';
+import '../../domain/usecases/build_sales_command_center_usecase.dart';
+import '../widgets/dashboard_cockpit_body.dart';
+import '../widgets/sales_command_center_panel.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/presentation/cubit/appointments_cubit.dart';
 import '../../../appointments/presentation/cubit/appointments_state.dart';
@@ -61,6 +67,10 @@ import '../../../tasks/presentation/cubit/tasks_cubit.dart';
 import '../../../tasks/presentation/cubit/tasks_state.dart';
 import '../../../tasks/presentation/widgets/tasks_scope.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../../users/domain/entities/user_profile.dart';
+import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../../users/data/datasources/user_profile_remote_data_source.dart';
+import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -231,6 +241,7 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   String? _watchKey;
   Timer? _clockTicker;
+  Stream<List<UserProfile>>? _activeUsersStream;
 
   @override
   void initState() {
@@ -267,6 +278,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   void _watchScopedDashboardData() {
     if (widget.platformPreview) {
+      _activeUsersStream = Stream<List<UserProfile>>.value(const <UserProfile>[]);
       _watchPlatformPreviewData();
       return;
     }
@@ -285,6 +297,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       return;
     }
     _watchKey = key;
+    _activeUsersStream = _watchDashboardActiveUsers(widget.companyId);
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
 
@@ -457,16 +470,34 @@ class _DashboardContentState extends State<_DashboardContent> {
                               widget.authState,
                               platformPreview: widget.platformPreview,
                             );
-                        final data = _DashboardData(
-                          leads: leadsState.leads,
-                          properties: propertiesState.properties,
-                          clients: clientsState.clients,
-                          tasks: tasksState.tasks,
-                          appointments: appointmentsState.appointments,
-                          deals: dealsState.deals,
-                        );
+                            final dashboardRole = widget.platformPreview
+                                ? UserRole.admin
+                                : widget.authState.protectedCompanySession?.profile.role;
+                            final dealsAllowed = widget.authState.companyMetadata
+                                    .isFeatureEnabled(CompanyFeature.deals) &&
+                                (widget.platformPreview ||
+                                    (dashboardRole != null &&
+                                        PermissionService.can(
+                                          dashboardRole,
+                                          AppPermission.viewDeals,
+                                        )));
+                        return StreamBuilder<List<UserProfile>>(
+                          stream: _activeUsersStream ??
+                              Stream<List<UserProfile>>.value(const <UserProfile>[]),
+                          initialData: const <UserProfile>[],
+                          builder: (context, activeUsersSnapshot) {
+                            final data = _DashboardData(
+                              leads: leadsState.leads,
+                              properties: propertiesState.properties,
+                              clients: clientsState.clients,
+                              tasks: tasksState.tasks,
+                              appointments: appointmentsState.appointments,
+                              deals: dealsAllowed ? dealsState.deals : const <Deal>[],
+                              activeUsers:
+                                  activeUsersSnapshot.data ?? const <UserProfile>[],
+                            );
 
-                        final isLoading =
+                            final isLoading =
                             leadsState.status == LeadsStatus.loading &&
                                 leadsState.leads.isEmpty ||
                             propertiesState.status ==
@@ -480,7 +511,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 appointmentsState.status ==
                                     AppointmentsStatus.loading &&
                                 appointmentsState.appointments.isEmpty ||
-                            dealsState.status == DealsStatus.loading &&
+                            dealsAllowed &&
+                                dealsState.status == DealsStatus.loading &&
                                 dealsState.deals.isEmpty;
 
                         final hasInitialFailure =
@@ -497,7 +529,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 appointmentsState.status ==
                                     AppointmentsStatus.failure &&
                                 appointmentsState.appointments.isEmpty ||
-                            dealsState.status == DealsStatus.failure &&
+                            dealsAllowed &&
+                                dealsState.status == DealsStatus.failure &&
                                 dealsState.deals.isEmpty;
 
                         final failureMessage =
@@ -506,17 +539,19 @@ class _DashboardContentState extends State<_DashboardContent> {
                             clientsState.message ??
                             tasksState.message ??
                             appointmentsState.message ??
-                            dealsState.message;
+                            (dealsAllowed ? dealsState.message : null);
 
-                        return _DashboardView(
-                          data: data,
-                          authState: widget.authState,
-                          platformPreview: widget.platformPreview,
-                          previewCompanyName: widget.previewCompanyName,
-                          isLoading: isLoading,
-                          hasInitialFailure: hasInitialFailure,
-                          failureMessage: failureMessage,
-                          onRetry: _retry,
+                            return _DashboardView(
+                              data: data,
+                              authState: widget.authState,
+                              platformPreview: widget.platformPreview,
+                              previewCompanyName: widget.previewCompanyName,
+                              isLoading: isLoading,
+                              hasInitialFailure: hasInitialFailure,
+                              failureMessage: failureMessage,
+                              onRetry: _retry,
+                            );
+                          },
                         );
                           },
                         );
@@ -881,7 +916,7 @@ void Function(BuildContext context)? _auditRecordTap(AuditLog log) {
         context.go(RouteNames.clientDetails(log.recordId)),
     AuditLogModule.properties => (context) =>
         context.go(RouteNames.propertyDetails(log.recordId)),
-    AuditLogModule.tasks => (context) => context.go(RouteNames.tasks),
+    AuditLogModule.tasks => (context) => context.go(RouteNames.taskEdit(log.recordId)),
     AuditLogModule.deals => (context) =>
         context.go(RouteNames.dealDetails(log.recordId)),
     AuditLogModule.reports => (context) => context.go(RouteNames.reports),
@@ -1010,7 +1045,6 @@ class _DashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final copy = _DashboardCopy.of(context);
 
     if (isLoading) {
       return const AppLoading();
@@ -1025,13 +1059,10 @@ class _DashboardView extends StatelessWidget {
 
     return _TrialNoticeGate(
       company: authState.companyMetadata,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-        final compact = constraints.maxWidth < 860;
-        final mobile = constraints.maxWidth < 600;
+      child: Builder(
+        builder: (context) {
         final features = authState.companyMetadata;
         final leadsEnabled = features.isFeatureEnabled(CompanyFeature.leads);
-        final clientsEnabled = features.isFeatureEnabled(CompanyFeature.clients);
         final propertiesEnabled =
             features.isFeatureEnabled(CompanyFeature.properties);
         final tasksEnabled = features.isFeatureEnabled(CompanyFeature.tasks);
@@ -1040,296 +1071,124 @@ class _DashboardView extends StatelessWidget {
           authState,
           platformPreview: platformPreview,
         );
-        final auditLogsEnabled =
-            features.isFeatureEnabled(CompanyFeature.auditLogs);
-        final analyticsEnabled =
-            leadsEnabled || tasksEnabled || propertiesEnabled || dealsEnabled;
-        final canViewUnassignedLeads = _canViewUnassignedLeads(
-          authState,
-          platformPreview: platformPreview,
+        final role = platformPreview
+            ? UserRole.admin
+            : authState.protectedCompanySession?.profile.role;
+        final analytics = const BuildDashboardAnalyticsUseCase()(
+          DashboardAnalyticsInput(
+            role: role ?? UserRole.viewer,
+            now: DateTime.now(),
+            leads: leadsEnabled &&
+                    (platformPreview ||
+                        (role != null &&
+                            PermissionService.can(role, AppPermission.viewLeads)))
+                ? data.leads
+                : const <Lead>[],
+            properties: propertiesEnabled &&
+                    (platformPreview ||
+                        (role != null &&
+                            PermissionService.can(
+                              role,
+                              AppPermission.viewProperties,
+                            )))
+                ? data.properties
+                : const <Property>[],
+            tasks: tasksEnabled &&
+                    (platformPreview ||
+                        (role != null &&
+                            PermissionService.can(role, AppPermission.viewTasks)))
+                ? data.tasks
+                : const <CrmTask>[],
+            appointments:
+                appointmentsEnabled ? data.appointments : const <Appointment>[],
+            deals: dealsEnabled &&
+                    (platformPreview ||
+                        (role != null &&
+                            PermissionService.can(role, AppPermission.viewDeals)))
+                ? data.deals
+                : const <Deal>[],
+            activeUsers: data.activeUsers,
+            includeLeads: leadsEnabled &&
+                (platformPreview ||
+                    (role != null &&
+                        PermissionService.can(role, AppPermission.viewLeads))),
+            includeProperties: propertiesEnabled &&
+                (platformPreview ||
+                    (role != null &&
+                        PermissionService.can(
+                          role,
+                          AppPermission.viewProperties,
+                        ))),
+            includeTasks: tasksEnabled &&
+                (platformPreview ||
+                    (role != null &&
+                        PermissionService.can(role, AppPermission.viewTasks))),
+            includeAppointments: appointmentsEnabled,
+            includeDeals: dealsEnabled &&
+                (platformPreview ||
+                    (role != null &&
+                        PermissionService.can(role, AppPermission.viewDeals))),
+            canViewUnassignedLeads: platformPreview || role == UserRole.admin,
+          ),
         );
-        final quickAddActions = platformPreview
-            ? <_QuickAddAction>[]
-            : _quickAddActions(context, authState);
 
-        if (mobile) {
-          return _MobileDashboardTabs(
-            data: data,
-            authState: authState,
-            platformPreview: platformPreview,
-            previewCompanyName: previewCompanyName,
-            leadsEnabled: leadsEnabled,
-            tasksEnabled: tasksEnabled,
-            dealsEnabled: dealsEnabled,
-            appointmentsEnabled: appointmentsEnabled,
-            auditLogsEnabled: auditLogsEnabled,
-            analyticsEnabled: analyticsEnabled,
-            canViewUnassignedLeads: canViewUnassignedLeads,
-            quickAddActions: quickAddActions,
-            onRefresh: _handleRefresh,
-          );
-        }
+        final includeLeads = leadsEnabled &&
+            (platformPreview ||
+                (role != null &&
+                    PermissionService.can(role, AppPermission.viewLeads)));
+        final includeTasks = tasksEnabled &&
+            (platformPreview ||
+                (role != null &&
+                    PermissionService.can(role, AppPermission.viewTasks)));
+        final includeDeals = dealsEnabled &&
+            (platformPreview ||
+                (role != null &&
+                    PermissionService.can(role, AppPermission.viewDeals)));
+        final commandSummary = const BuildSalesCommandCenterUseCase()(
+          role: role ?? UserRole.viewer,
+          now: DateTime.now(),
+          leads: includeLeads ? data.leads : const <Lead>[],
+          tasks: includeTasks ? data.tasks : const <CrmTask>[],
+          deals: includeDeals ? data.deals : const <Deal>[],
+          appointments: appointmentsEnabled
+              ? data.appointments
+              : const <Appointment>[],
+          includeLeads: includeLeads,
+          includeTasks: includeTasks,
+          includeDeals: includeDeals,
+          includeAppointments: appointmentsEnabled,
+          canViewUnassignedLeads: platformPreview || role == UserRole.admin,
+        );
+
+        final mobile = MediaQuery.sizeOf(context).width < 760;
+        final quickAddActions = mobile && !platformPreview
+            ? _quickAddActions(context, authState)
+            : const <_QuickAddAction>[];
 
         return Stack(
           children: [
             SingleChildScrollView(
               physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
-                padding: EdgeInsets.only(
-                  bottom: mobile && quickAddActions.isNotEmpty ? 88 : 0,
-                ),
-                child: Column(
+              padding: EdgeInsets.only(
+                bottom: quickAddActions.isEmpty ? 0 : 92,
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _TrialBadgeBanner(company: authState.companyMetadata),
                   _PaymentStatusBanner(company: authState.companyMetadata),
-                  _DashboardReveal(
-                    id: 'welcome',
-                    delay: Duration.zero,
-                    child: _WelcomePanel(
-                      authState: authState,
-                      platformPreview: platformPreview,
-                      previewCompanyName: previewCompanyName,
-                    ),
-                  ),
-                  const SizedBox(height: _kDashboardSectionGap),
-
-                  _DashboardReveal(
-                    id: 'summary-grid',
-                    delay: const Duration(milliseconds: 60),
-                    child: _SummaryGrid(data: data, authState: authState),
-                  ),
-                  const SizedBox(height: _kDashboardSectionGap),
-
-                  if (compact) ...[
-                    if (analyticsEnabled)
-                      _DashboardReveal(
-                        id: 'analytics-compact',
-                      delay: const Duration(milliseconds: 120),
-                      child: _AnalyticsPanel(data: data, authState: authState),
-                    ),
-
-                    if (!mobile && !platformPreview && (leadsEnabled || clientsEnabled || propertiesEnabled)) ...[
-                      const SizedBox(height: _kDashboardSectionGap),
-                      _DashboardReveal(
-                        id: 'actions-compact',
-                        delay: const Duration(milliseconds: 160),
-                        child: _ActionPanel(authState: authState),
-                      ),
-                    ],
-
-                    if (auditLogsEnabled &&
-                        _canViewRecentActivity(
-                          authState,
-                          platformPreview: platformPreview,
-                        )) ...[
-                      const SizedBox(height: _kDashboardSectionGap),
-                      _DashboardReveal(
-                        id: 'recent-activity-compact',
-                        delay: const Duration(milliseconds: 200),
-                        child: _RecentActivityPanel(
-                          authState: authState,
-                          platformPreview: platformPreview,
-                        ),
-                      ),
-                    ],
-                  ] else if (analyticsEnabled)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _DashboardReveal(
-                            id: 'analytics-desktop',
-                            delay: const Duration(milliseconds: 120),
-                            child: _AnalyticsPanel(data: data, authState: authState),
-                          ),
-                        ),
-                        const SizedBox(width: _kDashboardSectionGap),
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            children: [
-                              if (!platformPreview &&
-                                  (leadsEnabled || clientsEnabled || propertiesEnabled))
-                                _DashboardReveal(
-                                  id: 'actions-desktop',
-                                  delay: const Duration(milliseconds: 160),
-                                  child: _ActionPanel(authState: authState),
-                                ),
-                              if (auditLogsEnabled &&
-                                  _canViewRecentActivity(
-                                    authState,
-                                    platformPreview: platformPreview,
-                                  )) ...[
-                                if (!platformPreview)
-                                  const SizedBox(height: _kDashboardSectionGap),
-                                _DashboardReveal(
-                                  id: 'recent-activity-desktop',
-                                  delay: const Duration(milliseconds: 200),
-                                  child: _RecentActivityPanel(
-                                    authState: authState,
-                                    platformPreview: platformPreview,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  const SizedBox(height: _kDashboardSectionGap),
-
-                  if (compact) ...[
-                    if (appointmentsEnabled)
-                      _DashboardReveal(
-                        id: 'appointments-compact',
-                        delay: const Duration(milliseconds: 220),
-                        child: _AppointmentsDashboardSection(data: data),
-                      ),
-                    if (appointmentsEnabled && (dealsEnabled || tasksEnabled))
-                      const SizedBox(height: _kDashboardSectionGap),
-                    if (dealsEnabled)
-                      _DashboardReveal(
-                        id: 'deals-compact',
-                      delay: const Duration(milliseconds: 260),
-                      child: _DealsDashboardSection(
-                        data: data,
-                        readOnly: platformPreview,
-                      ),
-                    ),
-                    if (dealsEnabled && tasksEnabled)
-                      const SizedBox(height: _kDashboardSectionGap),
-                    if (tasksEnabled)
-                      _DashboardReveal(
-                        id: 'tasks-compact',
-                      delay: const Duration(milliseconds: 300),
-                      child: _TaskBreakdownSection(
-                        data: data,
-                        readOnly: platformPreview,
-                      ),
-                    ),
-                  ] else if (appointmentsEnabled || leadsEnabled)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (appointmentsEnabled)
-                          Expanded(
-                            child: _DashboardReveal(
-                              id: 'appointments-desktop',
-                              delay: const Duration(milliseconds: 220),
-                              child: _AppointmentsDashboardSection(data: data),
-                            ),
-                          ),
-                        if (appointmentsEnabled && (dealsEnabled || tasksEnabled))
-                          const SizedBox(width: _kDashboardSectionGap),
-                        if (dealsEnabled)
-                          Expanded(
-                            child: _DashboardReveal(
-                              id: 'deals-desktop',
-                            delay: const Duration(milliseconds: 260),
-                            child: _DealsDashboardSection(
-                              data: data,
-                              readOnly: platformPreview,
-                            ),
-                          ),
-                        ),
-                        if (dealsEnabled && tasksEnabled)
-                          const SizedBox(width: _kDashboardSectionGap),
-                        if (tasksEnabled)
-                          Expanded(
-                            child: _DashboardReveal(
-                              id: 'tasks-desktop',
-                            delay: const Duration(milliseconds: 300),
-                            child: _TaskBreakdownSection(
-                              data: data,
-                              readOnly: platformPreview,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  const SizedBox(height: _kDashboardSectionGap),
-
-                  if (leadsEnabled && compact) ...[
-                    _DashboardReveal(
-                      id: 'today-followups-compact',
-                      delay: const Duration(milliseconds: 300),
-                      child: _LeadSection(
-                        title: copy.todaysFollowUps,
-                        leads: data.todaysFollowUps,
-                        emptyMessage: l.noLeads,
-                        readOnly: platformPreview,
-                      ),
-                    ),
-                    if (canViewUnassignedLeads) ...[
-                      const SizedBox(height: _kDashboardSectionGap),
-                      _DashboardReveal(
-                        id: 'unassigned-leads-compact',
-                        delay: const Duration(milliseconds: 340),
-                        child: _LeadSection(
-                          title: copy.unassignedLeads,
-                          leads: data.unassignedLeads,
-                          emptyMessage: l.noLeads,
-                          readOnly: platformPreview,
-                        ),
-                      ),
-                    ],
-                  ] else if (leadsEnabled)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _DashboardReveal(
-                            id: 'today-followups-desktop',
-                            delay: const Duration(milliseconds: 300),
-                            child: _LeadSection(
-                              title: copy.todaysFollowUps,
-                              leads: data.todaysFollowUps,
-                              emptyMessage: l.noLeads,
-                              readOnly: platformPreview,
-                            ),
-                          ),
-                        ),
-                        if (canViewUnassignedLeads) ...[
-                          const SizedBox(width: _kDashboardSectionGap),
-                          Expanded(
-                            child: _DashboardReveal(
-                              id: 'unassigned-leads-desktop',
-                              delay: const Duration(milliseconds: 340),
-                              child: _LeadSection(
-                                title: copy.unassignedLeads,
-                                leads: data.unassignedLeads,
-                                emptyMessage: l.noLeads,
-                                readOnly: platformPreview,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-
-                  const SizedBox(height: _kDashboardSectionGap),
-
-                  if (leadsEnabled)
-                    _DashboardReveal(
-                      id: 'recently-updated-leads',
-                    delay: const Duration(milliseconds: 380),
-                    child: _LeadSection(
-                      title: copy.recentlyUpdatedLeads,
-                      leads: data.recentLeads,
-                      emptyMessage: l.noLeads,
-                      readOnly: platformPreview,
-                    ),
+                  DashboardCockpitBody(
+                    analytics: analytics,
+                    commandSummary: commandSummary,
+                    authState: authState,
+                    platformPreview: platformPreview,
+                    previewCompanyName: previewCompanyName,
                   ),
                 ],
-                ),
               ),
-            if (mobile && quickAddActions.isNotEmpty)
-              Positioned.fill(
-                child: _MobileQuickAddFab(actions: quickAddActions),
-              ),
+            ),
+            if (quickAddActions.isNotEmpty)
+              _MobileQuickAddFab(actions: quickAddActions),
           ],
         );
         },
@@ -1386,6 +1245,1204 @@ class _DashboardView extends StatelessWidget {
   }
 }
 
+
+class _DashboardControlRoom extends StatelessWidget {
+  const _DashboardControlRoom({
+    required this.analytics,
+    required this.commandSummary,
+    required this.authState,
+    required this.compact,
+    required this.mobile,
+    required this.platformPreview,
+    required this.analyticsEnabled,
+    required this.auditLogsEnabled,
+    required this.showQuickActions,
+    this.previewCompanyName,
+  });
+
+  final DashboardAnalytics analytics;
+  final SalesCommandSummary commandSummary;
+  final AuthState authState;
+  final bool compact;
+  final bool mobile;
+  final bool platformPreview;
+  final bool analyticsEnabled;
+  final bool auditLogsEnabled;
+  final bool showQuickActions;
+  final String? previewCompanyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final main = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DashboardReveal(
+          id: 'control-room-welcome',
+          delay: Duration.zero,
+          child: _WelcomePanel(
+            authState: authState,
+            platformPreview: platformPreview,
+            previewCompanyName: previewCompanyName,
+          ),
+        ),
+        const SizedBox(height: _kDashboardSectionGap),
+        _DashboardReveal(
+          id: 'control-room-kpis',
+          delay: const Duration(milliseconds: 50),
+          child: _DashboardKpiGrid(analytics: analytics),
+        ),
+        if (mobile) ...[
+          const SizedBox(height: _kDashboardSectionGap),
+          _DashboardReveal(
+            id: 'control-room-today-mobile',
+            delay: const Duration(milliseconds: 70),
+            child: _DashboardTodayRail(
+              analytics: analytics,
+              readOnly: platformPreview,
+            ),
+          ),
+        ],
+        const SizedBox(height: _kDashboardSectionGap),
+        if (analyticsEnabled)
+          _DashboardReveal(
+            id: 'control-room-performance',
+            delay: const Duration(milliseconds: 90),
+            child: _DashboardPerformanceSection(analytics: analytics),
+          ),
+        const SizedBox(height: _kDashboardSectionGap),
+        _DashboardReveal(
+          id: 'control-room-command-center',
+          delay: const Duration(milliseconds: 120),
+          child: SalesCommandCenterPanel(
+            summary: commandSummary,
+            readOnly: platformPreview,
+          ),
+        ),
+        const SizedBox(height: _kDashboardSectionGap),
+        if (compact)
+          Column(
+            children: [
+              _DashboardReveal(
+                id: 'control-room-pipeline-compact',
+                delay: const Duration(milliseconds: 150),
+                child: _DashboardPipelineSnapshot(
+                  analytics: analytics,
+                  readOnly: platformPreview,
+                ),
+              ),
+              const SizedBox(height: _kDashboardSectionGap),
+              _DashboardReveal(
+                id: 'control-room-team-compact',
+                delay: const Duration(milliseconds: 180),
+                child: _DashboardTeamPerformanceCard(analytics: analytics),
+              ),
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _DashboardReveal(
+                  id: 'control-room-pipeline',
+                  delay: const Duration(milliseconds: 150),
+                  child: _DashboardPipelineSnapshot(
+                    analytics: analytics,
+                    readOnly: platformPreview,
+                  ),
+                ),
+              ),
+              const SizedBox(width: _kDashboardSectionGap),
+              Expanded(
+                child: _DashboardReveal(
+                  id: 'control-room-team',
+                  delay: const Duration(milliseconds: 180),
+                  child: _DashboardTeamPerformanceCard(analytics: analytics),
+                ),
+              ),
+            ],
+          ),
+        if (auditLogsEnabled &&
+            _canViewRecentActivity(
+              authState,
+              platformPreview: platformPreview,
+            )) ...[
+          const SizedBox(height: _kDashboardSectionGap),
+          _DashboardReveal(
+            id: 'control-room-recent-activity',
+            delay: const Duration(milliseconds: 210),
+            child: _RecentActivityPanel(
+              authState: authState,
+              platformPreview: platformPreview,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    if (compact) {
+      return main;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: main),
+        const SizedBox(width: _kDashboardSectionGap),
+        SizedBox(
+          width: 340,
+          child: Column(
+            children: [
+              _DashboardReveal(
+                id: 'control-room-today',
+                delay: const Duration(milliseconds: 80),
+                child: _DashboardTodayRail(
+                  analytics: analytics,
+                  readOnly: platformPreview,
+                ),
+              ),
+              if (showQuickActions) ...[
+                const SizedBox(height: _kDashboardSectionGap),
+                _DashboardReveal(
+                  id: 'control-room-actions',
+                  delay: const Duration(milliseconds: 140),
+                  child: _ActionPanel(authState: authState),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardKpiGrid extends StatelessWidget {
+  const _DashboardKpiGrid({required this.analytics});
+
+  final DashboardAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = analytics.metrics;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1280
+            ? 4
+            : constraints.maxWidth >= 920
+                ? 3
+                : constraints.maxWidth >= 520
+                    ? 2
+                    : 1;
+        const gap = AppSpacing.sm;
+        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final metric in metrics)
+              SizedBox(
+                width: width,
+                child: _DashboardKpiCard(metric: metric),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DashboardKpiCard extends StatelessWidget {
+  const _DashboardKpiCard({required this.metric});
+
+  final DashboardKpiMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _kpiColor(context, metric.type);
+    final trend = metric.trendPercent;
+    return _HoverLiftPanel(
+      borderRadius: AppRadius.xLarge,
+      child: _Panel(
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.medium,
+                  ),
+                  child: Icon(_kpiIcon(metric.type), color: color, size: 18),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    _kpiTitle(context, metric.type),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                if (trend != null)
+                  _TrendChip(value: trend),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Text(
+                    _metricValueLabel(context, metric),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: AppColors.textPrimaryColor(context),
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                  ),
+                ),
+                SizedBox(
+                  width: 82,
+                  height: 32,
+                  child: _DashboardSparkline(
+                    values: metric.sparkline,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _kpiPeriod(context, metric.type),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrendChip extends StatelessWidget {
+  const _TrendChip({required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = value >= 0;
+    final color = positive
+        ? AppColors.successColor(context)
+        : AppColors.errorColor(context);
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            size: 13,
+            color: color,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            '${positive ? '+' : ''}$value%',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardPerformanceSection extends StatelessWidget {
+  const _DashboardPerformanceSection({required this.analytics});
+
+  final DashboardAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: AppLocalizations.of(context)!.dashboardPerformanceTitle,
+            subtitle: AppLocalizations.of(context)!.dashboardLast7Days,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 760;
+              final width = twoColumns
+                  ? (constraints.maxWidth - AppSpacing.md) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: _TrendChartPanel(
+                      title: AppLocalizations.of(context)!.dashboardLeadsTrend,
+                      points: analytics.leadTrend,
+                      color: AppColors.infoColor(context),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _BarChartPanel(
+                      title: AppLocalizations.of(context)!
+                          .dashboardFollowUpsCompletedMissed,
+                      rows: analytics.followUpBars,
+                      labelBuilder: (key) => _barLabel(context, key),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _BarChartPanel(
+                      title:
+                          AppLocalizations.of(context)!.dashboardAppointmentsFlow,
+                      rows: analytics.appointmentBars,
+                      labelBuilder: (key) => _barLabel(context, key),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _LeadSourcePanel(analytics: analytics),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendChartPanel extends StatelessWidget {
+  const _TrendChartPanel({
+    required this.title,
+    required this.points,
+    required this.color,
+  });
+
+  final String title;
+  final List<DashboardTrendPoint> points;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InnerDashboardPanel(
+      title: title,
+      child: SizedBox(
+        height: 172,
+        child: CustomPaint(
+          painter: _TrendLinePainter(
+            values: points.map((point) => point.value).toList(),
+            color: color,
+            gridColor: AppColors.borderColor(context),
+            textColor: AppColors.textSecondaryColor(context),
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
+}
+
+class _BarChartPanel extends StatelessWidget {
+  const _BarChartPanel({
+    required this.title,
+    required this.rows,
+    required this.labelBuilder,
+  });
+
+  final String title;
+  final List<DashboardBarMetric> rows;
+  final String Function(String key) labelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = rows.fold<int>(
+      0,
+      (max, item) => item.value > max ? item.value : max,
+    );
+    return _InnerDashboardPanel(
+      title: title,
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : AppSpacing.sm,
+              ),
+              child: _ProgressRow(
+                label: labelBuilder(rows[index].key),
+                value: maxValue == 0 ? 0 : rows[index].value / maxValue,
+                trailing: rows[index].value.toString(),
+                color: _barColor(context, rows[index].key),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeadSourcePanel extends StatelessWidget {
+  const _LeadSourcePanel({required this.analytics});
+
+  final DashboardAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = analytics.leadSources.take(5).toList();
+    return _InnerDashboardPanel(
+      title: AppLocalizations.of(context)!.dashboardLeadSources,
+      child: sources.isEmpty
+          ? _CompactEmpty(
+              message: AppLocalizations.of(context)!.dashboardNotEnoughData,
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < sources.length; index++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index == sources.length - 1 ? 0 : AppSpacing.xs,
+                    ),
+                    child: _ProgressRow(
+                      label: _leadSourceLabel(
+                        AppLocalizations.of(context)!,
+                        sources[index].source,
+                      ),
+                      value: sources[index].count /
+                          sources
+                              .fold<int>(
+                                0,
+                                (total, source) => total + source.count,
+                              )
+                              .clamp(1, 999999),
+                      trailing: sources[index].count.toString(),
+                      color: _sourceColor(context, index),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _DashboardTodayRail extends StatelessWidget {
+  const _DashboardTodayRail({
+    required this.analytics,
+    required this.readOnly,
+  });
+
+  final DashboardAnalytics analytics;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final now = DateTime.now();
+    return _Panel(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: l.dashboardTodayRailTitle,
+            subtitle: intl.DateFormat.yMMMMEEEEd(l.localeName).format(now),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _DashboardWeekStrip(now: now),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _RailCounter(
+                  label: l.todaysAppointments,
+                  value: _todayCount(analytics, DashboardTodayModule.appointment),
+                  tone: AppStatusTone.info,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _RailCounter(
+                  label: l.dashboardDueFollowUps,
+                  value: _todayCount(analytics, DashboardTodayModule.followUp),
+                  tone: AppStatusTone.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (analytics.todayItems.isEmpty)
+            _CompactEmpty(message: l.dashboardNoUrgentActions)
+          else
+            for (final item in analytics.todayItems.take(5))
+              _TodayRailItem(
+                item: item,
+                readOnly: readOnly,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardWeekStrip extends StatelessWidget {
+  const _DashboardWeekStrip({required this.now});
+
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final today = _dateOnly(now);
+    final start = today.subtract(Duration(days: today.weekday - 1));
+    return Row(
+      children: [
+        for (var index = 0; index < 7; index++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(
+                end: index == 6 ? 0 : 4,
+              ),
+              child: _WeekDayPill(
+                date: start.add(Duration(days: index)),
+                selected: _dateOnly(start.add(Duration(days: index))) == today,
+                localeName: l.localeName,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WeekDayPill extends StatelessWidget {
+  const _WeekDayPill({
+    required this.date,
+    required this.selected,
+    required this.localeName,
+  });
+
+  final DateTime date;
+  final bool selected;
+  final String localeName;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.primaryColor(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? color.withValues(alpha: 0.16) : AppColors.inputSurface(context),
+        border: Border.all(
+          color: selected ? color : AppColors.borderColor(context),
+        ),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        children: [
+          Text(
+            intl.DateFormat.E(localeName).format(date),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            date.day.toString(),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: selected ? color : AppColors.textPrimaryColor(context),
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RailCounter extends StatelessWidget {
+  const _RailCounter({
+    required this.label,
+    required this.value,
+    required this.tone,
+  });
+
+  final String label;
+  final int value;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _toneColor(context, tone);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value.toString(),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayRailItem extends StatelessWidget {
+  const _TodayRailItem({
+    required this.item,
+    required this.readOnly,
+  });
+
+  final DashboardTodayItem item;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = readOnly ? null : _todayRoute(item);
+    final color = _urgencyColor(context, item.urgency);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: route == null ? null : () => context.go(route),
+          borderRadius: AppRadius.large,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.inputSurface(context),
+              border: Border.all(color: AppColors.borderColor(context)),
+              borderRadius: AppRadius.large,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Icon(_todayIcon(item.module), size: 18, color: color),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _todaySubtitle(context, item),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (route != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  Icon(
+                    Icons.open_in_new_rounded,
+                    size: 16,
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardPipelineSnapshot extends StatelessWidget {
+  const _DashboardPipelineSnapshot({
+    required this.analytics,
+    required this.readOnly,
+  });
+
+  final DashboardAnalytics analytics;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final openStages = analytics.dealStages
+        .where((item) => item.stage != DealStage.won && item.stage != DealStage.lost)
+        .toList();
+    return _Panel(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: l.dashboardPipelineSnapshot,
+            subtitle: analytics.pipelineValueTotal > 0
+                ? _formatMoney(context, analytics.pipelineValueTotal)
+                : l.dashboardPipelineHasNoValue,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _HorizontalDistribution(
+            rows: [
+              for (final stage in openStages)
+                _DistributionRow(
+                  label: dealStageLabel(l, stage.stage),
+                  value: stage.count,
+                  color: _dealStageColor(context, stage.stage),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _MiniMetric(
+                label: l.dashboardStuckDeals,
+                value: analytics.stuckDealsCount,
+              ),
+              _MiniMetric(
+                label: l.dashboardClosingThisMonth,
+                value: analytics.closingThisMonthCount,
+              ),
+              _MiniMetric(
+                label: l.dashboardWonLost,
+                value:
+                    '${analytics.dealStages.firstWhere((item) => item.stage == DealStage.won).count}/${analytics.dealStages.firstWhere((item) => item.stage == DealStage.lost).count}',
+              ),
+            ],
+          ),
+          if (!readOnly && analytics.openPipelineDeals > 0) ...[
+            const SizedBox(height: AppSpacing.md),
+            AppButton(
+              label: l.viewAll,
+              icon: Icons.open_in_new_rounded,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => context.go(RouteNames.deals),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardTeamPerformanceCard extends StatelessWidget {
+  const _DashboardTeamPerformanceCard({required this.analytics});
+
+  final DashboardAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final performance = analytics.teamPerformance;
+    final personal = performance.role == UserRole.salesAgent ||
+        performance.role == UserRole.marketing;
+    return _Panel(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: personal
+                ? l.dashboardPersonalPerformance
+                : l.dashboardTeamPerformance,
+            subtitle: performance.isLimited
+                ? l.dashboardPerformanceLimitedForRole
+                : l.dashboardLast7Days,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _MiniMetric(
+                label: l.dashboardOverdueReminders,
+                value: performance.overdueActions,
+              ),
+              _MiniMetric(
+                label: l.dashboardDueFollowUps,
+                value: performance.dueTodayActions,
+              ),
+              _MiniMetric(
+                label: l.todaysAppointments,
+                value: performance.appointmentsToday,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (performance.isLimited)
+            _CompactEmpty(message: l.dashboardPerformanceLimitedForRole)
+          else ...[
+            _AgentInsightRow(
+              title: l.dashboardTopActiveAgent,
+              agent: performance.topActiveAgent,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _AgentInsightRow(
+              title: l.dashboardOverloadedAssignee,
+              agent: performance.overloadedAssignee,
+              empty: l.dashboardNoTeamSignal,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentInsightRow extends StatelessWidget {
+  const _AgentInsightRow({
+    required this.title,
+    required this.agent,
+    this.empty,
+  });
+
+  final String title;
+  final DashboardAgentPerformance? agent;
+  final String? empty;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = agent;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.person_pin_circle_outlined,
+            color: AppColors.primaryColor(context),
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondaryColor(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item?.name ?? empty ?? AppLocalizations.of(context)!.notAvailable,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (item != null)
+            AppStatusBadge(
+              label: item.overdueActions > 0
+                  ? item.overdueActions.toString()
+                  : item.activeRecords.toString(),
+              tone: item.overdueActions > 0
+                  ? AppStatusTone.error
+                  : AppStatusTone.success,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InnerDashboardPanel extends StatelessWidget {
+  const _InnerDashboardPanel({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardSparkline extends StatelessWidget {
+  const _DashboardSparkline({
+    required this.values,
+    required this.color,
+  });
+
+  final List<int> values;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _SparklinePainter(
+        values: values,
+        color: color,
+        fillColor: color.withValues(alpha: 0.12),
+      ),
+    );
+  }
+}
+
+class _SparklinePainter extends CustomPainter {
+  const _SparklinePainter({
+    required this.values,
+    required this.color,
+    required this.fillColor,
+  });
+
+  final List<int> values;
+  final Color color;
+  final Color fillColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) {
+      return;
+    }
+    final maxValue = values.fold<int>(
+      1,
+      (max, value) => value > max ? value : max,
+    );
+    final dx = values.length == 1 ? size.width : size.width / (values.length - 1);
+    final path = Path();
+    final fill = Path();
+    for (var index = 0; index < values.length; index++) {
+      final x = index * dx;
+      final y = size.height - (values[index] / maxValue) * (size.height - 4) - 2;
+      if (index == 0) {
+        path.moveTo(x, y);
+        fill.moveTo(x, size.height);
+        fill.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fill.lineTo(x, y);
+      }
+    }
+    fill.lineTo(size.width, size.height);
+    fill.close();
+    canvas.drawPath(fill, Paint()..color = fillColor);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) {
+    return values != oldDelegate.values ||
+        color != oldDelegate.color ||
+        fillColor != oldDelegate.fillColor;
+  }
+}
+
+class _TrendLinePainter extends CustomPainter {
+  const _TrendLinePainter({
+    required this.values,
+    required this.color,
+    required this.gridColor,
+    required this.textColor,
+  });
+
+  final List<int> values;
+  final Color color;
+  final Color gridColor;
+  final Color textColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final left = 28.0;
+    final bottom = 22.0;
+    final chartSize = Size(size.width - left, size.height - bottom);
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = chartSize.height * (i / 3);
+      canvas.drawLine(Offset(left, y), Offset(size.width, y), gridPaint);
+    }
+
+    final maxValue = values.fold<int>(
+      1,
+      (max, value) => value > max ? value : max,
+    );
+    final dx = values.length <= 1 ? chartSize.width : chartSize.width / (values.length - 1);
+    final path = Path();
+    for (var index = 0; index < values.length; index++) {
+      final x = left + index * dx;
+      final y = chartSize.height - (values[index] / maxValue) * (chartSize.height - 10) - 5;
+      if (index == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+      canvas.drawCircle(Offset(x, y), 3, Paint()..color = color);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendLinePainter oldDelegate) {
+    return values != oldDelegate.values ||
+        color != oldDelegate.color ||
+        gridColor != oldDelegate.gridColor ||
+        textColor != oldDelegate.textColor;
+  }
+}
 
 class _TrialNoticeGate extends StatefulWidget {
   const _TrialNoticeGate({required this.company, required this.child});
@@ -1803,6 +2860,7 @@ class _MobileDashboardTabs extends StatelessWidget {
     required this.data,
     required this.authState,
     required this.platformPreview,
+    required this.commandSummary,
     required this.leadsEnabled,
     required this.tasksEnabled,
     required this.dealsEnabled,
@@ -1819,6 +2877,7 @@ class _MobileDashboardTabs extends StatelessWidget {
   final AuthState authState;
   final bool platformPreview;
   final String? previewCompanyName;
+  final SalesCommandSummary commandSummary;
   final bool leadsEnabled;
   final bool tasksEnabled;
   final bool dealsEnabled;
@@ -1854,6 +2913,14 @@ class _MobileDashboardTabs extends StatelessWidget {
               id: 'mobile-summary-grid',
               delay: const Duration(milliseconds: 60),
               child: _SummaryGrid(data: data, authState: authState),
+            ),
+            _DashboardReveal(
+              id: 'mobile-sales-command-center',
+              delay: const Duration(milliseconds: 80),
+              child: SalesCommandCenterPanel(
+                summary: commandSummary,
+                readOnly: platformPreview,
+              ),
             ),
             if (auditLogsEnabled &&
                 _canViewRecentActivity(authState, platformPreview: platformPreview))
@@ -4063,6 +5130,18 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+
+Stream<List<UserProfile>> _watchDashboardActiveUsers(String companyId) {
+  final cleanCompanyId = companyId.trim();
+  if (cleanCompanyId.isEmpty) {
+    return Stream<List<UserProfile>>.value(const <UserProfile>[]);
+  }
+  final repository = UserProfileRepositoryImpl(
+    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
+  );
+  return WatchActiveUsersUseCase(repository)(companyId: cleanCompanyId);
+}
+
 class _DashboardData {
   const _DashboardData({
     required this.leads,
@@ -4071,6 +5150,7 @@ class _DashboardData {
     required this.tasks,
     required this.appointments,
     required this.deals,
+    required this.activeUsers,
   });
 
   final List<Lead> leads;
@@ -4079,6 +5159,7 @@ class _DashboardData {
   final List<CrmTask> tasks;
   final List<Appointment> appointments;
   final List<Deal> deals;
+  final List<UserProfile> activeUsers;
 
   List<Lead> get newLeads =>
       leads.where((lead) => lead.status == LeadStatus.newLead).toList();
@@ -4339,6 +5420,189 @@ DateTime get _today => _dateOnly(DateTime.now());
 
 DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
+}
+
+String _metricValueLabel(BuildContext context, DashboardKpiMetric metric) {
+  if (metric.type == DashboardKpiType.expectedPipelineValue ||
+      metric.type == DashboardKpiType.expectedCommission) {
+    return _formatMoney(context, metric.value);
+  }
+  final value = metric.valueLabel.trim();
+  return value.isNotEmpty ? value : metric.value.round().toString();
+}
+
+String _kpiTitle(BuildContext context, DashboardKpiType type) {
+  final l = AppLocalizations.of(context)!;
+  return switch (type) {
+    DashboardKpiType.activeLeads => l.dashboardKpiActiveLeads,
+    DashboardKpiType.newLeadsToday => l.newLeads,
+    DashboardKpiType.hotOpportunities => l.dashboardKpiHotOpportunities,
+    DashboardKpiType.dueTodayFollowUps => l.dashboardKpiDueTodayFollowUps,
+    DashboardKpiType.overdueFollowUps => l.dashboardOverdueFollowUps,
+    DashboardKpiType.overdueActions => l.dashboardKpiOverdueActions,
+    DashboardKpiType.appointmentsToday => l.dashboardKpiAppointmentsToday,
+    DashboardKpiType.missedAppointments => l.missedAppointments,
+    DashboardKpiType.overdueTasks => l.dashboardOverdueTasks,
+    DashboardKpiType.pipelineDeals => l.dashboardKpiDealsPipeline,
+    DashboardKpiType.expectedPipelineValue => l.dashboardKpiExpectedPipeline,
+    DashboardKpiType.expectedCommission => l.commissionTotal,
+    DashboardKpiType.wonDealsThisMonth => l.wonDeals,
+    DashboardKpiType.stuckDeals => l.dashboardStuckDeals,
+    DashboardKpiType.unassignedLeads => l.dashboardUnassignedLeads,
+    DashboardKpiType.teamWorkload => l.workload,
+    DashboardKpiType.activeProperties => l.dashboardKpiActiveListings,
+  };
+}
+
+String _kpiPeriod(BuildContext context, DashboardKpiType type) {
+  final l = AppLocalizations.of(context)!;
+  return switch (type) {
+    DashboardKpiType.newLeadsToday ||
+    DashboardKpiType.dueTodayFollowUps ||
+    DashboardKpiType.appointmentsToday =>
+      l.dashboardPeriodToday,
+    DashboardKpiType.expectedPipelineValue ||
+    DashboardKpiType.expectedCommission ||
+    DashboardKpiType.wonDealsThisMonth =>
+      l.dashboardPeriodThisMonth,
+    _ => l.dashboardPeriodCurrentScope,
+  };
+}
+
+IconData _kpiIcon(DashboardKpiType type) {
+  return switch (type) {
+    DashboardKpiType.activeLeads => Icons.groups_2_outlined,
+    DashboardKpiType.newLeadsToday => Icons.person_add_alt_outlined,
+    DashboardKpiType.hotOpportunities => Icons.local_fire_department_outlined,
+    DashboardKpiType.dueTodayFollowUps => Icons.event_available_outlined,
+    DashboardKpiType.overdueFollowUps => Icons.phone_missed_outlined,
+    DashboardKpiType.overdueActions => Icons.notification_important_outlined,
+    DashboardKpiType.appointmentsToday => Icons.calendar_month_outlined,
+    DashboardKpiType.missedAppointments => Icons.event_busy_outlined,
+    DashboardKpiType.overdueTasks => Icons.assignment_late_outlined,
+    DashboardKpiType.pipelineDeals => Icons.handshake_outlined,
+    DashboardKpiType.expectedPipelineValue => Icons.payments_outlined,
+    DashboardKpiType.expectedCommission => Icons.price_check_outlined,
+    DashboardKpiType.wonDealsThisMonth => Icons.verified_outlined,
+    DashboardKpiType.stuckDeals => Icons.hourglass_bottom_outlined,
+    DashboardKpiType.unassignedLeads => Icons.person_search_outlined,
+    DashboardKpiType.teamWorkload => Icons.groups_outlined,
+    DashboardKpiType.activeProperties => Icons.apartment_outlined,
+  };
+}
+
+Color _kpiColor(BuildContext context, DashboardKpiType type) {
+  return switch (type) {
+    DashboardKpiType.activeLeads => AppColors.infoColor(context),
+    DashboardKpiType.newLeadsToday => AppColors.primaryColor(context),
+    DashboardKpiType.hotOpportunities => AppColors.errorColor(context),
+    DashboardKpiType.dueTodayFollowUps => AppColors.warningColor(context),
+    DashboardKpiType.overdueFollowUps => AppColors.errorColor(context),
+    DashboardKpiType.overdueActions => AppColors.errorColor(context),
+    DashboardKpiType.appointmentsToday => AppColors.primaryColor(context),
+    DashboardKpiType.missedAppointments => AppColors.errorColor(context),
+    DashboardKpiType.overdueTasks => AppColors.errorColor(context),
+    DashboardKpiType.pipelineDeals => AppColors.warningColor(context),
+    DashboardKpiType.expectedPipelineValue => AppColors.successColor(context),
+    DashboardKpiType.expectedCommission => AppColors.successColor(context),
+    DashboardKpiType.wonDealsThisMonth => AppColors.successColor(context),
+    DashboardKpiType.stuckDeals => AppColors.warningColor(context),
+    DashboardKpiType.unassignedLeads => AppColors.warningColor(context),
+    DashboardKpiType.teamWorkload => AppColors.infoColor(context),
+    DashboardKpiType.activeProperties => AppColors.successColor(context),
+  };
+}
+
+String _barLabel(BuildContext context, String key) {
+  final l = AppLocalizations.of(context)!;
+  return switch (key) {
+    'completed' => l.completed,
+    'dueToday' => l.dueToday,
+    'overdue' => l.overdue,
+    'booked' => l.appointmentStatusScheduled,
+    'missed' => l.appointmentStatusMissed,
+    _ => key,
+  };
+}
+
+Color _barColor(BuildContext context, String key) {
+  return switch (key) {
+    'completed' => AppColors.successColor(context),
+    'dueToday' || 'booked' => AppColors.primaryColor(context),
+    'overdue' || 'missed' => AppColors.errorColor(context),
+    _ => AppColors.infoColor(context),
+  };
+}
+
+Color _sourceColor(BuildContext context, int index) {
+  final colors = [
+    AppColors.infoColor(context),
+    AppColors.successColor(context),
+    AppColors.warningColor(context),
+    AppColors.errorColor(context),
+    AppColors.primaryColor(context),
+  ];
+  return colors[index % colors.length];
+}
+
+String _leadSourceLabel(AppLocalizations l, LeadSource source) {
+  return switch (source) {
+    LeadSource.facebook => l.facebook,
+    LeadSource.website => l.website,
+    LeadSource.phoneCall => l.phoneCall,
+    LeadSource.whatsapp => l.whatsapp,
+    LeadSource.referral => l.referral,
+    LeadSource.walkIn => l.walkIn,
+    LeadSource.other => l.other,
+  };
+}
+
+int _todayCount(DashboardAnalytics analytics, DashboardTodayModule module) {
+  return analytics.todayItems.where((item) => item.module == module).length;
+}
+
+IconData _todayIcon(DashboardTodayModule module) {
+  return switch (module) {
+    DashboardTodayModule.appointment => Icons.event_available_outlined,
+    DashboardTodayModule.followUp => Icons.phone_callback_outlined,
+    DashboardTodayModule.task => Icons.task_alt_outlined,
+    DashboardTodayModule.deal => Icons.handshake_outlined,
+  };
+}
+
+String? _todayRoute(DashboardTodayItem item) {
+  return switch (item.module) {
+    DashboardTodayModule.appointment => RouteNames.appointmentEdit(item.recordId),
+    DashboardTodayModule.followUp => RouteNames.leadDetails(item.recordId),
+    DashboardTodayModule.task => RouteNames.taskEdit(item.recordId),
+    DashboardTodayModule.deal => RouteNames.dealDetails(item.recordId),
+  };
+}
+
+String _todaySubtitle(BuildContext context, DashboardTodayItem item) {
+  final l = AppLocalizations.of(context)!;
+  final time = item.dueAt == null
+      ? ''
+      : intl.DateFormat.jm(l.localeName).format(item.dueAt!.toLocal());
+  final urgency = switch (item.urgency) {
+    DashboardTodayUrgency.overdue => l.overdue,
+    DashboardTodayUrgency.dueToday => l.dueToday,
+    DashboardTodayUrgency.normal => l.today,
+  };
+  final subtitle = item.subtitle.trim();
+  return [
+    if (time.isNotEmpty) time,
+    urgency,
+    if (subtitle.isNotEmpty) subtitle,
+  ].join(' - ');
+}
+
+Color _urgencyColor(BuildContext context, DashboardTodayUrgency urgency) {
+  return switch (urgency) {
+    DashboardTodayUrgency.overdue => AppColors.errorColor(context),
+    DashboardTodayUrgency.dueToday => AppColors.warningColor(context),
+    DashboardTodayUrgency.normal => AppColors.infoColor(context),
+  };
 }
 
 

@@ -1383,6 +1383,489 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardGeneralTask => 'General task';
 
   @override
+  String get dashboardKpiActiveLeads => 'Active Leads';
+
+  @override
+  String get dashboardKpiHotOpportunities => 'Hot Opportunities';
+
+  @override
+  String get dashboardKpiDueTodayFollowUps => 'Follow-ups today';
+
+  @override
+  String get dashboardKpiOverdueActions => 'Overdue actions';
+
+  @override
+  String get dashboardKpiAppointmentsToday => 'Appointments today';
+
+  @override
+  String get dashboardKpiDealsPipeline => 'Deals in pipeline';
+
+  @override
+  String get dashboardKpiExpectedPipeline => 'Pipeline Value';
+
+  @override
+  String get dashboardKpiActiveListings => 'Available Properties';
+
+  @override
+  String get dashboardPeriodToday => 'Today';
+
+  @override
+  String get dashboardPeriodThisMonth => 'This month';
+
+  @override
+  String get dashboardPeriodCurrentScope => 'Current role scope';
+
+  @override
+  String get dashboardNotEnoughData => 'Not enough data yet.';
+
+  @override
+  String get dashboardPerformanceTitle => 'Sales performance';
+
+  @override
+  String get dashboardPerformanceOverview => 'Performance Overview';
+
+  @override
+  String get dashboardLeadsTrend => 'Leads trend';
+
+  @override
+  String get dashboardFollowUpsCompletedMissed =>
+      'Follow-ups completed vs missed';
+
+  @override
+  String get dashboardAppointmentsFlow => 'Appointments booked and outcomes';
+
+  @override
+  String get dashboardLeadSources => 'Lead sources';
+
+  @override
+  String get dashboardLast7Days => 'Last 7 days';
+
+  @override
+  String get dashboardTodayRailTitle => 'Today';
+
+  @override
+  String get dashboardDueFollowUps => 'Due follow-ups';
+
+  @override
+  String get dashboardOverdueReminders => 'Overdue reminders';
+
+  @override
+  String get dashboardNoUrgentActions => 'No urgent actions right now.';
+
+  @override
+  String get dashboardPipelineSnapshot => 'Sales pipeline';
+
+  @override
+  String get dashboardPipelineHasNoValue =>
+      'Pipeline value will appear when deal values exist.';
+
+  @override
+  String get dashboardStuckDeals => 'Stuck deals';
+
+  @override
+  String get dashboardClosingThisMonth => 'Closing this month';
+
+  @override
+  String get dashboardWonLost => 'Won / lost';
+
+  @override
+  String get dashboardDealsByStage => 'Deals by stage';
+
+  @override
+  String get dashboardTeamPerformance => 'Team performance';
+
+  @override
+  String get dashboardPersonalPerformance => 'My performance';
+
+  @override
+  String get dashboardTopActiveAgent => 'Top active agent';
+
+  @override
+  String get dashboardOverloadedAssignee => 'Needs load review';
+
+  @override
+  String get dashboardNoTeamSignal => 'No team pressure signal right now.';
+
+  @override
+  String get dashboardPerformanceLimitedForRole =>
+      'Limited view for this role.';
+
+  @override
+  String get dashboardOverviewTab => 'Overview';
+
+  @override
+  String get dashboardWorkQueue => 'Work queue';
+
+  @override
+  String get dashboardPerformanceTab => 'Performance';
+
+  @override
+  String get dashboardOpportunitiesTab => 'Opportunities';
+
+  @override
+  String get dashboardQuickActionsUnavailable =>
+      'No quick actions are available for this role.';
+
+  @override
+  String get dashboardImportantOpportunities => 'Important open opportunities';
+
+  @override
+  String get dashboardNoOpportunities => 'No important opportunities yet.';
+
+  @override
+  String get dashboardDailyInsight => 'Daily insight';
+
+  @override
+  String dashboardAppointmentsForDate(Object date) {
+    return 'Appointments $date';
+  }
+
+  @override
+  String get dashboardNoAppointmentsForDay => 'No appointments for this day.';
+
+  @override
+  String get dashboardUrgentFollowUps => 'Urgent follow-ups';
+
+  @override
+  String get dashboardNoUrgentFollowUps => 'No urgent follow-ups.';
+
+  @override
+  String get dashboardQuickAction => 'Quick action';
+
+  @override
+  String get dashboardTeamUser => 'Consultant';
+
+  @override
+  String get dashboardTeamAppointments => 'Appts';
+
+  @override
+  String get dashboardTeamDeals => 'Deals';
+
+  @override
+  String get dashboardTeamPipeline => 'Pipeline';
+
+  @override
+  String get dashboardNoValue => 'No value';
+
+  @override
+  String get dashboardAddLead => 'Add lead';
+
+  @override
+  String get dashboardAddClient => 'Add client';
+
+  @override
+  String get dashboardAddProperty => 'Add property';
+
+  @override
+  String get dashboardAddAppointment => 'Add appointment';
+
+  @override
+  String get dashboardSeriesLeads => 'Leads';
+
+  @override
+  String get dashboardSeriesAppointments => 'Appointments';
+
+  @override
+  String get dashboardSeriesDeals => 'Deals';
+
+  @override
+  String get dashboardSeriesPipelineValue => 'Pipeline value';
+
+  @override
+  String dashboardDailyInsightStaleLeads(Object count) {
+    return 'You have $count leads without follow-up for more than 5 days. Start with the highest-value opportunities.';
+  }
+
+  @override
+  String dashboardDailyInsightConversionUp(Object percent) {
+    return 'Current conversion is $percent% higher than the previous month.';
+  }
+
+  @override
+  String get dashboardDailyInsightCalm =>
+      'No urgent actions right now. Follow-up is under control.';
+
+  @override
+  String get dashboardDailyInsightNotEnoughData =>
+      'Not enough data yet for an accurate daily insight.';
+
+  @override
+  String get dashboardWelcomeInsightActive =>
+      'Start with hot opportunities and due follow-ups, then review the team schedule from the Today rail.';
+
+  @override
+  String get dashboardWelcomeInsightCalm =>
+      'No urgent signals right now. Watch performance and prepare for the next opportunities.';
+
+  @override
+  String get dashboardTodayShort => 'Today';
+
+  @override
+  String dashboardDaysAgo(Object count) {
+    return '${count}d ago';
+  }
+
+  @override
+  String get salesCommandCenterTitle => 'Daily Sales Command Center';
+
+  @override
+  String get salesCommandCenterSubtitle =>
+      'A live, role-scoped view of the work that can move the pipeline today.';
+
+  @override
+  String get salesCommandEmptyTitle => 'No urgent actions right now.';
+
+  @override
+  String get salesCommandEmptyMessage =>
+      'No urgent actions right now. Your pipeline is under control.';
+
+  @override
+  String get salesCommandLimitedMessage =>
+      'Your role has limited dashboard actions. Available work remains visible in its modules.';
+
+  @override
+  String get salesCommandUpdatedNow => 'Updated now';
+
+  @override
+  String get salesCommandMetricDueToday => 'Due today';
+
+  @override
+  String get salesCommandMetricOverdue => 'Overdue';
+
+  @override
+  String get salesCommandMetricHot => 'Hot';
+
+  @override
+  String get salesCommandMetricRisk => 'At risk';
+
+  @override
+  String get dashboardCommandLegendTooltip =>
+      'Red = overdue/risk. Gold = due today/action soon. Blue = hot/important opportunity. Green = positive/completed.';
+
+  @override
+  String get dashboardSuggestedNextAction => 'Suggested next action';
+
+  @override
+  String get salesCommandTodayPrioritiesTitle => 'Today’s priorities';
+
+  @override
+  String get salesCommandTodayPrioritiesSubtitle =>
+      'The strongest cross-module actions for the current workday.';
+
+  @override
+  String get salesCommandHotOpportunitiesTitle => 'Hot opportunities';
+
+  @override
+  String get salesCommandHotOpportunitiesSubtitle =>
+      'Leads and deals with signals worth acting on soon.';
+
+  @override
+  String get salesCommandAtRiskTitle => 'At risk';
+
+  @override
+  String get salesCommandAtRiskSubtitle =>
+      'Missed, stale, or stuck work that needs intervention.';
+
+  @override
+  String get salesCommandTeamPressureTitle => 'Team pressure';
+
+  @override
+  String get salesCommandTeamPressureSubtitle =>
+      'Overdue workload and ownership gaps for the visible scope.';
+
+  @override
+  String get salesCommandNoTodayPriorities =>
+      'No priority action is due right now.';
+
+  @override
+  String get salesCommandNoHotOpportunities =>
+      'No strong opportunity signal in the loaded scope.';
+
+  @override
+  String get salesCommandNoAtRisk =>
+      'No visible at-risk item needs intervention.';
+
+  @override
+  String get salesCommandNoTeamPressure =>
+      'No overloaded assignee or ownership gap is visible.';
+
+  @override
+  String get salesCommandWhyThisAppears => 'Why this appears';
+
+  @override
+  String get salesCommandOpenAction => 'Open';
+
+  @override
+  String get salesCommandDueToday => 'Due today';
+
+  @override
+  String salesCommandOverdueByDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days overdue',
+      one: '1 day overdue',
+      zero: 'Overdue',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String salesCommandAgeDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days without movement',
+      one: '1 day without movement',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String salesCommandDueAt(Object date) {
+    return 'Due $date';
+  }
+
+  @override
+  String get salesCommandModuleLead => 'Lead';
+
+  @override
+  String get salesCommandModuleTask => 'Task';
+
+  @override
+  String get salesCommandModuleDeal => 'Deal';
+
+  @override
+  String get salesCommandModuleAppointment => 'Appointment';
+
+  @override
+  String get salesCommandModuleClient => 'Client';
+
+  @override
+  String get salesCommandModuleUser => 'User';
+
+  @override
+  String get salesCommandModuleTeam => 'Team';
+
+  @override
+  String get salesCommandWhyOverdueFollowUp =>
+      'The follow-up date has passed while the lead is still open.';
+
+  @override
+  String get salesCommandWhyDueTodayFollowUp =>
+      'This lead has a follow-up scheduled for today.';
+
+  @override
+  String get salesCommandWhyOverdueTask =>
+      'The task is still open after its due date.';
+
+  @override
+  String get salesCommandWhyDueTodayTask =>
+      'This task is due today and still open.';
+
+  @override
+  String salesCommandWhyStaleLead(int count) {
+    return 'No recent contact or update for $count days.';
+  }
+
+  @override
+  String get salesCommandWhyHotLead =>
+      'Priority, stage, or recent activity suggests a real opportunity.';
+
+  @override
+  String get salesCommandWhyUnassignedLead =>
+      'Important lead has no responsible owner yet.';
+
+  @override
+  String get salesCommandWhyAppointmentMissed =>
+      'The appointment time has passed and still needs handling.';
+
+  @override
+  String get salesCommandWhyAppointmentDueNow =>
+      'The appointment is happening now or should already be in progress.';
+
+  @override
+  String get salesCommandWhyAppointmentUpcoming =>
+      'Scheduled today, so it should stay visible without dominating the list.';
+
+  @override
+  String get salesCommandWhyAppointmentNeedsFeedback =>
+      'The appointment ended but no outcome was captured.';
+
+  @override
+  String get salesCommandWhyDealAtRisk =>
+      'The closing date or activity age suggests this deal needs attention.';
+
+  @override
+  String salesCommandWhyOverloadedAssignee(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count overdue items',
+      one: '1 overdue item',
+    );
+    return '$name has $_temp0.';
+  }
+
+  @override
+  String salesCommandMoreItems(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more actions in the modules',
+      one: '1 more action in the modules',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get salesCommandReasonOverdueFollowUp => 'Overdue follow-up';
+
+  @override
+  String get salesCommandReasonDueTodayFollowUp => 'Follow-up due today';
+
+  @override
+  String get salesCommandReasonOverdueTask => 'Task overdue';
+
+  @override
+  String get salesCommandReasonDueTodayTask => 'Task due today';
+
+  @override
+  String get salesCommandReasonStaleLead => 'No recent contact';
+
+  @override
+  String get salesCommandReasonHotLead => 'Hot lead';
+
+  @override
+  String get salesCommandReasonUnassignedLead => 'Unassigned important lead';
+
+  @override
+  String get salesCommandReasonAppointmentMissed => 'Missed appointment';
+
+  @override
+  String get salesCommandReasonAppointmentDueNow => 'Appointment due now';
+
+  @override
+  String get salesCommandReasonAppointmentUpcoming => 'Upcoming appointment';
+
+  @override
+  String get salesCommandReasonAppointmentNeedsFeedback => 'Needs outcome';
+
+  @override
+  String get salesCommandReasonDealAtRisk => 'Deal at risk';
+
+  @override
+  String salesCommandReasonOverloadedAssignee(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count overdue tasks',
+      one: '1 overdue task',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get clientsSubtitle =>
       'Keep client profiles, preferences, and assignments ready for follow-up.';
 
@@ -4127,4 +4610,127 @@ class AppLocalizationsEn extends AppLocalizations {
   String overdueDaysCount(int count) {
     return '$count days overdue';
   }
+
+  @override
+  String get swipeToSeeMore => 'Swipe to see more';
+
+  @override
+  String get dashboardActionNoAnswer => 'No answer';
+
+  @override
+  String get dashboardActionInterested => 'Mark as hot opportunity';
+
+  @override
+  String get dashboardActionNotInterested => 'Mark not interested';
+
+  @override
+  String get dashboardActionMarkTaskCompleted => 'Mark task completed';
+
+  @override
+  String get dashboardActionSaved => 'Action saved.';
+
+  @override
+  String get dashboardActionFailed =>
+      'Could not complete the action. Please try again.';
+
+  @override
+  String get dashboardCallPhone => 'Call';
+
+  @override
+  String get dashboardOpenWhatsApp => 'Open WhatsApp';
+
+  @override
+  String get dashboardLeadNoteContacted =>
+      'Follow-up outcome: contacted from the dashboard.';
+
+  @override
+  String get dashboardLeadNoteNoAnswer =>
+      'Follow-up outcome: no answer from the dashboard. Next follow-up scheduled for tomorrow.';
+
+  @override
+  String get dashboardLeadNoteInterested =>
+      'Follow-up outcome: interested from the dashboard.';
+
+  @override
+  String get dashboardLeadNoteNotInterested =>
+      'Follow-up outcome: not interested from the dashboard.';
+
+  @override
+  String dashboardLeadNoteFollowUpScheduled(Object date) {
+    return 'Follow-up scheduled for $date from the dashboard.';
+  }
+
+  @override
+  String get connectedJourneyTitle => 'Connected journey';
+
+  @override
+  String get connectedJourneySubtitle =>
+      'Timeline, tasks, appointments, deals, and audit activity around this record.';
+
+  @override
+  String get journeyRecommendedNextAction => 'Recommended next action';
+
+  @override
+  String get journeyNoActivity => 'No connected activity yet.';
+
+  @override
+  String get journeyOpenRecord => 'Open record';
+
+  @override
+  String get journeyItemRecordCreated => 'Record created';
+
+  @override
+  String get journeyItemAuditCreated => 'Audit event created';
+
+  @override
+  String get journeyItemAuditUpdated => 'Audit event updated';
+
+  @override
+  String get journeyActionEverythingCalm => 'No urgent action';
+
+  @override
+  String get journeyActionEverythingCalmDescription =>
+      'This record has no urgent journey alerts right now.';
+
+  @override
+  String get journeyActionOverdueFollowUp => 'Follow-up is overdue';
+
+  @override
+  String get journeyActionOverdueFollowUpDescription =>
+      'Contact this record today or create a task so it does not stay cold.';
+
+  @override
+  String get journeyActionNoContact => 'Needs a fresh touchpoint';
+
+  @override
+  String get journeyActionNoContactDescription =>
+      'There has been no recent contact. Plan a call, task, or appointment.';
+
+  @override
+  String get journeyActionScheduleVisit => 'Schedule the next appointment';
+
+  @override
+  String get journeyActionScheduleVisitDescription =>
+      'The record is warm enough for a clear next meeting or property visit.';
+
+  @override
+  String get journeyActionCompleteProfile => 'Complete missing details';
+
+  @override
+  String get journeyActionCompleteProfileDescription =>
+      'Add the missing preferences so future matching and follow-up are useful.';
+
+  @override
+  String get journeyActionStuckDeal => 'Deal needs review';
+
+  @override
+  String get journeyActionStuckDealDescription =>
+      'This deal has not moved recently. Review the stage and next commitment.';
+
+  @override
+  String get journeyActionClosingDue => 'Closing date needs attention';
+
+  @override
+  String get journeyActionClosingDueDescription =>
+      'The expected closing date has passed. Create a task or update the deal plan.';
 }

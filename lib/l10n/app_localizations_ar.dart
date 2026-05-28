@@ -36,7 +36,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get loggedOutSuccessfully => 'تم تسجيل الخروج بنجاح.';
 
   @override
-  String get dashboard => 'لوحة التحكم';
+  String get dashboard => 'لوحة المتابعة';
 
   @override
   String get leads => 'العملاء المحتملون';
@@ -1375,6 +1375,486 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get dashboardGeneralTask => 'مهمة عامة';
+
+  @override
+  String get dashboardKpiActiveLeads => 'عملاء محتملون';
+
+  @override
+  String get dashboardKpiHotOpportunities => 'فرص مهمة';
+
+  @override
+  String get dashboardKpiDueTodayFollowUps => 'متابعات اليوم';
+
+  @override
+  String get dashboardKpiOverdueActions => 'إجراءات متأخرة';
+
+  @override
+  String get dashboardKpiAppointmentsToday => 'مواعيد اليوم';
+
+  @override
+  String get dashboardKpiDealsPipeline => 'خط الصفقات';
+
+  @override
+  String get dashboardKpiExpectedPipeline => 'قيمة الصفقات';
+
+  @override
+  String get dashboardKpiActiveListings => 'عقارات متاحة';
+
+  @override
+  String get dashboardPeriodToday => 'اليوم';
+
+  @override
+  String get dashboardPeriodThisMonth => 'هذا الشهر';
+
+  @override
+  String get dashboardPeriodCurrentScope => 'حسب صلاحيات دورك';
+
+  @override
+  String get dashboardNotEnoughData => 'لا توجد بيانات كافية بعد.';
+
+  @override
+  String get dashboardPerformanceTitle => 'أداء المبيعات';
+
+  @override
+  String get dashboardPerformanceOverview => 'نظرة على الأداء';
+
+  @override
+  String get dashboardLeadsTrend => 'اتجاه العملاء المحتملين';
+
+  @override
+  String get dashboardFollowUpsCompletedMissed => 'المتابعات المنجزة والمتأخرة';
+
+  @override
+  String get dashboardAppointmentsFlow => 'حالة مواعيد اليوم';
+
+  @override
+  String get dashboardLeadSources => 'مصادر العملاء المحتملين';
+
+  @override
+  String get dashboardLast7Days => 'آخر ٧ أيام';
+
+  @override
+  String get dashboardTodayRailTitle => 'اليوم';
+
+  @override
+  String get dashboardDueFollowUps => 'متابعات مستحقة';
+
+  @override
+  String get dashboardOverdueReminders => 'تنبيهات متأخرة';
+
+  @override
+  String get dashboardNoUrgentActions => 'لا توجد إجراءات عاجلة الآن.';
+
+  @override
+  String get dashboardPipelineSnapshot => 'خط المبيعات';
+
+  @override
+  String get dashboardPipelineHasNoValue =>
+      'تظهر قيمة المسار عند تسجيل قيم الصفقات.';
+
+  @override
+  String get dashboardStuckDeals => 'صفقات متوقفة';
+
+  @override
+  String get dashboardClosingThisMonth => 'إغلاق هذا الشهر';
+
+  @override
+  String get dashboardWonLost => 'رابحة / خاسرة';
+
+  @override
+  String get dashboardDealsByStage => 'الصفقات حسب المرحلة';
+
+  @override
+  String get dashboardTeamPerformance => 'أداء الفريق';
+
+  @override
+  String get dashboardPersonalPerformance => 'أدائي';
+
+  @override
+  String get dashboardTopActiveAgent => 'الأكثر نشاطًا';
+
+  @override
+  String get dashboardOverloadedAssignee => 'يحتاج توزيع عبء';
+
+  @override
+  String get dashboardNoTeamSignal => 'لا توجد مؤشرات ضغط على الفريق الآن.';
+
+  @override
+  String get dashboardPerformanceLimitedForRole => 'عرض محدود لهذا الدور.';
+
+  @override
+  String get dashboardOverviewTab => 'نظرة عامة';
+
+  @override
+  String get dashboardWorkQueue => 'قائمة العمل';
+
+  @override
+  String get dashboardPerformanceTab => 'الأداء';
+
+  @override
+  String get dashboardOpportunitiesTab => 'الفرص';
+
+  @override
+  String get dashboardQuickActionsUnavailable =>
+      'لا توجد إجراءات سريعة متاحة لهذا الدور.';
+
+  @override
+  String get dashboardImportantOpportunities => 'أهم الفرص المفتوحة';
+
+  @override
+  String get dashboardNoOpportunities => 'لا توجد فرص مهمة بعد.';
+
+  @override
+  String get dashboardDailyInsight => 'رؤية ذكية';
+
+  @override
+  String dashboardAppointmentsForDate(Object date) {
+    return 'مواعيد $date';
+  }
+
+  @override
+  String get dashboardNoAppointmentsForDay => 'لا توجد مواعيد لهذا اليوم';
+
+  @override
+  String get dashboardUrgentFollowUps => 'متابعات عاجلة';
+
+  @override
+  String get dashboardNoUrgentFollowUps => 'لا توجد متابعات عاجلة';
+
+  @override
+  String get dashboardQuickAction => 'إجراء سريع';
+
+  @override
+  String get dashboardTeamUser => 'المستشار';
+
+  @override
+  String get dashboardTeamAppointments => 'المواعيد';
+
+  @override
+  String get dashboardTeamDeals => 'الصفقات';
+
+  @override
+  String get dashboardTeamPipeline => 'القيمة';
+
+  @override
+  String get dashboardNoValue => 'بدون قيمة';
+
+  @override
+  String get dashboardAddLead => 'إضافة عميل محتمل';
+
+  @override
+  String get dashboardAddClient => 'إضافة عميل';
+
+  @override
+  String get dashboardAddProperty => 'إضافة عقار';
+
+  @override
+  String get dashboardAddAppointment => 'إضافة موعد';
+
+  @override
+  String get dashboardSeriesLeads => 'العملاء المحتملون';
+
+  @override
+  String get dashboardSeriesAppointments => 'المواعيد';
+
+  @override
+  String get dashboardSeriesDeals => 'الصفقات';
+
+  @override
+  String get dashboardSeriesPipelineValue => 'قيمة الصفقات';
+
+  @override
+  String dashboardDailyInsightStaleLeads(Object count) {
+    return 'هناك $count فرص لم تحصل على متابعة منذ أكثر من ٥ أيام. افتح التفاصيل وابدأ بالأعلى قيمة.';
+  }
+
+  @override
+  String dashboardDailyInsightConversionUp(Object percent) {
+    return 'معدل التحويل الحالي أعلى من الشهر السابق بنسبة $percent٪.';
+  }
+
+  @override
+  String get dashboardDailyInsightCalm =>
+      'لا توجد إجراءات حرجة الآن. تابع مؤشرات الأداء واستعد للفرصة القادمة.';
+
+  @override
+  String get dashboardDailyInsightNotEnoughData =>
+      'لا توجد بيانات كافية بعد لعرض رؤية يومية دقيقة.';
+
+  @override
+  String get dashboardWelcomeInsightActive =>
+      'ابدأ اليوم من الفرص المهمة والمتابعات المستحقة، ثم راجع مواعيد الفريق من شريط اليوم.';
+
+  @override
+  String get dashboardWelcomeInsightCalm =>
+      'لا توجد مؤشرات عاجلة الآن. راقب الأداء واستعد للفرص القادمة.';
+
+  @override
+  String get dashboardTodayShort => 'اليوم';
+
+  @override
+  String dashboardDaysAgo(Object count) {
+    return 'منذ $count يوم';
+  }
+
+  @override
+  String get salesCommandCenterTitle => 'مركز المتابعة اليومية';
+
+  @override
+  String get salesCommandCenterSubtitle =>
+      'أهم الفرص والمتابعات التي تحتاج حركة اليوم.';
+
+  @override
+  String get salesCommandEmptyTitle => 'لا توجد إجراءات عاجلة الآن.';
+
+  @override
+  String get salesCommandEmptyMessage =>
+      'لا توجد إجراءات عاجلة الآن. المتابعة تحت السيطرة.';
+
+  @override
+  String get salesCommandLimitedMessage =>
+      'ستظهر هنا الأعمال المتاحة حسب صلاحياتك عند وجود بيانات كافية.';
+
+  @override
+  String get salesCommandUpdatedNow => 'تم التحديث الآن';
+
+  @override
+  String get salesCommandMetricDueToday => 'مستحق اليوم';
+
+  @override
+  String get salesCommandMetricOverdue => 'متأخر';
+
+  @override
+  String get salesCommandMetricHot => 'فرص مهمة';
+
+  @override
+  String get salesCommandMetricRisk => 'تحتاج تدخل';
+
+  @override
+  String get dashboardCommandLegendTooltip =>
+      'الأحمر = متأخر أو عالي المخاطر. الذهبي = مستحق اليوم أو قريب. الأزرق = فرصة مهمة. الأخضر = نتيجة إيجابية أو مكتمل.';
+
+  @override
+  String get dashboardSuggestedNextAction => 'الإجراء المقترح';
+
+  @override
+  String get salesCommandTodayPrioritiesTitle => 'أولويات اليوم';
+
+  @override
+  String get salesCommandTodayPrioritiesSubtitle =>
+      'أهم الإجراءات المختلطة بين العملاء والمهام والصفقات والمواعيد.';
+
+  @override
+  String get salesCommandHotOpportunitiesTitle => 'فرص مهمة';
+
+  @override
+  String get salesCommandHotOpportunitiesSubtitle =>
+      'عملاء وصفقات تظهر عليها إشارات تستحق متابعة قريبة.';
+
+  @override
+  String get salesCommandAtRiskTitle => 'تحتاج تدخل';
+
+  @override
+  String get salesCommandAtRiskSubtitle =>
+      'متابعات فائتة أو عملاء بلا حركة أو صفقات متوقفة.';
+
+  @override
+  String get salesCommandTeamPressureTitle => 'ضغط الفريق';
+
+  @override
+  String get salesCommandTeamPressureSubtitle =>
+      'عبء العمل المتأخر وفجوات المسؤولية ضمن نطاقك.';
+
+  @override
+  String get salesCommandNoTodayPriorities => 'لا توجد أولوية مستحقة الآن.';
+
+  @override
+  String get salesCommandNoHotOpportunities =>
+      'لا توجد فرصة قوية ظاهرة ضمن البيانات الحالية.';
+
+  @override
+  String get salesCommandNoAtRisk => 'لا يوجد عنصر ظاهر يحتاج تدخل الآن.';
+
+  @override
+  String get salesCommandNoTeamPressure =>
+      'لا يظهر ضغط زائد أو فجوة مسؤولية حالياً.';
+
+  @override
+  String get salesCommandWhyThisAppears => 'سبب الظهور';
+
+  @override
+  String get salesCommandOpenAction => 'عرض';
+
+  @override
+  String get salesCommandDueToday => 'مستحق اليوم';
+
+  @override
+  String salesCommandOverdueByDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'متأخر $count أيام',
+      one: 'متأخر يوم واحد',
+      zero: 'متأخر',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String salesCommandAgeDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'بلا حركة منذ $count أيام',
+      one: 'بلا حركة منذ يوم',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String salesCommandDueAt(Object date) {
+    return 'مستحق $date';
+  }
+
+  @override
+  String get salesCommandModuleLead => 'عميل محتمل';
+
+  @override
+  String get salesCommandModuleTask => 'مهمة';
+
+  @override
+  String get salesCommandModuleDeal => 'صفقة';
+
+  @override
+  String get salesCommandModuleAppointment => 'موعد';
+
+  @override
+  String get salesCommandModuleClient => 'عميل';
+
+  @override
+  String get salesCommandModuleUser => 'مستخدم';
+
+  @override
+  String get salesCommandModuleTeam => 'فريق';
+
+  @override
+  String get salesCommandWhyOverdueFollowUp =>
+      'موعد المتابعة فات والعميل المحتمل ما زال مفتوحاً.';
+
+  @override
+  String get salesCommandWhyDueTodayFollowUp =>
+      'هذا العميل لديه متابعة مستحقة اليوم.';
+
+  @override
+  String get salesCommandWhyOverdueTask => 'المهمة ما زالت مفتوحة بعد موعدها.';
+
+  @override
+  String get salesCommandWhyDueTodayTask =>
+      'المهمة مستحقة اليوم ولم تُنجز بعد.';
+
+  @override
+  String salesCommandWhyStaleLead(int count) {
+    return 'لا يوجد تواصل أو تحديث حديث منذ $count يوم.';
+  }
+
+  @override
+  String get salesCommandWhyHotLead =>
+      'الأولوية أو الحالة تشير إلى فرصة تستحق متابعة قريبة.';
+
+  @override
+  String get salesCommandWhyUnassignedLead =>
+      'عميل مهم بدون مسؤول متابعة حتى الآن.';
+
+  @override
+  String get salesCommandWhyAppointmentMissed =>
+      'وقت الموعد انتهى وما زال يحتاج معالجة.';
+
+  @override
+  String get salesCommandWhyAppointmentDueNow =>
+      'الموعد مستحق الآن أو يفترض أنه بدأ بالفعل.';
+
+  @override
+  String get salesCommandWhyAppointmentUpcoming =>
+      'موعد اليوم ظاهر للتنبيه فقط بدون أن يطغى على الأولويات.';
+
+  @override
+  String get salesCommandWhyAppointmentNeedsFeedback =>
+      'الموعد انتهى ولم يتم تسجيل نتيجته.';
+
+  @override
+  String get salesCommandWhyDealAtRisk =>
+      'الصفقة متوقفة أو اقترب موعد إغلاقها وتحتاج خطوة واضحة.';
+
+  @override
+  String salesCommandWhyOverloadedAssignee(Object name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count عناصر متأخرة',
+      one: 'عنصر واحد متأخر',
+    );
+    return '$name لديه $_temp0.';
+  }
+
+  @override
+  String salesCommandMoreItems(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'توجد $count إجراءات أخرى داخل الوحدات',
+      one: 'يوجد إجراء آخر داخل الوحدات',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get salesCommandReasonOverdueFollowUp =>
+      'تأخرت المتابعة ويحتاج العميل إجراء الآن';
+
+  @override
+  String get salesCommandReasonDueTodayFollowUp =>
+      'موعد المتابعة اليوم ولا يفضل تأجيله';
+
+  @override
+  String get salesCommandReasonOverdueTask => 'مهمة متأخرة تؤثر على المتابعة';
+
+  @override
+  String get salesCommandReasonDueTodayTask => 'مهمة مستحقة اليوم';
+
+  @override
+  String get salesCommandReasonStaleLead => 'لا توجد حركة حديثة على هذه الفرصة';
+
+  @override
+  String get salesCommandReasonHotLead => 'فرصة نشطة وتستحق أولوية';
+
+  @override
+  String get salesCommandReasonUnassignedLead => 'عميل مهم غير مسند';
+
+  @override
+  String get salesCommandReasonAppointmentMissed => 'موعد فائت';
+
+  @override
+  String get salesCommandReasonAppointmentDueNow => 'موعد مستحق الآن';
+
+  @override
+  String get salesCommandReasonAppointmentUpcoming => 'موعد قريب';
+
+  @override
+  String get salesCommandReasonAppointmentNeedsFeedback => 'يحتاج نتيجة الموعد';
+
+  @override
+  String get salesCommandReasonDealAtRisk => 'الصفقة متوقفة وتحتاج تدخل';
+
+  @override
+  String salesCommandReasonOverloadedAssignee(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count مهام متأخرة',
+      one: 'مهمة متأخرة واحدة',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get clientsSubtitle =>
@@ -4099,4 +4579,126 @@ class AppLocalizationsAr extends AppLocalizations {
   String overdueDaysCount(int count) {
     return 'متأخر $count يوم';
   }
+
+  @override
+  String get swipeToSeeMore => 'اسحب لعرض المزيد';
+
+  @override
+  String get dashboardActionNoAnswer => 'لم يرد';
+
+  @override
+  String get dashboardActionInterested => 'تمييز كفرصة مهمة';
+
+  @override
+  String get dashboardActionNotInterested => 'تحديد كغير مهتم';
+
+  @override
+  String get dashboardActionMarkTaskCompleted => 'إنهاء المهمة';
+
+  @override
+  String get dashboardActionSaved => 'تم حفظ الإجراء.';
+
+  @override
+  String get dashboardActionFailed => 'تعذر تنفيذ الإجراء. حاول مرة أخرى.';
+
+  @override
+  String get dashboardCallPhone => 'اتصال';
+
+  @override
+  String get dashboardOpenWhatsApp => 'فتح واتساب';
+
+  @override
+  String get dashboardLeadNoteContacted =>
+      'نتيجة المتابعة: تم التواصل من لوحة المتابعة.';
+
+  @override
+  String get dashboardLeadNoteNoAnswer =>
+      'نتيجة المتابعة: لم يرد من لوحة المتابعة. تم تحديد متابعة للغد.';
+
+  @override
+  String get dashboardLeadNoteInterested =>
+      'نتيجة المتابعة: العميل مهتم من لوحة المتابعة.';
+
+  @override
+  String get dashboardLeadNoteNotInterested =>
+      'نتيجة المتابعة: العميل غير مهتم من لوحة المتابعة.';
+
+  @override
+  String dashboardLeadNoteFollowUpScheduled(Object date) {
+    return 'تم تحديد متابعة يوم $date من لوحة المتابعة.';
+  }
+
+  @override
+  String get connectedJourneyTitle => 'رحلة السجل';
+
+  @override
+  String get connectedJourneySubtitle =>
+      'تسلسل المتابعات والمهام والمواعيد والصفقات والنشاط المرتبط بهذا السجل.';
+
+  @override
+  String get journeyRecommendedNextAction => 'الإجراء المقترح الآن';
+
+  @override
+  String get journeyNoActivity => 'لا توجد أنشطة مرتبطة حتى الآن.';
+
+  @override
+  String get journeyOpenRecord => 'فتح السجل';
+
+  @override
+  String get journeyItemRecordCreated => 'تم إنشاء السجل';
+
+  @override
+  String get journeyItemAuditCreated => 'تم تسجيل نشاط جديد';
+
+  @override
+  String get journeyItemAuditUpdated => 'تم تحديث نشاط';
+
+  @override
+  String get journeyActionEverythingCalm => 'لا يوجد إجراء عاجل';
+
+  @override
+  String get journeyActionEverythingCalmDescription =>
+      'هذا السجل لا يحتوي على تنبيهات عاجلة في الرحلة حاليًا.';
+
+  @override
+  String get journeyActionOverdueFollowUp => 'المتابعة متأخرة';
+
+  @override
+  String get journeyActionOverdueFollowUpDescription =>
+      'تواصل مع هذا السجل اليوم أو أنشئ مهمة حتى لا يبرد التواصل.';
+
+  @override
+  String get journeyActionNoContact => 'يحتاج نقطة تواصل جديدة';
+
+  @override
+  String get journeyActionNoContactDescription =>
+      'لا يوجد تواصل حديث. خطط لمكالمة أو مهمة أو موعد.';
+
+  @override
+  String get journeyActionScheduleVisit => 'حدد الموعد التالي';
+
+  @override
+  String get journeyActionScheduleVisitDescription =>
+      'السجل جاهز لخطوة واضحة مثل اجتماع أو معاينة عقار.';
+
+  @override
+  String get journeyActionCompleteProfile => 'استكمال البيانات الناقصة';
+
+  @override
+  String get journeyActionCompleteProfileDescription =>
+      'أضف التفضيلات الناقصة حتى تصبح المطابقة والمتابعة أدق.';
+
+  @override
+  String get journeyActionStuckDeal => 'الصفقة تحتاج مراجعة';
+
+  @override
+  String get journeyActionStuckDealDescription =>
+      'هذه الصفقة لم تتحرك مؤخرًا. راجع المرحلة والالتزام التالي.';
+
+  @override
+  String get journeyActionClosingDue => 'تاريخ الإغلاق يحتاج متابعة';
+
+  @override
+  String get journeyActionClosingDueDescription =>
+      'تاريخ الإغلاق المتوقع انتهى. أنشئ مهمة أو حدّث خطة الصفقة.';
 }

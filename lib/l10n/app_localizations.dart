@@ -2696,6 +2696,804 @@ abstract class AppLocalizations {
   /// **'General task'**
   String get dashboardGeneralTask;
 
+  /// No description provided for @dashboardKpiActiveLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Leads'**
+  String get dashboardKpiActiveLeads;
+
+  /// No description provided for @dashboardKpiHotOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot Opportunities'**
+  String get dashboardKpiHotOpportunities;
+
+  /// No description provided for @dashboardKpiDueTodayFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups today'**
+  String get dashboardKpiDueTodayFollowUps;
+
+  /// No description provided for @dashboardKpiOverdueActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue actions'**
+  String get dashboardKpiOverdueActions;
+
+  /// No description provided for @dashboardKpiAppointmentsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments today'**
+  String get dashboardKpiAppointmentsToday;
+
+  /// No description provided for @dashboardKpiDealsPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals in pipeline'**
+  String get dashboardKpiDealsPipeline;
+
+  /// No description provided for @dashboardKpiExpectedPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline Value'**
+  String get dashboardKpiExpectedPipeline;
+
+  /// No description provided for @dashboardKpiActiveListings.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Properties'**
+  String get dashboardKpiActiveListings;
+
+  /// No description provided for @dashboardPeriodToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dashboardPeriodToday;
+
+  /// No description provided for @dashboardPeriodThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get dashboardPeriodThisMonth;
+
+  /// No description provided for @dashboardPeriodCurrentScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Current role scope'**
+  String get dashboardPeriodCurrentScope;
+
+  /// No description provided for @dashboardNotEnoughData.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough data yet.'**
+  String get dashboardNotEnoughData;
+
+  /// No description provided for @dashboardPerformanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales performance'**
+  String get dashboardPerformanceTitle;
+
+  /// No description provided for @dashboardPerformanceOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance Overview'**
+  String get dashboardPerformanceOverview;
+
+  /// No description provided for @dashboardLeadsTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads trend'**
+  String get dashboardLeadsTrend;
+
+  /// No description provided for @dashboardFollowUpsCompletedMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-ups completed vs missed'**
+  String get dashboardFollowUpsCompletedMissed;
+
+  /// No description provided for @dashboardAppointmentsFlow.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments booked and outcomes'**
+  String get dashboardAppointmentsFlow;
+
+  /// No description provided for @dashboardLeadSources.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead sources'**
+  String get dashboardLeadSources;
+
+  /// No description provided for @dashboardLast7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get dashboardLast7Days;
+
+  /// No description provided for @dashboardTodayRailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dashboardTodayRailTitle;
+
+  /// No description provided for @dashboardDueFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Due follow-ups'**
+  String get dashboardDueFollowUps;
+
+  /// No description provided for @dashboardOverdueReminders.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue reminders'**
+  String get dashboardOverdueReminders;
+
+  /// No description provided for @dashboardNoUrgentActions.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent actions right now.'**
+  String get dashboardNoUrgentActions;
+
+  /// No description provided for @dashboardPipelineSnapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales pipeline'**
+  String get dashboardPipelineSnapshot;
+
+  /// No description provided for @dashboardPipelineHasNoValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline value will appear when deal values exist.'**
+  String get dashboardPipelineHasNoValue;
+
+  /// No description provided for @dashboardStuckDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Stuck deals'**
+  String get dashboardStuckDeals;
+
+  /// No description provided for @dashboardClosingThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing this month'**
+  String get dashboardClosingThisMonth;
+
+  /// No description provided for @dashboardWonLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Won / lost'**
+  String get dashboardWonLost;
+
+  /// No description provided for @dashboardDealsByStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals by stage'**
+  String get dashboardDealsByStage;
+
+  /// No description provided for @dashboardTeamPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'Team performance'**
+  String get dashboardTeamPerformance;
+
+  /// No description provided for @dashboardPersonalPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'My performance'**
+  String get dashboardPersonalPerformance;
+
+  /// No description provided for @dashboardTopActiveAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Top active agent'**
+  String get dashboardTopActiveAgent;
+
+  /// No description provided for @dashboardOverloadedAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs load review'**
+  String get dashboardOverloadedAssignee;
+
+  /// No description provided for @dashboardNoTeamSignal.
+  ///
+  /// In en, this message translates to:
+  /// **'No team pressure signal right now.'**
+  String get dashboardNoTeamSignal;
+
+  /// No description provided for @dashboardPerformanceLimitedForRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited view for this role.'**
+  String get dashboardPerformanceLimitedForRole;
+
+  /// No description provided for @dashboardOverviewTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get dashboardOverviewTab;
+
+  /// No description provided for @dashboardWorkQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Work queue'**
+  String get dashboardWorkQueue;
+
+  /// No description provided for @dashboardPerformanceTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance'**
+  String get dashboardPerformanceTab;
+
+  /// No description provided for @dashboardOpportunitiesTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Opportunities'**
+  String get dashboardOpportunitiesTab;
+
+  /// No description provided for @dashboardQuickActionsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No quick actions are available for this role.'**
+  String get dashboardQuickActionsUnavailable;
+
+  /// No description provided for @dashboardImportantOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'Important open opportunities'**
+  String get dashboardImportantOpportunities;
+
+  /// No description provided for @dashboardNoOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'No important opportunities yet.'**
+  String get dashboardNoOpportunities;
+
+  /// No description provided for @dashboardDailyInsight.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily insight'**
+  String get dashboardDailyInsight;
+
+  /// No description provided for @dashboardAppointmentsForDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments {date}'**
+  String dashboardAppointmentsForDate(Object date);
+
+  /// No description provided for @dashboardNoAppointmentsForDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments for this day.'**
+  String get dashboardNoAppointmentsForDay;
+
+  /// No description provided for @dashboardUrgentFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent follow-ups'**
+  String get dashboardUrgentFollowUps;
+
+  /// No description provided for @dashboardNoUrgentFollowUps.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent follow-ups.'**
+  String get dashboardNoUrgentFollowUps;
+
+  /// No description provided for @dashboardQuickAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick action'**
+  String get dashboardQuickAction;
+
+  /// No description provided for @dashboardTeamUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Consultant'**
+  String get dashboardTeamUser;
+
+  /// No description provided for @dashboardTeamAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Appts'**
+  String get dashboardTeamAppointments;
+
+  /// No description provided for @dashboardTeamDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals'**
+  String get dashboardTeamDeals;
+
+  /// No description provided for @dashboardTeamPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline'**
+  String get dashboardTeamPipeline;
+
+  /// No description provided for @dashboardNoValue.
+  ///
+  /// In en, this message translates to:
+  /// **'No value'**
+  String get dashboardNoValue;
+
+  /// No description provided for @dashboardAddLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Add lead'**
+  String get dashboardAddLead;
+
+  /// No description provided for @dashboardAddClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Add client'**
+  String get dashboardAddClient;
+
+  /// No description provided for @dashboardAddProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Add property'**
+  String get dashboardAddProperty;
+
+  /// No description provided for @dashboardAddAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Add appointment'**
+  String get dashboardAddAppointment;
+
+  /// No description provided for @dashboardSeriesLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads'**
+  String get dashboardSeriesLeads;
+
+  /// No description provided for @dashboardSeriesAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointments'**
+  String get dashboardSeriesAppointments;
+
+  /// No description provided for @dashboardSeriesDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals'**
+  String get dashboardSeriesDeals;
+
+  /// No description provided for @dashboardSeriesPipelineValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline value'**
+  String get dashboardSeriesPipelineValue;
+
+  /// No description provided for @dashboardDailyInsightStaleLeads.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} leads without follow-up for more than 5 days. Start with the highest-value opportunities.'**
+  String dashboardDailyInsightStaleLeads(Object count);
+
+  /// No description provided for @dashboardDailyInsightConversionUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Current conversion is {percent}% higher than the previous month.'**
+  String dashboardDailyInsightConversionUp(Object percent);
+
+  /// No description provided for @dashboardDailyInsightCalm.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent actions right now. Follow-up is under control.'**
+  String get dashboardDailyInsightCalm;
+
+  /// No description provided for @dashboardDailyInsightNotEnoughData.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough data yet for an accurate daily insight.'**
+  String get dashboardDailyInsightNotEnoughData;
+
+  /// No description provided for @dashboardWelcomeInsightActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with hot opportunities and due follow-ups, then review the team schedule from the Today rail.'**
+  String get dashboardWelcomeInsightActive;
+
+  /// No description provided for @dashboardWelcomeInsightCalm.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent signals right now. Watch performance and prepare for the next opportunities.'**
+  String get dashboardWelcomeInsightCalm;
+
+  /// No description provided for @dashboardTodayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dashboardTodayShort;
+
+  /// No description provided for @dashboardDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}d ago'**
+  String dashboardDaysAgo(Object count);
+
+  /// No description provided for @salesCommandCenterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Sales Command Center'**
+  String get salesCommandCenterTitle;
+
+  /// No description provided for @salesCommandCenterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A live, role-scoped view of the work that can move the pipeline today.'**
+  String get salesCommandCenterSubtitle;
+
+  /// No description provided for @salesCommandEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent actions right now.'**
+  String get salesCommandEmptyTitle;
+
+  /// No description provided for @salesCommandEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent actions right now. Your pipeline is under control.'**
+  String get salesCommandEmptyMessage;
+
+  /// No description provided for @salesCommandLimitedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your role has limited dashboard actions. Available work remains visible in its modules.'**
+  String get salesCommandLimitedMessage;
+
+  /// No description provided for @salesCommandUpdatedNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated now'**
+  String get salesCommandUpdatedNow;
+
+  /// No description provided for @salesCommandMetricDueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today'**
+  String get salesCommandMetricDueToday;
+
+  /// No description provided for @salesCommandMetricOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get salesCommandMetricOverdue;
+
+  /// No description provided for @salesCommandMetricHot.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot'**
+  String get salesCommandMetricHot;
+
+  /// No description provided for @salesCommandMetricRisk.
+  ///
+  /// In en, this message translates to:
+  /// **'At risk'**
+  String get salesCommandMetricRisk;
+
+  /// No description provided for @dashboardCommandLegendTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Red = overdue/risk. Gold = due today/action soon. Blue = hot/important opportunity. Green = positive/completed.'**
+  String get dashboardCommandLegendTooltip;
+
+  /// No description provided for @dashboardSuggestedNextAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested next action'**
+  String get dashboardSuggestedNextAction;
+
+  /// No description provided for @salesCommandTodayPrioritiesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today’s priorities'**
+  String get salesCommandTodayPrioritiesTitle;
+
+  /// No description provided for @salesCommandTodayPrioritiesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The strongest cross-module actions for the current workday.'**
+  String get salesCommandTodayPrioritiesSubtitle;
+
+  /// No description provided for @salesCommandHotOpportunitiesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot opportunities'**
+  String get salesCommandHotOpportunitiesTitle;
+
+  /// No description provided for @salesCommandHotOpportunitiesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leads and deals with signals worth acting on soon.'**
+  String get salesCommandHotOpportunitiesSubtitle;
+
+  /// No description provided for @salesCommandAtRiskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'At risk'**
+  String get salesCommandAtRiskTitle;
+
+  /// No description provided for @salesCommandAtRiskSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed, stale, or stuck work that needs intervention.'**
+  String get salesCommandAtRiskSubtitle;
+
+  /// No description provided for @salesCommandTeamPressureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team pressure'**
+  String get salesCommandTeamPressureTitle;
+
+  /// No description provided for @salesCommandTeamPressureSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue workload and ownership gaps for the visible scope.'**
+  String get salesCommandTeamPressureSubtitle;
+
+  /// No description provided for @salesCommandNoTodayPriorities.
+  ///
+  /// In en, this message translates to:
+  /// **'No priority action is due right now.'**
+  String get salesCommandNoTodayPriorities;
+
+  /// No description provided for @salesCommandNoHotOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'No strong opportunity signal in the loaded scope.'**
+  String get salesCommandNoHotOpportunities;
+
+  /// No description provided for @salesCommandNoAtRisk.
+  ///
+  /// In en, this message translates to:
+  /// **'No visible at-risk item needs intervention.'**
+  String get salesCommandNoAtRisk;
+
+  /// No description provided for @salesCommandNoTeamPressure.
+  ///
+  /// In en, this message translates to:
+  /// **'No overloaded assignee or ownership gap is visible.'**
+  String get salesCommandNoTeamPressure;
+
+  /// No description provided for @salesCommandWhyThisAppears.
+  ///
+  /// In en, this message translates to:
+  /// **'Why this appears'**
+  String get salesCommandWhyThisAppears;
+
+  /// No description provided for @salesCommandOpenAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get salesCommandOpenAction;
+
+  /// No description provided for @salesCommandDueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Due today'**
+  String get salesCommandDueToday;
+
+  /// No description provided for @salesCommandOverdueByDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Overdue} =1{1 day overdue} other{{count} days overdue}}'**
+  String salesCommandOverdueByDays(int count);
+
+  /// No description provided for @salesCommandAgeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day without movement} other{{count} days without movement}}'**
+  String salesCommandAgeDays(int count);
+
+  /// No description provided for @salesCommandDueAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Due {date}'**
+  String salesCommandDueAt(Object date);
+
+  /// No description provided for @salesCommandModuleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead'**
+  String get salesCommandModuleLead;
+
+  /// No description provided for @salesCommandModuleTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Task'**
+  String get salesCommandModuleTask;
+
+  /// No description provided for @salesCommandModuleDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal'**
+  String get salesCommandModuleDeal;
+
+  /// No description provided for @salesCommandModuleAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment'**
+  String get salesCommandModuleAppointment;
+
+  /// No description provided for @salesCommandModuleClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get salesCommandModuleClient;
+
+  /// No description provided for @salesCommandModuleUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get salesCommandModuleUser;
+
+  /// No description provided for @salesCommandModuleTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get salesCommandModuleTeam;
+
+  /// No description provided for @salesCommandWhyOverdueFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'The follow-up date has passed while the lead is still open.'**
+  String get salesCommandWhyOverdueFollowUp;
+
+  /// No description provided for @salesCommandWhyDueTodayFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead has a follow-up scheduled for today.'**
+  String get salesCommandWhyDueTodayFollowUp;
+
+  /// No description provided for @salesCommandWhyOverdueTask.
+  ///
+  /// In en, this message translates to:
+  /// **'The task is still open after its due date.'**
+  String get salesCommandWhyOverdueTask;
+
+  /// No description provided for @salesCommandWhyDueTodayTask.
+  ///
+  /// In en, this message translates to:
+  /// **'This task is due today and still open.'**
+  String get salesCommandWhyDueTodayTask;
+
+  /// No description provided for @salesCommandWhyStaleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent contact or update for {count} days.'**
+  String salesCommandWhyStaleLead(int count);
+
+  /// No description provided for @salesCommandWhyHotLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority, stage, or recent activity suggests a real opportunity.'**
+  String get salesCommandWhyHotLead;
+
+  /// No description provided for @salesCommandWhyUnassignedLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Important lead has no responsible owner yet.'**
+  String get salesCommandWhyUnassignedLead;
+
+  /// No description provided for @salesCommandWhyAppointmentMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'The appointment time has passed and still needs handling.'**
+  String get salesCommandWhyAppointmentMissed;
+
+  /// No description provided for @salesCommandWhyAppointmentDueNow.
+  ///
+  /// In en, this message translates to:
+  /// **'The appointment is happening now or should already be in progress.'**
+  String get salesCommandWhyAppointmentDueNow;
+
+  /// No description provided for @salesCommandWhyAppointmentUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled today, so it should stay visible without dominating the list.'**
+  String get salesCommandWhyAppointmentUpcoming;
+
+  /// No description provided for @salesCommandWhyAppointmentNeedsFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'The appointment ended but no outcome was captured.'**
+  String get salesCommandWhyAppointmentNeedsFeedback;
+
+  /// No description provided for @salesCommandWhyDealAtRisk.
+  ///
+  /// In en, this message translates to:
+  /// **'The closing date or activity age suggests this deal needs attention.'**
+  String get salesCommandWhyDealAtRisk;
+
+  /// No description provided for @salesCommandWhyOverloadedAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has {count, plural, =1{1 overdue item} other{{count} overdue items}}.'**
+  String salesCommandWhyOverloadedAssignee(Object name, int count);
+
+  /// No description provided for @salesCommandMoreItems.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 more action in the modules} other{{count} more actions in the modules}}'**
+  String salesCommandMoreItems(int count);
+
+  /// No description provided for @salesCommandReasonOverdueFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue follow-up'**
+  String get salesCommandReasonOverdueFollowUp;
+
+  /// No description provided for @salesCommandReasonDueTodayFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up due today'**
+  String get salesCommandReasonDueTodayFollowUp;
+
+  /// No description provided for @salesCommandReasonOverdueTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Task overdue'**
+  String get salesCommandReasonOverdueTask;
+
+  /// No description provided for @salesCommandReasonDueTodayTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Task due today'**
+  String get salesCommandReasonDueTodayTask;
+
+  /// No description provided for @salesCommandReasonStaleLead.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent contact'**
+  String get salesCommandReasonStaleLead;
+
+  /// No description provided for @salesCommandReasonHotLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot lead'**
+  String get salesCommandReasonHotLead;
+
+  /// No description provided for @salesCommandReasonUnassignedLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned important lead'**
+  String get salesCommandReasonUnassignedLead;
+
+  /// No description provided for @salesCommandReasonAppointmentMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed appointment'**
+  String get salesCommandReasonAppointmentMissed;
+
+  /// No description provided for @salesCommandReasonAppointmentDueNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment due now'**
+  String get salesCommandReasonAppointmentDueNow;
+
+  /// No description provided for @salesCommandReasonAppointmentUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming appointment'**
+  String get salesCommandReasonAppointmentUpcoming;
+
+  /// No description provided for @salesCommandReasonAppointmentNeedsFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs outcome'**
+  String get salesCommandReasonAppointmentNeedsFeedback;
+
+  /// No description provided for @salesCommandReasonDealAtRisk.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal at risk'**
+  String get salesCommandReasonDealAtRisk;
+
+  /// No description provided for @salesCommandReasonOverloadedAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 overdue task} other{{count} overdue tasks}}'**
+  String salesCommandReasonOverloadedAssignee(int count);
+
   /// No description provided for @clientsSubtitle.
   ///
   /// In en, this message translates to:
@@ -7738,6 +8536,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} days overdue'**
   String overdueDaysCount(int count);
+
+  /// No description provided for @swipeToSeeMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe to see more'**
+  String get swipeToSeeMore;
+
+  /// No description provided for @dashboardActionNoAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer'**
+  String get dashboardActionNoAnswer;
+
+  /// No description provided for @dashboardActionInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as hot opportunity'**
+  String get dashboardActionInterested;
+
+  /// No description provided for @dashboardActionNotInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark not interested'**
+  String get dashboardActionNotInterested;
+
+  /// No description provided for @dashboardActionMarkTaskCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark task completed'**
+  String get dashboardActionMarkTaskCompleted;
+
+  /// No description provided for @dashboardActionSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Action saved.'**
+  String get dashboardActionSaved;
+
+  /// No description provided for @dashboardActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the action. Please try again.'**
+  String get dashboardActionFailed;
+
+  /// No description provided for @dashboardCallPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get dashboardCallPhone;
+
+  /// No description provided for @dashboardOpenWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WhatsApp'**
+  String get dashboardOpenWhatsApp;
+
+  /// No description provided for @dashboardLeadNoteContacted.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up outcome: contacted from the dashboard.'**
+  String get dashboardLeadNoteContacted;
+
+  /// No description provided for @dashboardLeadNoteNoAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up outcome: no answer from the dashboard. Next follow-up scheduled for tomorrow.'**
+  String get dashboardLeadNoteNoAnswer;
+
+  /// No description provided for @dashboardLeadNoteInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up outcome: interested from the dashboard.'**
+  String get dashboardLeadNoteInterested;
+
+  /// No description provided for @dashboardLeadNoteNotInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up outcome: not interested from the dashboard.'**
+  String get dashboardLeadNoteNotInterested;
+
+  /// No description provided for @dashboardLeadNoteFollowUpScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up scheduled for {date} from the dashboard.'**
+  String dashboardLeadNoteFollowUpScheduled(Object date);
+
+  /// No description provided for @connectedJourneyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected journey'**
+  String get connectedJourneyTitle;
+
+  /// No description provided for @connectedJourneySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline, tasks, appointments, deals, and audit activity around this record.'**
+  String get connectedJourneySubtitle;
+
+  /// No description provided for @journeyRecommendedNextAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended next action'**
+  String get journeyRecommendedNextAction;
+
+  /// No description provided for @journeyNoActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No connected activity yet.'**
+  String get journeyNoActivity;
+
+  /// No description provided for @journeyOpenRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Open record'**
+  String get journeyOpenRecord;
+
+  /// No description provided for @journeyItemRecordCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Record created'**
+  String get journeyItemRecordCreated;
+
+  /// No description provided for @journeyItemAuditCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit event created'**
+  String get journeyItemAuditCreated;
+
+  /// No description provided for @journeyItemAuditUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit event updated'**
+  String get journeyItemAuditUpdated;
+
+  /// No description provided for @journeyActionEverythingCalm.
+  ///
+  /// In en, this message translates to:
+  /// **'No urgent action'**
+  String get journeyActionEverythingCalm;
+
+  /// No description provided for @journeyActionEverythingCalmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This record has no urgent journey alerts right now.'**
+  String get journeyActionEverythingCalmDescription;
+
+  /// No description provided for @journeyActionOverdueFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up is overdue'**
+  String get journeyActionOverdueFollowUp;
+
+  /// No description provided for @journeyActionOverdueFollowUpDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact this record today or create a task so it does not stay cold.'**
+  String get journeyActionOverdueFollowUpDescription;
+
+  /// No description provided for @journeyActionNoContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs a fresh touchpoint'**
+  String get journeyActionNoContact;
+
+  /// No description provided for @journeyActionNoContactDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'There has been no recent contact. Plan a call, task, or appointment.'**
+  String get journeyActionNoContactDescription;
+
+  /// No description provided for @journeyActionScheduleVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule the next appointment'**
+  String get journeyActionScheduleVisit;
+
+  /// No description provided for @journeyActionScheduleVisitDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The record is warm enough for a clear next meeting or property visit.'**
+  String get journeyActionScheduleVisitDescription;
+
+  /// No description provided for @journeyActionCompleteProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete missing details'**
+  String get journeyActionCompleteProfile;
+
+  /// No description provided for @journeyActionCompleteProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the missing preferences so future matching and follow-up are useful.'**
+  String get journeyActionCompleteProfileDescription;
+
+  /// No description provided for @journeyActionStuckDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal needs review'**
+  String get journeyActionStuckDeal;
+
+  /// No description provided for @journeyActionStuckDealDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This deal has not moved recently. Review the stage and next commitment.'**
+  String get journeyActionStuckDealDescription;
+
+  /// No description provided for @journeyActionClosingDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing date needs attention'**
+  String get journeyActionClosingDue;
+
+  /// No description provided for @journeyActionClosingDueDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The expected closing date has passed. Create a task or update the deal plan.'**
+  String get journeyActionClosingDueDescription;
 }
 
 class _AppLocalizationsDelegate

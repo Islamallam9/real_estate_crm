@@ -516,6 +516,207 @@
   "dashboardInactive": "Inactive",
   "dashboardReservedOrClosed": "Reserved or closed",
   "dashboardGeneralTask": "General task",
+  "dashboardKpiActiveLeads": "Active Leads",
+  "dashboardKpiHotOpportunities": "Hot Opportunities",
+  "dashboardKpiDueTodayFollowUps": "Follow-ups today",
+  "dashboardKpiOverdueActions": "Overdue actions",
+  "dashboardKpiAppointmentsToday": "Appointments today",
+  "dashboardKpiDealsPipeline": "Deals in pipeline",
+  "dashboardKpiExpectedPipeline": "Pipeline Value",
+  "dashboardKpiActiveListings": "Available Properties",
+  "dashboardPeriodToday": "Today",
+  "dashboardPeriodThisMonth": "This month",
+  "dashboardPeriodCurrentScope": "Current role scope",
+  "dashboardNotEnoughData": "Not enough data yet.",
+  "dashboardPerformanceTitle": "Sales performance",
+  "dashboardPerformanceOverview": "Performance Overview",
+  "dashboardLeadsTrend": "Leads trend",
+  "dashboardFollowUpsCompletedMissed": "Follow-ups completed vs missed",
+  "dashboardAppointmentsFlow": "Appointments booked and outcomes",
+  "dashboardLeadSources": "Lead sources",
+  "dashboardLast7Days": "Last 7 days",
+  "dashboardTodayRailTitle": "Today",
+  "dashboardDueFollowUps": "Due follow-ups",
+  "dashboardOverdueReminders": "Overdue reminders",
+  "dashboardNoUrgentActions": "No urgent actions right now.",
+  "dashboardPipelineSnapshot": "Sales pipeline",
+  "dashboardPipelineHasNoValue": "Pipeline value will appear when deal values exist.",
+  "dashboardStuckDeals": "Stuck deals",
+  "dashboardClosingThisMonth": "Closing this month",
+  "dashboardWonLost": "Won / lost",
+  "dashboardDealsByStage": "Deals by stage",
+  "dashboardTeamPerformance": "Team performance",
+  "dashboardPersonalPerformance": "My performance",
+  "dashboardTopActiveAgent": "Top active agent",
+  "dashboardOverloadedAssignee": "Needs load review",
+  "dashboardNoTeamSignal": "No team pressure signal right now.",
+  "dashboardPerformanceLimitedForRole": "Limited view for this role.",
+  "dashboardOverviewTab": "Overview",
+  "dashboardWorkQueue": "Work queue",
+  "dashboardPerformanceTab": "Performance",
+  "dashboardOpportunitiesTab": "Opportunities",
+  "dashboardQuickActionsUnavailable": "No quick actions are available for this role.",
+  "dashboardImportantOpportunities": "Important open opportunities",
+  "dashboardNoOpportunities": "No important opportunities yet.",
+  "dashboardDailyInsight": "Daily insight",
+  "dashboardAppointmentsForDate": "Appointments {date}",
+  "@dashboardAppointmentsForDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "dashboardNoAppointmentsForDay": "No appointments for this day.",
+  "dashboardUrgentFollowUps": "Urgent follow-ups",
+  "dashboardNoUrgentFollowUps": "No urgent follow-ups.",
+  "dashboardQuickAction": "Quick action",
+  "dashboardTeamUser": "Consultant",
+  "dashboardTeamAppointments": "Appts",
+  "dashboardTeamDeals": "Deals",
+  "dashboardTeamPipeline": "Pipeline",
+  "dashboardNoValue": "No value",
+  "dashboardAddLead": "Add lead",
+  "dashboardAddClient": "Add client",
+  "dashboardAddProperty": "Add property",
+  "dashboardAddAppointment": "Add appointment",
+  "dashboardSeriesLeads": "Leads",
+  "dashboardSeriesAppointments": "Appointments",
+  "dashboardSeriesDeals": "Deals",
+  "dashboardSeriesPipelineValue": "Pipeline value",
+  "dashboardDailyInsightStaleLeads": "You have {count} leads without follow-up for more than 5 days. Start with the highest-value opportunities.",
+  "@dashboardDailyInsightStaleLeads": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightConversionUp": "Current conversion is {percent}% higher than the previous month.",
+  "@dashboardDailyInsightConversionUp": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "dashboardDailyInsightCalm": "No urgent actions right now. Follow-up is under control.",
+  "dashboardDailyInsightNotEnoughData": "Not enough data yet for an accurate daily insight.",
+  "dashboardWelcomeInsightActive": "Start with hot opportunities and due follow-ups, then review the team schedule from the Today rail.",
+  "dashboardWelcomeInsightCalm": "No urgent signals right now. Watch performance and prepare for the next opportunities.",
+  "dashboardTodayShort": "Today",
+  "dashboardDaysAgo": "{count}d ago",
+  "@dashboardDaysAgo": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "salesCommandCenterTitle": "Daily Sales Command Center",
+  "salesCommandCenterSubtitle": "A live, role-scoped view of the work that can move the pipeline today.",
+  "salesCommandEmptyTitle": "No urgent actions right now.",
+  "salesCommandEmptyMessage": "No urgent actions right now. Your pipeline is under control.",
+  "salesCommandLimitedMessage": "Your role has limited dashboard actions. Available work remains visible in its modules.",
+  "salesCommandUpdatedNow": "Updated now",
+  "salesCommandMetricDueToday": "Due today",
+  "salesCommandMetricOverdue": "Overdue",
+  "salesCommandMetricHot": "Hot",
+  "salesCommandMetricRisk": "At risk",
+  "dashboardCommandLegendTooltip": "Red = overdue/risk. Gold = due today/action soon. Blue = hot/important opportunity. Green = positive/completed.",
+  "dashboardSuggestedNextAction": "Suggested next action",
+  "salesCommandTodayPrioritiesTitle": "Today’s priorities",
+  "salesCommandTodayPrioritiesSubtitle": "The strongest cross-module actions for the current workday.",
+  "salesCommandHotOpportunitiesTitle": "Hot opportunities",
+  "salesCommandHotOpportunitiesSubtitle": "Leads and deals with signals worth acting on soon.",
+  "salesCommandAtRiskTitle": "At risk",
+  "salesCommandAtRiskSubtitle": "Missed, stale, or stuck work that needs intervention.",
+  "salesCommandTeamPressureTitle": "Team pressure",
+  "salesCommandTeamPressureSubtitle": "Overdue workload and ownership gaps for the visible scope.",
+  "salesCommandNoTodayPriorities": "No priority action is due right now.",
+  "salesCommandNoHotOpportunities": "No strong opportunity signal in the loaded scope.",
+  "salesCommandNoAtRisk": "No visible at-risk item needs intervention.",
+  "salesCommandNoTeamPressure": "No overloaded assignee or ownership gap is visible.",
+  "salesCommandWhyThisAppears": "Why this appears",
+  "salesCommandOpenAction": "Open",
+  "salesCommandDueToday": "Due today",
+  "salesCommandOverdueByDays": "{count, plural, =0{Overdue} =1{1 day overdue} other{{count} days overdue}}",
+  "@salesCommandOverdueByDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandAgeDays": "{count, plural, =1{1 day without movement} other{{count} days without movement}}",
+  "@salesCommandAgeDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandDueAt": "Due {date}",
+  "@salesCommandDueAt": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "salesCommandModuleLead": "Lead",
+  "salesCommandModuleTask": "Task",
+  "salesCommandModuleDeal": "Deal",
+  "salesCommandModuleAppointment": "Appointment",
+  "salesCommandModuleClient": "Client",
+  "salesCommandModuleUser": "User",
+  "salesCommandModuleTeam": "Team",
+  "salesCommandWhyOverdueFollowUp": "The follow-up date has passed while the lead is still open.",
+  "salesCommandWhyDueTodayFollowUp": "This lead has a follow-up scheduled for today.",
+  "salesCommandWhyOverdueTask": "The task is still open after its due date.",
+  "salesCommandWhyDueTodayTask": "This task is due today and still open.",
+  "salesCommandWhyStaleLead": "No recent contact or update for {count} days.",
+  "@salesCommandWhyStaleLead": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandWhyHotLead": "Priority, stage, or recent activity suggests a real opportunity.",
+  "salesCommandWhyUnassignedLead": "Important lead has no responsible owner yet.",
+  "salesCommandWhyAppointmentMissed": "The appointment time has passed and still needs handling.",
+  "salesCommandWhyAppointmentDueNow": "The appointment is happening now or should already be in progress.",
+  "salesCommandWhyAppointmentUpcoming": "Scheduled today, so it should stay visible without dominating the list.",
+  "salesCommandWhyAppointmentNeedsFeedback": "The appointment ended but no outcome was captured.",
+  "salesCommandWhyDealAtRisk": "The closing date or activity age suggests this deal needs attention.",
+  "salesCommandWhyOverloadedAssignee": "{name} has {count, plural, =1{1 overdue item} other{{count} overdue items}}.",
+  "@salesCommandWhyOverloadedAssignee": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandMoreItems": "{count, plural, =1{1 more action in the modules} other{{count} more actions in the modules}}",
+  "@salesCommandMoreItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandReasonOverdueFollowUp": "Overdue follow-up",
+  "salesCommandReasonDueTodayFollowUp": "Follow-up due today",
+  "salesCommandReasonOverdueTask": "Task overdue",
+  "salesCommandReasonDueTodayTask": "Task due today",
+  "salesCommandReasonStaleLead": "No recent contact",
+  "salesCommandReasonHotLead": "Hot lead",
+  "salesCommandReasonUnassignedLead": "Unassigned important lead",
+  "salesCommandReasonAppointmentMissed": "Missed appointment",
+  "salesCommandReasonAppointmentDueNow": "Appointment due now",
+  "salesCommandReasonAppointmentUpcoming": "Upcoming appointment",
+  "salesCommandReasonAppointmentNeedsFeedback": "Needs outcome",
+  "salesCommandReasonDealAtRisk": "Deal at risk",
+  "salesCommandReasonOverloadedAssignee": "{count, plural, =1{1 overdue task} other{{count} overdue tasks}}",
+  "@salesCommandReasonOverloadedAssignee": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "clientsSubtitle": "Keep client profiles, preferences, and assignments ready for follow-up.",
   "searchClients": "Search clients",
   "searchTasks": "Search tasks",
@@ -1484,7 +1685,6 @@
   "daysRemaining": "Days remaining",
   "paidCompanies": "Paid companies",
   "expectedThisMonth": "Expected this month",
-  "addNote": "Add note",
   "moveToGracePeriod": "Move to grace period",
   "suspendCompany": "Suspend company",
   "reactivateCompany": "Reactivate company",
@@ -1515,5 +1715,46 @@
         "type": "int"
       }
     }
-  }
+  },
+  "swipeToSeeMore": "Swipe to see more",
+  "dashboardActionNoAnswer": "No answer",
+  "dashboardActionInterested": "Mark as hot opportunity",
+  "dashboardActionNotInterested": "Mark not interested",
+  "dashboardActionMarkTaskCompleted": "Mark task completed",
+  "dashboardActionSaved": "Action saved.",
+  "dashboardActionFailed": "Could not complete the action. Please try again.",
+  "dashboardCallPhone": "Call",
+  "dashboardOpenWhatsApp": "Open WhatsApp",
+  "dashboardLeadNoteContacted": "Follow-up outcome: contacted from the dashboard.",
+  "dashboardLeadNoteNoAnswer": "Follow-up outcome: no answer from the dashboard. Next follow-up scheduled for tomorrow.",
+  "dashboardLeadNoteInterested": "Follow-up outcome: interested from the dashboard.",
+  "dashboardLeadNoteNotInterested": "Follow-up outcome: not interested from the dashboard.",
+  "dashboardLeadNoteFollowUpScheduled": "Follow-up scheduled for {date} from the dashboard.",
+  "@dashboardLeadNoteFollowUpScheduled": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "connectedJourneyTitle": "Connected journey",
+  "connectedJourneySubtitle": "Timeline, tasks, appointments, deals, and audit activity around this record.",
+  "journeyRecommendedNextAction": "Recommended next action",
+  "journeyNoActivity": "No connected activity yet.",
+  "journeyOpenRecord": "Open record",
+  "journeyItemRecordCreated": "Record created",
+  "journeyItemAuditCreated": "Audit event created",
+  "journeyItemAuditUpdated": "Audit event updated",
+  "journeyActionEverythingCalm": "No urgent action",
+  "journeyActionEverythingCalmDescription": "This record has no urgent journey alerts right now.",
+  "journeyActionOverdueFollowUp": "Follow-up is overdue",
+  "journeyActionOverdueFollowUpDescription": "Contact this record today or create a task so it does not stay cold.",
+  "journeyActionNoContact": "Needs a fresh touchpoint",
+  "journeyActionNoContactDescription": "There has been no recent contact. Plan a call, task, or appointment.",
+  "journeyActionScheduleVisit": "Schedule the next appointment",
+  "journeyActionScheduleVisitDescription": "The record is warm enough for a clear next meeting or property visit.",
+  "journeyActionCompleteProfile": "Complete missing details",
+  "journeyActionCompleteProfileDescription": "Add the missing preferences so future matching and follow-up are useful.",
+  "journeyActionStuckDeal": "Deal needs review",
+  "journeyActionStuckDealDescription": "This deal has not moved recently. Review the stage and next commitment.",
+  "journeyActionClosingDue": "Closing date needs attention",
+  "journeyActionClosingDueDescription": "The expected closing date has passed. Create a task or update the deal plan."
 }

@@ -34,7 +34,9 @@ import '../cubit/tasks_state.dart';
 import '../widgets/tasks_scope.dart';
 
 class TasksPage extends StatelessWidget {
-  const TasksPage({super.key});
+  const TasksPage({super.key, this.initialFilters = const {}});
+
+  final Map<String, String> initialFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +96,9 @@ class TasksPage extends StatelessWidget {
               managerId: managerId,
               canCreate: canCreate,
               canManageTasks: canManageTasks,
+              canFilterAssignee: role == UserRole.admin || role == UserRole.manager,
               uid: profile.uid,
+              initialFilters: initialFilters,
             ),
           );
         },
@@ -109,7 +113,9 @@ class _TasksListContent extends StatefulWidget {
     required this.companyId,
     required this.canCreate,
     required this.canManageTasks,
+    required this.canFilterAssignee,
     required this.uid,
+    required this.initialFilters,
     this.assignedTo,
     this.managerId,
   });
@@ -119,13 +125,17 @@ class _TasksListContent extends StatefulWidget {
   final String? managerId;
   final bool canCreate;
   final bool canManageTasks;
+  final bool canFilterAssignee;
   final String uid;
+  final Map<String, String> initialFilters;
 
   @override
   State<_TasksListContent> createState() => _TasksListContentState();
 }
 
 class _TasksListContentState extends State<_TasksListContent> {
+  String? _appliedFilterSignature;
+
   @override
   void initState() {
     super.initState();
@@ -139,6 +149,9 @@ class _TasksListContentState extends State<_TasksListContent> {
         oldWidget.assignedTo != widget.assignedTo ||
         oldWidget.managerId != widget.managerId) {
       _watchScopedTasks();
+    } else if (_filterSignature(oldWidget.initialFilters) !=
+        _filterSignature(widget.initialFilters)) {
+      _applyInitialFiltersIfNeeded();
     }
   }
 
@@ -148,6 +161,22 @@ class _TasksListContentState extends State<_TasksListContent> {
       assignedTo: widget.assignedTo,
       managerId: widget.managerId,
     );
+    _applyInitialFiltersIfNeeded();
+  }
+
+  void _applyInitialFiltersIfNeeded() {
+    final signature = _filterSignature(widget.initialFilters);
+    if (signature.isEmpty || _appliedFilterSignature == signature) {
+      return;
+    }
+    _appliedFilterSignature = signature;
+    final filters = widget.initialFilters;
+    final cubit = context.read<TasksCubit>();
+    cubit.setDueDateFilter(_taskDueDateFilter(filters['due']));
+    cubit.setStatusFilter(_enumByName(TaskStatus.values, filters['status']));
+    if (filters.containsKey('assignedTo')) {
+      cubit.setAssignedToFilter(filters['assignedTo'] ?? '');
+    }
   }
 
   @override
@@ -221,7 +250,11 @@ class _TasksListContentState extends State<_TasksListContent> {
               ],
             );
 
-            final filters = _TasksFilters(state: state);
+            final filters = _TasksFilters(
+              state: state,
+              users: users,
+              showAssigneeFilter: widget.canFilterAssignee,
+            );
 
             final body = _TasksBody(
               companyId: widget.companyId,
@@ -270,9 +303,15 @@ class _TasksListContentState extends State<_TasksListContent> {
 }
 
 class _TasksFilters extends StatelessWidget {
-  const _TasksFilters({required this.state});
+  const _TasksFilters({
+    required this.state,
+    required this.users,
+    required this.showAssigneeFilter,
+  });
 
   final TasksState state;
+  final List<UserProfile> users;
+  final bool showAssigneeFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +319,8 @@ class _TasksFilters extends StatelessWidget {
     final cubit = context.read<TasksCubit>();
     final hasFilters = state.statusFilter != null ||
         state.priorityFilter != null ||
-        state.dueDateFilter != null;
+        state.dueDateFilter != null ||
+        state.assignedToFilter.trim().isNotEmpty;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -301,6 +341,8 @@ class _TasksFilters extends StatelessWidget {
                     onPressed: () => _showTasksFiltersSheet(
                       context,
                       state: state,
+                      users: users,
+                      showAssigneeFilter: showAssigneeFilter,
                     ),
                   ),
                 ],
@@ -318,7 +360,7 @@ class _TasksFilters extends StatelessWidget {
                     ),
                   ],
                 ),
-                _TasksActiveFilterChips(state: state),
+                _TasksActiveFilterChips(state: state, users: users),
               ],
             ],
           );
@@ -338,6 +380,8 @@ class _TasksFilters extends StatelessWidget {
                   onPressed: () => _showTasksFiltersSheet(
                     context,
                     state: state,
+                    users: users,
+                    showAssigneeFilter: showAssigneeFilter,
                   ),
                 ),
                 if (hasFilters) ...[
@@ -353,7 +397,7 @@ class _TasksFilters extends StatelessWidget {
                 ],
               ],
             ),
-            if (hasFilters) _TasksActiveFilterChips(state: state),
+            if (hasFilters) _TasksActiveFilterChips(state: state, users: users),
           ],
         );
       },
@@ -381,9 +425,10 @@ class _TasksSearchField extends StatelessWidget {
 }
 
 class _TasksActiveFilterChips extends StatelessWidget {
-  const _TasksActiveFilterChips({required this.state});
+  const _TasksActiveFilterChips({required this.state, required this.users});
 
   final TasksState state;
+  final List<UserProfile> users;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +449,11 @@ class _TasksActiveFilterChips extends StatelessWidget {
         _TasksFilterChip(
           label: _dueDateFilterLabel(l, state.dueDateFilter!),
           onDeleted: () => cubit.setDueDateFilter(null),
+        ),
+      if (state.assignedToFilter.trim().isNotEmpty)
+        _TasksFilterChip(
+          label: _assigneeLabel(l, users, state.assignedToFilter),
+          onDeleted: () => cubit.setAssignedToFilter(''),
         ),
     ];
 
@@ -449,9 +499,15 @@ class _TasksFilterChip extends StatelessWidget {
 }
 
 class _TasksFilterControls extends StatelessWidget {
-  const _TasksFilterControls({required this.state});
+  const _TasksFilterControls({
+    required this.state,
+    required this.users,
+    required this.showAssigneeFilter,
+  });
 
   final TasksState state;
+  final List<UserProfile> users;
+  final bool showAssigneeFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -497,6 +553,22 @@ class _TasksFilterControls extends StatelessWidget {
             onChanged: (option) => cubit.setDueDateFilter(option.value),
           ),
         ),
+        if (showAssigneeFilter)
+          SizedBox(
+            width: 210,
+            child: AppDropdown<_TaskAssigneeFilterOption>(
+              label: l.assignedTo,
+              value: _TaskAssigneeFilterOption.fromValue(
+                state.assignedToFilter,
+              ),
+              items: _taskAssigneeFilterOptions(users),
+              itemLabelBuilder: (option) => option.isAll
+                  ? l.allAssignees
+                  : _assigneeLabel(l, users, option.value),
+              onChanged: (option) =>
+                  cubit.setAssignedToFilter(option.value ?? ''),
+            ),
+          ),
       ],
     );
   }
@@ -505,6 +577,8 @@ class _TasksFilterControls extends StatelessWidget {
 Future<void> _showTasksFiltersSheet(
   BuildContext context, {
   required TasksState state,
+  required List<UserProfile> users,
+  required bool showAssigneeFilter,
 }) async {
   final l = AppLocalizations.of(context)!;
   final cubit = context.read<TasksCubit>();
@@ -543,7 +617,11 @@ Future<void> _showTasksFiltersSheet(
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _TasksFilterControls(state: state),
+                _TasksFilterControls(
+                  state: state,
+                  users: users,
+                  showAssigneeFilter: showAssigneeFilter,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 AppButton(
                   label: l.clearFilters,
@@ -676,9 +754,12 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final statusLabel = _statusLabel(l, task.status);
+    final dueLabel = _dueStateLabel(l, task);
+    final description = task.description.trim();
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
@@ -702,38 +783,100 @@ class _TaskCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _Badge(label: _priorityLabel(l, task.priority)),
+              AppStatusBadge(
+                label: _priorityLabel(l, task.priority),
+                tone: _priorityTone(task.priority),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            _fallback(task.description, l.notAvailable),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondaryColor(context),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              _Badge(label: _statusLabel(l, task.status)),
-              _Badge(label: _dueStateLabel(l, task)),
-              _Badge(label: _relatedRecordDisplayLabel(l, task)),
-              _Badge(label: _assigneeDisplayLabel(l, task, users)),
+              AppStatusBadge(label: statusLabel, tone: _statusTone(task.status)),
+              if (dueLabel != statusLabel)
+                AppStatusBadge(label: dueLabel, tone: _dueTone(task)),
+              _TaskInfoChip(
+                icon: Icons.link_outlined,
+                label: _relatedRecordDisplayLabel(l, task),
+              ),
+              _TaskInfoChip(
+                icon: Icons.person_outline,
+                label: _assigneeDisplayLabel(l, task, users),
+              ),
             ],
           ),
           if (canManageTasks) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _TaskActions(
-              task: task,
-              companyId: companyId,
-              updatedBy: uid,
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: _TaskActions(
+                task: task,
+                companyId: companyId,
+                updatedBy: uid,
+              ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _TaskInfoChip extends StatelessWidget {
+  const _TaskInfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 9, 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: AppColors.textSecondaryColor(context),
+            ),
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -917,6 +1060,9 @@ class _TaskActionsState extends State<_TaskActions> {
       children: [
         IconButton(
           tooltip: l.editTask,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          style: _taskActionButtonStyle(context),
           onPressed: isBusy
               ? null
               : () => context.go(RouteNames.taskEdit(widget.task.id)),
@@ -925,6 +1071,9 @@ class _TaskActionsState extends State<_TaskActions> {
         if (canComplete)
           IconButton(
             tooltip: l.markTaskCompleted,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            style: _taskActionButtonStyle(context),
             onPressed: isBusy ? null : _markCompleted,
             icon: _busyAction == _TaskActionKind.complete
                 ? const SizedBox.square(
@@ -936,6 +1085,9 @@ class _TaskActionsState extends State<_TaskActions> {
         if (canCancel)
           IconButton(
             tooltip: l.cancelTask,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            style: _taskActionButtonStyle(context),
             onPressed: isBusy ? null : _cancelTask,
             icon: _busyAction == _TaskActionKind.cancel
                 ? const SizedBox.square(
@@ -998,6 +1150,15 @@ Future<void> _confirmCancelTask(
         },
       );
     },
+  );
+}
+
+ButtonStyle _taskActionButtonStyle(BuildContext context) {
+  return IconButton.styleFrom(
+    backgroundColor: AppColors.inputSurface(context),
+    foregroundColor: AppColors.textPrimaryColor(context),
+    side: BorderSide(color: AppColors.borderColor(context)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   );
 }
 
@@ -1139,6 +1300,67 @@ List<_TaskFilterOption<T>> _taskFilterOptions<T>(List<T> values) {
       _TaskFilterOption<T>.all(),
     for (final value in values) _TaskFilterOption<T>.value(value),
   ];
+}
+
+class _TaskAssigneeFilterOption {
+  const _TaskAssigneeFilterOption._({
+    required this.value,
+    required this.isAll,
+  });
+
+  const _TaskAssigneeFilterOption.all()
+      : this._(value: null, isAll: true);
+
+  const _TaskAssigneeFilterOption.value(String value)
+      : this._(value: value, isAll: false);
+
+  factory _TaskAssigneeFilterOption.fromValue(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty
+        ? const _TaskAssigneeFilterOption.all()
+        : _TaskAssigneeFilterOption.value(trimmed);
+  }
+
+  final String? value;
+  final bool isAll;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TaskAssigneeFilterOption &&
+        other.isAll == isAll &&
+        other.value == value;
+  }
+
+  @override
+  int get hashCode => Object.hash(value, isAll);
+}
+
+List<_TaskAssigneeFilterOption> _taskAssigneeFilterOptions(
+  List<UserProfile> users,
+) {
+  final activeUsers = users.where((user) => user.isActive).toList()
+    ..sort((a, b) => a.fullName.compareTo(b.fullName));
+  return [
+    const _TaskAssigneeFilterOption.all(),
+    for (final user in activeUsers) _TaskAssigneeFilterOption.value(user.uid),
+  ];
+}
+
+String _assigneeLabel(
+  AppLocalizations l,
+  List<UserProfile> users,
+  String? uid,
+) {
+  final value = uid?.trim() ?? '';
+  if (value.isEmpty) {
+    return l.unassigned;
+  }
+  for (final user in users) {
+    if (user.uid == value) {
+      return user.fullName.trim().isEmpty ? user.email : user.fullName;
+    }
+  }
+  return l.assignedUserUnavailable;
 }
 
 String _statusLabel(AppLocalizations l, TaskStatus status) {
@@ -1297,6 +1519,36 @@ String _fallback(String value, String fallback) {
 double _tableHeightForRows(int rowCount) {
   final ideal = 54.0 * (rowCount + 1) + 2;
   return ideal.clamp(180.0, 520.0).toDouble();
+}
+
+String _filterSignature(Map<String, String> filters) {
+  final entries = filters.entries
+      .where((entry) => entry.value.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  final clean = name?.trim();
+  if (clean == null || clean.isEmpty) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == clean) {
+      return value;
+    }
+  }
+  return null;
+}
+
+TaskDueDateFilter? _taskDueDateFilter(String? value) {
+  return switch (value?.trim()) {
+    'overdue' => TaskDueDateFilter.overdue,
+    'dueToday' || 'today' => TaskDueDateFilter.today,
+    'upcoming' => TaskDueDateFilter.upcoming,
+    _ => null,
+  };
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

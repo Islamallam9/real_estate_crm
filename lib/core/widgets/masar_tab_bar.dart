@@ -309,19 +309,38 @@ class _SegmentedTabButtons extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(width: 7),
-                  Flexible(
-                    child: Text(
-                      tab.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: textColor,
-                        fontWeight:
-                        selected ? FontWeight.w900 : FontWeight.w700,
-                        fontSize: compact ? 11 : 12,
+                  if (fullWidth)
+                    Flexible(
+                      child: Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: textColor,
+                          fontWeight:
+                          selected ? FontWeight.w900 : FontWeight.w700,
+                          fontSize: compact ? 11 : 12,
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: compact ? 58 : 70,
+                        maxWidth: compact ? 148 : 176,
+                      ),
+                      child: Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: textColor,
+                          fontWeight:
+                          selected ? FontWeight.w900 : FontWeight.w700,
+                          fontSize: compact ? 11 : 12,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

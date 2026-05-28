@@ -33,6 +33,15 @@ class DealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final verticalGap = compact ? 7.0 : AppSpacing.sm;
+    final actionStyle = TextButton.styleFrom(
+      visualDensity: compact ? VisualDensity.compact : null,
+      padding: EdgeInsetsDirectional.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: compact ? 6 : 8,
+      ),
+    );
 
     return Material(
       color: AppColors.cardSurface(context),
@@ -41,7 +50,7 @@ class DealCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadius.large,
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.md),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.borderColor(context)),
             borderRadius: AppRadius.large,
@@ -78,7 +87,7 @@ class DealCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
+              SizedBox(height: verticalGap),
               Text(
                 _fallback(deal.propertyTitle, l.notAvailable),
                 maxLines: 1,
@@ -87,7 +96,7 @@ class DealCard extends StatelessWidget {
                   color: AppColors.textSecondaryColor(context),
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              SizedBox(height: verticalGap),
               Wrap(
                 spacing: AppSpacing.xs,
                 runSpacing: AppSpacing.xs,
@@ -101,30 +110,35 @@ class DealCard extends StatelessWidget {
                   onUpdateStage != null ||
                   onArchive != null ||
                   onRestore != null) ...[
-                const SizedBox(height: AppSpacing.sm),
+                SizedBox(height: compact ? 6 : AppSpacing.sm),
                 Wrap(
-                  spacing: AppSpacing.xs,
+                  spacing: compact ? 4 : AppSpacing.xs,
+                  runSpacing: compact ? 4 : AppSpacing.xs,
                   children: [
                     if (onUpdateStage != null)
                       TextButton.icon(
+                        style: actionStyle,
                         onPressed: onUpdateStage,
                         icon: const Icon(Icons.swap_horiz, size: 18),
                         label: Text(l.updateStage),
                       ),
                     if (onEdit != null)
                       TextButton.icon(
+                        style: actionStyle,
                         onPressed: onEdit,
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: Text(l.edit),
                       ),
                     if (onArchive != null)
                       TextButton.icon(
+                        style: actionStyle,
                         onPressed: onArchive,
                         icon: const Icon(Icons.archive_outlined, size: 18),
                         label: Text(l.archive),
                       ),
                     if (onRestore != null)
                       TextButton.icon(
+                        style: actionStyle,
                         onPressed: onRestore,
                         icon: const Icon(Icons.unarchive_outlined, size: 18),
                         label: Text(l.restore),

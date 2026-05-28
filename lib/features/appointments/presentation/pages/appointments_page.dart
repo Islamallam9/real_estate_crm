@@ -36,7 +36,9 @@ import '../widgets/appointment_form.dart';
 import '../widgets/appointments_scope.dart';
 
 class AppointmentsPage extends StatelessWidget {
-  const AppointmentsPage({super.key});
+  const AppointmentsPage({super.key, this.initialFilters = const {}});
+
+  final Map<String, String> initialFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +86,7 @@ class AppointmentsPage extends StatelessWidget {
               role: role,
               assignedTo: assignedTo,
               managerId: managerId,
+              initialFilters: initialFilters,
             ),
           );
         },
@@ -100,6 +103,7 @@ class _AppointmentsContent extends StatefulWidget {
     required this.role,
     this.assignedTo,
     this.managerId,
+    required this.initialFilters,
   });
 
   final String companyId;
@@ -107,6 +111,7 @@ class _AppointmentsContent extends StatefulWidget {
   final UserRole role;
   final String? assignedTo;
   final String? managerId;
+  final Map<String, String> initialFilters;
 
   @override
   State<_AppointmentsContent> createState() => _AppointmentsContentState();
@@ -116,6 +121,8 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
   Timer? _clockTicker;
   int _clockPulse = 0;
   int _selectedTab = 0;
+  String? _appliedFilterSignature;
+  final Set<String> _dismissedAttentionAppointmentIds = <String>{};
 
   @override
   void initState() {
@@ -137,6 +144,9 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
         oldWidget.assignedTo != widget.assignedTo ||
         oldWidget.managerId != widget.managerId) {
       _watchAppointments();
+    } else if (_filterSignature(oldWidget.initialFilters) !=
+        _filterSignature(widget.initialFilters)) {
+      _applyInitialFiltersIfNeeded();
     }
   }
 
@@ -146,6 +156,29 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
           assignedTo: widget.assignedTo,
           managerId: widget.managerId,
         );
+    _applyInitialFiltersIfNeeded();
+  }
+
+  void _applyInitialFiltersIfNeeded() {
+    final signature = _filterSignature(widget.initialFilters);
+    if (signature.isEmpty || _appliedFilterSignature == signature) {
+      return;
+    }
+    _appliedFilterSignature = signature;
+    final filters = widget.initialFilters;
+    final cubit = context.read<AppointmentsCubit>();
+    final selectedDate = _parseQueryDate(filters['selectedDate']);
+    if (selectedDate != null) {
+      cubit.setSelectedDateFilter(selectedDate);
+    } else {
+      cubit.setDateFilter(_appointmentDateFilter(filters['date']));
+    }
+    cubit.setStatusFilter(
+      _enumByName(AppointmentStatus.values, filters['status']),
+    );
+    if (filters.containsKey('assignedTo')) {
+      cubit.setAssignedToFilter(filters['assignedTo'] ?? '');
+    }
   }
 
   @override
@@ -195,7 +228,12 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
               builder: (context, constraints) {
                 final isMobile = constraints.maxWidth < 720;
                 final attentionAppointments =
-                    _attentionAppointments(state.appointments);
+                    _attentionAppointments(state.appointments)
+                        .where((appointment) =>
+                            !_dismissedAttentionAppointmentIds.contains(
+                              appointment.id,
+                            ))
+                        .toList();
                 final attention = _AppointmentsAttentionStrip(
                   key: ValueKey('appointments-attention-${widget.companyId}:${widget.uid}:$_clockPulse'),
                   appointments: attentionAppointments,
@@ -203,6 +241,11 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   companyId: widget.companyId,
                   uid: widget.uid,
                   canManage: canManage,
+                  onDismiss: (appointmentId) {
+                    setState(() {
+                      _dismissedAttentionAppointmentIds.add(appointmentId);
+                    });
+                  },
                 );
                 final header = _AppointmentsHeader(
                   canCreate: canCreate,
@@ -323,22 +366,13 @@ class _AppointmentsTabs extends StatelessWidget {
       ),
     ];
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.darkSurfaceAlt.withValues(alpha: 0.86)
-            : surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : border,
-        ),
-      ),
-      child: Row(
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scrollable = constraints.maxWidth < 430;
+        final buttons = [
           for (var index = 0; index < items.length; index++)
-            Expanded(
+            SizedBox(
+              width: scrollable ? (index == 0 ? 142 : 184) : null,
               child: _AppointmentSegmentButton(
                 data: items[index],
                 selected: selectedIndex == index,
@@ -347,8 +381,33 @@ class _AppointmentsTabs extends StatelessWidget {
                 onTap: () => onChanged(index),
               ),
             ),
-        ],
-      ),
+        ];
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.darkSurfaceAlt.withValues(alpha: 0.86)
+                : surface.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : border,
+            ),
+          ),
+          child: scrollable
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(children: buttons),
+                )
+              : Row(
+                  children: [
+                    for (final button in buttons) Expanded(child: button),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -689,6 +748,7 @@ class _AppointmentsAttentionStrip extends StatefulWidget {
     required this.companyId,
     required this.uid,
     required this.canManage,
+    required this.onDismiss,
   });
 
   final List<Appointment> appointments;
@@ -696,6 +756,7 @@ class _AppointmentsAttentionStrip extends StatefulWidget {
   final String companyId;
   final String uid;
   final bool canManage;
+  final ValueChanged<String> onDismiss;
 
   @override
   State<_AppointmentsAttentionStrip> createState() =>
@@ -729,7 +790,7 @@ class _AppointmentsAttentionStripState
     final visibleRows = _expanded
         ? (itemCount > 6 ? 6 : itemCount)
         : itemCount;
-    final listHeight = (visibleRows * 56.0).toDouble();
+    final listHeight = (visibleRows * 78.0).toDouble();
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -823,6 +884,7 @@ class _AppointmentsAttentionStripState
                         companyId: widget.companyId,
                         uid: widget.uid,
                         canManage: widget.canManage,
+                        onDismiss: widget.onDismiss,
                       ),
                     );
                   },
@@ -843,6 +905,7 @@ class _AppointmentAttentionTile extends StatelessWidget {
     required this.companyId,
     required this.uid,
     required this.canManage,
+    required this.onDismiss,
   });
 
   final Appointment appointment;
@@ -850,6 +913,7 @@ class _AppointmentAttentionTile extends StatelessWidget {
   final String companyId;
   final String uid;
   final bool canManage;
+  final ValueChanged<String> onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -866,29 +930,29 @@ class _AppointmentAttentionTile extends StatelessWidget {
             ? () => context.go(RouteNames.appointmentEdit(appointment.id))
             : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.10),
-                  borderRadius: AppRadius.medium,
-                ),
-                child: Icon(
-                  _appointmentAttentionIcon(type),
-                  color: color,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.10),
+                      borderRadius: AppRadius.medium,
+                    ),
+                    child: Icon(
+                      _appointmentAttentionIcon(type),
+                      color: color,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
                       appointment.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -896,32 +960,46 @@ class _AppointmentAttentionTile extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                           ),
                     ),
-                    Text(
-                      _appointmentAttentionSubtitle(l, appointment, users),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryColor(context),
-                          ),
+                  ),
+                  IconButton(
+                    tooltip: l.clearNotification,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => onDismiss(appointment.id),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                  if (canManage)
+                    _AppointmentActions(
+                      appointment: appointment,
+                      companyId: companyId,
+                      updatedBy: uid,
+                      compact: true,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 36),
+                child: Row(
+                  children: [
+                    _AnimatedStatusBadge(
+                      label: _appointmentAttentionLabel(l, type),
+                      tone: tone,
+                      statusKey: type?.name ?? 'scheduled',
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        _appointmentAttentionSubtitle(l, appointment, users),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                            ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              _AnimatedStatusBadge(
-                label: _appointmentAttentionLabel(l, type),
-                tone: tone,
-                statusKey: type?.name ?? 'scheduled',
-              ),
-              if (canManage) ...[
-                const SizedBox(width: AppSpacing.xs),
-                _AppointmentActions(
-                  appointment: appointment,
-                  companyId: companyId,
-                  updatedBy: uid,
-                  compact: true,
-                ),
-              ],
             ],
           ),
         ),
@@ -948,6 +1026,7 @@ class _AppointmentsFilters extends StatelessWidget {
     final hasFilters = state.statusFilter != null ||
         state.typeFilter != null ||
         state.dateFilter != AppointmentDateFilter.today ||
+        state.selectedDateFilter != null ||
         state.assignedToFilter.trim().isNotEmpty;
 
     return LayoutBuilder(
@@ -1691,69 +1770,131 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
     required String message,
     required AppointmentStatus status,
   }) async {
-    final l = AppLocalizations.of(context)!;
-    final controller = TextEditingController();
     final cubit = context.read<AppointmentsCubit>();
-    var isSubmitting = false;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(title),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(message),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: controller,
-                    maxLines: 3,
-                    decoration: InputDecoration(labelText: l.outcomeNotes),
-                    enabled: !isSubmitting,
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: Text(l.cancel),
-                ),
-                AppButton(
-                  label: title,
-                  isLoading: isSubmitting,
-                  onPressed: () async {
-                    FocusScope.of(dialogContext).unfocus();
-                    setDialogState(() => isSubmitting = true);
-                    final success = await cubit.changeStatus(
-                      companyId: widget.companyId,
-                      appointment: widget.appointment,
-                      status: status,
-                      updatedBy: widget.updatedBy,
-                      outcomeNotes: controller.text,
-                    );
-                    if (success && dialogContext.mounted) {
-                      Navigator.of(dialogContext).pop();
-                      return;
-                    }
-                    if (dialogContext.mounted) {
-                      setDialogState(() => isSubmitting = false);
-                    }
-                  },
-                ),
-              ],
-            );
-          },
+        return _AppointmentStatusChangeDialog(
+          title: title,
+          message: message,
+          status: status,
+          companyId: widget.companyId,
+          appointment: widget.appointment,
+          updatedBy: widget.updatedBy,
+          cubit: cubit,
         );
       },
     );
-    controller.dispose();
   }
 }
+
+class _AppointmentStatusChangeDialog extends StatefulWidget {
+  const _AppointmentStatusChangeDialog({
+    required this.title,
+    required this.message,
+    required this.status,
+    required this.companyId,
+    required this.appointment,
+    required this.updatedBy,
+    required this.cubit,
+  });
+
+  final String title;
+  final String message;
+  final AppointmentStatus status;
+  final String companyId;
+  final Appointment appointment;
+  final String updatedBy;
+  final AppointmentsCubit cubit;
+
+  @override
+  State<_AppointmentStatusChangeDialog> createState() =>
+      _AppointmentStatusChangeDialogState();
+}
+
+class _AppointmentStatusChangeDialogState
+    extends State<_AppointmentStatusChangeDialog> {
+  late final TextEditingController _controller;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    final controller = _controller;
+    // On Flutter Web, closing the dialog immediately after a status update can
+    // leave TextField internals finishing the same frame. Deferring disposal by
+    // one frame avoids "TextEditingController was used after being disposed"
+    // without keeping the controller alive beyond the dialog teardown.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 320),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(widget.message),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _controller,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: l.outcomeNotes),
+                enabled: !_isSubmitting,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: widget.title,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _isSubmitting = true);
+    final success = await widget.cubit.changeStatus(
+      companyId: widget.companyId,
+      appointment: widget.appointment,
+      status: widget.status,
+      updatedBy: widget.updatedBy,
+      outcomeNotes: _controller.text,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _isSubmitting = false);
+  }
+}
+
 
 class _MenuItem extends StatelessWidget {
   const _MenuItem({
@@ -2118,6 +2259,8 @@ String _dateFilterLabel(AppLocalizations l, AppointmentDateFilter filter) {
     AppointmentDateFilter.thisWeek => l.thisWeek,
     AppointmentDateFilter.upcoming => l.upcoming,
     AppointmentDateFilter.missed => l.missedAppointments,
+    AppointmentDateFilter.feedbackNeeded =>
+      l.salesCommandReasonAppointmentNeedsFeedback,
     AppointmentDateFilter.all => l.allAppointments,
   };
 }
@@ -2178,6 +2321,48 @@ String _actionSuccessLabel(AppLocalizations l, AppointmentAction action) {
     AppointmentAction.markMissed => l.appointmentMissed,
     AppointmentAction.reschedule => l.appointmentRescheduled,
   };
+}
+
+String _filterSignature(Map<String, String> filters) {
+  final entries = filters.entries
+      .where((entry) => entry.value.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  final clean = name?.trim();
+  if (clean == null || clean.isEmpty) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == clean) {
+      return value;
+    }
+  }
+  return null;
+}
+
+AppointmentDateFilter? _appointmentDateFilter(String? value) {
+  return switch (value?.trim()) {
+    'today' => AppointmentDateFilter.today,
+    'thisWeek' => AppointmentDateFilter.thisWeek,
+    'upcoming' => AppointmentDateFilter.upcoming,
+    'missed' => AppointmentDateFilter.missed,
+    'feedback-needed' || 'feedbackNeeded' =>
+      AppointmentDateFilter.feedbackNeeded,
+    'all' => AppointmentDateFilter.all,
+    _ => null,
+  };
+}
+
+DateTime? _parseQueryDate(String? value) {
+  final parsed = DateTime.tryParse(value?.trim() ?? '');
+  if (parsed == null) {
+    return null;
+  }
+  return DateTime(parsed.year, parsed.month, parsed.day);
 }
 
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {

@@ -673,6 +673,25 @@ class _MobileReportsView extends StatelessWidget {
         child: _MobileReportTabBody(
           children: [
             _ExecutiveSummary(data: data),
+            const SizedBox(height: AppSpacing.sm),
+            _ReportSection(
+              title: l.workload,
+              children: [
+                _ProgressReportCard(
+                  title: l.completionRate,
+                  value: data.completionRate,
+                  color: AppColors.successColor(context),
+                ),
+                _ValueReportCard(
+                  title: l.dealPipeline,
+                  values: [
+                    _ValueLine(l.pipelineValue, data.expectedValueTotal),
+                    _ValueLine(l.commissionTotal, data.commissionTotal),
+                  ],
+                ),
+                _AttentionReportCard(tasks: data.attentionTasks),
+              ],
+            ),
           ],
         ),
       ),

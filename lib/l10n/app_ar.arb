@@ -9,7 +9,7 @@
   "signIn": "دخول",
   "logout": "تسجيل الخروج",
   "loggedOutSuccessfully": "تم تسجيل الخروج بنجاح.",
-  "dashboard": "لوحة التحكم",
+  "dashboard": "لوحة المتابعة",
   "leads": "العملاء المحتملون",
   "properties": "العقارات",
   "clients": "العملاء",
@@ -516,6 +516,207 @@
   "dashboardInactive": "غير نشط",
   "dashboardReservedOrClosed": "محجوزة أو مغلقة",
   "dashboardGeneralTask": "مهمة عامة",
+  "dashboardKpiActiveLeads": "عملاء محتملون",
+  "dashboardKpiHotOpportunities": "فرص مهمة",
+  "dashboardKpiDueTodayFollowUps": "متابعات اليوم",
+  "dashboardKpiOverdueActions": "إجراءات متأخرة",
+  "dashboardKpiAppointmentsToday": "مواعيد اليوم",
+  "dashboardKpiDealsPipeline": "خط الصفقات",
+  "dashboardKpiExpectedPipeline": "قيمة الصفقات",
+  "dashboardKpiActiveListings": "عقارات متاحة",
+  "dashboardPeriodToday": "اليوم",
+  "dashboardPeriodThisMonth": "هذا الشهر",
+  "dashboardPeriodCurrentScope": "حسب صلاحيات دورك",
+  "dashboardNotEnoughData": "لا توجد بيانات كافية بعد.",
+  "dashboardPerformanceTitle": "أداء المبيعات",
+  "dashboardPerformanceOverview": "نظرة على الأداء",
+  "dashboardLeadsTrend": "اتجاه العملاء المحتملين",
+  "dashboardFollowUpsCompletedMissed": "المتابعات المنجزة والمتأخرة",
+  "dashboardAppointmentsFlow": "حالة مواعيد اليوم",
+  "dashboardLeadSources": "مصادر العملاء المحتملين",
+  "dashboardLast7Days": "آخر ٧ أيام",
+  "dashboardTodayRailTitle": "اليوم",
+  "dashboardDueFollowUps": "متابعات مستحقة",
+  "dashboardOverdueReminders": "تنبيهات متأخرة",
+  "dashboardNoUrgentActions": "لا توجد إجراءات عاجلة الآن.",
+  "dashboardPipelineSnapshot": "خط المبيعات",
+  "dashboardPipelineHasNoValue": "تظهر قيمة المسار عند تسجيل قيم الصفقات.",
+  "dashboardStuckDeals": "صفقات متوقفة",
+  "dashboardClosingThisMonth": "إغلاق هذا الشهر",
+  "dashboardWonLost": "رابحة / خاسرة",
+  "dashboardDealsByStage": "الصفقات حسب المرحلة",
+  "dashboardTeamPerformance": "أداء الفريق",
+  "dashboardPersonalPerformance": "أدائي",
+  "dashboardTopActiveAgent": "الأكثر نشاطًا",
+  "dashboardOverloadedAssignee": "يحتاج توزيع عبء",
+  "dashboardNoTeamSignal": "لا توجد مؤشرات ضغط على الفريق الآن.",
+  "dashboardPerformanceLimitedForRole": "عرض محدود لهذا الدور.",
+  "dashboardOverviewTab": "نظرة عامة",
+  "dashboardWorkQueue": "قائمة العمل",
+  "dashboardPerformanceTab": "الأداء",
+  "dashboardOpportunitiesTab": "الفرص",
+  "dashboardQuickActionsUnavailable": "لا توجد إجراءات سريعة متاحة لهذا الدور.",
+  "dashboardImportantOpportunities": "أهم الفرص المفتوحة",
+  "dashboardNoOpportunities": "لا توجد فرص مهمة بعد.",
+  "dashboardDailyInsight": "رؤية ذكية",
+  "dashboardAppointmentsForDate": "مواعيد {date}",
+  "@dashboardAppointmentsForDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "dashboardNoAppointmentsForDay": "لا توجد مواعيد لهذا اليوم",
+  "dashboardUrgentFollowUps": "متابعات عاجلة",
+  "dashboardNoUrgentFollowUps": "لا توجد متابعات عاجلة",
+  "dashboardQuickAction": "إجراء سريع",
+  "dashboardTeamUser": "المستشار",
+  "dashboardTeamAppointments": "المواعيد",
+  "dashboardTeamDeals": "الصفقات",
+  "dashboardTeamPipeline": "القيمة",
+  "dashboardNoValue": "بدون قيمة",
+  "dashboardAddLead": "إضافة عميل محتمل",
+  "dashboardAddClient": "إضافة عميل",
+  "dashboardAddProperty": "إضافة عقار",
+  "dashboardAddAppointment": "إضافة موعد",
+  "dashboardSeriesLeads": "العملاء المحتملون",
+  "dashboardSeriesAppointments": "المواعيد",
+  "dashboardSeriesDeals": "الصفقات",
+  "dashboardSeriesPipelineValue": "قيمة الصفقات",
+  "dashboardDailyInsightStaleLeads": "هناك {count} فرص لم تحصل على متابعة منذ أكثر من ٥ أيام. افتح التفاصيل وابدأ بالأعلى قيمة.",
+  "@dashboardDailyInsightStaleLeads": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightConversionUp": "معدل التحويل الحالي أعلى من الشهر السابق بنسبة {percent}٪.",
+  "@dashboardDailyInsightConversionUp": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "dashboardDailyInsightCalm": "لا توجد إجراءات حرجة الآن. تابع مؤشرات الأداء واستعد للفرصة القادمة.",
+  "dashboardDailyInsightNotEnoughData": "لا توجد بيانات كافية بعد لعرض رؤية يومية دقيقة.",
+  "dashboardWelcomeInsightActive": "ابدأ اليوم من الفرص المهمة والمتابعات المستحقة، ثم راجع مواعيد الفريق من شريط اليوم.",
+  "dashboardWelcomeInsightCalm": "لا توجد مؤشرات عاجلة الآن. راقب الأداء واستعد للفرص القادمة.",
+  "dashboardTodayShort": "اليوم",
+  "dashboardDaysAgo": "منذ {count} يوم",
+  "@dashboardDaysAgo": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "salesCommandCenterTitle": "مركز المتابعة اليومية",
+  "salesCommandCenterSubtitle": "أهم الفرص والمتابعات التي تحتاج حركة اليوم.",
+  "salesCommandEmptyTitle": "لا توجد إجراءات عاجلة الآن.",
+  "salesCommandEmptyMessage": "لا توجد إجراءات عاجلة الآن. المتابعة تحت السيطرة.",
+  "salesCommandLimitedMessage": "ستظهر هنا الأعمال المتاحة حسب صلاحياتك عند وجود بيانات كافية.",
+  "salesCommandUpdatedNow": "تم التحديث الآن",
+  "salesCommandMetricDueToday": "مستحق اليوم",
+  "salesCommandMetricOverdue": "متأخر",
+  "salesCommandMetricHot": "فرص مهمة",
+  "salesCommandMetricRisk": "تحتاج تدخل",
+  "dashboardCommandLegendTooltip": "الأحمر = متأخر أو عالي المخاطر. الذهبي = مستحق اليوم أو قريب. الأزرق = فرصة مهمة. الأخضر = نتيجة إيجابية أو مكتمل.",
+  "dashboardSuggestedNextAction": "الإجراء المقترح",
+  "salesCommandTodayPrioritiesTitle": "أولويات اليوم",
+  "salesCommandTodayPrioritiesSubtitle": "أهم الإجراءات المختلطة بين العملاء والمهام والصفقات والمواعيد.",
+  "salesCommandHotOpportunitiesTitle": "فرص مهمة",
+  "salesCommandHotOpportunitiesSubtitle": "عملاء وصفقات تظهر عليها إشارات تستحق متابعة قريبة.",
+  "salesCommandAtRiskTitle": "تحتاج تدخل",
+  "salesCommandAtRiskSubtitle": "متابعات فائتة أو عملاء بلا حركة أو صفقات متوقفة.",
+  "salesCommandTeamPressureTitle": "ضغط الفريق",
+  "salesCommandTeamPressureSubtitle": "عبء العمل المتأخر وفجوات المسؤولية ضمن نطاقك.",
+  "salesCommandNoTodayPriorities": "لا توجد أولوية مستحقة الآن.",
+  "salesCommandNoHotOpportunities": "لا توجد فرصة قوية ظاهرة ضمن البيانات الحالية.",
+  "salesCommandNoAtRisk": "لا يوجد عنصر ظاهر يحتاج تدخل الآن.",
+  "salesCommandNoTeamPressure": "لا يظهر ضغط زائد أو فجوة مسؤولية حالياً.",
+  "salesCommandWhyThisAppears": "سبب الظهور",
+  "salesCommandOpenAction": "عرض",
+  "salesCommandDueToday": "مستحق اليوم",
+  "salesCommandOverdueByDays": "{count, plural, =0{متأخر} =1{متأخر يوم واحد} other{متأخر {count} أيام}}",
+  "@salesCommandOverdueByDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandAgeDays": "{count, plural, =1{بلا حركة منذ يوم} other{بلا حركة منذ {count} أيام}}",
+  "@salesCommandAgeDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandDueAt": "مستحق {date}",
+  "@salesCommandDueAt": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "salesCommandModuleLead": "عميل محتمل",
+  "salesCommandModuleTask": "مهمة",
+  "salesCommandModuleDeal": "صفقة",
+  "salesCommandModuleAppointment": "موعد",
+  "salesCommandModuleClient": "عميل",
+  "salesCommandModuleUser": "مستخدم",
+  "salesCommandModuleTeam": "فريق",
+  "salesCommandWhyOverdueFollowUp": "موعد المتابعة فات والعميل المحتمل ما زال مفتوحاً.",
+  "salesCommandWhyDueTodayFollowUp": "هذا العميل لديه متابعة مستحقة اليوم.",
+  "salesCommandWhyOverdueTask": "المهمة ما زالت مفتوحة بعد موعدها.",
+  "salesCommandWhyDueTodayTask": "المهمة مستحقة اليوم ولم تُنجز بعد.",
+  "salesCommandWhyStaleLead": "لا يوجد تواصل أو تحديث حديث منذ {count} يوم.",
+  "@salesCommandWhyStaleLead": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandWhyHotLead": "الأولوية أو الحالة تشير إلى فرصة تستحق متابعة قريبة.",
+  "salesCommandWhyUnassignedLead": "عميل مهم بدون مسؤول متابعة حتى الآن.",
+  "salesCommandWhyAppointmentMissed": "وقت الموعد انتهى وما زال يحتاج معالجة.",
+  "salesCommandWhyAppointmentDueNow": "الموعد مستحق الآن أو يفترض أنه بدأ بالفعل.",
+  "salesCommandWhyAppointmentUpcoming": "موعد اليوم ظاهر للتنبيه فقط بدون أن يطغى على الأولويات.",
+  "salesCommandWhyAppointmentNeedsFeedback": "الموعد انتهى ولم يتم تسجيل نتيجته.",
+  "salesCommandWhyDealAtRisk": "الصفقة متوقفة أو اقترب موعد إغلاقها وتحتاج خطوة واضحة.",
+  "salesCommandWhyOverloadedAssignee": "{name} لديه {count, plural, =1{عنصر واحد متأخر} other{{count} عناصر متأخرة}}.",
+  "@salesCommandWhyOverloadedAssignee": {
+    "placeholders": {
+      "name": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandMoreItems": "{count, plural, =1{يوجد إجراء آخر داخل الوحدات} other{توجد {count} إجراءات أخرى داخل الوحدات}}",
+  "@salesCommandMoreItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesCommandReasonOverdueFollowUp": "تأخرت المتابعة ويحتاج العميل إجراء الآن",
+  "salesCommandReasonDueTodayFollowUp": "موعد المتابعة اليوم ولا يفضل تأجيله",
+  "salesCommandReasonOverdueTask": "مهمة متأخرة تؤثر على المتابعة",
+  "salesCommandReasonDueTodayTask": "مهمة مستحقة اليوم",
+  "salesCommandReasonStaleLead": "لا توجد حركة حديثة على هذه الفرصة",
+  "salesCommandReasonHotLead": "فرصة نشطة وتستحق أولوية",
+  "salesCommandReasonUnassignedLead": "عميل مهم غير مسند",
+  "salesCommandReasonAppointmentMissed": "موعد فائت",
+  "salesCommandReasonAppointmentDueNow": "موعد مستحق الآن",
+  "salesCommandReasonAppointmentUpcoming": "موعد قريب",
+  "salesCommandReasonAppointmentNeedsFeedback": "يحتاج نتيجة الموعد",
+  "salesCommandReasonDealAtRisk": "الصفقة متوقفة وتحتاج تدخل",
+  "salesCommandReasonOverloadedAssignee": "{count, plural, =1{مهمة متأخرة واحدة} other{{count} مهام متأخرة}}",
+  "@salesCommandReasonOverloadedAssignee": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "clientsSubtitle": "احتفظ بملفات العملاء وتفضيلاتهم والتكليفات جاهزة للمتابعة.",
   "searchClients": "ابحث في العملاء",
   "searchTasks": "ابحث في المهام",
@@ -1484,7 +1685,6 @@
   "daysRemaining": "الأيام المتبقية",
   "paidCompanies": "شركات مدفوعة",
   "expectedThisMonth": "المتوقع هذا الشهر",
-  "addNote": "إضافة ملاحظة",
   "moveToGracePeriod": "نقل إلى فترة سماح",
   "suspendCompany": "إيقاف الشركة",
   "reactivateCompany": "إعادة تفعيل الشركة",
@@ -1515,5 +1715,46 @@
         "type": "int"
       }
     }
-  }
+  },
+  "swipeToSeeMore": "اسحب لعرض المزيد",
+  "dashboardActionNoAnswer": "لم يرد",
+  "dashboardActionInterested": "تمييز كفرصة مهمة",
+  "dashboardActionNotInterested": "تحديد كغير مهتم",
+  "dashboardActionMarkTaskCompleted": "إنهاء المهمة",
+  "dashboardActionSaved": "تم حفظ الإجراء.",
+  "dashboardActionFailed": "تعذر تنفيذ الإجراء. حاول مرة أخرى.",
+  "dashboardCallPhone": "اتصال",
+  "dashboardOpenWhatsApp": "فتح واتساب",
+  "dashboardLeadNoteContacted": "نتيجة المتابعة: تم التواصل من لوحة المتابعة.",
+  "dashboardLeadNoteNoAnswer": "نتيجة المتابعة: لم يرد من لوحة المتابعة. تم تحديد متابعة للغد.",
+  "dashboardLeadNoteInterested": "نتيجة المتابعة: العميل مهتم من لوحة المتابعة.",
+  "dashboardLeadNoteNotInterested": "نتيجة المتابعة: العميل غير مهتم من لوحة المتابعة.",
+  "dashboardLeadNoteFollowUpScheduled": "تم تحديد متابعة يوم {date} من لوحة المتابعة.",
+  "@dashboardLeadNoteFollowUpScheduled": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "connectedJourneyTitle": "رحلة السجل",
+  "connectedJourneySubtitle": "تسلسل المتابعات والمهام والمواعيد والصفقات والنشاط المرتبط بهذا السجل.",
+  "journeyRecommendedNextAction": "الإجراء المقترح الآن",
+  "journeyNoActivity": "لا توجد أنشطة مرتبطة حتى الآن.",
+  "journeyOpenRecord": "فتح السجل",
+  "journeyItemRecordCreated": "تم إنشاء السجل",
+  "journeyItemAuditCreated": "تم تسجيل نشاط جديد",
+  "journeyItemAuditUpdated": "تم تحديث نشاط",
+  "journeyActionEverythingCalm": "لا يوجد إجراء عاجل",
+  "journeyActionEverythingCalmDescription": "هذا السجل لا يحتوي على تنبيهات عاجلة في الرحلة حاليًا.",
+  "journeyActionOverdueFollowUp": "المتابعة متأخرة",
+  "journeyActionOverdueFollowUpDescription": "تواصل مع هذا السجل اليوم أو أنشئ مهمة حتى لا يبرد التواصل.",
+  "journeyActionNoContact": "يحتاج نقطة تواصل جديدة",
+  "journeyActionNoContactDescription": "لا يوجد تواصل حديث. خطط لمكالمة أو مهمة أو موعد.",
+  "journeyActionScheduleVisit": "حدد الموعد التالي",
+  "journeyActionScheduleVisitDescription": "السجل جاهز لخطوة واضحة مثل اجتماع أو معاينة عقار.",
+  "journeyActionCompleteProfile": "استكمال البيانات الناقصة",
+  "journeyActionCompleteProfileDescription": "أضف التفضيلات الناقصة حتى تصبح المطابقة والمتابعة أدق.",
+  "journeyActionStuckDeal": "الصفقة تحتاج مراجعة",
+  "journeyActionStuckDealDescription": "هذه الصفقة لم تتحرك مؤخرًا. راجع المرحلة والالتزام التالي.",
+  "journeyActionClosingDue": "تاريخ الإغلاق يحتاج متابعة",
+  "journeyActionClosingDueDescription": "تاريخ الإغلاق المتوقع انتهى. أنشئ مهمة أو حدّث خطة الصفقة."
 }
