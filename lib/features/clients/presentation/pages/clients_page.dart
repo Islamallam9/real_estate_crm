@@ -1123,7 +1123,7 @@ class _ClientsTableHeader extends StatelessWidget {
           _TableHeaderText(localizations.preferredPropertyType, flex: 3),
           _TableHeaderText(
             localizations.actions,
-            flex: (canEdit || canAssign || canArchive) ? 2 : 1,
+            flex: 3,
           ),
         ],
       ),
@@ -1160,65 +1160,76 @@ class _ClientsTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.sm,
-      ),
-      child: Row(
-        children: [
-          _TableBodyText(_fallback(client.fullName, l.notAvailable), flex: 3),
-          _TableBodyText(_fallback(client.phone, l.notAvailable), flex: 2),
-          _TableBodyText(_fallback(client.email, l.notAvailable), flex: 3),
-          _TableBodyText(
-            _fallback(client.preferredLocation, l.notAvailable),
-            flex: 3,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go(RouteNames.clientDetails(client.id)),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.sm,
           ),
-          _TableBodyText(
-            _fallback(client.preferredPropertyType, l.notAvailable),
-            flex: 3,
-          ),
-          Expanded(
-            flex: (canEdit || canAssign || canArchive) ? 2 : 1,
-            child: Wrap(
-              spacing: 4,
-              children: [
-                if (canEdit && !isArchivedView)
-                  IconButton(
-                    tooltip: l.editClient,
-                    onPressed: () => context.go(RouteNames.clientEdit(client.id)),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                  ),
-                if (canAssign && !isArchivedView)
-                  IconButton(
-                    tooltip: l.assignClient,
-                    onPressed: () => _showAssignClientSheet(
-                      context,
-                      client: client,
-                      companyId: companyId,
-                      updatedBy: updatedBy,
-                      users: users,
+          child: Row(
+            children: [
+              _TableBodyText(_fallback(client.fullName, l.notAvailable), flex: 3),
+              _TableBodyText(_fallback(client.phone, l.notAvailable), flex: 2),
+              _TableBodyText(_fallback(client.email, l.notAvailable), flex: 3),
+              _TableBodyText(
+                _fallback(client.preferredLocation, l.notAvailable),
+                flex: 3,
+              ),
+              _TableBodyText(
+                _fallback(client.preferredPropertyType, l.notAvailable),
+                flex: 3,
+              ),
+              Expanded(
+                flex: 3,
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: l.open,
+                      onPressed: () => context.go(RouteNames.clientDetails(client.id)),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
                     ),
-                    icon: const Icon(Icons.person_add_alt_outlined, size: 18),
-                  ),
-                if (canArchive && !isArchivedView)
-                  IconButton(
-                    tooltip: l.archiveClient,
-                    onPressed: () => onArchive(client),
-                    icon: const Icon(Icons.archive_outlined, size: 18),
-                  ),
-                if (canArchive && isArchivedView)
-                  IconButton(
-                    tooltip: l.restore,
-                    onPressed: () => onRestore(client),
-                    icon: const Icon(Icons.unarchive_outlined, size: 18),
-                  ),
-              ],
-            ),
+                    if (canEdit && !isArchivedView)
+                      IconButton(
+                        tooltip: l.editClient,
+                        onPressed: () => context.go(RouteNames.clientEdit(client.id)),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                      ),
+                    if (canAssign && !isArchivedView)
+                      IconButton(
+                        tooltip: l.assignClient,
+                        onPressed: () => _showAssignClientSheet(
+                          context,
+                          client: client,
+                          companyId: companyId,
+                          updatedBy: updatedBy,
+                          users: users,
+                        ),
+                        icon: const Icon(Icons.person_add_alt_outlined, size: 18),
+                      ),
+                    if (canArchive && !isArchivedView)
+                      IconButton(
+                        tooltip: l.archiveClient,
+                        onPressed: () => onArchive(client),
+                        icon: const Icon(Icons.archive_outlined, size: 18),
+                      ),
+                    if (canArchive && isArchivedView)
+                      IconButton(
+                        tooltip: l.restore,
+                        onPressed: () => onRestore(client),
+                        icon: const Icon(Icons.unarchive_outlined, size: 18),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

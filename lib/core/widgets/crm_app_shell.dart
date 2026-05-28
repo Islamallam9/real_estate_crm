@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../../features/global_search/domain/entities/global_search_result.dart';
 import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
 import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
 import '../../features/global_search/presentation/cubit/global_search_state.dart';
+import '../../features/notifications/domain/entities/attention_reminder.dart';
 import '../../features/notifications/domain/entities/crm_notification.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
 import '../../features/notifications/presentation/cubit/notifications_state.dart';
@@ -25,6 +27,8 @@ import '../../features/users/domain/entities/company_metadata.dart';
 import '../auth/protected_company_session.dart';
 import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
+import '../permissions/app_permission.dart';
+import '../permissions/permission_service.dart';
 import '../permissions/company_feature_gate.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
@@ -326,6 +330,9 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
         _NotificationFloatingToast(
           companyId: widget.companyId,
         ),
+        _SmartGuidanceFloatingOverlay(
+          companyId: widget.companyId,
+        ),
       ],
     );
   }
@@ -449,6 +456,356 @@ class _NotificationFloatingToastState
     ),
   );
   }
+}
+
+
+class _SmartGuidanceFloatingOverlay extends StatefulWidget {
+  const _SmartGuidanceFloatingOverlay({required this.companyId});
+
+  final String companyId;
+
+  @override
+  State<_SmartGuidanceFloatingOverlay> createState() =>
+      _SmartGuidanceFloatingOverlayState();
+}
+
+class _SmartGuidanceFloatingOverlayState
+    extends State<_SmartGuidanceFloatingOverlay> {
+  final math.Random _random = math.Random();
+  Timer? _showTimer;
+  Timer? _hideTimer;
+  AttentionReminder? _visibleReminder;
+  bool _visible = false;
+  int _lastSignatureHash = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNext(initial: true);
+  }
+
+  @override
+  void dispose() {
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleState(NotificationsState state) {
+    final signature = state.reminders.map((item) => item.id).join('|').hashCode;
+    if (signature != _lastSignatureHash) {
+      _lastSignatureHash = signature;
+      if (!_visible) {
+        _scheduleNext(initial: _lastSignatureHash == 0);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 720;
+    final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+    return Positioned.fill(
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: isMobile ? AppSpacing.sm : AppSpacing.xl,
+              right: isMobile ? AppSpacing.sm : 0,
+            ),
+            child: BlocListener<NotificationsCubit, NotificationsState>(
+              listenWhen: (previous, current) =>
+                  previous.reminders != current.reminders,
+              listener: (context, state) => _handleState(state),
+              child: BlocBuilder<NotificationsCubit, NotificationsState>(
+                buildWhen: (previous, current) =>
+                    previous.reminders != current.reminders,
+                builder: (context, state) {
+                  return IgnorePointer(
+                    ignoring: !_visible || _visibleReminder == null,
+                    child: AnimatedOpacity(
+                      opacity: _visible && _visibleReminder != null ? 1 : 0,
+                      duration: reducedMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      child: AnimatedSlide(
+                        offset: _visible || reducedMotion
+                            ? Offset.zero
+                            : const Offset(-0.08, 0),
+                        duration: reducedMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 240),
+                        curve: Curves.easeOutCubic,
+                        child: _visibleReminder == null
+                            ? const SizedBox.shrink()
+                            : _SmartGuidanceCard(
+                                reminder: _visibleReminder!,
+                                onClose: _dismiss,
+                                onOpen: () =>
+                                    _openReminder(context, _visibleReminder!),
+                              ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _scheduleNext({required bool initial}) {
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
+    final delay = initial
+        ? const Duration(seconds: 9)
+        : Duration(seconds: 34 + _random.nextInt(36));
+    _showTimer = Timer(delay, _showNextReminder);
+  }
+
+  List<AttentionReminder> _availableReminders() {
+    final state = context.read<NotificationsCubit>().state;
+    final reminders = state.reminders
+        .where((item) => item.route.trim().isNotEmpty)
+        .toList();
+    reminders.sort((a, b) => _reminderRank(a).compareTo(_reminderRank(b)));
+    return reminders.take(10).toList();
+  }
+
+  void _showNextReminder() {
+    if (!mounted || _visible) {
+      return;
+    }
+    final reminders = _availableReminders();
+    if (reminders.isEmpty) {
+      _scheduleNext(initial: false);
+      return;
+    }
+    setState(() {
+      _visibleReminder = reminders[_random.nextInt(reminders.length)];
+      _visible = true;
+    });
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 10), () {
+      if (!mounted) {
+        return;
+      }
+      final reminder = _visibleReminder;
+      if (reminder != null) {
+        context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
+      }
+      setState(() => _visible = false);
+      _scheduleNext(initial: false);
+    });
+  }
+
+  void _dismiss() {
+    _hideTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
+    final reminder = _visibleReminder;
+    if (reminder != null) {
+      context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
+    }
+    setState(() => _visible = false);
+    _scheduleNext(initial: false);
+  }
+
+  void _openReminder(BuildContext context, AttentionReminder reminder) {
+    _hideTimer?.cancel();
+    context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
+    if (mounted) {
+      setState(() => _visible = false);
+    }
+    final route = reminder.route.trim();
+    if (route.isNotEmpty) {
+      context.go(route);
+    }
+    if (mounted) {
+      _scheduleNext(initial: false);
+    }
+  }
+}
+
+class _SmartGuidanceCard extends StatelessWidget {
+  const _SmartGuidanceCard({
+    required this.reminder,
+    required this.onClose,
+    required this.onOpen,
+  });
+
+  final AttentionReminder reminder;
+  final VoidCallback onClose;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = _CrmShellColors.of(context);
+    final isMobile = MediaQuery.sizeOf(context).width < 720;
+    final color = _reminderToneColor(context, reminder.type);
+    return Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? MediaQuery.sizeOf(context).width - 32 : 380,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.chromeSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withValues(alpha: 0.30)),
+            boxShadow: AppShadows.shell,
+          ),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 8, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Icon(_reminderIcon(reminder.type), color: color, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _guidanceTitle(l, reminder),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _guidanceBody(l, reminder),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colors.textSecondary,
+                              height: 1.25,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                TextButton(
+                  onPressed: onOpen,
+                  child: Text(l.open),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: l.close,
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _guidanceTitle(AppLocalizations l, AttentionReminder reminder) {
+  return switch (reminder.type) {
+    AttentionReminderType.followUpOverdue => l.notificationFollowUpOverdueTitle,
+    AttentionReminderType.followUpDueToday => l.notificationFollowUpDueTodayTitle,
+    AttentionReminderType.taskOverdue => l.notificationTaskOverdueTitle,
+    AttentionReminderType.taskDueToday => l.notificationTaskDueTodayTitle,
+    AttentionReminderType.appointmentMissed => l.appointmentMissed,
+    AttentionReminderType.appointmentDueNow => l.salesCommandReasonAppointmentDueNow,
+    AttentionReminderType.appointmentUpcomingSoon ||
+    AttentionReminderType.appointmentToday => l.appointments,
+    AttentionReminderType.unassignedLead => l.unassignedLeads,
+  };
+}
+
+String _guidanceBody(AppLocalizations l, AttentionReminder reminder) {
+  final title = reminder.recordTitle.trim().isEmpty
+      ? reminder.recordSubtitle.trim()
+      : reminder.recordTitle.trim();
+  final cleanTitle = title.isEmpty ? l.viewDetails : title;
+  return switch (reminder.type) {
+    AttentionReminderType.followUpOverdue =>
+      '${l.salesCommandWhyOverdueFollowUp} • $cleanTitle',
+    AttentionReminderType.followUpDueToday =>
+      '${l.salesCommandWhyDueTodayFollowUp} • $cleanTitle',
+    AttentionReminderType.taskOverdue =>
+      '${l.salesCommandWhyOverdueTask} • $cleanTitle',
+    AttentionReminderType.taskDueToday =>
+      '${l.salesCommandWhyDueTodayTask} • $cleanTitle',
+    AttentionReminderType.appointmentMissed =>
+      '${l.salesCommandReasonAppointmentMissed} • $cleanTitle',
+    AttentionReminderType.appointmentDueNow =>
+      '${l.salesCommandReasonAppointmentDueNow} • $cleanTitle',
+    AttentionReminderType.appointmentUpcomingSoon ||
+    AttentionReminderType.appointmentToday =>
+      '${l.newAppointment} • $cleanTitle',
+    AttentionReminderType.unassignedLead =>
+      '${l.salesCommandWhyUnassignedLead} • $cleanTitle',
+  };
+}
+
+Color _reminderToneColor(BuildContext context, AttentionReminderType type) {
+  return switch (type) {
+    AttentionReminderType.followUpOverdue ||
+    AttentionReminderType.taskOverdue ||
+    AttentionReminderType.appointmentMissed => AppColors.errorColor(context),
+    AttentionReminderType.followUpDueToday ||
+    AttentionReminderType.taskDueToday ||
+    AttentionReminderType.appointmentDueNow => AppColors.warningColor(context),
+    AttentionReminderType.unassignedLead => AppColors.infoColor(context),
+    _ => AppColors.primaryColor(context),
+  };
+}
+
+IconData _reminderIcon(AttentionReminderType type) {
+  return switch (type) {
+    AttentionReminderType.followUpOverdue ||
+    AttentionReminderType.followUpDueToday => Icons.phone_in_talk_outlined,
+    AttentionReminderType.taskOverdue ||
+    AttentionReminderType.taskDueToday => Icons.assignment_late_outlined,
+    AttentionReminderType.appointmentMissed ||
+    AttentionReminderType.appointmentDueNow ||
+    AttentionReminderType.appointmentUpcomingSoon ||
+    AttentionReminderType.appointmentToday => Icons.event_available_outlined,
+    AttentionReminderType.unassignedLead => Icons.person_search_outlined,
+  };
+}
+
+int _reminderRank(AttentionReminder reminder) {
+  return switch (reminder.type) {
+    AttentionReminderType.appointmentMissed => 0,
+    AttentionReminderType.appointmentDueNow => 1,
+    AttentionReminderType.followUpOverdue => 2,
+    AttentionReminderType.taskOverdue => 3,
+    AttentionReminderType.unassignedLead => 4,
+    AttentionReminderType.appointmentUpcomingSoon => 5,
+    AttentionReminderType.appointmentToday => 6,
+    AttentionReminderType.followUpDueToday => 7,
+    AttentionReminderType.taskDueToday => 8,
+  };
 }
 
 class _NotificationToastCard extends StatelessWidget {
@@ -2168,7 +2525,7 @@ class _TopBar extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!compact)
+              if (!compact) ...[
                 Flexible(
                   child: TextField(
                     readOnly: true,
@@ -2181,6 +2538,11 @@ class _TopBar extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (kIsWeb) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  const _TopBarCreateButton(),
+                ],
+              ],
               const SizedBox(width: AppSpacing.sm),
               const _NotificationIconButton(),
               const SizedBox(width: AppSpacing.xs),
@@ -2195,6 +2557,83 @@ class _TopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TopBarCreateButton extends StatelessWidget {
+  const _TopBarCreateButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = _topBarCreateActions(context);
+    if (actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final colors = _CrmShellColors.of(context);
+    final primary = AppColors.primaryColor(context);
+    return PopupMenuButton<_CreateAction>(
+      tooltip: AppLocalizations.of(context)!.dashboardQuickAction,
+      position: PopupMenuPosition.under,
+      onSelected: (action) => context.go(action.route),
+      itemBuilder: (context) => [
+        for (final action in actions)
+          PopupMenuItem<_CreateAction>(
+            value: action,
+            child: Row(
+              children: [
+                Icon(action.icon, size: 18, color: colors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(child: Text(action.label)),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 44,
+        width: 44,
+        decoration: BoxDecoration(
+          color: primary,
+          shape: BoxShape.circle,
+          boxShadow: AppShadows.card,
+        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _CreateAction {
+  const _CreateAction({required this.label, required this.icon, required this.route});
+
+  final String label;
+  final IconData icon;
+  final String route;
+}
+
+List<_CreateAction> _topBarCreateActions(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  final authState = context.read<AuthBloc>().state;
+  final role = authState.protectedCompanySession?.profile.role;
+  final company = authState.companyMetadata;
+  if (role == null) {
+    return const <_CreateAction>[];
+  }
+  return [
+    if (company.isFeatureEnabled(CompanyFeature.leads) &&
+        PermissionService.can(role, AppPermission.createLead))
+      _CreateAction(label: l.dashboardAddLead, icon: Icons.person_add_alt_outlined, route: RouteNames.leadsCreate),
+    if (company.isFeatureEnabled(CompanyFeature.clients) &&
+        PermissionService.can(role, AppPermission.createClient))
+      _CreateAction(label: l.dashboardAddClient, icon: Icons.group_add_outlined, route: RouteNames.clientsCreate),
+    if (company.isFeatureEnabled(CompanyFeature.properties) &&
+        PermissionService.can(role, AppPermission.createProperty))
+      _CreateAction(label: l.dashboardAddProperty, icon: Icons.add_business_outlined, route: RouteNames.propertiesCreate),
+    if (company.isFeatureEnabled(CompanyFeature.deals) &&
+        PermissionService.can(role, AppPermission.createDeal))
+      _CreateAction(label: l.createDeal, icon: Icons.handshake_outlined, route: RouteNames.dealsCreate),
+    if (company.isFeatureEnabled(CompanyFeature.appointments) &&
+        PermissionService.can(role, AppPermission.createAppointment))
+      _CreateAction(label: l.dashboardAddAppointment, icon: Icons.event_available_outlined, route: RouteNames.appointmentsCreate),
+  ];
 }
 
 class _ThemeSheetAction extends StatelessWidget {
