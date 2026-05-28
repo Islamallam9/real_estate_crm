@@ -19,11 +19,15 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../journeys/domain/entities/connected_journey.dart';
+import '../../../journeys/presentation/widgets/connected_journey_panel.dart';
+import '../../../journeys/presentation/widgets/journey_builders.dart';
 import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/clients_scope.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 
 class ClientDetailsPage extends StatelessWidget {
   const ClientDetailsPage({super.key, required this.clientId});
@@ -58,6 +62,19 @@ class _ClientDetailsView extends StatefulWidget {
 
 class _ClientDetailsViewState extends State<_ClientDetailsView> {
   String? _watchKey;
+  int _selectedTab = 0;
+
+
+  Future<void> _refreshClient(String companyId) async {
+    if (companyId.isEmpty || widget.clientId.isEmpty) {
+      return;
+    }
+    context.read<ClientsCubit>().watchClient(
+      companyId: companyId,
+      clientId: widget.clientId,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+  }
 
   void _watchClientWhenReady(ProtectedCompanySession session) {
     if (widget.clientId.isEmpty) {
@@ -145,12 +162,14 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
 
                 return Stack(
                   children: [
-                    ListView(
-                      primary: true,
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsetsDirectional.only(
-                        bottom: AppSpacing.lg,
-                      ),
+                    RefreshIndicator(
+                      onRefresh: () => _refreshClient(companyId),
+                      child: ListView(
+                        primary: true,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsetsDirectional.only(
+                          bottom: AppSpacing.lg,
+                        ),
                       children: [
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 900),
@@ -202,110 +221,195 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                                 ],
                               ),
                               const SizedBox(height: AppSpacing.lg),
-                              _DetailsSection(
-                                title: l.contactInformation,
-                                children: [
-                                  _detail(
-                                    context,
-                                    l.fullNameUpdated,
-                                    _valueOrNotAvailable(l, client.fullName),
+                              MasarSwitchTabBar(
+                                compact: true,
+                                selectedIndex: _selectedTab,
+                                onChanged: (index) =>
+                                    setState(() => _selectedTab = index),
+                                tabs: [
+                                  MasarSwitchTabItem(
+                                    label: l.details,
+                                    icon: Icons.info_outline_rounded,
                                   ),
-                                  _detail(
-                                    context,
-                                    l.phone,
-                                    _valueOrNotAvailable(l, client.phone),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.email,
-                                    _valueOrNotAvailable(l, client.email),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.assignedToLabel,
-                                    _assigneeDisplayLabel(l, client),
+                                  MasarSwitchTabItem(
+                                    label: l.connectedJourneyTitle,
+                                    icon: Icons.route_outlined,
                                   ),
                                 ],
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              _DetailsSection(
-                                title: l.clientPreferences,
-                                children: [
-                                  _detail(
-                                    context,
-                                    l.budgetMin,
-                                    _formatOptionalNumber(
-                                      context,
-                                      l,
-                                      client.budgetMin,
-                                    ),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.budgetMax,
-                                    _formatOptionalNumber(
-                                      context,
-                                      l,
-                                      client.budgetMax,
-                                    ),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.preferredLocation,
-                                    _valueOrNotAvailable(
-                                      l,
-                                      client.preferredLocation,
-                                    ),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.preferredPropertyType,
-                                    _valueOrNotAvailable(
-                                      l,
-                                      client.preferredPropertyType,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              _DetailsSection(
-                                title: l.notes,
-                                children: [
-                                  _detail(
-                                    context,
-                                    l.notes,
-                                    _valueOrNotAvailable(l, client.notes),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              _DetailsSection(
-                                title: l.auditInfo,
-                                children: [
-                                  _detail(
-                                    context,
-                                    l.createdAt,
-                                    _formatOptionalDate(
-                                      context,
-                                      l,
-                                      client.createdAt,
-                                    ),
-                                  ),
-                                  _detail(
-                                    context,
-                                    l.updatedAt,
-                                    _formatOptionalDate(
-                                      context,
-                                      l,
-                                      client.updatedAt,
-                                    ),
-                                  ),
-                                ],
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: _selectedTab == 0
+                                    ? Column(
+                                        key: const ValueKey('client-details-tab'),
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          _DetailsSection(
+                                            title: l.contactInformation,
+                                            children: [
+                                              _detail(
+                                                context,
+                                                l.fullNameUpdated,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.fullName,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.phone,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.phone,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.email,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.email,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.assignedToLabel,
+                                                _assigneeDisplayLabel(
+                                                  l,
+                                                  client,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(
+                                            height: AppSpacing.md,
+                                          ),
+                                          _DetailsSection(
+                                            title: l.clientPreferences,
+                                            children: [
+                                              _detail(
+                                                context,
+                                                l.budgetMin,
+                                                _formatOptionalNumber(
+                                                  context,
+                                                  l,
+                                                  client.budgetMin,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.budgetMax,
+                                                _formatOptionalNumber(
+                                                  context,
+                                                  l,
+                                                  client.budgetMax,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.preferredLocation,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.preferredLocation,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.preferredPropertyType,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.preferredPropertyType,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(
+                                            height: AppSpacing.md,
+                                          ),
+                                          _DetailsSection(
+                                            title: l.notes,
+                                            children: [
+                                              _detail(
+                                                context,
+                                                l.notes,
+                                                _valueOrNotAvailable(
+                                                  l,
+                                                  client.notes,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(
+                                            height: AppSpacing.md,
+                                          ),
+                                          _DetailsSection(
+                                            title: l.auditInfo,
+                                            children: [
+                                              _detail(
+                                                context,
+                                                l.createdAt,
+                                                _formatOptionalDate(
+                                                  context,
+                                                  l,
+                                                  client.createdAt,
+                                                ),
+                                              ),
+                                              _detail(
+                                                context,
+                                                l.updatedAt,
+                                                _formatOptionalDate(
+                                                  context,
+                                                  l,
+                                                  client.updatedAt,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      )
+                                    : ConnectedJourneyPanel(
+                                        key: const ValueKey(
+                                          'client-journey-tab',
+                                        ),
+                                        recordType: JourneyRecordType.client,
+                                        recordId: client.id,
+                                        scope: JourneyQueryScope(
+                                          companyId: companyId,
+                                          currentUserId: uid,
+                                          role: role ?? UserRole.viewer,
+                                          teamId: session?.profile.teamId ?? '',
+                                          managerId:
+                                              session?.profile.managerId ?? '',
+                                        ),
+                                        baseItems:
+                                            clientBaseJourneyItems(client),
+                                        recommendations:
+                                            clientJourneyRecommendations(
+                                          l,
+                                          client,
+                                          canCreateTask: role != null &&
+                                              PermissionService.can(
+                                                role,
+                                                AppPermission.createTask,
+                                              ),
+                                          canCreateAppointment: role != null &&
+                                              PermissionService.can(
+                                                role,
+                                                AppPermission.createAppointment,
+                                              ),
+                                          canEdit: canEdit,
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
                         ),
                       ],
+                    ),
                     ),
                     if (state.status == ClientsStatus.loading)
                       Positioned.fill(

@@ -17,9 +17,13 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../journeys/domain/entities/connected_journey.dart';
+import '../../../journeys/presentation/widgets/connected_journey_panel.dart';
+import '../../../journeys/presentation/widgets/journey_builders.dart';
 import '../../domain/entities/deal.dart';
 import '../cubit/deals_cubit.dart';
 import '../cubit/deals_state.dart';
@@ -60,6 +64,17 @@ class _DealDetailsView extends StatefulWidget {
 
 class _DealDetailsViewState extends State<_DealDetailsView> {
   String? _watchKey;
+  int _selectedTab = 0;
+
+
+  Future<void> _refreshDeal(ProtectedCompanySession? session) async {
+    if (session == null) {
+      return;
+    }
+    _watchKey = null;
+    _watchDealWhenAllowed(session);
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+  }
 
   void _watchDealWhenAllowed(ProtectedCompanySession session) {
     final role = session.profile.role;
@@ -150,11 +165,13 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
             return AppErrorView(message: l.dealNotFoundMessage);
           }
 
-          return ListView(
-            primary: true,
-            physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-            children: [
+          return RefreshIndicator(
+            onRefresh: () => _refreshDeal(session),
+            child: ListView(
+              primary: true,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+              children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
                 child: Column(
@@ -244,69 +261,212 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    _DetailsSection(
-                      title: l.dealSummary,
-                      children: [
-                        _detail(context, l.dealStage, dealStageLabel(l, deal.stage)),
-                        _detail(context, l.expectedValue, _formatNumber(context, deal.expectedValue)),
-                        _detail(context, l.commission, _formatNumber(context, deal.commission)),
-                        _detail(context, l.closingDate, _formatOptionalDate(context, deal.closingDate, l)),
-                        if (deal.stage == DealStage.lost)
-                          _detail(context, l.lostReason, _value(l, deal.lostReason)),
+                    MasarSwitchTabBar(
+                      compact: true,
+                      selectedIndex: _selectedTab,
+                      onChanged: (index) =>
+                          setState(() => _selectedTab = index),
+                      tabs: [
+                        MasarSwitchTabItem(
+                          label: l.details,
+                          icon: Icons.info_outline_rounded,
+                        ),
+                        MasarSwitchTabItem(
+                          label: l.connectedJourneyTitle,
+                          icon: Icons.route_outlined,
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    _DetailsSection(
-                      title: l.client,
-                      children: [
-                        _detail(context, l.fullName, _value(l, deal.clientName)),
-                        _detail(context, l.email, _value(l, deal.clientEmail)),
-                        _detail(context, l.phone, _value(l, deal.clientPhone)),
-                      ],
-                    ),
-                    if (deal.leadName.trim().isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      _DetailsSection(
-                        title: l.lead,
-                        children: [
-                          _detail(context, l.leadName, _value(l, deal.leadName)),
-                          _detail(context, l.phone, _value(l, deal.leadPhone)),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    _DetailsSection(
-                      title: l.property,
-                      children: [
-                        _detail(context, l.propertyTitle, _value(l, deal.propertyTitle)),
-                        _detail(context, l.location, _value(l, deal.propertyLocation)),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _DetailsSection(
-                      title: l.assignedAgent,
-                      children: [
-                        _detail(context, l.fullName, _value(l, deal.assignedToName)),
-                        _detail(context, l.email, _value(l, deal.assignedToEmail)),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _DetailsSection(
-                      title: l.notes,
-                      children: [_detail(context, l.notes, _value(l, deal.notes))],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _DetailsSection(
-                      title: l.auditInfo,
-                      children: [
-                        _detail(context, l.createdAt, _formatOptionalDate(context, deal.createdAt, l)),
-                        _detail(context, l.updatedAt, _formatOptionalDate(context, deal.updatedAt, l)),
-                      ],
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      child: _selectedTab == 0
+                          ? Column(
+                              key: const ValueKey('deal-details-tab'),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _DetailsSection(
+                                  title: l.dealSummary,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.dealStage,
+                                      dealStageLabel(l, deal.stage),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.expectedValue,
+                                      _formatNumber(
+                                        context,
+                                        deal.expectedValue,
+                                      ),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.commission,
+                                      _formatNumber(context, deal.commission),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.closingDate,
+                                      _formatOptionalDate(
+                                        context,
+                                        deal.closingDate,
+                                        l,
+                                      ),
+                                    ),
+                                    if (deal.stage == DealStage.lost)
+                                      _detail(
+                                        context,
+                                        l.lostReason,
+                                        _value(l, deal.lostReason),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _DetailsSection(
+                                  title: l.client,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.fullName,
+                                      _value(l, deal.clientName),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.email,
+                                      _value(l, deal.clientEmail),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.phone,
+                                      _value(l, deal.clientPhone),
+                                    ),
+                                  ],
+                                ),
+                                if (deal.leadName.trim().isNotEmpty) ...[
+                                  const SizedBox(height: AppSpacing.md),
+                                  _DetailsSection(
+                                    title: l.lead,
+                                    children: [
+                                      _detail(
+                                        context,
+                                        l.leadName,
+                                        _value(l, deal.leadName),
+                                      ),
+                                      _detail(
+                                        context,
+                                        l.phone,
+                                        _value(l, deal.leadPhone),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: AppSpacing.md),
+                                _DetailsSection(
+                                  title: l.property,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.propertyTitle,
+                                      _value(l, deal.propertyTitle),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.location,
+                                      _value(l, deal.propertyLocation),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _DetailsSection(
+                                  title: l.assignedAgent,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.fullName,
+                                      _value(l, deal.assignedToName),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.email,
+                                      _value(l, deal.assignedToEmail),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _DetailsSection(
+                                  title: l.notes,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.notes,
+                                      _value(l, deal.notes),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _DetailsSection(
+                                  title: l.auditInfo,
+                                  children: [
+                                    _detail(
+                                      context,
+                                      l.createdAt,
+                                      _formatOptionalDate(
+                                        context,
+                                        deal.createdAt,
+                                        l,
+                                      ),
+                                    ),
+                                    _detail(
+                                      context,
+                                      l.updatedAt,
+                                      _formatOptionalDate(
+                                        context,
+                                        deal.updatedAt,
+                                        l,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : ConnectedJourneyPanel(
+                              key: const ValueKey('deal-journey-tab'),
+                              recordType: JourneyRecordType.deal,
+                              recordId: deal.id,
+                              scope: JourneyQueryScope(
+                                companyId: companyId,
+                                currentUserId: uid,
+                                role: role ?? UserRole.viewer,
+                                teamId: session?.profile.teamId ?? '',
+                                managerId: session?.profile.managerId ?? '',
+                              ),
+                              baseItems: dealBaseJourneyItems(deal),
+                              recommendations: dealJourneyRecommendations(
+                                l,
+                                deal,
+                                canCreateTask: role != null &&
+                                    PermissionService.can(
+                                      role,
+                                      AppPermission.createTask,
+                                    ),
+                                canCreateAppointment: role != null &&
+                                    PermissionService.can(
+                                      role,
+                                      AppPermission.createAppointment,
+                                    ),
+                                canUpdateStage: canUpdateStage,
+                              ),
+                            ),
                     ),
                   ],
                 ),
               ),
             ],
+            ),
           );
           },
         ),

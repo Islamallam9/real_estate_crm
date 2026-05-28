@@ -22,6 +22,9 @@ import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../journeys/domain/entities/connected_journey.dart';
+import '../../../journeys/presentation/widgets/connected_journey_panel.dart';
+import '../../../journeys/presentation/widgets/journey_builders.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -73,7 +76,7 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
   Stream<List<UserProfile>> _activeUsers(String companyId) {
     if (_activeUsersStream == null || _activeUsersCompanyId != companyId) {
       _activeUsersCompanyId = companyId;
-      _activeUsersStream = _watchActiveUsers(companyId);
+      _activeUsersStream = _watchActiveUsers(companyId).asBroadcastStream();
     }
 
     return _activeUsersStream!;
@@ -217,6 +220,7 @@ class _LeadDetailsViewState extends State<_LeadDetailsView> {
                 assigneeName: assigneeName,
                 activeUsers: users,
                 currentUserProfile: session.profile,
+                isSaving: state.status == LeadsStatus.saving,
               );
 
               final isBusy =
@@ -295,6 +299,7 @@ class _LeadDetailsContent extends StatefulWidget {
     required this.assigneeName,
     required this.activeUsers,
     this.currentUserProfile,
+    required this.isSaving,
   });
 
   final Lead lead;
@@ -308,6 +313,7 @@ class _LeadDetailsContent extends StatefulWidget {
   final String assigneeName;
   final List<UserProfile> activeUsers;
   final UserProfile? currentUserProfile;
+  final bool isSaving;
 
   @override
   State<_LeadDetailsContent> createState() => _LeadDetailsContentState();
@@ -331,7 +337,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         final useDesktopLayout = constraints.maxWidth >= 1024;
         if (!useDesktopLayout) {
           return DefaultTabController(
-            length: 2,
+            length: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -344,6 +350,10 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
                     _LeadDetailsTab(
                       label: l.timeline,
                       icon: Icons.timeline_outlined,
+                    ),
+                    _LeadDetailsTab(
+                      label: l.connectedJourneyTitle,
+                      icon: Icons.route_outlined,
                     ),
                   ],
                 ),
@@ -364,6 +374,15 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
                           ),
                         ],
                       ),
+                      RefreshIndicator(
+                        onRefresh: _refreshLeadJourney,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            _journeyPanel(l, compact: false),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -377,7 +396,50 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: ListView(children: _mainContent(l))),
+            Expanded(
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _LeadDetailsTabBar(
+                      tabs: [
+                        _LeadDetailsTab(
+                          label: l.details,
+                          icon: Icons.info_outline_rounded,
+                        ),
+                        _LeadDetailsTab(
+                          label: l.connectedJourneyTitle,
+                          icon: Icons.route_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Expanded(
+                      child: TabBarView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          RefreshIndicator(
+                            onRefresh: _refreshLeadJourney,
+                            child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: _mainContent(l),
+                            ),
+                          ),
+                          RefreshIndicator(
+                            onRefresh: _refreshLeadJourney,
+                            child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [_journeyPanel(l, compact: false)],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(width: AppSpacing.lg),
             SizedBox(
               width: timelineWidth,
@@ -395,6 +457,44 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _refreshLeadJourney() async {
+    final cubit = context.read<LeadsCubit>();
+    cubit.loadLead(companyId: widget.companyId, leadId: widget.lead.id);
+    cubit.watchTimeline(companyId: widget.companyId, leadId: widget.lead.id);
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+  }
+
+  ConnectedJourneyPanel _journeyPanel(AppLocalizations l, {required bool compact}) {
+    final role = widget.currentUserProfile?.role ?? UserRole.viewer;
+    return ConnectedJourneyPanel(
+      recordType: JourneyRecordType.lead,
+      recordId: widget.lead.id,
+      scope: JourneyQueryScope(
+        companyId: widget.companyId,
+        currentUserId: widget.uid,
+        role: role,
+        teamId: widget.currentUserProfile?.teamId ?? '',
+        managerId: widget.currentUserProfile?.managerId ?? '',
+      ),
+      baseItems: leadBaseJourneyItems(
+        l,
+        widget.lead,
+        widget.timeline,
+        users: widget.activeUsers,
+      ),
+      recommendations: leadJourneyRecommendations(
+        l,
+        widget.lead,
+        canCreateTask: PermissionService.can(role, AppPermission.createTask),
+        canCreateAppointment: PermissionService.can(
+          role,
+          AppPermission.createAppointment,
+        ),
+      ),
+      compact: compact,
     );
   }
 
@@ -433,6 +533,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         canEdit: widget.canEdit,
         canArchive: widget.canArchive,
         isArchived: widget.lead.isArchived,
+        isSaving: widget.isSaving,
         onEdit: () => context.go(RouteNames.leadEdit(widget.lead.id)),
         onMarkContactedToday: () => _markContactedToday(context),
         onScheduleFollowUp: () => _scheduleFollowUp(context),
@@ -441,31 +542,24 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       ),
       const SizedBox(height: AppSpacing.lg),
       if (widget.canStatus && !widget.lead.isArchived)
-        BlocBuilder<LeadsCubit, LeadsState>(
-          buildWhen: (previous, current) => previous.status != current.status,
-          builder: (context, state) {
-            final isSaving = state.status == LeadsStatus.saving;
+        AppDropdown<LeadStatus>(
+          label: l.changeStatus,
+          value: widget.lead.status,
+          items: LeadStatus.values,
+          itemLabelBuilder: (status) => _statusLabel(l, status),
+          onChanged: (status) {
+            if (widget.isSaving) {
+              return;
+            }
 
-            return AppDropdown<LeadStatus>(
-              label: l.changeStatus,
-              value: widget.lead.status,
-              items: LeadStatus.values,
-              itemLabelBuilder: (status) => _statusLabel(l, status),
-              onChanged: (status) {
-                if (isSaving) {
-                  return;
-                }
-
-                _updateLeadFromDetails(
-                  context,
-                  widget.lead.copyWith(
-                    status: status,
-                    updatedAt: DateTime.now(),
-                    updatedBy: widget.uid,
-                  ),
-                  successAction: LeadsAction.updateStatus,
-                );
-              },
+            _updateLeadFromDetails(
+              context,
+              widget.lead.copyWith(
+                status: status,
+                updatedAt: DateTime.now(),
+                updatedBy: widget.uid,
+              ),
+              successAction: LeadsAction.updateStatus,
             );
           },
         ),
@@ -715,6 +809,7 @@ class _LeadDetailsActions extends StatelessWidget {
     required this.canEdit,
     required this.canArchive,
     required this.isArchived,
+    required this.isSaving,
     required this.onEdit,
     required this.onMarkContactedToday,
     required this.onScheduleFollowUp,
@@ -725,6 +820,7 @@ class _LeadDetailsActions extends StatelessWidget {
   final bool canEdit;
   final bool canArchive;
   final bool isArchived;
+  final bool isSaving;
   final VoidCallback onEdit;
   final VoidCallback onMarkContactedToday;
   final VoidCallback onScheduleFollowUp;
@@ -736,11 +832,7 @@ class _LeadDetailsActions extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final isNarrow = MediaQuery.sizeOf(context).width < 720;
 
-    return BlocBuilder<LeadsCubit, LeadsState>(
-      buildWhen: (previous, current) => previous.status != current.status,
-      builder: (context, state) {
-        final isSaving = state.status == LeadsStatus.saving;
-        final actions = <Widget>[
+    final actions = <Widget>[
           if (canEdit && !isArchived)
             AppButton(
               label: l.editLead,
@@ -799,13 +891,11 @@ class _LeadDetailsActions extends StatelessWidget {
           );
         }
 
-        return Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          alignment: WrapAlignment.start,
-          children: actions,
-        );
-      },
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      alignment: WrapAlignment.start,
+      children: actions,
     );
   }
 }
