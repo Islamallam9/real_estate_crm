@@ -1164,10 +1164,13 @@ class _DashboardView extends StatelessWidget {
         final quickAddActions = mobile && !platformPreview
             ? _quickAddActions(context, authState)
             : const <_QuickAddAction>[];
+        final dashboardScrollController = PrimaryScrollController.maybeOf(context);
 
         return Stack(
           children: [
             SingleChildScrollView(
+              controller: dashboardScrollController,
+              primary: dashboardScrollController == null,
               physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
               padding: EdgeInsets.only(
                 bottom: quickAddActions.isEmpty ? 0 : 92,

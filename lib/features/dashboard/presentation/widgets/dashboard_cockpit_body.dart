@@ -63,9 +63,8 @@ class DashboardCockpitBody extends StatelessWidget {
   final String? previewCompanyName;
 
   Widget _withGuidanceOverlay({required Widget child}) {
-    // Global smart guidance now lives in CrmAppShell so it can appear on any
-    // page, not only the dashboard. Keep this wrapper as a no-op to avoid
-    // duplicate overlays on the dashboard.
+    // Smart guidance now lives globally in CrmAppShell. Keeping a dashboard-only
+    // overlay here caused duplicate popup styles on the dashboard.
     return child;
   }
 
@@ -1122,7 +1121,7 @@ class _DashboardKpiGridState extends State<DashboardKpiGrid> {
         return;
       }
 
-      _autoScrollStartTimer = Timer(const Duration(milliseconds: 1800), () {
+      _autoScrollStartTimer = Timer(const Duration(milliseconds: 4200), () {
         _autoScrollStartTimer = null;
         _runAutoScrollLoop();
       });
@@ -1161,7 +1160,7 @@ class _DashboardKpiGridState extends State<DashboardKpiGrid> {
         }
 
         final duration = Duration(
-          milliseconds: math.max(5200, math.min(18000, (distance * 22).round())),
+          milliseconds: math.max(26000, math.min(68000, (distance * 120).round())),
         );
         await _controller.animateTo(
           target.toDouble(),
@@ -1172,7 +1171,7 @@ class _DashboardKpiGridState extends State<DashboardKpiGrid> {
           return;
         }
         forward = !forward;
-        await Future<void>.delayed(const Duration(milliseconds: 720));
+        await Future<void>.delayed(const Duration(milliseconds: 3200));
       }
     } catch (_) {
       // A user gesture can interrupt animateTo; cancellation is expected.
@@ -2126,17 +2125,26 @@ class _DashboardOpportunitiesStripState extends State<DashboardOpportunitiesStri
                   child: DashboardChartEmptyState(message: l.dashboardNoOpportunities),
                 )
               else if (vertical)
-                Column(
-                  children: [
-                    for (var index = 0; index < opportunities.length; index++) ...[
-                      _OpportunityCard(
-                        item: opportunities[index],
-                        platformPreview: widget.platformPreview,
-                      ),
-                      if (index != opportunities.length - 1)
-                        const SizedBox(height: AppSpacing.xs),
-                    ],
-                  ],
+                SizedBox(
+                  height: 132,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: opportunities.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: math.min(232.0, MediaQuery.sizeOf(context).width * 0.68),
+                        child: _OpportunityCard(
+                          item: opportunities[index],
+                          platformPreview: widget.platformPreview,
+                        )
+                            .animate(delay: Duration(milliseconds: 45 * index))
+                            .fadeIn(duration: 320.ms, curve: Curves.easeOutCubic)
+                            .slideX(begin: 0.035, end: 0),
+                      );
+                    },
+                  ),
                 )
               else
                 Stack(
@@ -2352,8 +2360,9 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
                 children: [
                   Text(
                     l.salesCommandCenterTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    overflow: TextOverflow.visible,
+                    softWrap: true,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           height: 1.1,
@@ -2378,35 +2387,11 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        _MobileCommandFilterTabs(
-          selectedFilter: _filter,
-          onChanged: (filter) => setState(() => _filter = filter),
-          tabs: [
-            _MobileCommandFilterTabData(
-              filter: _CommandFilter.all,
-              label: l.viewAll,
-              icon: Icons.dashboard_outlined,
-              badge: _commandBadge(topItems.length),
-            ),
-            _MobileCommandFilterTabData(
-              filter: _CommandFilter.dueToday,
-              label: l.salesCommandMetricDueToday,
-              icon: Icons.event_available_outlined,
-              badge: _commandBadge(widget.summary.dueTodayCount),
-            ),
-            _MobileCommandFilterTabData(
-              filter: _CommandFilter.hot,
-              label: l.salesCommandMetricHot,
-              icon: Icons.local_fire_department_outlined,
-              badge: _commandBadge(widget.summary.hotOpportunityCount),
-            ),
-            _MobileCommandFilterTabData(
-              filter: _CommandFilter.atRisk,
-              label: l.salesCommandMetricRisk,
-              icon: Icons.report_problem_outlined,
-              badge: _commandBadge(widget.summary.atRiskCount),
-            ),
-          ],
+        _MobileCommandFilterSelector(
+          label: _commandFilterLabel(l, _filter),
+          icon: _commandFilterIcon(_filter),
+          badge: _commandBadge(_commandFilterCount(topItems, widget.summary, _filter)),
+          onTap: () => _showCommandFilterSheet(context, topItems),
         ),
         const SizedBox(height: AppSpacing.sm),
         _MobileOperationalGroupStrip(
@@ -2422,26 +2407,98 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
                 : l.salesCommandEmptyMessage,
           )
         else
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var index = 0; index < items.length; index++) ...[
-                _SmartSuggestionCard(
-                  item: items[index],
-                  authState: widget.authState,
-                  platformPreview: widget.platformPreview,
-                )
-                    .animate(delay: Duration(milliseconds: 45 * math.min(index, 6)))
-                    .fadeIn(duration: 360.ms, curve: Curves.easeOutCubic)
-                    .slideY(begin: 0.025, end: 0),
-                if (index != items.length - 1)
-                  const SizedBox(height: AppSpacing.xs),
-              ],
-            ],
+          _MobileSmartSuggestionGrid(
+            items: items,
+            authState: widget.authState,
+            platformPreview: widget.platformPreview,
           ),
       ],
     );
+  }
+
+  Future<void> _showCommandFilterSheet(
+    BuildContext context,
+    List<SalesCommandItem> topItems,
+  ) async {
+    final selected = await showModalBottomSheet<_CommandFilter>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.cardSurface(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (sheetContext) {
+        final l = AppLocalizations.of(sheetContext)!;
+        final options = [
+          _CommandFilterSheetOption(
+            filter: _CommandFilter.all,
+            label: l.viewAll,
+            subtitle: l.salesCommandCenterTitle,
+            icon: Icons.dashboard_outlined,
+            count: topItems.length,
+          ),
+          _CommandFilterSheetOption(
+            filter: _CommandFilter.dueToday,
+            label: l.salesCommandMetricDueToday,
+            subtitle: l.salesCommandReasonDueTodayFollowUp,
+            icon: Icons.event_available_outlined,
+            count: widget.summary.dueTodayCount,
+          ),
+          _CommandFilterSheetOption(
+            filter: _CommandFilter.hot,
+            label: l.salesCommandMetricHot,
+            subtitle: l.salesCommandReasonHotLead,
+            icon: Icons.local_fire_department_outlined,
+            count: widget.summary.hotOpportunityCount,
+          ),
+          _CommandFilterSheetOption(
+            filter: _CommandFilter.atRisk,
+            label: l.dashboardKpiOverdueActions,
+            subtitle: l.salesCommandReasonOverdueFollowUp,
+            icon: Icons.report_problem_outlined,
+            count: widget.summary.atRiskCount,
+          ),
+        ];
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l.salesCommandCenterTitle,
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                for (final option in options) ...[
+                  _CommandFilterSheetTile(
+                    option: option,
+                    selected: option.filter == _filter,
+                    onTap: () => Navigator.of(sheetContext).pop(option.filter),
+                  ),
+                  if (option != options.last)
+                    const SizedBox(height: AppSpacing.xs),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && mounted) {
+      setState(() => _filter = selected);
+    }
   }
 
   Widget _buildDesktopCommandCenter(
@@ -2467,7 +2524,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
       ),
       _CommandFilterButton(
         selected: _filter == _CommandFilter.atRisk,
-        label: l.salesCommandMetricRisk,
+        label: l.dashboardKpiOverdueActions,
         onTap: () => setState(() => _filter = _CommandFilter.atRisk),
       ),
     ];
@@ -2518,7 +2575,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
                   : RouteNames.filteredLeads(followUp: 'overdue'),
             ),
             _CompactMetricPill(
-              label: l.salesCommandMetricRisk,
+              label: l.dashboardStuckDeals,
               value: widget.summary.atRiskCount,
               tone: AppStatusTone.error,
               route: widget.platformPreview
@@ -2614,6 +2671,238 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
   }
 }
 
+
+class _MobileCommandFilterSelector extends StatelessWidget {
+  const _MobileCommandFilterSelector({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.badge,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppColors.primaryColor(context);
+    final isDark = AppColors.isDark(context);
+    return Material(
+      color: AppColors.inputSurface(context),
+      borderRadius: AppRadius.xLarge,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.xLarge,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 46),
+          padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 10, 7),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.xLarge,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: isDark ? 0.18 : 0.12),
+                  borderRadius: AppRadius.medium,
+                ),
+                child: Icon(icon, color: primary, size: 18),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                ),
+              ),
+              if (badge != null) ...[
+                const SizedBox(width: AppSpacing.xs),
+                _FilterCountBadge(value: badge!),
+              ],
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.tune_rounded,
+                color: AppColors.textSecondaryColor(context),
+                size: 18,
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.textSecondaryColor(context),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommandFilterSheetOption {
+  const _CommandFilterSheetOption({
+    required this.filter,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.count,
+  });
+
+  final _CommandFilter filter;
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final int count;
+}
+
+class _CommandFilterSheetTile extends StatelessWidget {
+  const _CommandFilterSheetTile({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _CommandFilterSheetOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = AppColors.primaryColor(context);
+    return Material(
+      color: selected
+          ? primary.withValues(alpha: 0.14)
+          : AppColors.inputSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.large,
+        child: Container(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: selected
+                  ? primary.withValues(alpha: 0.36)
+                  : AppColors.borderColor(context),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(option.icon, size: 19, color: selected ? primary : AppColors.textSecondaryColor(context)),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      option.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: selected ? primary : AppColors.textPrimaryColor(context),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      option.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              _FilterCountBadge(value: option.count.toString()),
+              if (selected) ...[
+                const SizedBox(width: AppSpacing.xs),
+                Icon(Icons.check_circle_rounded, color: primary, size: 18),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterCountBadge extends StatelessWidget {
+  const _FilterCountBadge({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      alignment: Alignment.center,
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
+        color: AppColors.errorColor(context).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.errorColor(context).withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        value,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.errorColor(context),
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+      ),
+    );
+  }
+}
+
+String _commandFilterLabel(AppLocalizations l, _CommandFilter filter) {
+  return switch (filter) {
+    _CommandFilter.all => l.viewAll,
+    _CommandFilter.dueToday => l.salesCommandMetricDueToday,
+    _CommandFilter.hot => l.salesCommandMetricHot,
+    _CommandFilter.atRisk => l.dashboardKpiOverdueActions,
+  };
+}
+
+IconData _commandFilterIcon(_CommandFilter filter) {
+  return switch (filter) {
+    _CommandFilter.all => Icons.dashboard_outlined,
+    _CommandFilter.dueToday => Icons.event_available_outlined,
+    _CommandFilter.hot => Icons.local_fire_department_outlined,
+    _CommandFilter.atRisk => Icons.report_problem_outlined,
+  };
+}
+
+int _commandFilterCount(
+  List<SalesCommandItem> topItems,
+  SalesCommandSummary summary,
+  _CommandFilter filter,
+) {
+  return switch (filter) {
+    _CommandFilter.all => topItems.length,
+    _CommandFilter.dueToday => summary.dueTodayCount,
+    _CommandFilter.hot => summary.hotOpportunityCount,
+    _CommandFilter.atRisk => summary.atRiskCount,
+  };
+}
+
+
 class _MobileCommandFilterTabData {
   const _MobileCommandFilterTabData({
     required this.filter,
@@ -2652,20 +2941,30 @@ class _MobileCommandFilterTabs extends StatelessWidget {
         final itemWidth =
             (constraints.maxWidth - (columns - 1) * gap) / columns;
 
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final tab in tabs)
-              SizedBox(
-                width: itemWidth,
-                child: _MobileCommandFilterTabButton(
-                  data: tab,
-                  selected: tab.filter == selectedFilter,
-                  onTap: () => onChanged(tab.filter),
-                ),
-              ),
-          ],
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.inputSurface(context).withValues(alpha: 0.58),
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.xLarge,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(5),
+            child: Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final tab in tabs)
+                  SizedBox(
+                    width: itemWidth - 3,
+                    child: _MobileCommandFilterTabButton(
+                      data: tab,
+                      selected: tab.filter == selectedFilter,
+                      onTap: () => onChanged(tab.filter),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -2691,60 +2990,57 @@ class _MobileCommandFilterTabButton extends StatelessWidget {
         : AppColors.textSecondaryColor(context);
 
     return Material(
-      color: selected
-          ? primary.withValues(alpha: 0.96)
-          : AppColors.inputSurface(context),
-      borderRadius: AppRadius.large,
+      color: selected ? primary : Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.large,
+        borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 190),
           curve: Curves.easeOutCubic,
-          height: 42,
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
+          constraints: const BoxConstraints(minHeight: 46),
+          padding: const EdgeInsetsDirectional.fromSTEB(9, 7, 8, 7),
           decoration: BoxDecoration(
-            borderRadius: AppRadius.large,
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: selected
-                  ? primary.withValues(alpha: 0.62)
-                  : AppColors.borderColor(context),
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.transparent,
             ),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(data.icon, size: 17, color: foreground),
               const SizedBox(width: 6),
-              Flexible(
+              Expanded(
                 child: Text(
                   data.label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.visible,
-                  softWrap: false,
+                  softWrap: true,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: foreground,
                         fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-                        fontSize: 10.5,
-                        height: 1,
+                        fontSize: 10.2,
+                        height: 1.05,
                       ),
                 ),
               ),
               if (data.badge != null) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
                 Container(
-                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  constraints: const BoxConstraints(minWidth: 21, minHeight: 21),
                   padding: const EdgeInsetsDirectional.symmetric(horizontal: 5),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: selected
-                        ? Colors.white.withValues(alpha: 0.30)
+                        ? Colors.white.withValues(alpha: 0.32)
                         : AppColors.errorColor(context).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: selected
-                          ? Colors.white.withValues(alpha: 0.46)
-                          : AppColors.errorColor(context).withValues(alpha: 0.30),
+                          ? Colors.white.withValues(alpha: 0.48)
+                          : AppColors.errorColor(context).withValues(alpha: 0.28),
                     ),
                   ),
                   child: Text(
@@ -2784,25 +3080,173 @@ class _MobileOperationalGroupStrip extends StatelessWidget {
       summary.section(SalesCommandSectionType.stuckDeals),
     ];
 
-    return SizedBox(
-      height: 76,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: groups.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            width: 176,
-            child: _OperationalGroupCard(
-              section: groups[index],
-              platformPreview: platformPreview,
-            )
-                .animate(delay: Duration(milliseconds: 50 * index))
-                .fadeIn(duration: 320.ms, curve: Curves.easeOutCubic)
-                .slideX(begin: 0.04, end: 0),
-          );
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth * 0.46)
+            .clamp(148.0, 176.0)
+            .toDouble();
+        return SizedBox(
+          height: 104,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: groups.length,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                width: itemWidth,
+                child: _OperationalGroupCard(
+                  section: groups[index],
+                  platformPreview: platformPreview,
+                  compact: true,
+                )
+                    .animate(delay: Duration(milliseconds: 45 * index))
+                    .fadeIn(duration: 300.ms, curve: Curves.easeOutCubic)
+                    .slideX(begin: 0.035, end: 0),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileSmartSuggestionGrid extends StatelessWidget {
+  const _MobileSmartSuggestionGrid({
+    required this.items,
+    required this.authState,
+    required this.platformPreview,
+  });
+
+  final List<SalesCommandItem> items;
+  final AuthState authState;
+  final bool platformPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleItems = items.take(6).toList();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = AppSpacing.xs;
+        final width = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (var index = 0; index < visibleItems.length; index++)
+              SizedBox(
+                width: width,
+                child: _MobileCommandActionCard(
+                  item: visibleItems[index],
+                  authState: authState,
+                  platformPreview: platformPreview,
+                )
+                    .animate(delay: Duration(milliseconds: 45 * math.min(index, 6)))
+                    .fadeIn(duration: 320.ms, curve: Curves.easeOutCubic)
+                    .slideY(begin: 0.025, end: 0),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MobileCommandActionCard extends StatelessWidget {
+  const _MobileCommandActionCard({
+    required this.item,
+    required this.authState,
+    required this.platformPreview,
+  });
+
+  final SalesCommandItem item;
+  final AuthState authState;
+  final bool platformPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final color = _commandPriorityColor(context, item.priority);
+    final title = _fallback(item.title, _commandModuleLabel(l, item.module));
+    final reason = _commandReasonText(l, item);
+
+    return Material(
+      color: AppColors.inputSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: platformPreview
+            ? null
+            : () => _showWorkQueueActionDrawer(
+                  context,
+                  item: item,
+                  authState: authState,
+                ),
+        borderRadius: AppRadius.large,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 108),
+          padding: const EdgeInsetsDirectional.fromSTEB(9, 9, 9, 9),
+          decoration: BoxDecoration(
+            border: Border.all(color: color.withValues(alpha: 0.30)),
+            borderRadius: AppRadius.large,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w800,
+                            height: 1.08,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              AppStatusBadge(
+                label: _commandModuleLabel(l, item.module),
+                tone: AppStatusTone.neutral,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                reason,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
+                softWrap: true,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w500,
+                      height: 1.12,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _commandTimeLabel(context, item),
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textMutedColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2810,7 +3254,7 @@ class _MobileOperationalGroupStrip extends StatelessWidget {
 
 String _mobileCommandSubtitle(AppLocalizations l, SalesCommandSummary summary) {
   if (summary.overdueCount > 0 || summary.atRiskCount > 0) {
-    return l.salesCommandReasonDealAtRisk;
+    return l.salesCommandAtRiskSubtitle;
   }
   if (summary.dueTodayCount > 0) {
     return l.salesCommandReasonDueTodayFollowUp;
@@ -2848,29 +3292,36 @@ class _OperationalCommandGroups extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 4
-            : constraints.maxWidth >= 520
-                ? 2
-                : 1;
-        const gap = 7.0;
-        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (var index = 0; index < groups.length; index++)
-              SizedBox(
-                width: width,
+        const gap = 8.0;
+        final compact = constraints.maxWidth < 620;
+        final itemWidth = compact
+            ? (constraints.maxWidth * 0.46).clamp(148.0, 176.0).toDouble()
+            : constraints.maxWidth >= 980
+                ? 238.0
+                : 212.0;
+        final height = compact ? 104.0 : 82.0;
+
+        return SizedBox(
+          height: height,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: groups.length,
+            separatorBuilder: (_, __) => const SizedBox(width: gap),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                width: itemWidth,
                 child: _OperationalGroupCard(
                   section: groups[index],
                   platformPreview: platformPreview,
+                  compact: compact,
                 )
-                    .animate(delay: Duration(milliseconds: 70 * index))
-                    .fadeIn(duration: 360.ms, curve: Curves.easeOutCubic)
-                    .slideY(begin: 0.04, end: 0),
-              ),
-          ],
+                    .animate(delay: Duration(milliseconds: 55 * index))
+                    .fadeIn(duration: 320.ms, curve: Curves.easeOutCubic)
+                    .slideX(begin: 0.035, end: 0),
+              );
+            },
+          ),
         );
       },
     );
@@ -2881,10 +3332,12 @@ class _OperationalGroupCard extends StatefulWidget {
   const _OperationalGroupCard({
     required this.section,
     required this.platformPreview,
+    this.compact = false,
   });
 
   final SalesCommandSection section;
   final bool platformPreview;
+  final bool compact;
 
   @override
   State<_OperationalGroupCard> createState() => _OperationalGroupCardState();
@@ -2916,8 +3369,13 @@ class _OperationalGroupCardState extends State<_OperationalGroupCard> {
             onTap: enabled ? () => context.go(route) : null,
             borderRadius: AppRadius.large,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 74),
-              padding: const EdgeInsetsDirectional.fromSTEB(10, 9, 10, 9),
+              constraints: BoxConstraints(minHeight: widget.compact ? 92 : 74),
+              padding: EdgeInsetsDirectional.fromSTEB(
+                widget.compact ? 9 : 10,
+                widget.compact ? 9 : 9,
+                widget.compact ? 9 : 10,
+                widget.compact ? 9 : 9,
+              ),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: section.count > 0
@@ -2926,57 +3384,98 @@ class _OperationalGroupCardState extends State<_OperationalGroupCard> {
                 ),
                 borderRadius: AppRadius.large,
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.10),
-                      borderRadius: AppRadius.medium,
-                    ),
-                    child: Icon(
-                      _operationalGroupIcon(section.type),
-                      color: color,
-                      size: 17,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              child: widget.compact
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.10),
+                                borderRadius: AppRadius.medium,
+                              ),
+                              child: Icon(
+                                _operationalGroupIcon(section.type),
+                                color: color,
+                                size: 17,
+                              ),
+                            ),
+                            const Spacer(),
+                            _UrgentCountBadge(
+                              value: section.count,
+                              tone: section.count > 0 ? tone : AppStatusTone.neutral,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           _operationalGroupTitle(l, section.type),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.1,
-                              ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          _operationalGroupSubtitle(l, section.type),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.textSecondaryColor(context),
-                                fontWeight: FontWeight.w400,
+                          softWrap: true,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.12,
                               ),
                         ),
                       ],
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.10),
+                            borderRadius: AppRadius.medium,
+                          ),
+                          child: Icon(
+                            _operationalGroupIcon(section.type),
+                            color: color,
+                            size: 17,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _operationalGroupTitle(l, section.type),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.1,
+                                    ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _operationalGroupSubtitle(l, section.type),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: AppColors.textSecondaryColor(context),
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.12,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _UrgentCountBadge(
+                          value: section.count,
+                          tone: section.count > 0 ? tone : AppStatusTone.neutral,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  _UrgentCountBadge(
-                    value: section.count,
-                    tone: section.count > 0 ? tone : AppStatusTone.neutral,
-                  ),
-                ],
-              ),
             ),
           ),
         ),
@@ -3052,7 +3551,7 @@ String _operationalGroupSubtitle(
     SalesCommandSectionType.missedAppointments =>
       l.salesCommandReasonAppointmentMissed,
     SalesCommandSectionType.overdueTasks => l.salesCommandReasonOverdueTask,
-    SalesCommandSectionType.stuckDeals => l.salesCommandReasonDealAtRisk,
+    SalesCommandSectionType.stuckDeals => l.salesCommandAtRiskSubtitle,
     _ => l.salesCommandAtRiskSubtitle,
   };
 }
@@ -3426,7 +3925,7 @@ String _commandReasonText(AppLocalizations l, SalesCommandItem item) {
     DashboardAttentionReason.appointmentDueNow => l.salesCommandReasonAppointmentDueNow,
     DashboardAttentionReason.appointmentUpcoming => l.salesCommandReasonAppointmentUpcoming,
     DashboardAttentionReason.appointmentNeedsFeedback => l.salesCommandReasonAppointmentNeedsFeedback,
-    DashboardAttentionReason.dealAtRisk => l.salesCommandReasonDealAtRisk,
+    DashboardAttentionReason.dealAtRisk => l.dashboardStuckDeals,
     DashboardAttentionReason.overloadedAssignee =>
       l.salesCommandReasonOverloadedAssignee(item.count ?? 0),
   };
@@ -4904,8 +5403,9 @@ class _CardHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
+                softWrap: true,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       height: 1.15,
