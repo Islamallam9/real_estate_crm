@@ -47,6 +47,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   StreamSubscription<int>? _unreadCountSubscription;
   StreamSubscription<List<AttentionReminder>>? _remindersSubscription;
   String _watchKey = '';
+  final Set<String> _locallyReadNotificationIds = <String>{};
+  DateTime? _suppressUnreadCountUntil;
 
   void refresh({
     required String companyId,
@@ -93,6 +95,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         clearedReminderIds: const <String>{},
       ),
     );
+    _locallyReadNotificationIds.clear();
+    _suppressUnreadCountUntil = null;
 
     _notificationsSubscription = _watchNotificationsUseCase(
       companyId: companyId,
@@ -106,7 +110,9 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         emit(
           state.copyWith(
             status: NotificationsStatus.loaded,
-            notifications: _filterClearedNotifications(notifications),
+            notifications: _applyLocalReadOverrides(
+              _filterClearedNotifications(notifications),
+            ),
             clearMessage: true,
           ),
         );
@@ -130,7 +136,12 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     ).listen(
       (count) {
         if (!isClosed) {
-          emit(state.copyWith(unreadCount: count, clearMessage: true));
+          final suppressUntil = _suppressUnreadCountUntil;
+          final effectiveCount = suppressUntil != null &&
+                  DateTime.now().isBefore(suppressUntil)
+              ? 0
+              : count;
+          emit(state.copyWith(unreadCount: effectiveCount, clearMessage: true));
         }
       },
       onError: (Object error) {
@@ -172,7 +183,18 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     if (notification.isRead) {
       return;
     }
-    emit(state.copyWith(markingNotificationId: notification.id));
+    _locallyReadNotificationIds.add(notification.id);
+    emit(
+      state.copyWith(
+        markingNotificationId: notification.id,
+        notifications: _markNotificationReadInList(
+          state.notifications,
+          notification.id,
+        ),
+        unreadCount: _decrementUnreadCount(state.unreadCount),
+        clearMessage: true,
+      ),
+    );
     try {
       await _markNotificationReadUseCase(
         companyId: companyId,
@@ -185,12 +207,13 @@ class NotificationsCubit extends Cubit<NotificationsState> {
               state.notifications,
               notification.id,
             ),
-            unreadCount: _decrementUnreadCount(state.unreadCount),
             clearMarkingNotificationId: true,
+            clearMessage: true,
           ),
         );
       }
     } on NotificationException catch (error) {
+      _locallyReadNotificationIds.remove(notification.id);
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -200,6 +223,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         );
       }
     } catch (_) {
+      _locallyReadNotificationIds.remove(notification.id);
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -314,7 +338,20 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     if (state.markingAllRead || !state.hasUnreadNotifications) {
       return;
     }
-    emit(state.copyWith(markingAllRead: true, clearMessage: true));
+    final unreadIds = state.notifications
+        .where((notification) => !notification.isRead)
+        .map((notification) => notification.id)
+        .toSet();
+    _locallyReadNotificationIds.addAll(unreadIds);
+    _suppressUnreadCountUntil = DateTime.now().add(const Duration(seconds: 10));
+    emit(
+      state.copyWith(
+        markingAllRead: true,
+        notifications: _markAllNotificationsReadInList(state.notifications),
+        unreadCount: 0,
+        clearMessage: true,
+      ),
+    );
     try {
       await _markAllNotificationsReadUseCase(
         companyId: companyId,
@@ -332,6 +369,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         );
       }
     } on NotificationException catch (error) {
+      _locallyReadNotificationIds.removeAll(unreadIds);
+      _suppressUnreadCountUntil = null;
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -341,6 +380,8 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         );
       }
     } catch (_) {
+      _locallyReadNotificationIds.removeAll(unreadIds);
+      _suppressUnreadCountUntil = null;
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -399,6 +440,26 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     final now = DateTime.now();
     return notifications
         .map((notification) => notification.copyWith(isRead: true, readAt: now))
+        .toList();
+  }
+
+
+  List<CrmNotification> _applyLocalReadOverrides(
+    List<CrmNotification> notifications,
+  ) {
+    if (_locallyReadNotificationIds.isEmpty) {
+      return notifications;
+    }
+    final now = DateTime.now();
+    return notifications
+        .map(
+          (notification) => _locallyReadNotificationIds.contains(notification.id)
+              ? notification.copyWith(
+                  isRead: true,
+                  readAt: notification.readAt ?? now,
+                )
+              : notification,
+        )
         .toList();
   }
 

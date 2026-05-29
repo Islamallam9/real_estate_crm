@@ -341,12 +341,12 @@ class FirestoreNotificationsRemoteDataSource
     required String notificationId,
   }) async {
     try {
-      await _notificationsCollection(companyId).doc(notificationId).update({
-        'isRead': true,
-        'readAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+      final callable = _functions.httpsCallable('markCompanyNotificationRead');
+      await callable.call(<String, Object?>{
+        'companyId': companyId,
+        'notificationId': notificationId,
       });
-    } on FirebaseException catch (error) {
+    } on FirebaseFunctionsException catch (error) {
       throw NotificationException(_mapFirestoreError(error));
     } catch (_) {
       throw const NotificationException(AppErrorMessages.unknown);
@@ -360,37 +360,12 @@ class FirestoreNotificationsRemoteDataSource
     int limit = 60,
   }) async {
     try {
-      final snapshot = await _notificationsCollection(companyId)
-          .where('recipientUid', isEqualTo: recipientUid)
-          .where('isRead', isEqualTo: false)
-          .limit(limit)
-          .get();
-      if (snapshot.docs.isEmpty) {
-        return;
-      }
-      final batch = _firestore.batch();
-      var hasUpdates = false;
-      for (final document in snapshot.docs) {
-        final notification = CrmNotificationModel.fromFirestore(document);
-        _ensureRecipient(
-          companyId: companyId,
-          recipientUid: recipientUid,
-          notification: notification,
-        );
-        if (notification.isRead) {
-          continue;
-        }
-        hasUpdates = true;
-        batch.update(document.reference, {
-          'isRead': true,
-          'readAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-      if (hasUpdates) {
-        await batch.commit();
-      }
-    } on FirebaseException catch (error) {
+      final callable = _functions.httpsCallable('markCompanyNotificationsRead');
+      await callable.call(<String, Object?>{
+        'companyId': companyId,
+        'limit': limit,
+      });
+    } on FirebaseFunctionsException catch (error) {
       throw NotificationException(_mapFirestoreError(error));
     } catch (_) {
       throw const NotificationException(AppErrorMessages.unknown);
@@ -668,7 +643,7 @@ class FirestoreNotificationsRemoteDataSource
       final location = data['location'] as String? ?? '';
       reminders.add(
         AttentionReminder(
-          id: 'appointment-${document.id}-${type.name}',
+          id: 'appointment-${document.id}-${type.name}-${scheduledAt.toLocal().millisecondsSinceEpoch}',
           type: type,
           module: 'appointments',
           recordId: document.id,

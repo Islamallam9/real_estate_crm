@@ -3269,14 +3269,17 @@ exports.saveDealRecord = onCall(async (request) => {
   const dealInput = requiredObject(data.deal || {}, 'deal');
   validateCompanyId(companyId);
 
-  if (!['create', 'update'].includes(operation)) {
+  if (!['create', 'update', 'stage'].includes(operation)) {
     throw new HttpsError('invalid-argument', 'Deal operation is invalid.');
   }
 
   const actor = await requireActiveCompanyUser(request, companyId);
   const actorRole = optionalString(actor.role);
-  if (!['admin', 'manager'].includes(actorRole)) {
+  if (operation !== 'stage' && !['admin', 'manager'].includes(actorRole)) {
     throw new HttpsError('permission-denied', 'You do not have permission to save deals.');
+  }
+  if (operation === 'stage' && !['admin', 'manager', 'salesAgent'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to update this deal stage.');
   }
 
   let dealId = optionalString(dealInput.id);
@@ -3295,8 +3298,37 @@ exports.saveDealRecord = onCall(async (request) => {
   if (operation === 'create' && dealSnapshot.exists) {
     throw new HttpsError('already-exists', 'Deal already exists.');
   }
-  if (operation === 'update' && !dealSnapshot.exists) {
+  if ((operation === 'update' || operation === 'stage') && !dealSnapshot.exists) {
     throw new HttpsError('not-found', 'Deal was not found.');
+  }
+
+  if (operation === 'stage') {
+    if (existingDeal.isActive === false || existingDeal.isArchived === true) {
+      throw new HttpsError('failed-precondition', 'Archived or inactive deals cannot be updated.');
+    }
+    const managerTeamId = optionalString(actor.teamId);
+    const canUpdateStage = actorRole === 'admin' ||
+      (actorRole === 'manager' && (
+        optionalString(existingDeal.assignedTo) === actorUid ||
+        optionalString(existingDeal.managerId) === actorUid ||
+        (managerTeamId && optionalString(existingDeal.teamId) === managerTeamId)
+      )) ||
+      (actorRole === 'salesAgent' && optionalString(existingDeal.assignedTo) === actorUid);
+    if (!canUpdateStage) {
+      throw new HttpsError('permission-denied', 'You can update only deals assigned to you or your team.');
+    }
+
+    const stage = enumValue(dealInput.stage || 'new', DEAL_STAGES, 'stage');
+    const lostReason = stage === 'lost'
+      ? sanitizePlainString(requiredString(dealInput.lostReason, 'lostReason'), 500)
+      : '';
+    await dealRef.set({
+      stage,
+      lostReason,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actorUid,
+    }, { merge: true });
+    return { companyId, dealId };
   }
 
   if (actorRole === 'manager' && existingDeal) {
@@ -3731,6 +3763,155 @@ exports.saveAppointmentRecord = onCall(async (request) => {
 });
 
 
+
+
+
+exports.markCompanyNotificationRead = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    const actorUid = optionalString(request.auth && request.auth.uid);
+    if (!actorUid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+    const payload = request.data || {};
+    const companyId = optionalString(payload.companyId);
+    const notificationId = optionalString(payload.notificationId);
+    validateCompanyId(companyId);
+    if (!notificationId) {
+      throw new HttpsError('invalid-argument', 'Notification id is required.');
+    }
+
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    if (!actor || actor.isActive !== true) {
+      throw new HttpsError('permission-denied', 'You do not have access to this company.');
+    }
+
+    const notificationRef = db.doc(`companies/${companyId}/notifications/${safeDocumentId(notificationId)}`);
+    const notificationSnapshot = await notificationRef.get();
+    if (!notificationSnapshot.exists) {
+      throw new HttpsError('not-found', 'Notification was not found.');
+    }
+    const notification = notificationSnapshot.data() || {};
+    const notificationCompanyId = optionalString(notification.companyId);
+    if ((notificationCompanyId && notificationCompanyId !== companyId) || optionalString(notification.recipientUid) !== actorUid) {
+      throw new HttpsError('permission-denied', 'You cannot update this notification.');
+    }
+
+    if (notification.isRead === true) {
+      return { updated: 0, alreadyRead: true };
+    }
+
+    await notificationRef.update({
+      isRead: true,
+      readAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { updated: 1, alreadyRead: false };
+  },
+);
+
+exports.markCompanyNotificationsRead = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    const actorUid = optionalString(request.auth && request.auth.uid);
+    if (!actorUid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+    const payload = request.data || {};
+    const companyId = optionalString(payload.companyId);
+    validateCompanyId(companyId);
+
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    if (!actor || actor.isActive !== true) {
+      throw new HttpsError('permission-denied', 'You do not have access to this company.');
+    }
+
+    const requestedLimit = Number(payload.limit || 0);
+    const batchSize = Math.max(1, Math.min(Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 250, 450));
+    let updated = 0;
+    let safety = 0;
+    const collection = db.collection(`companies/${companyId}/notifications`);
+
+    while (safety < 30) {
+      safety += 1;
+      const snapshot = await collection
+        .where('recipientUid', '==', actorUid)
+        .where('isRead', '==', false)
+        .limit(batchSize)
+        .get();
+      if (snapshot.empty) {
+        break;
+      }
+      const batch = db.batch();
+      for (const document of snapshot.docs) {
+        const data = document.data() || {};
+        const notificationCompanyId = optionalString(data.companyId);
+        if ((notificationCompanyId && notificationCompanyId !== companyId) || optionalString(data.recipientUid) !== actorUid) {
+          continue;
+        }
+        batch.update(document.ref, {
+          isRead: true,
+          readAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        updated += 1;
+      }
+      await batch.commit();
+      if (snapshot.size < batchSize) {
+        break;
+      }
+    }
+
+    // Legacy safety pass: old notification docs can miss isRead entirely, which
+    // makes the client render them unread but makes a where('isRead', false)
+    // query skip them. Sweep the recipient's notification pages by document id
+    // and mark every non-read visible notification as read.
+    let lastDoc = null;
+    let legacySafety = 0;
+    while (legacySafety < 30) {
+      legacySafety += 1;
+      let query = collection
+        .where('recipientUid', '==', actorUid)
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(batchSize);
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+      const snapshot = await query.get();
+      if (snapshot.empty) {
+        break;
+      }
+      const batch = db.batch();
+      let hasUpdates = false;
+      for (const document of snapshot.docs) {
+        const data = document.data() || {};
+        const notificationCompanyId = optionalString(data.companyId);
+        if ((notificationCompanyId && notificationCompanyId !== companyId) || optionalString(data.recipientUid) !== actorUid) {
+          continue;
+        }
+        if (data.isRead === true) {
+          continue;
+        }
+        hasUpdates = true;
+        batch.update(document.ref, {
+          isRead: true,
+          readAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        updated += 1;
+      }
+      if (hasUpdates) {
+        await batch.commit();
+      }
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < batchSize) {
+        break;
+      }
+    }
+
+    return { updated };
+  },
+);
 
 exports.refreshActionableReminderNotifications = onCall(
   { region: 'us-east1' },
@@ -6903,7 +7084,7 @@ function buildAppointmentPayload({
     previousScheduledAt &&
     previousScheduledAt.toMillis &&
     previousScheduledAt.toMillis() !== scheduledAt.toMillis();
-  if (scheduleChanged && status === 'scheduled') {
+  if (scheduleChanged && !['completed', 'cancelled'].includes(normalizedWorkflowValue(status))) {
     status = 'rescheduled';
   }
 
@@ -6972,6 +7153,14 @@ function buildAppointmentPayload({
     payload.rescheduledFrom = previousScheduledAt;
     payload.previousScheduledAt = previousScheduledAt;
     payload.previousEndAt = previousEndAt;
+    if (status === 'scheduled' || status === 'rescheduled') {
+      payload.completedAt = null;
+      payload.completedBy = '';
+      payload.cancelledAt = null;
+      payload.cancelledBy = '';
+      payload.missedAt = null;
+      payload.missedBy = '';
+    }
   }
 
   if (isCreate) {
@@ -7091,6 +7280,15 @@ async function createAppointmentStatusNotifications({
       dedupeKey: `appointment_status_${appointmentId}_${eventId}_manager_${managerId}`,
     });
   }
+  await notifyCompanyAdminsForImportantRecordEvent({
+    companyId,
+    base: {
+      ...base,
+      type: teamType,
+    },
+    actorUid,
+    dedupeKey: `appointment_status_${appointmentId}_${eventId}`,
+  });
 }
 
 async function createAppointmentTimingNotifications({
@@ -7394,11 +7592,20 @@ async function createLeadImportantStatusNotifications({
     await createCompanyNotification({
       ...base,
       recipientUid: managerId,
-      recipientRole: '',
+      recipientRole: 'manager',
       type: 'teamLeadStatusChanged',
       dedupeKey: `lead_status_${leadId}_${previousStatus}_${nextStatus}_manager_${managerId}`,
     });
   }
+  await notifyCompanyAdminsForImportantRecordEvent({
+    companyId,
+    base: {
+      ...base,
+      type: 'teamLeadStatusChanged',
+    },
+    actorUid,
+    dedupeKey: `lead_status_${leadId}_${previousStatus}_${nextStatus}`,
+  });
 }
 
 async function createAssignmentNotificationsForRecord({
@@ -7666,6 +7873,15 @@ async function createTaskStatusNotifications({
       dedupeKey: `task_status_${taskId}_${eventId}_manager_${managerId}`,
     });
   }
+  await notifyCompanyAdminsForImportantRecordEvent({
+    companyId,
+    base: {
+      ...base,
+      type: 'teamTaskStatusChanged',
+    },
+    actorUid,
+    dedupeKey: `task_status_${taskId}_${eventId}`,
+  });
 }
 
 async function createDealStageNotifications({
@@ -7808,6 +8024,31 @@ async function createPlatformDealOutcomeNotification({
       teamId: optionalString(after.teamId),
     },
   });
+}
+
+async function notifyCompanyAdminsForImportantRecordEvent({
+  companyId,
+  base,
+  actorUid,
+  dedupeKey,
+}) {
+  const adminsSnapshot = await db.collection(`companies/${companyId}/users`)
+    .where('role', '==', 'admin')
+    .where('isActive', '==', true)
+    .limit(20)
+    .get();
+  for (const document of adminsSnapshot.docs) {
+    const adminUid = document.id;
+    if (!adminUid || adminUid === actorUid) {
+      continue;
+    }
+    await createCompanyNotification({
+      ...base,
+      recipientUid: adminUid,
+      recipientRole: 'admin',
+      dedupeKey: `${dedupeKey}_admin_${adminUid}`,
+    });
+  }
 }
 
 async function notifyCompanyAdminsForDealOutcome({
