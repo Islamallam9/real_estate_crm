@@ -327,6 +327,9 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
     return Stack(
       children: [
         widget.child,
+        // Toast for brand-new notifications only.
+        // This is separate from the smart guidance overlay, which rotates
+        // existing attention reminders and can appear on any CRM page.
         _NotificationFloatingToast(
           companyId: widget.companyId,
         ),
@@ -477,6 +480,8 @@ class _SmartGuidanceFloatingOverlayState
   AttentionReminder? _visibleReminder;
   bool _visible = false;
   int _lastSignatureHash = 0;
+  final Set<String> _shownReminderIds = <String>{};
+  AttentionReminderType? _lastReminderType;
 
   @override
   void initState() {
@@ -574,23 +579,50 @@ class _SmartGuidanceFloatingOverlayState
   List<AttentionReminder> _availableReminders() {
     final state = context.read<NotificationsCubit>().state;
     final reminders = state.reminders
-        .where((item) => item.route.trim().isNotEmpty)
+        .where((item) =>
+            item.route.trim().isNotEmpty && !_shownReminderIds.contains(item.id))
         .toList();
-    reminders.sort((a, b) => _reminderRank(a).compareTo(_reminderRank(b)));
-    return reminders.take(10).toList();
+    reminders.sort(_compareGuidanceReminderPriority);
+    return reminders.take(18).toList();
+  }
+
+  AttentionReminder? _pickNextReminder(List<AttentionReminder> reminders) {
+    if (reminders.isEmpty) {
+      return null;
+    }
+    final grouped = <AttentionReminderType, List<AttentionReminder>>{};
+    for (final reminder in reminders) {
+      grouped.putIfAbsent(reminder.type, () => <AttentionReminder>[]).add(reminder);
+    }
+    final types = grouped.keys.toList()
+      ..sort((a, b) => _reminderRankByType(a).compareTo(_reminderRankByType(b)));
+    var selectedType = types.first;
+    if (_lastReminderType != null && types.length > 1) {
+      selectedType = types.firstWhere(
+        (type) => type != _lastReminderType,
+        orElse: () => types.first,
+      );
+    }
+    final candidates = grouped[selectedType]!..sort(_compareGuidanceReminderPriority);
+    return candidates.first;
+  }
+
+  void _rememberShownReminder(AttentionReminder reminder) {
+    _shownReminderIds.add(reminder.id);
+    _lastReminderType = reminder.type;
   }
 
   void _showNextReminder() {
     if (!mounted || _visible) {
       return;
     }
-    final reminders = _availableReminders();
-    if (reminders.isEmpty) {
+    final reminder = _pickNextReminder(_availableReminders());
+    if (reminder == null) {
       _scheduleNext(initial: false);
       return;
     }
     setState(() {
-      _visibleReminder = reminders[_random.nextInt(reminders.length)];
+      _visibleReminder = reminder;
       _visible = true;
     });
     _hideTimer?.cancel();
@@ -600,6 +632,7 @@ class _SmartGuidanceFloatingOverlayState
       }
       final reminder = _visibleReminder;
       if (reminder != null) {
+        _rememberShownReminder(reminder);
         context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
       }
       setState(() => _visible = false);
@@ -614,6 +647,7 @@ class _SmartGuidanceFloatingOverlayState
     }
     final reminder = _visibleReminder;
     if (reminder != null) {
+      _rememberShownReminder(reminder);
       context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
     }
     setState(() => _visible = false);
@@ -622,6 +656,7 @@ class _SmartGuidanceFloatingOverlayState
 
   void _openReminder(BuildContext context, AttentionReminder reminder) {
     _hideTimer?.cancel();
+    _rememberShownReminder(reminder);
     context.read<NotificationsCubit>().clearAttentionReminder(reminder.id);
     if (mounted) {
       setState(() => _visible = false);
@@ -794,8 +829,22 @@ IconData _reminderIcon(AttentionReminderType type) {
   };
 }
 
-int _reminderRank(AttentionReminder reminder) {
-  return switch (reminder.type) {
+int _compareGuidanceReminderPriority(AttentionReminder a, AttentionReminder b) {
+  final rankCompare = _reminderRank(a).compareTo(_reminderRank(b));
+  if (rankCompare != 0) {
+    return rankCompare;
+  }
+  final aDate = a.dueAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final bDate = b.dueAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final dateCompare = aDate.compareTo(bDate);
+  if (dateCompare != 0) {
+    return dateCompare;
+  }
+  return a.id.compareTo(b.id);
+}
+
+int _reminderRankByType(AttentionReminderType type) {
+  return switch (type) {
     AttentionReminderType.appointmentMissed => 0,
     AttentionReminderType.appointmentDueNow => 1,
     AttentionReminderType.followUpOverdue => 2,
@@ -807,6 +856,11 @@ int _reminderRank(AttentionReminder reminder) {
     AttentionReminderType.taskDueToday => 8,
   };
 }
+
+int _reminderRank(AttentionReminder reminder) {
+  return _reminderRankByType(reminder.type);
+}
+
 
 class _NotificationToastCard extends StatelessWidget {
   const _NotificationToastCard({
@@ -1022,6 +1076,15 @@ class _DesktopShell extends StatefulWidget {
 
 class _DesktopShellState extends State<_DesktopShell> {
   bool _isSidebarCollapsed = false;
+  final ScrollController _sidebarScrollController = ScrollController();
+  final ScrollController _mainScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _sidebarScrollController.dispose();
+    _mainScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1042,6 +1105,7 @@ class _DesktopShellState extends State<_DesktopShell> {
                 onToggleCollapsed: () {
                   setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
                 },
+                scrollController: _sidebarScrollController,
                 onItemSelected: widget.onItemSelected,
               ),
               const SizedBox(width: AppSpacing.md),
@@ -1085,7 +1149,14 @@ class _DesktopShellState extends State<_DesktopShell> {
                             AppSpacing.sm,
                             AppSpacing.sm,
                           ),
-                          child: _ShellRefreshWrapper(child: widget.child),
+                          child: Scrollbar(
+                            controller: _mainScrollController,
+                            thumbVisibility: true,
+                            child: PrimaryScrollController(
+                              controller: _mainScrollController,
+                              child: _ShellRefreshWrapper(child: widget.child),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1349,11 +1420,11 @@ class _MobileShellState extends State<_MobileShell> {
         ),
       ),
       bottomNavigationBar: AnimatedSlide(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutQuart,
         offset: effectiveShowBottomNavigation ? Offset.zero : const Offset(0, 1),
         child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 140),
           opacity: effectiveShowBottomNavigation ? 1 : 0,
           child: IgnorePointer(
             ignoring: !effectiveShowBottomNavigation,
@@ -2098,6 +2169,7 @@ class _Sidebar extends StatelessWidget {
     required this.items,
     required this.isCollapsed,
     required this.onToggleCollapsed,
+    required this.scrollController,
     this.onItemSelected,
   });
 
@@ -2105,6 +2177,7 @@ class _Sidebar extends StatelessWidget {
   final List<_CrmShellItem> items;
   final bool isCollapsed;
   final VoidCallback onToggleCollapsed;
+  final ScrollController scrollController;
   final ValueChanged<CrmNavigationItem>? onItemSelected;
 
   @override
@@ -2142,8 +2215,13 @@ class _Sidebar extends StatelessWidget {
                   _BrandHeader(isCollapsed: isCollapsed),
                   const SizedBox(height: AppSpacing.lg),
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
+                    child: Scrollbar(
+                      controller: scrollController,
+                      thumbVisibility: !isCollapsed,
+                      child: SingleChildScrollView(
+                        controller: scrollController,
+                        primary: false,
+                        child: Column(
                         children: [
                           for (final item in items)
                             _SidebarItem(
@@ -2158,7 +2236,8 @@ class _Sidebar extends StatelessWidget {
                               isCollapsed: isCollapsed,
                               onTap: () => onItemSelected?.call(item.item),
                             ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
