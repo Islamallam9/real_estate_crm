@@ -6,6 +6,7 @@ import '../../../properties/domain/entities/property.dart';
 import '../../../tasks/domain/entities/crm_task.dart';
 import '../../../users/domain/entities/user_profile.dart';
 import '../entities/dashboard_analytics.dart';
+import 'dashboard_truth_rules.dart';
 
 class DashboardAnalyticsRules {
   const DashboardAnalyticsRules({
@@ -19,11 +20,13 @@ class DashboardAnalyticsRules {
   final int stuckDealDays;
 
   DashboardAnalytics build(DashboardAnalyticsInput input) {
-    final activeLeads = input.leads.where(_isActiveLead).toList();
+    final activeLeads =
+        input.leads.where(DashboardTruthRules.isActiveLead).toList();
     final newLeadsToday = input.leads.where((lead) {
       return _dateOnly(lead.createdAt) == input.today;
     }).toList();
-    final hotOpportunities = input.leads.where(_isHotLead).toList();
+    final hotOpportunities =
+        input.leads.where(DashboardTruthRules.isHotLead).toList();
     final dueTodayFollowUps = input.leads.where((lead) {
       final date = lead.nextFollowUpAt;
       return date != null && _dateOnly(date) == input.today;
@@ -33,28 +36,31 @@ class DashboardAnalyticsRules {
       return date != null && _dateOnly(date).isBefore(input.today);
     }).toList();
     final overdueTasks = input.tasks.where((task) {
-      final date = task.dueDate;
-      return _isOpenTask(task) &&
-          date != null &&
-          _dateOnly(date).isBefore(input.today);
+      return DashboardTruthRules.isOverdueTask(task, input.today);
     }).toList();
     final todayTasks = input.tasks.where((task) {
       final date = task.dueDate;
-      return _isOpenTask(task) && date != null && _dateOnly(date) == input.today;
+      return DashboardTruthRules.isOpenTask(task) &&
+          date != null &&
+          _dateOnly(date) == input.today;
     }).toList();
-    final openTasks = input.tasks.where(_isOpenTask).toList();
+    final openTasks =
+        input.tasks.where(DashboardTruthRules.isOpenTask).toList();
     final todayAppointments = input.appointments.where((appointment) {
       final date = appointment.scheduledAt;
       return date != null && _dateOnly(date) == input.today;
     }).toList();
     final missedAppointments = input.appointments.where((appointment) {
-      return _isMissedAppointment(input, appointment);
+      return DashboardTruthRules.isMissedAppointment(appointment, input.now);
     }).toList();
-    final openDeals = input.deals.where(_isOpenDeal).toList();
+    final openDeals =
+        input.deals.where(DashboardTruthRules.isOpenDeal).toList();
     final stuckDeals = openDeals.where((deal) {
-      final updatedAt = deal.updatedAt ?? deal.createdAt;
-      return updatedAt != null &&
-          input.now.difference(updatedAt.toLocal()).inDays >= stuckDealDays;
+      return DashboardTruthRules.isDealAtRisk(
+        deal,
+        input.now,
+        staleDays: stuckDealDays,
+      );
     }).toList();
     final wonDealsThisMonth = input.deals.where((deal) {
       final closedAt = _dealClosedAt(deal)?.toLocal();
@@ -404,19 +410,22 @@ class DashboardAnalyticsRules {
             stage: stage,
             count: input.deals.where((deal) => deal.stage == stage).length,
             expectedValue: input.deals
-                .where((deal) => deal.stage == stage && _isOpenDeal(deal))
+                .where((deal) =>
+                    deal.stage == stage &&
+                    DashboardTruthRules.isOpenDeal(deal))
                 .fold<num>(0, (sum, deal) => sum + deal.expectedValue),
             stuckCount: input.deals.where((deal) {
-              final updatedAt = deal.updatedAt ?? deal.createdAt;
               return deal.stage == stage &&
-                  _isOpenDeal(deal) &&
-                  updatedAt != null &&
-                  input.now.difference(updatedAt.toLocal()).inDays >= stuckDealDays;
+                  DashboardTruthRules.isDealAtRisk(
+                    deal,
+                    input.now,
+                    staleDays: stuckDealDays,
+                  );
             }).length,
             closingThisMonthCount: input.deals.where((deal) {
               final closingDate = deal.closingDate;
               return deal.stage == stage &&
-                  _isOpenDeal(deal) &&
+                  DashboardTruthRules.isOpenDeal(deal) &&
                   closingDate != null &&
                   closingDate.year == input.now.year &&
                   closingDate.month == input.now.month;
@@ -551,7 +560,8 @@ class DashboardAnalyticsRules {
   }
 
   List<DashboardTodayItem> _calendarItems(DashboardAnalyticsInput input) {
-    final openDeals = input.deals.where(_isOpenDeal).toList();
+    final openDeals =
+        input.deals.where(DashboardTruthRules.isOpenDeal).toList();
     final items = <DashboardTodayItem>[
       if (input.includeAppointments)
         for (final appointment in input.appointments.where((item) => item.scheduledAt != null))
@@ -584,7 +594,7 @@ class DashboardAnalyticsRules {
 
   List<DashboardTodayItem> _leadCalendarItems(DashboardAnalyticsInput input) {
     final items = <DashboardTodayItem>[];
-    for (final lead in input.leads.where(_isActiveLead)) {
+    for (final lead in input.leads.where(DashboardTruthRules.isActiveLead)) {
       final dueAt = lead.nextFollowUpAt?.toLocal();
       if (dueAt == null) {
         continue;
@@ -606,7 +616,7 @@ class DashboardAnalyticsRules {
 
   List<DashboardTodayItem> _taskCalendarItems(DashboardAnalyticsInput input) {
     final items = <DashboardTodayItem>[];
-    for (final task in input.tasks.where(_isOpenTask)) {
+    for (final task in input.tasks.where(DashboardTruthRules.isOpenTask)) {
       final dueAt = task.dueDate?.toLocal();
       if (dueAt == null) {
         continue;
@@ -746,7 +756,7 @@ class DashboardAnalyticsRules {
     }
 
     if (input.includeLeads) {
-      for (final lead in input.leads.where(_isActiveLead)) {
+      for (final lead in input.leads.where(DashboardTruthRules.isActiveLead)) {
         final assignedTo = lead.assignedTo.trim();
         if (assignedTo.isEmpty) {
           continue;
@@ -766,7 +776,7 @@ class DashboardAnalyticsRules {
     }
 
     if (input.includeDeals) {
-      for (final deal in input.deals.where(_isOpenDeal)) {
+      for (final deal in input.deals.where(DashboardTruthRules.isOpenDeal)) {
         final assignedTo = deal.assignedTo.trim();
         if (assignedTo.isEmpty) {
           continue;
@@ -798,7 +808,7 @@ class DashboardAnalyticsRules {
     final items = <DashboardOpportunityItem>[];
 
     if (input.includeDeals) {
-      for (final deal in input.deals.where(_isOpenDeal)) {
+      for (final deal in input.deals.where(DashboardTruthRules.isOpenDeal)) {
         final stageScore = switch (deal.stage) {
           DealStage.negotiation => 80,
           DealStage.proposal => 72,
@@ -824,7 +834,7 @@ class DashboardAnalyticsRules {
     }
 
     if (input.includeLeads) {
-      for (final lead in input.leads.where(_isHotLead)) {
+      for (final lead in input.leads.where(DashboardTruthRules.isHotLead)) {
         final value = lead.budgetMax > 0 ? lead.budgetMax : lead.budgetMin;
         final priorityScore = switch (lead.priority) {
           LeadPriority.high => 78,
@@ -915,7 +925,7 @@ class DashboardAnalyticsRules {
 
   List<Lead> _staleLeads(DashboardAnalyticsInput input) {
     return input.leads.where((lead) {
-      if (!_isActiveLead(lead)) {
+      if (!DashboardTruthRules.isActiveLead(lead)) {
         return false;
       }
       final lastTouch = _latestDate([lead.lastContactAt, lead.updatedAt, lead.createdAt]);
@@ -989,7 +999,7 @@ class DashboardAnalyticsRules {
       item.dueTodayActions += dueToday;
     }
 
-    for (final lead in input.leads.where(_isActiveLead)) {
+    for (final lead in input.leads.where(DashboardTruthRules.isActiveLead)) {
       final followUp = lead.nextFollowUpAt;
       touch(
         id: lead.assignedTo,
@@ -999,7 +1009,7 @@ class DashboardAnalyticsRules {
         dueToday: followUp != null && _dateOnly(followUp) == input.today ? 1 : 0,
       );
     }
-    for (final task in input.tasks.where(_isOpenTask)) {
+    for (final task in input.tasks.where(DashboardTruthRules.isOpenTask)) {
       final dueDate = task.dueDate;
       touch(
         id: task.assignedTo,
@@ -1009,7 +1019,7 @@ class DashboardAnalyticsRules {
         dueToday: dueDate != null && _dateOnly(dueDate) == input.today ? 1 : 0,
       );
     }
-    for (final deal in input.deals.where(_isOpenDeal)) {
+    for (final deal in input.deals.where(DashboardTruthRules.isOpenDeal)) {
       touch(
         id: deal.assignedTo,
         name: deal.assignedToName,
@@ -1161,36 +1171,6 @@ class _TeamRowAccumulator {
   }
 }
 
-bool _isActiveLead(Lead lead) {
-  return !lead.isArchived &&
-      (lead.status == LeadStatus.contacted ||
-          lead.status == LeadStatus.interested ||
-          lead.status == LeadStatus.visitScheduled ||
-          lead.status == LeadStatus.negotiation ||
-          lead.status == LeadStatus.newLead);
-}
-
-bool _isHotLead(Lead lead) {
-  return !lead.isArchived &&
-      (lead.priority == LeadPriority.high ||
-          lead.status == LeadStatus.interested ||
-          lead.status == LeadStatus.visitScheduled ||
-          lead.status == LeadStatus.negotiation);
-}
-
-bool _isOpenTask(CrmTask task) {
-  return task.isActive &&
-      task.status != TaskStatus.completed &&
-      task.status != TaskStatus.cancelled;
-}
-
-bool _isOpenDeal(Deal deal) {
-  return deal.isActive &&
-      !deal.isArchived &&
-      deal.stage != DealStage.won &&
-      deal.stage != DealStage.lost;
-}
-
 DateTime? _dealClosedAt(Deal deal) {
   return deal.closingDate ?? deal.updatedAt ?? deal.createdAt;
 }
@@ -1217,18 +1197,6 @@ DashboardTodayUrgency _appointmentUrgency(
     return DashboardTodayUrgency.overdue;
   }
   return DashboardTodayUrgency.dueToday;
-}
-
-bool _isMissedAppointment(
-  DashboardAnalyticsInput input,
-  Appointment appointment,
-) {
-  final endAt = (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
-  return appointment.status == AppointmentStatus.missed ||
-      ((appointment.status == AppointmentStatus.scheduled ||
-              appointment.status == AppointmentStatus.rescheduled) &&
-          endAt != null &&
-          endAt.isBefore(input.now));
 }
 
 List<int> _countsByTrailingDays(

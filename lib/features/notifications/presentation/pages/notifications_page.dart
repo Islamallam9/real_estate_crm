@@ -22,6 +22,7 @@ import '../../domain/entities/attention_reminder.dart';
 import '../../domain/entities/crm_notification.dart';
 import '../cubit/notifications_cubit.dart';
 import '../cubit/notifications_state.dart';
+import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_cards.dart';
 
 enum _NotificationFilter {
@@ -513,7 +514,7 @@ class _NotificationsList extends StatelessWidget {
                         notification: notification,
                       );
                   if (context.mounted) {
-                    _openRoute(context, notification.route);
+                    _openNotificationRoute(context, notification);
                   }
                 },
               );
@@ -583,7 +584,7 @@ class _AttentionListState extends State<_AttentionList> {
           final reminder = visibleReminders[index];
           return AttentionReminderCard(
             reminder: reminder,
-            onOpen: () => _openRoute(context, reminder.route),
+            onOpen: () => _openReminderRoute(context, reminder),
           );
         },
       );
@@ -732,28 +733,31 @@ class _InlineErrorMessage extends StatelessWidget {
   }
 }
 
-void _openRoute(BuildContext context, String route) {
-  final cleanRoute = route.trim();
+void _openNotificationRoute(
+  BuildContext context,
+  CrmNotification notification,
+) {
   final l = AppLocalizations.of(context)!;
-  if (!_isAllowedNotificationRoute(cleanRoute)) {
+  final resolution = NotificationRouteResolver.resolve(notification);
+  if (resolution.usedFallback) {
     AppFeedback.warning(context, l.notificationRouteUnavailable);
-    return;
   }
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (context.mounted) {
-      context.go(cleanRoute);
+      context.go(resolution.route);
     }
   });
 }
 
-bool _isAllowedNotificationRoute(String route) {
-  return route == RouteNames.dashboard ||
-      route == RouteNames.dataHealth ||
-      route == RouteNames.appointments ||
-      route.startsWith('/appointments/') ||
-      route.startsWith('/leads/') ||
-      route.startsWith('/tasks/') ||
-      route.startsWith('/deals/') ||
-      route.startsWith('/clients/') ||
-      route.startsWith('/properties/');
+void _openReminderRoute(BuildContext context, AttentionReminder reminder) {
+  final l = AppLocalizations.of(context)!;
+  final resolution = NotificationRouteResolver.resolveReminder(reminder);
+  if (resolution.usedFallback) {
+    AppFeedback.warning(context, l.notificationRouteUnavailable);
+  }
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (context.mounted) {
+      context.go(resolution.route);
+    }
+  });
 }

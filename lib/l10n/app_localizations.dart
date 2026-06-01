@@ -368,6 +368,12 @@ abstract class AppLocalizations {
   /// **'Won deals'**
   String get wonDeals;
 
+  /// No description provided for @wonDealsThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Won deals this month'**
+  String get wonDealsThisMonth;
+
   /// No description provided for @taskCompletion.
   ///
   /// In en, this message translates to:
@@ -895,6 +901,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From lead to deal, one clear path.'**
   String get loginSubtitle;
+
+  /// No description provided for @loginSupportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Need help getting started?'**
+  String get loginSupportTitle;
+
+  /// No description provided for @loginSupportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Masar support to create your company account or get an invitation.'**
+  String get loginSupportSubtitle;
+
+  /// No description provided for @loginSupportWhatsAppMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello Masar Support, I need help creating or accessing my company account.'**
+  String get loginSupportWhatsAppMessage;
+
+  /// No description provided for @loginSupportEmailSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Masar CRM access request'**
+  String get loginSupportEmailSubject;
+
+  /// No description provided for @loginSupportEmailBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello Masar Support,\n\nI need help creating or accessing my company account.\n\nThank you.'**
+  String get loginSupportEmailBody;
 
   /// No description provided for @emailRequired.
   ///
@@ -2699,7 +2735,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardKpiActiveLeads.
   ///
   /// In en, this message translates to:
-  /// **'Active Leads'**
+  /// **'Active leads'**
   String get dashboardKpiActiveLeads;
 
   /// No description provided for @dashboardKpiHotOpportunities.
@@ -2852,6 +2888,12 @@ abstract class AppLocalizations {
   /// **'Stuck deals'**
   String get dashboardStuckDeals;
 
+  /// No description provided for @dashboardDealRisks.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal risks'**
+  String get dashboardDealRisks;
+
   /// No description provided for @dashboardClosingThisMonth.
   ///
   /// In en, this message translates to:
@@ -2965,6 +3007,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No appointments for this day.'**
   String get dashboardNoAppointmentsForDay;
+
+  /// No description provided for @dashboardUrgentActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent actions'**
+  String get dashboardUrgentActions;
 
   /// No description provided for @dashboardUrgentFollowUps.
   ///
@@ -4235,7 +4283,7 @@ abstract class AppLocalizations {
   /// No description provided for @auditLogs.
   ///
   /// In en, this message translates to:
-  /// **'Activity history'**
+  /// **'Audit Logs'**
   String get auditLogs;
 
   /// No description provided for @previewDashboard.
@@ -4583,8 +4631,110 @@ abstract class AppLocalizations {
   /// No description provided for @exportDownloadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Download is unavailable on this platform.'**
+  /// **'Could not save the Excel file on this device. Please try again.'**
   String get exportDownloadFailed;
+
+  /// No description provided for @androidUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update required'**
+  String get androidUpdateTitle;
+
+  /// No description provided for @androidUpdateBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This Android version is no longer supported. Update Masar CRM to continue using the app safely.'**
+  String get androidUpdateBody;
+
+  /// No description provided for @androidUpdateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update app'**
+  String get androidUpdateButton;
+
+  /// No description provided for @androidUpdateCurrentVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Current version'**
+  String get androidUpdateCurrentVersion;
+
+  /// No description provided for @androidUpdateLatestVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest version'**
+  String get androidUpdateLatestVersion;
+
+  /// No description provided for @androidUpdateRemainingTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining update period'**
+  String get androidUpdateRemainingTime;
+
+  /// No description provided for @androidUpdateExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The update period has ended. Please install the latest APK.'**
+  String get androidUpdateExpired;
+
+  /// No description provided for @androidUpdateOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the update link. Please contact support.'**
+  String get androidUpdateOpenFailed;
+
+  /// No description provided for @androidUpdateChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking app version'**
+  String get androidUpdateChecking;
+
+  /// No description provided for @androidUpdateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update'**
+  String get androidUpdateDownloading;
+
+  /// No description provided for @androidUpdateDownloadStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting secure update download'**
+  String get androidUpdateDownloadStarting;
+
+  /// No description provided for @androidUpdateDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not download the update. Check your connection and try again.'**
+  String get androidUpdateDownloadFailed;
+
+  /// No description provided for @androidUpdateInvalidPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'The downloaded update file is not a valid APK. Check the release link or contact support.'**
+  String get androidUpdateInvalidPackage;
+
+  /// No description provided for @androidUpdateInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening Android installer'**
+  String get androidUpdateInstalling;
+
+  /// No description provided for @androidUpdateReadyToInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download complete. Android installer is ready.'**
+  String get androidUpdateReadyToInstall;
+
+  /// No description provided for @androidUpdateInstallButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Install update'**
+  String get androidUpdateInstallButton;
+
+  /// No description provided for @androidUpdateInstallPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Masar CRM to install updates, then return and tap Install update again.'**
+  String get androidUpdateInstallPermissionRequired;
 
   /// No description provided for @exportNotAvailableForRole.
   ///
@@ -5150,6 +5300,18 @@ abstract class AppLocalizations {
   /// **'Change email'**
   String get changeEmail;
 
+  /// No description provided for @platformOwnerEmailUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform owner email updated.'**
+  String get platformOwnerEmailUpdated;
+
+  /// No description provided for @reauthenticationRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again, then change the email. Firebase requires a recent login for this action.'**
+  String get reauthenticationRequired;
+
   /// No description provided for @changePassword.
   ///
   /// In en, this message translates to:
@@ -5221,6 +5383,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New password must be at least 8 characters.'**
   String get newPasswordTooShort;
+
+  /// No description provided for @passwordMustIncludeLowercase.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must include at least one lowercase letter.'**
+  String get passwordMustIncludeLowercase;
+
+  /// No description provided for @passwordMustIncludeUppercase.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must include at least one uppercase letter.'**
+  String get passwordMustIncludeUppercase;
+
+  /// No description provided for @passwordMustIncludeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must include at least one number.'**
+  String get passwordMustIncludeNumber;
 
   /// No description provided for @generateResetLink.
   ///
@@ -6182,7 +6362,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationRouteUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'This notification cannot be opened from your current access.'**
+  /// **'This item is no longer available or you do not have access.'**
   String get notificationRouteUnavailable;
 
   /// No description provided for @notificationsUnavailableInPlatform.
@@ -6365,6 +6545,84 @@ abstract class AppLocalizations {
   /// **'Appointment attention'**
   String get appointmentAttention;
 
+  /// No description provided for @appointmentCalendarTodayView.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get appointmentCalendarTodayView;
+
+  /// No description provided for @appointmentCalendarMonthView.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get appointmentCalendarMonthView;
+
+  /// No description provided for @appointmentCalendarWeekView.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get appointmentCalendarWeekView;
+
+  /// No description provided for @appointmentCalendarDayView.
+  ///
+  /// In en, this message translates to:
+  /// **'Day'**
+  String get appointmentCalendarDayView;
+
+  /// No description provided for @todayAgenda.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s agenda'**
+  String get todayAgenda;
+
+  /// No description provided for @appointmentAgenda.
+  ///
+  /// In en, this message translates to:
+  /// **'Agenda'**
+  String get appointmentAgenda;
+
+  /// No description provided for @noAppointmentsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments today'**
+  String get noAppointmentsToday;
+
+  /// No description provided for @noAppointmentsForSelectedDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No appointments for this day'**
+  String get noAppointmentsForSelectedDay;
+
+  /// No description provided for @openLinkedRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Open linked record'**
+  String get openLinkedRecord;
+
+  /// No description provided for @currentAppointmentTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Current time'**
+  String get currentAppointmentTime;
+
+  /// No description provided for @appointmentOutcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment outcome'**
+  String get appointmentOutcome;
+
+  /// No description provided for @cancellationReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation reason'**
+  String get cancellationReason;
+
+  /// No description provided for @cancellationReasonRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a cancellation reason.'**
+  String get cancellationReasonRequired;
+
   /// No description provided for @todaysAppointments.
   ///
   /// In en, this message translates to:
@@ -6382,6 +6640,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Missed'**
   String get missedAppointments;
+
+  /// No description provided for @noMissedAppointments.
+  ///
+  /// In en, this message translates to:
+  /// **'No missed appointments.'**
+  String get noMissedAppointments;
 
   /// No description provided for @completedAppointments.
   ///
@@ -6485,11 +6749,59 @@ abstract class AppLocalizations {
   /// **'Cancel this appointment? The record will stay in history.'**
   String get cancelAppointmentConfirmation;
 
+  /// No description provided for @completeAppointmentConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete this appointment and record the outcome.'**
+  String get completeAppointmentConfirmation;
+
   /// No description provided for @markMissedConfirmation.
   ///
   /// In en, this message translates to:
   /// **'Mark this appointment as missed?'**
   String get markMissedConfirmation;
+
+  /// No description provided for @appointmentOutcomeSuccessfulMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Successful meeting'**
+  String get appointmentOutcomeSuccessfulMeeting;
+
+  /// No description provided for @appointmentOutcomeNoAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer'**
+  String get appointmentOutcomeNoAnswer;
+
+  /// No description provided for @appointmentOutcomeClientPostponed.
+  ///
+  /// In en, this message translates to:
+  /// **'Client postponed'**
+  String get appointmentOutcomeClientPostponed;
+
+  /// No description provided for @appointmentOutcomeClientNotInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Client not interested'**
+  String get appointmentOutcomeClientNotInterested;
+
+  /// No description provided for @appointmentOutcomeFollowUpNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up needed'**
+  String get appointmentOutcomeFollowUpNeeded;
+
+  /// No description provided for @appointmentOutcomeDealOpportunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal opportunity'**
+  String get appointmentOutcomeDealOpportunity;
+
+  /// No description provided for @appointmentOutcomeOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get appointmentOutcomeOther;
 
   /// No description provided for @appointmentTypeCall.
   ///
@@ -7190,7 +7502,7 @@ abstract class AppLocalizations {
   /// No description provided for @weakPassword.
   ///
   /// In en, this message translates to:
-  /// **'The password is too weak.'**
+  /// **'Password must be at least 8 characters and include uppercase, lowercase, and a number.'**
   String get weakPassword;
 
   /// No description provided for @emailPasswordAuthDisabled.
@@ -8752,6 +9064,330 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The expected closing date has passed. Create a task or update the deal plan.'**
   String get journeyActionClosingDueDescription;
+
+  /// No description provided for @activityHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity history'**
+  String get activityHistory;
+
+  /// No description provided for @visibleAuditLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible logs'**
+  String get visibleAuditLogs;
+
+  /// No description provided for @todayActivityCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get todayActivityCount;
+
+  /// No description provided for @exportActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Export activity'**
+  String get exportActivity;
+
+  /// No description provided for @importantActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Important activity'**
+  String get importantActivity;
+
+  /// No description provided for @auditLogPermissionMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit logs are available only to Admin and Manager roles.'**
+  String get auditLogPermissionMessage;
+
+  /// No description provided for @auditLogsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load audit logs. Check indexes or permissions and try again.'**
+  String get auditLogsLoadFailed;
+
+  /// No description provided for @noAuditLogsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No audit logs found'**
+  String get noAuditLogsFound;
+
+  /// No description provided for @noAuditLogsFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No activity matches the selected scoped filters.'**
+  String get noAuditLogsFoundMessage;
+
+  /// No description provided for @allActions.
+  ///
+  /// In en, this message translates to:
+  /// **'All actions'**
+  String get allActions;
+
+  /// No description provided for @allUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'All users'**
+  String get allUsers;
+
+  /// No description provided for @searchAuditLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Search activity'**
+  String get searchAuditLogs;
+
+  /// No description provided for @auditDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit details'**
+  String get auditDetails;
+
+  /// No description provided for @detailsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Details summary'**
+  String get detailsSummary;
+
+  /// No description provided for @openRelatedRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Open related record'**
+  String get openRelatedRecord;
+
+  /// No description provided for @technicalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical details'**
+  String get technicalDetails;
+
+  /// No description provided for @exportType.
+  ///
+  /// In en, this message translates to:
+  /// **'Export type'**
+  String get exportType;
+
+  /// No description provided for @exportScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Export scope'**
+  String get exportScope;
+
+  /// No description provided for @fileFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'File format'**
+  String get fileFormat;
+
+  /// No description provided for @exportedRows.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported rows'**
+  String get exportedRows;
+
+  /// No description provided for @exportedColumns.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported columns'**
+  String get exportedColumns;
+
+  /// No description provided for @filterSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter summary'**
+  String get filterSummary;
+
+  /// No description provided for @supervisorNotification.
+  ///
+  /// In en, this message translates to:
+  /// **'Supervisor notification'**
+  String get supervisorNotification;
+
+  /// No description provided for @auditLogsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit logs export'**
+  String get auditLogsExport;
+
+  /// No description provided for @reportsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports export'**
+  String get reportsExport;
+
+  /// No description provided for @platformCompanyExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform company export'**
+  String get platformCompanyExport;
+
+  /// No description provided for @exportTrackingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Export was generated, but audit tracking failed. Please try again.'**
+  String get exportTrackingFailed;
+
+  /// No description provided for @time.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get time;
+
+  /// No description provided for @openFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Open file'**
+  String get openFile;
+
+  /// No description provided for @openDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Open downloads'**
+  String get openDownloads;
+
+  /// No description provided for @exportSavedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to'**
+  String get exportSavedTo;
+
+  /// No description provided for @exportOpenFileFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the file on this device.'**
+  String get exportOpenFileFailed;
+
+  /// No description provided for @exportOpenDownloadsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open Downloads on this device.'**
+  String get exportOpenDownloadsFailed;
+
+  /// No description provided for @multipleReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple reports'**
+  String get multipleReports;
+
+  /// No description provided for @multipleReportsColumnsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple report exports use the recommended columns for each selected report.'**
+  String get multipleReportsColumnsHint;
+
+  /// No description provided for @androidReleaseManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Android release management'**
+  String get androidReleaseManagement;
+
+  /// No description provided for @androidReleaseManagementSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Control forced APK updates for Android users without editing Firestore manually.'**
+  String get androidReleaseManagementSubtitle;
+
+  /// No description provided for @releaseReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Release ready'**
+  String get releaseReady;
+
+  /// No description provided for @minimumSupportedBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum supported build'**
+  String get minimumSupportedBuild;
+
+  /// No description provided for @latestBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest build'**
+  String get latestBuild;
+
+  /// No description provided for @updateUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Update URL'**
+  String get updateUrl;
+
+  /// No description provided for @suggestedUpdateUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested update URL'**
+  String get suggestedUpdateUrl;
+
+  /// No description provided for @useSuggestedUpdateUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Use suggested URL'**
+  String get useSuggestedUpdateUrl;
+
+  /// No description provided for @saveReleasePolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Save release policy'**
+  String get saveReleasePolicy;
+
+  /// No description provided for @androidReleasePolicySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Android release policy saved.'**
+  String get androidReleasePolicySaved;
+
+  /// No description provided for @androidReleasePolicyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Release ready off until the APK link is uploaded and tested.'**
+  String get androidReleasePolicyHint;
+
+  /// No description provided for @enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get enabled;
+
+  /// No description provided for @connectionLostSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet connection. Some actions may not finish until the connection returns.'**
+  String get connectionLostSnackbar;
+
+  /// No description provided for @connectionRestoredSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet connection restored.'**
+  String get connectionRestoredSnackbar;
+
+  /// No description provided for @androidVersionAdoption.
+  ///
+  /// In en, this message translates to:
+  /// **'Android version adoption'**
+  String get androidVersionAdoption;
+
+  /// No description provided for @androidVersionAdoptionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Android users by installed app version, based on latest registered device tokens.'**
+  String get androidVersionAdoptionSubtitle;
+
+  /// No description provided for @activeDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Active devices'**
+  String get activeDevices;
+
+  /// No description provided for @latestSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest seen'**
+  String get latestSeen;
+
+  /// No description provided for @noAndroidVersionData.
+  ///
+  /// In en, this message translates to:
+  /// **'No Android version data yet.'**
+  String get noAndroidVersionData;
 }
 
 class _AppLocalizationsDelegate

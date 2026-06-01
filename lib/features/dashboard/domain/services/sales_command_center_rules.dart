@@ -4,6 +4,7 @@ import '../../../deals/domain/entities/deal.dart';
 import '../../../leads/domain/entities/lead.dart';
 import '../../../tasks/domain/entities/crm_task.dart';
 import '../entities/sales_command_center.dart';
+import 'dashboard_truth_rules.dart';
 
 class SalesCommandCenterRules {
   const SalesCommandCenterRules({
@@ -103,7 +104,12 @@ class SalesCommandCenterRules {
       usedRecords: const <String>{},
     );
 
-    final allVisible = [...today, ...hot, ...risk, ...pressure];
+    final allCandidates = _uniqueItems([
+      ...todayCandidates,
+      ...hotCandidates,
+      ...riskCandidates,
+      ...pressureCandidates,
+    ]);
     final overdueFollowUps = _operationalGroupItems(
       SalesCommandSectionType.overdueFollowUps,
       riskCandidates,
@@ -124,8 +130,19 @@ class SalesCommandCenterRules {
       riskCandidates,
       (item) =>
           item.module == DashboardCommandModule.deal &&
-          item.reason == DashboardAttentionReason.dealAtRisk &&
-          item.dueAt == null,
+          item.reason == DashboardAttentionReason.dealAtRisk,
+    );
+    final dueTodayFollowUpsCount = _uniqueRecordCount(
+      todayCandidates.where((item) {
+        return item.module == DashboardCommandModule.lead &&
+            item.reason == DashboardAttentionReason.dueTodayFollowUp;
+      }),
+    );
+    final hotLeadsCount = _uniqueRecordCount(
+      hotCandidates.where((item) {
+        return item.module == DashboardCommandModule.lead &&
+            item.reason == DashboardAttentionReason.hotLead;
+      }),
     );
     return SalesCommandSummary(
       sections: _sections(
@@ -140,20 +157,20 @@ class SalesCommandCenterRules {
         includeTeamPressure: _canSeeTeamPressure(input.role),
       ),
       updatedAt: input.now,
-      highPriorityCount: allVisible
+      highPriorityCount: allCandidates
           .where((item) => item.priority == DashboardPriority.high)
           .length,
-      mediumPriorityCount: allVisible
+      mediumPriorityCount: allCandidates
           .where((item) => item.priority == DashboardPriority.medium)
           .length,
-      lowPriorityCount: allVisible
+      lowPriorityCount: allCandidates
           .where((item) => item.priority == DashboardPriority.low)
           .length,
-      dueTodayCount: allVisible.where((item) => _isDueToday(input, item)).length,
-      overdueCount: allVisible.where((item) => _isOverdue(input, item)).length,
-      hotOpportunityCount: hot.length,
-      atRiskCount: risk.length,
-      teamPressureCount: pressure.length,
+      dueTodayCount: dueTodayFollowUpsCount,
+      overdueCount: overdueFollowUps.count,
+      hotOpportunityCount: hotLeadsCount,
+      atRiskCount: stuckDeals.count,
+      teamPressureCount: _uniqueItems(pressureCandidates).length,
     );
   }
 
@@ -165,7 +182,7 @@ class SalesCommandCenterRules {
     List<SalesCommandItem> pressure,
   ) {
     for (final lead in input.leads) {
-      if (!_isOpenLead(lead)) {
+      if (!DashboardTruthRules.isActiveLead(lead)) {
         continue;
       }
 
@@ -180,8 +197,8 @@ class SalesCommandCenterRules {
       final statusBoost = _leadStatusBoost(lead.status);
 
       if (followUpAt != null) {
-        final followUpDay = _dateOnly(followUpAt);
-        if (followUpDay.isBefore(input.today)) {
+        final followUpDay = DashboardTruthRules.dateOnly(followUpAt);
+        if (DashboardTruthRules.isOverdueFollowUpLead(lead, input.today)) {
           final item = _leadItem(
             lead: lead,
             reason: DashboardAttentionReason.overdueFollowUp,
@@ -197,7 +214,7 @@ class SalesCommandCenterRules {
           risk.add(item);
           continue;
         }
-        if (followUpDay == input.today) {
+        if (DashboardTruthRules.isDueTodayFollowUpLead(lead, input.today)) {
           final item = _leadItem(
             lead: lead,
             reason: DashboardAttentionReason.dueTodayFollowUp,
@@ -280,11 +297,11 @@ class SalesCommandCenterRules {
     List<SalesCommandItem> risk,
   ) {
     for (final task in input.tasks) {
-      if (!_isOpenTask(task) || task.dueDate == null) {
+      if (!DashboardTruthRules.isOpenTask(task) || task.dueDate == null) {
         continue;
       }
       final dueAt = task.dueDate!.toLocal();
-      final dueDay = _dateOnly(dueAt);
+      final dueDay = DashboardTruthRules.dateOnly(dueAt);
       final boost = _taskPriorityBoost(task.priority);
 
       if (dueDay.isBefore(input.today)) {
@@ -325,7 +342,7 @@ class SalesCommandCenterRules {
     List<SalesCommandItem> risk,
   ) {
     for (final deal in input.deals) {
-      if (!_isOpenDeal(deal)) {
+      if (!DashboardTruthRules.isOpenDeal(deal)) {
         continue;
       }
 
@@ -352,7 +369,11 @@ class SalesCommandCenterRules {
 
       if (updatedAt != null) {
         final ageDays = input.now.difference(updatedAt).inDays;
-        if (ageDays >= stuckDealDays) {
+        if (DashboardTruthRules.isDealAtRisk(
+          deal,
+          input.now,
+          staleDays: stuckDealDays,
+        )) {
           risk.add(
             _dealItem(
               deal: deal,
@@ -402,8 +423,7 @@ class SalesCommandCenterRules {
       final isOpenStatus = appointment.status == AppointmentStatus.scheduled ||
           appointment.status == AppointmentStatus.rescheduled;
 
-      if (appointment.status == AppointmentStatus.missed ||
-          (isOpenStatus && endAt != null && endAt.isBefore(input.now))) {
+      if (DashboardTruthRules.isMissedAppointment(appointment, input.now)) {
         final ageDays = endAt == null ? 0 : input.now.difference(endAt).inDays;
         if (ageDays > feedbackWindowDays) {
           continue;
@@ -486,7 +506,7 @@ class SalesCommandCenterRules {
 
     final overdueByAssignee = <String, List<CrmTask>>{};
     for (final task in input.tasks) {
-      if (!_isOpenTask(task) || task.dueDate == null) {
+      if (!DashboardTruthRules.isOpenTask(task) || task.dueDate == null) {
         continue;
       }
       final assignee = task.assignedTo.trim();
@@ -534,6 +554,18 @@ class SalesCommandCenterRules {
         ),
       );
     }
+  }
+
+  List<SalesCommandItem> _uniqueItems(Iterable<SalesCommandItem> items) {
+    final byId = <String, SalesCommandItem>{};
+    for (final item in items) {
+      byId[item.id] = item;
+    }
+    return byId.values.toList();
+  }
+
+  int _uniqueRecordCount(Iterable<SalesCommandItem> items) {
+    return items.map((item) => item.recordKey).toSet().length;
   }
 
   List<SalesCommandItem> _pickTodayPriorities(List<SalesCommandItem> items) {
@@ -816,37 +848,8 @@ List<SalesCommandSection> _sections({
   ];
 }
 
-bool _isOpenLead(Lead lead) {
-  return !lead.isArchived &&
-      lead.status != LeadStatus.won &&
-      lead.status != LeadStatus.lost;
-}
-
-bool _isOpenTask(CrmTask task) {
-  return task.isActive &&
-      task.status != TaskStatus.completed &&
-      task.status != TaskStatus.cancelled;
-}
-
-bool _isOpenDeal(Deal deal) {
-  return deal.isActive &&
-      !deal.isArchived &&
-      deal.stage != DealStage.won &&
-      deal.stage != DealStage.lost;
-}
-
 bool _canSeeTeamPressure(UserRole role) {
   return role == UserRole.admin || role == UserRole.manager;
-}
-
-bool _isDueToday(SalesCommandCenterRuleInput input, SalesCommandItem item) {
-  final dueAt = item.dueAt;
-  return dueAt != null && _dateOnly(dueAt) == input.today;
-}
-
-bool _isOverdue(SalesCommandCenterRuleInput input, SalesCommandItem item) {
-  final dueAt = item.dueAt;
-  return dueAt != null && _dateOnly(dueAt).isBefore(input.today);
 }
 
 DateTime _dateOnly(DateTime value) {

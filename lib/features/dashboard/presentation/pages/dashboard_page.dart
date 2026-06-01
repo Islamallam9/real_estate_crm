@@ -307,6 +307,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata
@@ -322,6 +323,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
@@ -330,6 +332,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata
@@ -339,6 +342,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
@@ -347,6 +351,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         role: role,
         currentUserId: uid,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
@@ -381,6 +386,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (role != null &&
@@ -398,6 +404,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (role != null &&
@@ -407,6 +414,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (role != null &&
@@ -417,6 +425,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: managerTeamId,
       );
     }
     if (role != null &&
@@ -427,6 +436,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         companyId: widget.companyId,
         role: role,
         currentUserId: uid,
+        teamId: managerTeamId,
       );
     }
     if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
@@ -861,6 +871,7 @@ String _auditActionLabel(AppLocalizations l, AuditLogAction action) {
     AuditLogAction.imageRemoved => l.dashboardAuditImageRemoved,
     AuditLogAction.restore => l.dashboardAuditRestored,
     AuditLogAction.exportGenerated => l.dashboardAuditExportGenerated,
+    AuditLogAction.exported => l.dashboardAuditExportGenerated,
   };
 }
 
@@ -871,7 +882,13 @@ String _auditModuleLabel(AppLocalizations l, AuditLogModule module) {
     AuditLogModule.properties => l.dashboardAuditProperty,
     AuditLogModule.tasks => l.dashboardAuditTask,
     AuditLogModule.deals => l.dashboardAuditDeal,
+    AuditLogModule.appointments => l.appointments,
+    AuditLogModule.users => l.userManagement,
+    AuditLogModule.teams => l.teamManagement,
     AuditLogModule.reports => l.reports,
+    AuditLogModule.exports => l.exportActivity,
+    AuditLogModule.auditLogs => l.auditLogs,
+    AuditLogModule.other => l.other,
   };
 }
 
@@ -882,7 +899,13 @@ IconData _auditModuleIcon(AuditLogModule module) {
     AuditLogModule.properties => Icons.business_outlined,
     AuditLogModule.tasks => Icons.checklist_rtl_rounded,
     AuditLogModule.deals => Icons.handshake_outlined,
+    AuditLogModule.appointments => Icons.event_note_outlined,
+    AuditLogModule.users => Icons.manage_accounts_outlined,
+    AuditLogModule.teams => Icons.groups_outlined,
     AuditLogModule.reports => Icons.file_download_outlined,
+    AuditLogModule.exports => Icons.ios_share_outlined,
+    AuditLogModule.auditLogs => Icons.manage_search_outlined,
+    AuditLogModule.other => Icons.history_toggle_off_outlined,
   };
 }
 
@@ -901,6 +924,7 @@ AppStatusTone _auditActionTone(AuditLogAction action) {
     AuditLogAction.assign => AppStatusTone.info,
     AuditLogAction.update => AppStatusTone.info,
     AuditLogAction.exportGenerated => AppStatusTone.info,
+    AuditLogAction.exported => AppStatusTone.info,
   };
 }
 
@@ -919,7 +943,14 @@ void Function(BuildContext context)? _auditRecordTap(AuditLog log) {
     AuditLogModule.tasks => (context) => context.go(RouteNames.taskEdit(log.recordId)),
     AuditLogModule.deals => (context) =>
         context.go(RouteNames.dealDetails(log.recordId)),
+    AuditLogModule.appointments => (context) =>
+        context.go(RouteNames.appointmentEdit(log.recordId)),
+    AuditLogModule.users => (context) => context.go(RouteNames.users),
+    AuditLogModule.teams => (context) => context.go(RouteNames.teams),
     AuditLogModule.reports => (context) => context.go(RouteNames.reports),
+    AuditLogModule.exports => (context) => context.go(RouteNames.auditLogs),
+    AuditLogModule.auditLogs => (context) => context.go(RouteNames.auditLogs),
+    AuditLogModule.other => null,
   };
 }
 
@@ -5449,8 +5480,8 @@ String _kpiTitle(BuildContext context, DashboardKpiType type) {
     DashboardKpiType.pipelineDeals => l.dashboardKpiDealsPipeline,
     DashboardKpiType.expectedPipelineValue => l.dashboardKpiExpectedPipeline,
     DashboardKpiType.expectedCommission => l.commissionTotal,
-    DashboardKpiType.wonDealsThisMonth => l.wonDeals,
-    DashboardKpiType.stuckDeals => l.dashboardStuckDeals,
+    DashboardKpiType.wonDealsThisMonth => l.wonDealsThisMonth,
+    DashboardKpiType.stuckDeals => l.dashboardDealRisks,
     DashboardKpiType.unassignedLeads => l.dashboardUnassignedLeads,
     DashboardKpiType.teamWorkload => l.workload,
     DashboardKpiType.activeProperties => l.dashboardKpiActiveListings,

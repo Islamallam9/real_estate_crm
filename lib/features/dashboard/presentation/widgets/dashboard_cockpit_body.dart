@@ -1317,7 +1317,7 @@ class _DashboardKpiCardState extends State<DashboardKpiCard> {
 String? _kpiRoute(DashboardKpiType type) {
   return switch (type) {
     DashboardKpiType.activeLeads => RouteNames.filteredLeads(queue: 'active'),
-    DashboardKpiType.newLeadsToday => null,
+    DashboardKpiType.newLeadsToday => RouteNames.filteredLeads(queue: 'newToday'),
     DashboardKpiType.hotOpportunities => RouteNames.filteredLeads(queue: 'hot'),
     DashboardKpiType.dueTodayFollowUps =>
       RouteNames.filteredLeads(followUp: 'dueToday'),
@@ -1333,7 +1333,7 @@ String? _kpiRoute(DashboardKpiType type) {
     DashboardKpiType.expectedPipelineValue =>
       RouteNames.filteredDeals(queue: 'open'),
     DashboardKpiType.expectedCommission => RouteNames.filteredDeals(queue: 'open'),
-    DashboardKpiType.wonDealsThisMonth => null,
+    DashboardKpiType.wonDealsThisMonth => RouteNames.filteredDeals(queue: 'wonThisMonth'),
     DashboardKpiType.stuckDeals => RouteNames.filteredDeals(queue: 'atRisk'),
     DashboardKpiType.unassignedLeads =>
       RouteNames.filteredLeads(queue: 'unassigned'),
@@ -2390,7 +2390,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
         _MobileCommandFilterSelector(
           label: _commandFilterLabel(l, _filter),
           icon: _commandFilterIcon(_filter),
-          badge: _commandBadge(_commandFilterCount(topItems, widget.summary, _filter)),
+          badge: _commandBadge(_commandFilterCount(topItems, _filter)),
           onTap: () => _showCommandFilterSheet(context, topItems),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -2443,21 +2443,24 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
             label: l.salesCommandMetricDueToday,
             subtitle: l.salesCommandReasonDueTodayFollowUp,
             icon: Icons.event_available_outlined,
-            count: widget.summary.dueTodayCount,
+            count: _filteredCommandItems(
+              topItems,
+              _CommandFilter.dueToday,
+            ).length,
           ),
           _CommandFilterSheetOption(
             filter: _CommandFilter.hot,
             label: l.salesCommandMetricHot,
             subtitle: l.salesCommandReasonHotLead,
             icon: Icons.local_fire_department_outlined,
-            count: widget.summary.hotOpportunityCount,
+            count: _filteredCommandItems(topItems, _CommandFilter.hot).length,
           ),
           _CommandFilterSheetOption(
             filter: _CommandFilter.atRisk,
             label: l.dashboardKpiOverdueActions,
             subtitle: l.salesCommandReasonOverdueFollowUp,
             icon: Icons.report_problem_outlined,
-            count: widget.summary.atRiskCount,
+            count: _filteredCommandItems(topItems, _CommandFilter.atRisk).length,
           ),
         ];
 
@@ -2551,7 +2554,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
           runSpacing: 5,
           children: [
             _CompactMetricPill(
-              label: l.salesCommandMetricDueToday,
+              label: l.dashboardKpiDueTodayFollowUps,
               value: widget.summary.dueTodayCount,
               tone: AppStatusTone.warning,
               route: widget.platformPreview
@@ -2567,7 +2570,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
                   : RouteNames.filteredLeads(queue: 'hot'),
             ),
             _CompactMetricPill(
-              label: l.dashboardKpiOverdueActions,
+              label: l.dashboardOverdueFollowUps,
               value: widget.summary.overdueCount,
               tone: AppStatusTone.error,
               route: widget.platformPreview
@@ -2575,7 +2578,7 @@ class _DashboardSmartSuggestionsStripState extends State<DashboardSmartSuggestio
                   : RouteNames.filteredLeads(followUp: 'overdue'),
             ),
             _CompactMetricPill(
-              label: l.dashboardStuckDeals,
+              label: l.dashboardDealRisks,
               value: widget.summary.atRiskCount,
               tone: AppStatusTone.error,
               route: widget.platformPreview
@@ -2891,14 +2894,14 @@ IconData _commandFilterIcon(_CommandFilter filter) {
 
 int _commandFilterCount(
   List<SalesCommandItem> topItems,
-  SalesCommandSummary summary,
   _CommandFilter filter,
 ) {
   return switch (filter) {
     _CommandFilter.all => topItems.length,
-    _CommandFilter.dueToday => summary.dueTodayCount,
-    _CommandFilter.hot => summary.hotOpportunityCount,
-    _CommandFilter.atRisk => summary.atRiskCount,
+    _CommandFilter.dueToday ||
+    _CommandFilter.hot ||
+    _CommandFilter.atRisk =>
+      _filteredCommandItems(topItems, filter).length,
   };
 }
 
@@ -3536,7 +3539,7 @@ String _operationalGroupTitle(
     SalesCommandSectionType.overdueFollowUps => l.dashboardOverdueFollowUps,
     SalesCommandSectionType.missedAppointments => l.missedAppointments,
     SalesCommandSectionType.overdueTasks => l.dashboardOverdueTasks,
-    SalesCommandSectionType.stuckDeals => l.dashboardStuckDeals,
+    SalesCommandSectionType.stuckDeals => l.dashboardDealRisks,
     _ => l.salesCommandMetricRisk,
   };
 }
@@ -3925,7 +3928,7 @@ String _commandReasonText(AppLocalizations l, SalesCommandItem item) {
     DashboardAttentionReason.appointmentDueNow => l.salesCommandReasonAppointmentDueNow,
     DashboardAttentionReason.appointmentUpcoming => l.salesCommandReasonAppointmentUpcoming,
     DashboardAttentionReason.appointmentNeedsFeedback => l.salesCommandReasonAppointmentNeedsFeedback,
-    DashboardAttentionReason.dealAtRisk => l.dashboardStuckDeals,
+    DashboardAttentionReason.dealAtRisk => l.dashboardDealRisks,
     DashboardAttentionReason.overloadedAssignee =>
       l.salesCommandReasonOverloadedAssignee(item.count ?? 0),
   };
@@ -4990,7 +4993,11 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
             count: selectedAppointments.length,
             onViewAll: widget.platformPreview
                 ? null
-                : () => context.go(RouteNames.appointments),
+                : () => context.go(
+                      RouteNames.filteredAppointments(
+                        selectedDate: _queryDate(_selectedDate),
+                      ),
+                    ),
           ),
           const SizedBox(height: AppSpacing.xs),
           if (selectedAppointments.isEmpty)
@@ -5000,15 +5007,12 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
               _RailItem(item: item, platformPreview: widget.platformPreview),
           const SizedBox(height: 10),
           _RailSectionHeader(
-            title: l.dashboardUrgentFollowUps,
+            title: l.dashboardUrgentActions,
             count: urgentItems.length,
-            onViewAll: widget.platformPreview
-                ? null
-                : () => context.go(RouteNames.filteredTasks(due: 'overdue')),
           ),
           const SizedBox(height: AppSpacing.xs),
           if (urgentItems.isEmpty)
-            _RailEmpty(message: l.dashboardNoUrgentFollowUps)
+            _RailEmpty(message: l.dashboardNoUrgentActions)
           else
             for (final item in urgentItems.take(4))
               _RailItem(item: item, platformPreview: widget.platformPreview),
@@ -5066,7 +5070,7 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
         children: [
           _RailSectionHeader(
             title: l.dashboardRecentActivity,
-            count: 5,
+            count: null,
             onViewAll: null,
           ),
           const SizedBox(height: 7),
@@ -5222,7 +5226,13 @@ String _auditModuleLabel(AppLocalizations l, AuditLogModule module) {
     AuditLogModule.properties => l.dashboardAuditProperty,
     AuditLogModule.tasks => l.dashboardAuditTask,
     AuditLogModule.deals => l.dashboardAuditDeal,
+    AuditLogModule.appointments => l.appointments,
+    AuditLogModule.users => l.userManagement,
+    AuditLogModule.teams => l.teamManagement,
     AuditLogModule.reports => l.reports,
+    AuditLogModule.exports => l.exportActivity,
+    AuditLogModule.auditLogs => l.auditLogs,
+    AuditLogModule.other => l.other,
   };
 }
 
@@ -5241,6 +5251,7 @@ String _auditActionLabel(AppLocalizations l, AuditLogAction action) {
     AuditLogAction.imageAdded => l.dashboardAuditImageAdded,
     AuditLogAction.imageRemoved => l.dashboardAuditImageRemoved,
     AuditLogAction.exportGenerated => l.dashboardAuditExportGenerated,
+    AuditLogAction.exported => l.dashboardAuditExportGenerated,
   };
 }
 
@@ -5254,7 +5265,13 @@ String? _auditRoute(AuditLog log) {
     AuditLogModule.properties => RouteNames.propertyDetails(log.recordId),
     AuditLogModule.tasks => RouteNames.taskEdit(log.recordId),
     AuditLogModule.deals => RouteNames.dealDetails(log.recordId),
+    AuditLogModule.appointments => RouteNames.appointmentEdit(log.recordId),
+    AuditLogModule.users => RouteNames.users,
+    AuditLogModule.teams => RouteNames.teams,
     AuditLogModule.reports => RouteNames.reports,
+    AuditLogModule.exports => RouteNames.auditLogs,
+    AuditLogModule.auditLogs => RouteNames.auditLogs,
+    AuditLogModule.other => null,
   };
 }
 
@@ -5272,7 +5289,8 @@ Color _auditToneColor(BuildContext context, AuditLogAction action) {
     AuditLogAction.stageChange => AppColors.warningColor(context),
     AuditLogAction.assign ||
     AuditLogAction.update ||
-    AuditLogAction.exportGenerated => AppColors.infoColor(context),
+    AuditLogAction.exportGenerated ||
+    AuditLogAction.exported => AppColors.infoColor(context),
   };
 }
 
@@ -5904,12 +5922,12 @@ class _InitialsAvatar extends StatelessWidget {
 class _RailSectionHeader extends StatelessWidget {
   const _RailSectionHeader({
     required this.title,
-    required this.count,
+    this.count,
     this.onViewAll,
   });
 
   final String title;
-  final int count;
+  final int? count;
   final VoidCallback? onViewAll;
 
   @override
@@ -5919,7 +5937,7 @@ class _RailSectionHeader extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            '$title ($count)',
+            count == null ? title : '$title ($count)',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -6122,7 +6140,6 @@ List<DashboardKpiMetric> _primaryMetrics(List<DashboardKpiMetric> metrics) {
     DashboardKpiType.hotOpportunities,
     DashboardKpiType.dueTodayFollowUps,
     DashboardKpiType.overdueFollowUps,
-    DashboardKpiType.overdueActions,
     DashboardKpiType.appointmentsToday,
     DashboardKpiType.missedAppointments,
     DashboardKpiType.overdueTasks,
@@ -6132,7 +6149,6 @@ List<DashboardKpiMetric> _primaryMetrics(List<DashboardKpiMetric> metrics) {
     DashboardKpiType.wonDealsThisMonth,
     DashboardKpiType.stuckDeals,
     DashboardKpiType.unassignedLeads,
-    DashboardKpiType.teamWorkload,
     DashboardKpiType.activeProperties,
   ];
   final selected = <DashboardKpiMetric>[];
@@ -6419,8 +6435,8 @@ String _kpiTitle(BuildContext context, DashboardKpiType type) {
     DashboardKpiType.pipelineDeals =>
       l.dashboardKpiExpectedPipeline,
     DashboardKpiType.expectedCommission => l.commissionTotal,
-    DashboardKpiType.wonDealsThisMonth => l.wonDeals,
-    DashboardKpiType.stuckDeals => l.dashboardStuckDeals,
+    DashboardKpiType.wonDealsThisMonth => l.wonDealsThisMonth,
+    DashboardKpiType.stuckDeals => l.dashboardDealRisks,
     DashboardKpiType.unassignedLeads => l.dashboardUnassignedLeads,
     DashboardKpiType.teamWorkload => l.workload,
     DashboardKpiType.activeProperties => l.dashboardKpiActiveListings,
@@ -6437,9 +6453,9 @@ String _kpiPeriod(BuildContext context, DashboardKpiType type) {
       l.dashboardPeriodToday,
     DashboardKpiType.expectedPipelineValue ||
     DashboardKpiType.expectedCommission ||
-    DashboardKpiType.wonDealsThisMonth ||
     DashboardKpiType.pipelineDeals =>
-      l.dashboardPeriodThisMonth,
+      l.dashboardPeriodCurrentScope,
+    DashboardKpiType.wonDealsThisMonth => l.dashboardPeriodThisMonth,
     DashboardKpiType.overdueFollowUps ||
     DashboardKpiType.overdueActions ||
     DashboardKpiType.overdueTasks ||

@@ -149,6 +149,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get wonDeals => 'الصفقات الرابحة';
 
   @override
+  String get wonDealsThisMonth => 'الصفقات الرابحة هذا الشهر';
+
+  @override
   String get taskCompletion => 'إنجاز المهام';
 
   @override
@@ -421,6 +424,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get loginSubtitle => 'من العميل المحتمل إلى الصفقة، مسار واضح واحد.';
+
+  @override
+  String get loginSupportTitle => 'تحتاج مساعدة للبدء؟';
+
+  @override
+  String get loginSupportSubtitle =>
+      'تواصل مع دعم مسار لإنشاء حساب شركتك أو الحصول على دعوة.';
+
+  @override
+  String get loginSupportWhatsAppMessage =>
+      'مرحبًا دعم مسار، أحتاج مساعدة في إنشاء حساب شركتي أو الدخول إليه.';
+
+  @override
+  String get loginSupportEmailSubject => 'طلب دخول إلى مسار CRM';
+
+  @override
+  String get loginSupportEmailBody =>
+      'مرحبًا دعم مسار،\n\nأحتاج مساعدة في إنشاء حساب شركتي أو الدخول إليه.\n\nشكرًا لكم.';
 
   @override
   String get emailRequired => 'البريد الإلكتروني مطلوب.';
@@ -1377,7 +1398,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardGeneralTask => 'مهمة عامة';
 
   @override
-  String get dashboardKpiActiveLeads => 'عملاء محتملون';
+  String get dashboardKpiActiveLeads => 'العملاء المحتملون النشطون';
 
   @override
   String get dashboardKpiHotOpportunities => 'فرص مهمة';
@@ -1386,7 +1407,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardKpiDueTodayFollowUps => 'متابعات اليوم';
 
   @override
-  String get dashboardKpiOverdueActions => 'إجراءات متأخرة';
+  String get dashboardKpiOverdueActions => 'مهام متأخرة';
 
   @override
   String get dashboardKpiAppointmentsToday => 'مواعيد اليوم';
@@ -1456,6 +1477,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardStuckDeals => 'صفقات متوقفة';
 
   @override
+  String get dashboardDealRisks => 'صفقات تحتاج متابعة';
+
+  @override
   String get dashboardClosingThisMonth => 'إغلاق هذا الشهر';
 
   @override
@@ -1514,6 +1538,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get dashboardNoAppointmentsForDay => 'لا توجد مواعيد لهذا اليوم';
+
+  @override
+  String get dashboardUrgentActions => 'إجراءات عاجلة';
 
   @override
   String get dashboardUrgentFollowUps => 'متابعات عاجلة';
@@ -2419,7 +2446,65 @@ class AppLocalizationsAr extends AppLocalizations {
   String get exportGeneratedSuccessfully => 'تم إنشاء ملف Excel بنجاح.';
 
   @override
-  String get exportDownloadFailed => 'التنزيل غير متاح على هذه المنصة.';
+  String get exportDownloadFailed =>
+      'تعذر حفظ ملف Excel على هذا الجهاز. حاول مرة أخرى.';
+
+  @override
+  String get androidUpdateTitle => 'تحديث مطلوب';
+
+  @override
+  String get androidUpdateBody =>
+      'هذا الإصدار من تطبيق أندرويد لم يعد مدعومًا. حدّث مسار CRM للاستمرار في استخدام التطبيق بأمان.';
+
+  @override
+  String get androidUpdateButton => 'تحديث التطبيق';
+
+  @override
+  String get androidUpdateCurrentVersion => 'الإصدار الحالي';
+
+  @override
+  String get androidUpdateLatestVersion => 'آخر إصدار';
+
+  @override
+  String get androidUpdateRemainingTime => 'الوقت المتبقي للتحديث';
+
+  @override
+  String get androidUpdateExpired =>
+      'انتهت مهلة التحديث. يرجى تثبيت أحدث ملف APK.';
+
+  @override
+  String get androidUpdateOpenFailed =>
+      'تعذر فتح رابط التحديث. يرجى التواصل مع الدعم.';
+
+  @override
+  String get androidUpdateChecking => 'جاري التحقق من إصدار التطبيق';
+
+  @override
+  String get androidUpdateDownloading => 'جاري تنزيل التحديث';
+
+  @override
+  String get androidUpdateDownloadStarting => 'جاري بدء تنزيل التحديث بشكل آمن';
+
+  @override
+  String get androidUpdateDownloadFailed =>
+      'تعذر تنزيل التحديث. تحقق من الاتصال وحاول مرة أخرى.';
+
+  @override
+  String get androidUpdateInvalidPackage =>
+      'ملف التحديث الذي تم تنزيله ليس ملف APK صالحًا. تحقق من رابط الإصدار أو تواصل مع الدعم.';
+
+  @override
+  String get androidUpdateInstalling => 'جاري فتح مثبت أندرويد';
+
+  @override
+  String get androidUpdateReadyToInstall => 'اكتمل التنزيل. مثبت أندرويد جاهز.';
+
+  @override
+  String get androidUpdateInstallButton => 'تثبيت التحديث';
+
+  @override
+  String get androidUpdateInstallPermissionRequired =>
+      'اسمح لتطبيق مسار CRM بتثبيت التحديثات، ثم ارجع واضغط تثبيت التحديث مرة أخرى.';
 
   @override
   String get exportNotAvailableForRole => 'هذا التصدير غير متاح لدورك.';
@@ -2709,6 +2794,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String get changeEmail => 'تغيير البريد الإلكتروني';
 
   @override
+  String get platformOwnerEmailUpdated =>
+      'تم تحديث بريد مالك المنصة الإلكتروني.';
+
+  @override
+  String get reauthenticationRequired =>
+      'يرجى تسجيل الدخول مرة أخرى ثم تغيير البريد الإلكتروني. يتطلب Firebase تسجيل دخول حديثاً لهذا الإجراء.';
+
+  @override
   String get changePassword => 'تغيير كلمة المرور';
 
   @override
@@ -2745,6 +2838,18 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get newPasswordTooShort =>
       'يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف.';
+
+  @override
+  String get passwordMustIncludeLowercase =>
+      'يجب أن تحتوي كلمة المرور على حرف إنجليزي صغير واحد على الأقل.';
+
+  @override
+  String get passwordMustIncludeUppercase =>
+      'يجب أن تحتوي كلمة المرور على حرف إنجليزي كبير واحد على الأقل.';
+
+  @override
+  String get passwordMustIncludeNumber =>
+      'يجب أن تحتوي كلمة المرور على رقم واحد على الأقل.';
 
   @override
   String get generateResetLink => 'إنشاء رابط إعادة تعيين';
@@ -3321,7 +3426,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get notificationRouteUnavailable =>
-      'لا يمكن فتح هذا الإشعار من صلاحياتك الحالية.';
+      'هذا العنصر لم يعد متاحًا أو لا تملك صلاحية الوصول إليه.';
 
   @override
   String get notificationsUnavailableInPlatform =>
@@ -3420,6 +3525,45 @@ class AppLocalizationsAr extends AppLocalizations {
   String get appointmentAttention => 'تنبيهات المواعيد';
 
   @override
+  String get appointmentCalendarTodayView => 'اليوم';
+
+  @override
+  String get appointmentCalendarMonthView => 'الشهر';
+
+  @override
+  String get appointmentCalendarWeekView => 'الأسبوع';
+
+  @override
+  String get appointmentCalendarDayView => 'اليوم المحدد';
+
+  @override
+  String get todayAgenda => 'جدول اليوم';
+
+  @override
+  String get appointmentAgenda => 'جدول المواعيد';
+
+  @override
+  String get noAppointmentsToday => 'لا توجد مواعيد اليوم';
+
+  @override
+  String get noAppointmentsForSelectedDay => 'لا توجد مواعيد في هذا اليوم';
+
+  @override
+  String get openLinkedRecord => 'فتح السجل المرتبط';
+
+  @override
+  String get currentAppointmentTime => 'الوقت الحالي';
+
+  @override
+  String get appointmentOutcome => 'نتيجة الموعد';
+
+  @override
+  String get cancellationReason => 'سبب الإلغاء';
+
+  @override
+  String get cancellationReasonRequired => 'اكتب سبب الإلغاء.';
+
+  @override
   String get todaysAppointments => 'مواعيد اليوم';
 
   @override
@@ -3427,6 +3571,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get missedAppointments => 'المواعيد الفائتة';
+
+  @override
+  String get noMissedAppointments => 'لا توجد مواعيد فائتة.';
 
   @override
   String get completedAppointments => 'المواعيد المكتملة';
@@ -3481,7 +3628,31 @@ class AppLocalizationsAr extends AppLocalizations {
       'هل تريد إلغاء هذا الموعد؟ سيبقى السجل محفوظًا في التاريخ.';
 
   @override
+  String get completeAppointmentConfirmation => 'أنهِ هذا الموعد وسجّل نتيجته.';
+
+  @override
   String get markMissedConfirmation => 'هل تريد تسجيل هذا الموعد كموعد فائت؟';
+
+  @override
+  String get appointmentOutcomeSuccessfulMeeting => 'اجتماع ناجح';
+
+  @override
+  String get appointmentOutcomeNoAnswer => 'لا يوجد رد';
+
+  @override
+  String get appointmentOutcomeClientPostponed => 'العميل أجّل الموعد';
+
+  @override
+  String get appointmentOutcomeClientNotInterested => 'العميل غير مهتم';
+
+  @override
+  String get appointmentOutcomeFollowUpNeeded => 'تحتاج متابعة';
+
+  @override
+  String get appointmentOutcomeDealOpportunity => 'فرصة صفقة';
+
+  @override
+  String get appointmentOutcomeOther => 'أخرى';
 
   @override
   String get appointmentTypeCall => 'مكالمة';
@@ -3857,7 +4028,8 @@ class AppLocalizationsAr extends AppLocalizations {
       'اسم الشركة مستخدم بالفعل. جرّب اسماً آخر.';
 
   @override
-  String get weakPassword => 'كلمة المرور ضعيفة.';
+  String get weakPassword =>
+      'يجب أن تكون كلمة المرور 8 أحرف على الأقل وأن تحتوي على حرف كبير وحرف صغير ورقم.';
 
   @override
   String get emailPasswordAuthDisabled =>
@@ -4701,4 +4873,176 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get journeyActionClosingDueDescription =>
       'تاريخ الإغلاق المتوقع انتهى. أنشئ مهمة أو حدّث خطة الصفقة.';
+
+  @override
+  String get activityHistory => 'سجل العمليات';
+
+  @override
+  String get visibleAuditLogs => 'العمليات الظاهرة';
+
+  @override
+  String get todayActivityCount => 'نشاط اليوم';
+
+  @override
+  String get exportActivity => 'نشاط التصدير';
+
+  @override
+  String get importantActivity => 'نشاط مهم';
+
+  @override
+  String get auditLogPermissionMessage =>
+      'سجل النشاط متاح للمسؤول والمدير فقط.';
+
+  @override
+  String get auditLogsLoadFailed =>
+      'تعذر تحميل سجل النشاط. تحقق من الفهارس أو الصلاحيات ثم حاول مرة أخرى.';
+
+  @override
+  String get noAuditLogsFound => 'لا توجد عمليات مسجلة';
+
+  @override
+  String get noAuditLogsFoundMessage =>
+      'لا توجد عمليات تطابق نطاق التصفية الحالي.';
+
+  @override
+  String get allActions => 'كل الإجراءات';
+
+  @override
+  String get allUsers => 'كل المستخدمين';
+
+  @override
+  String get searchAuditLogs => 'بحث في سجل النشاط';
+
+  @override
+  String get auditDetails => 'تفاصيل العملية';
+
+  @override
+  String get detailsSummary => 'ملخص التفاصيل';
+
+  @override
+  String get openRelatedRecord => 'فتح السجل المرتبط';
+
+  @override
+  String get technicalDetails => 'التفاصيل التقنية';
+
+  @override
+  String get exportType => 'نوع التصدير';
+
+  @override
+  String get exportScope => 'نطاق التصدير';
+
+  @override
+  String get fileFormat => 'صيغة الملف';
+
+  @override
+  String get exportedRows => 'عدد الصفوف المصدّرة';
+
+  @override
+  String get exportedColumns => 'الأعمدة المصدّرة';
+
+  @override
+  String get filterSummary => 'ملخص التصفية';
+
+  @override
+  String get supervisorNotification => 'تنبيه المسؤول';
+
+  @override
+  String get auditLogsExport => 'تصدير سجل النشاط';
+
+  @override
+  String get reportsExport => 'تصدير التقارير';
+
+  @override
+  String get platformCompanyExport => 'تصدير شركة من المنصة';
+
+  @override
+  String get exportTrackingFailed =>
+      'تم إنشاء ملف التصدير، لكن تعذر تسجيل عملية التصدير. حاول مرة أخرى.';
+
+  @override
+  String get time => 'الوقت';
+
+  @override
+  String get openFile => 'فتح الملف';
+
+  @override
+  String get openDownloads => 'فتح التنزيلات';
+
+  @override
+  String get exportSavedTo => 'تم الحفظ في';
+
+  @override
+  String get exportOpenFileFailed => 'تعذر فتح الملف على هذا الجهاز.';
+
+  @override
+  String get exportOpenDownloadsFailed =>
+      'تعذر فتح مجلد التنزيلات على هذا الجهاز.';
+
+  @override
+  String get multipleReports => 'تقارير متعددة';
+
+  @override
+  String get multipleReportsColumnsHint =>
+      'عند تصدير أكثر من تقرير، يتم استخدام الأعمدة المقترحة لكل تقرير محدد.';
+
+  @override
+  String get androidReleaseManagement => 'إدارة إصدار أندرويد';
+
+  @override
+  String get androidReleaseManagementSubtitle =>
+      'تحكم في تحديثات APK الإجبارية لمستخدمي أندرويد بدون تعديل Firestore يدويًا.';
+
+  @override
+  String get releaseReady => 'الإصدار جاهز';
+
+  @override
+  String get minimumSupportedBuild => 'أقل رقم بناء مدعوم';
+
+  @override
+  String get latestBuild => 'أحدث رقم بناء';
+
+  @override
+  String get updateUrl => 'رابط التحديث';
+
+  @override
+  String get suggestedUpdateUrl => 'رابط التحديث المقترح';
+
+  @override
+  String get useSuggestedUpdateUrl => 'استخدام الرابط المقترح';
+
+  @override
+  String get saveReleasePolicy => 'حفظ سياسة الإصدار';
+
+  @override
+  String get androidReleasePolicySaved => 'تم حفظ سياسة إصدار أندرويد.';
+
+  @override
+  String get androidReleasePolicyHint =>
+      'اترك جاهزية الإصدار مغلقة حتى ترفع ملف APK وتختبر الرابط.';
+
+  @override
+  String get enabled => 'مفعّل';
+
+  @override
+  String get connectionLostSnackbar =>
+      'لا يوجد اتصال بالإنترنت. قد لا تكتمل بعض العمليات حتى يعود الاتصال.';
+
+  @override
+  String get connectionRestoredSnackbar => 'عاد الاتصال بالإنترنت.';
+
+  @override
+  String get androidVersionAdoption => 'انتشار إصدارات أندرويد';
+
+  @override
+  String get androidVersionAdoptionSubtitle =>
+      'المستخدمون النشطون حسب إصدار التطبيق المثبّت، بناءً على آخر أجهزة مسجلة.';
+
+  @override
+  String get activeDevices => 'الأجهزة النشطة';
+
+  @override
+  String get latestSeen => 'آخر ظهور';
+
+  @override
+  String get noAndroidVersionData => 'لا توجد بيانات إصدارات أندرويد حتى الآن.';
 }

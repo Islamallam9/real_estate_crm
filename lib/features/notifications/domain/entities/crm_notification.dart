@@ -54,6 +54,10 @@ enum CrmNotificationType {
 
 enum CrmNotificationPriority { low, normal, high, urgent }
 
+enum CrmNotificationDeliveryMode { inAppOnly, pushEligible, attentionOnly, auditOnly }
+
+enum CrmNotificationRecipientScope { user, managerTeam, admins, platformOwner }
+
 enum CrmNotificationActionState { none, actionNeeded, resolved, dismissed }
 
 class CrmNotification extends Equatable {
@@ -74,6 +78,9 @@ class CrmNotification extends Equatable {
     required this.teamName,
     required this.managerId,
     required this.priority,
+    required this.deliveryMode,
+    required this.recipientScope,
+    required this.dedupeKey,
     required this.isRead,
     required this.readAt,
     required this.createdAt,
@@ -101,6 +108,9 @@ class CrmNotification extends Equatable {
   final String teamName;
   final String managerId;
   final CrmNotificationPriority priority;
+  final CrmNotificationDeliveryMode deliveryMode;
+  final CrmNotificationRecipientScope recipientScope;
+  final String dedupeKey;
   final bool isRead;
   final DateTime? readAt;
   final DateTime? createdAt;
@@ -141,6 +151,9 @@ class CrmNotification extends Equatable {
       teamName: teamName,
       managerId: managerId,
       priority: priority,
+      deliveryMode: deliveryMode,
+      recipientScope: recipientScope,
+      dedupeKey: dedupeKey,
       isRead: isRead ?? this.isRead,
       readAt: readAt ?? this.readAt,
       createdAt: createdAt,
@@ -171,6 +184,9 @@ class CrmNotification extends Equatable {
         teamName,
         managerId,
         priority,
+        deliveryMode,
+        recipientScope,
+        dedupeKey,
         isRead,
         readAt,
         createdAt,
@@ -203,6 +219,28 @@ CrmNotificationPriority notificationPriorityFromValue(String value) {
 
 String notificationPriorityToValue(CrmNotificationPriority priority) {
   return priority.name;
+}
+
+CrmNotificationDeliveryMode notificationDeliveryModeFromValue(String value) {
+  return CrmNotificationDeliveryMode.values.firstWhere(
+    (mode) => mode.name == value,
+    orElse: () => CrmNotificationDeliveryMode.inAppOnly,
+  );
+}
+
+String notificationDeliveryModeToValue(CrmNotificationDeliveryMode mode) {
+  return mode.name;
+}
+
+CrmNotificationRecipientScope notificationRecipientScopeFromValue(String value) {
+  return CrmNotificationRecipientScope.values.firstWhere(
+    (scope) => scope.name == value,
+    orElse: () => CrmNotificationRecipientScope.user,
+  );
+}
+
+String notificationRecipientScopeToValue(CrmNotificationRecipientScope scope) {
+  return scope.name;
 }
 
 CrmNotificationActionState notificationActionStateFromValue(String value) {

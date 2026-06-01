@@ -148,6 +148,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wonDeals => 'Won deals';
 
   @override
+  String get wonDealsThisMonth => 'Won deals this month';
+
+  @override
   String get taskCompletion => 'Task completion';
 
   @override
@@ -422,6 +425,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginSubtitle => 'From lead to deal, one clear path.';
+
+  @override
+  String get loginSupportTitle => 'Need help getting started?';
+
+  @override
+  String get loginSupportSubtitle =>
+      'Contact Masar support to create your company account or get an invitation.';
+
+  @override
+  String get loginSupportWhatsAppMessage =>
+      'Hello Masar Support, I need help creating or accessing my company account.';
+
+  @override
+  String get loginSupportEmailSubject => 'Masar CRM access request';
+
+  @override
+  String get loginSupportEmailBody =>
+      'Hello Masar Support,\n\nI need help creating or accessing my company account.\n\nThank you.';
 
   @override
   String get emailRequired => 'Email is required.';
@@ -1383,7 +1404,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardGeneralTask => 'General task';
 
   @override
-  String get dashboardKpiActiveLeads => 'Active Leads';
+  String get dashboardKpiActiveLeads => 'Active leads';
 
   @override
   String get dashboardKpiHotOpportunities => 'Hot Opportunities';
@@ -1463,6 +1484,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardStuckDeals => 'Stuck deals';
 
   @override
+  String get dashboardDealRisks => 'Deal risks';
+
+  @override
   String get dashboardClosingThisMonth => 'Closing this month';
 
   @override
@@ -1522,6 +1546,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardNoAppointmentsForDay => 'No appointments for this day.';
+
+  @override
+  String get dashboardUrgentActions => 'Urgent actions';
 
   @override
   String get dashboardUrgentFollowUps => 'Urgent follow-ups';
@@ -2244,7 +2271,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trial => 'Trial';
 
   @override
-  String get auditLogs => 'Activity history';
+  String get auditLogs => 'Audit Logs';
 
   @override
   String get previewDashboard => 'Preview dashboard';
@@ -2431,7 +2458,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportDownloadFailed =>
-      'Download is unavailable on this platform.';
+      'Could not save the Excel file on this device. Please try again.';
+
+  @override
+  String get androidUpdateTitle => 'Update required';
+
+  @override
+  String get androidUpdateBody =>
+      'This Android version is no longer supported. Update Masar CRM to continue using the app safely.';
+
+  @override
+  String get androidUpdateButton => 'Update app';
+
+  @override
+  String get androidUpdateCurrentVersion => 'Current version';
+
+  @override
+  String get androidUpdateLatestVersion => 'Latest version';
+
+  @override
+  String get androidUpdateRemainingTime => 'Remaining update period';
+
+  @override
+  String get androidUpdateExpired =>
+      'The update period has ended. Please install the latest APK.';
+
+  @override
+  String get androidUpdateOpenFailed =>
+      'Could not open the update link. Please contact support.';
+
+  @override
+  String get androidUpdateChecking => 'Checking app version';
+
+  @override
+  String get androidUpdateDownloading => 'Downloading update';
+
+  @override
+  String get androidUpdateDownloadStarting => 'Starting secure update download';
+
+  @override
+  String get androidUpdateDownloadFailed =>
+      'Could not download the update. Check your connection and try again.';
+
+  @override
+  String get androidUpdateInvalidPackage =>
+      'The downloaded update file is not a valid APK. Check the release link or contact support.';
+
+  @override
+  String get androidUpdateInstalling => 'Opening Android installer';
+
+  @override
+  String get androidUpdateReadyToInstall =>
+      'Download complete. Android installer is ready.';
+
+  @override
+  String get androidUpdateInstallButton => 'Install update';
+
+  @override
+  String get androidUpdateInstallPermissionRequired =>
+      'Allow Masar CRM to install updates, then return and tap Install update again.';
 
   @override
   String get exportNotAvailableForRole =>
@@ -2722,6 +2807,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get changeEmail => 'Change email';
 
   @override
+  String get platformOwnerEmailUpdated => 'Platform owner email updated.';
+
+  @override
+  String get reauthenticationRequired =>
+      'Please sign in again, then change the email. Firebase requires a recent login for this action.';
+
+  @override
   String get changePassword => 'Change password';
 
   @override
@@ -2759,6 +2851,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get newPasswordTooShort =>
       'New password must be at least 8 characters.';
+
+  @override
+  String get passwordMustIncludeLowercase =>
+      'Password must include at least one lowercase letter.';
+
+  @override
+  String get passwordMustIncludeUppercase =>
+      'Password must include at least one uppercase letter.';
+
+  @override
+  String get passwordMustIncludeNumber =>
+      'Password must include at least one number.';
 
   @override
   String get generateResetLink => 'Generate reset link';
@@ -3336,7 +3440,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationRouteUnavailable =>
-      'This notification cannot be opened from your current access.';
+      'This item is no longer available or you do not have access.';
 
   @override
   String get notificationsUnavailableInPlatform =>
@@ -3437,6 +3541,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appointmentAttention => 'Appointment attention';
 
   @override
+  String get appointmentCalendarTodayView => 'Today';
+
+  @override
+  String get appointmentCalendarMonthView => 'Month';
+
+  @override
+  String get appointmentCalendarWeekView => 'Week';
+
+  @override
+  String get appointmentCalendarDayView => 'Day';
+
+  @override
+  String get todayAgenda => 'Today\'s agenda';
+
+  @override
+  String get appointmentAgenda => 'Agenda';
+
+  @override
+  String get noAppointmentsToday => 'No appointments today';
+
+  @override
+  String get noAppointmentsForSelectedDay => 'No appointments for this day';
+
+  @override
+  String get openLinkedRecord => 'Open linked record';
+
+  @override
+  String get currentAppointmentTime => 'Current time';
+
+  @override
+  String get appointmentOutcome => 'Appointment outcome';
+
+  @override
+  String get cancellationReason => 'Cancellation reason';
+
+  @override
+  String get cancellationReasonRequired => 'Enter a cancellation reason.';
+
+  @override
   String get todaysAppointments => 'Today';
 
   @override
@@ -3444,6 +3587,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get missedAppointments => 'Missed';
+
+  @override
+  String get noMissedAppointments => 'No missed appointments.';
 
   @override
   String get completedAppointments => 'Completed';
@@ -3498,7 +3644,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cancel this appointment? The record will stay in history.';
 
   @override
+  String get completeAppointmentConfirmation =>
+      'Complete this appointment and record the outcome.';
+
+  @override
   String get markMissedConfirmation => 'Mark this appointment as missed?';
+
+  @override
+  String get appointmentOutcomeSuccessfulMeeting => 'Successful meeting';
+
+  @override
+  String get appointmentOutcomeNoAnswer => 'No answer';
+
+  @override
+  String get appointmentOutcomeClientPostponed => 'Client postponed';
+
+  @override
+  String get appointmentOutcomeClientNotInterested => 'Client not interested';
+
+  @override
+  String get appointmentOutcomeFollowUpNeeded => 'Follow-up needed';
+
+  @override
+  String get appointmentOutcomeDealOpportunity => 'Deal opportunity';
+
+  @override
+  String get appointmentOutcomeOther => 'Other';
 
   @override
   String get appointmentTypeCall => 'Call';
@@ -3884,7 +4055,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'This company name is already registered. Try another name.';
 
   @override
-  String get weakPassword => 'The password is too weak.';
+  String get weakPassword =>
+      'Password must be at least 8 characters and include uppercase, lowercase, and a number.';
 
   @override
   String get emailPasswordAuthDisabled =>
@@ -4733,4 +4905,176 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get journeyActionClosingDueDescription =>
       'The expected closing date has passed. Create a task or update the deal plan.';
+
+  @override
+  String get activityHistory => 'Activity history';
+
+  @override
+  String get visibleAuditLogs => 'Visible logs';
+
+  @override
+  String get todayActivityCount => 'Today';
+
+  @override
+  String get exportActivity => 'Export activity';
+
+  @override
+  String get importantActivity => 'Important activity';
+
+  @override
+  String get auditLogPermissionMessage =>
+      'Audit logs are available only to Admin and Manager roles.';
+
+  @override
+  String get auditLogsLoadFailed =>
+      'Unable to load audit logs. Check indexes or permissions and try again.';
+
+  @override
+  String get noAuditLogsFound => 'No audit logs found';
+
+  @override
+  String get noAuditLogsFoundMessage =>
+      'No activity matches the selected scoped filters.';
+
+  @override
+  String get allActions => 'All actions';
+
+  @override
+  String get allUsers => 'All users';
+
+  @override
+  String get searchAuditLogs => 'Search activity';
+
+  @override
+  String get auditDetails => 'Audit details';
+
+  @override
+  String get detailsSummary => 'Details summary';
+
+  @override
+  String get openRelatedRecord => 'Open related record';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get exportType => 'Export type';
+
+  @override
+  String get exportScope => 'Export scope';
+
+  @override
+  String get fileFormat => 'File format';
+
+  @override
+  String get exportedRows => 'Exported rows';
+
+  @override
+  String get exportedColumns => 'Exported columns';
+
+  @override
+  String get filterSummary => 'Filter summary';
+
+  @override
+  String get supervisorNotification => 'Supervisor notification';
+
+  @override
+  String get auditLogsExport => 'Audit logs export';
+
+  @override
+  String get reportsExport => 'Reports export';
+
+  @override
+  String get platformCompanyExport => 'Platform company export';
+
+  @override
+  String get exportTrackingFailed =>
+      'Export was generated, but audit tracking failed. Please try again.';
+
+  @override
+  String get time => 'Time';
+
+  @override
+  String get openFile => 'Open file';
+
+  @override
+  String get openDownloads => 'Open downloads';
+
+  @override
+  String get exportSavedTo => 'Saved to';
+
+  @override
+  String get exportOpenFileFailed => 'Could not open the file on this device.';
+
+  @override
+  String get exportOpenDownloadsFailed =>
+      'Could not open Downloads on this device.';
+
+  @override
+  String get multipleReports => 'Multiple reports';
+
+  @override
+  String get multipleReportsColumnsHint =>
+      'Multiple report exports use the recommended columns for each selected report.';
+
+  @override
+  String get androidReleaseManagement => 'Android release management';
+
+  @override
+  String get androidReleaseManagementSubtitle =>
+      'Control forced APK updates for Android users without editing Firestore manually.';
+
+  @override
+  String get releaseReady => 'Release ready';
+
+  @override
+  String get minimumSupportedBuild => 'Minimum supported build';
+
+  @override
+  String get latestBuild => 'Latest build';
+
+  @override
+  String get updateUrl => 'Update URL';
+
+  @override
+  String get suggestedUpdateUrl => 'Suggested update URL';
+
+  @override
+  String get useSuggestedUpdateUrl => 'Use suggested URL';
+
+  @override
+  String get saveReleasePolicy => 'Save release policy';
+
+  @override
+  String get androidReleasePolicySaved => 'Android release policy saved.';
+
+  @override
+  String get androidReleasePolicyHint =>
+      'Keep Release ready off until the APK link is uploaded and tested.';
+
+  @override
+  String get enabled => 'Enabled';
+
+  @override
+  String get connectionLostSnackbar =>
+      'No internet connection. Some actions may not finish until the connection returns.';
+
+  @override
+  String get connectionRestoredSnackbar => 'Internet connection restored.';
+
+  @override
+  String get androidVersionAdoption => 'Android version adoption';
+
+  @override
+  String get androidVersionAdoptionSubtitle =>
+      'Active Android users by installed app version, based on latest registered device tokens.';
+
+  @override
+  String get activeDevices => 'Active devices';
+
+  @override
+  String get latestSeen => 'Latest seen';
+
+  @override
+  String get noAndroidVersionData => 'No Android version data yet.';
 }

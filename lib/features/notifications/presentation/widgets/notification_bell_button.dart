@@ -13,8 +13,10 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/constants/notification_limits.dart';
 import '../../domain/entities/attention_reminder.dart';
+import '../../domain/entities/crm_notification.dart';
 import '../cubit/notifications_cubit.dart';
 import '../cubit/notifications_state.dart';
+import '../routing/notification_route_resolver.dart';
 import 'notification_cards.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 
@@ -171,7 +173,7 @@ class _NotificationsPanel extends StatefulWidget {
 }
 
 class _NotificationsPanelState extends State<_NotificationsPanel> {
-  bool _attentionExpanded = true;
+  bool _attentionExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -270,10 +272,8 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
                                                 .clearAttentionReminder(
                                                   reminder.id,
                                                 ),
-                                            onOpen: () => _openRoute(
-                                              context,
-                                              reminder.route,
-                                            ),
+                                            onOpen: () =>
+                                                _openReminderRoute(context, reminder),
                                           ),
                                       ],
                                     ),
@@ -407,7 +407,7 @@ List<AttentionReminder> _latestPanelReminders(
       }
       return b.id.compareTo(a.id);
     });
-  return sorted;
+  return sorted.take(8).toList(growable: false);
 }
 
 class _PanelNotificationList extends StatelessWidget {
@@ -488,7 +488,7 @@ class _PanelNotificationList extends StatelessWidget {
                   notification: notification,
                 );
             if (context.mounted) {
-              _openRoute(context, notification.route);
+              _openNotificationRoute(context, notification);
             }
           },
         );
@@ -538,28 +538,31 @@ class _PanelInlineMessage extends StatelessWidget {
   }
 }
 
-void _openRoute(BuildContext context, String route) {
-  final cleanRoute = route.trim();
+void _openNotificationRoute(
+  BuildContext context,
+  CrmNotification notification,
+) {
   final l = AppLocalizations.of(context)!;
-  if (!_isAllowedNotificationRoute(cleanRoute)) {
+  final resolution = NotificationRouteResolver.resolve(notification);
+  if (resolution.usedFallback) {
     AppFeedback.warning(context, l.notificationRouteUnavailable);
-    return;
   }
   final router = GoRouter.of(context);
   Navigator.of(context, rootNavigator: true).maybePop();
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    router.go(cleanRoute);
+    router.go(resolution.route);
   });
 }
 
-bool _isAllowedNotificationRoute(String route) {
-  return route == RouteNames.dashboard ||
-      route == RouteNames.dataHealth ||
-      route == RouteNames.appointments ||
-      route.startsWith('/appointments/') ||
-      route.startsWith('/leads/') ||
-      route.startsWith('/tasks/') ||
-      route.startsWith('/deals/') ||
-      route.startsWith('/clients/') ||
-      route.startsWith('/properties/');
+void _openReminderRoute(BuildContext context, AttentionReminder reminder) {
+  final l = AppLocalizations.of(context)!;
+  final resolution = NotificationRouteResolver.resolveReminder(reminder);
+  if (resolution.usedFallback) {
+    AppFeedback.warning(context, l.notificationRouteUnavailable);
+  }
+  final router = GoRouter.of(context);
+  Navigator.of(context, rootNavigator: true).maybePop();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    router.go(resolution.route);
+  });
 }

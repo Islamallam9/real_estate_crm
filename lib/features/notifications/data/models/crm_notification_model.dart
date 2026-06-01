@@ -20,6 +20,9 @@ class CrmNotificationModel extends CrmNotification {
     required super.teamName,
     required super.managerId,
     required super.priority,
+    required super.deliveryMode,
+    required super.recipientScope,
+    required super.dedupeKey,
     required super.isRead,
     required super.readAt,
     required super.createdAt,
@@ -57,6 +60,13 @@ class CrmNotificationModel extends CrmNotification {
       priority: notificationPriorityFromValue(
         data['priority'] as String? ?? '',
       ),
+      deliveryMode: notificationDeliveryModeFromValue(
+        data['deliveryMode'] as String? ?? '',
+      ),
+      recipientScope: notificationRecipientScopeFromValue(
+        data['recipientScope'] as String? ?? '',
+      ),
+      dedupeKey: data['dedupeKey'] as String? ?? '',
       isRead: data['isRead'] as bool? ?? false,
       readAt: _dateTimeFromValue(data['readAt']),
       createdAt: _dateTimeFromValue(data['createdAt']),
@@ -94,6 +104,12 @@ CrmNotificationActionState _actionStateFromData(Map<String, dynamic> data) {
   final stored = (data['actionState'] as String? ?? '').trim();
   if (stored.isNotEmpty) {
     return notificationActionStateFromValue(stored);
+  }
+  if (data['dismissedAt'] != null || data['isDismissed'] == true) {
+    return CrmNotificationActionState.dismissed;
+  }
+  if (data['resolvedAt'] != null || data['isResolved'] == true) {
+    return CrmNotificationActionState.resolved;
   }
   final type = notificationTypeFromValue(data['type'] as String? ?? '');
   if (notificationTypeUsuallyNeedsAction(type)) {

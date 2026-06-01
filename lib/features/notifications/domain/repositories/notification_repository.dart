@@ -1,4 +1,5 @@
 import '../../../../core/constants/role_constants.dart';
+import '../constants/notification_limits.dart';
 import '../entities/attention_reminder.dart';
 import '../entities/crm_notification.dart';
 
@@ -6,7 +7,7 @@ abstract interface class NotificationRepository {
   Stream<List<CrmNotification>> watchNotifications({
     required String companyId,
     required String recipientUid,
-    int limit,
+    int limit = notificationDropdownLimit,
   });
 
   Stream<int> watchUnreadCount({
@@ -19,7 +20,7 @@ abstract interface class NotificationRepository {
     required String currentUserId,
     required UserRole role,
     String? managerTeamId,
-    int limit,
+    int limit = notificationMarkAllReadLimit,
   });
 
   Future<void> markAsRead({
@@ -30,7 +31,7 @@ abstract interface class NotificationRepository {
   Future<void> markAllRead({
     required String companyId,
     required String recipientUid,
-    int limit,
+    int limit = 60,
   });
 
   Future<void> markResolved({

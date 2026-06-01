@@ -160,12 +160,12 @@ class _CommandCenterHeader extends StatelessWidget {
           runSpacing: AppSpacing.xs,
           children: [
             _MetricChip(
-              label: l.salesCommandMetricDueToday,
+              label: l.dashboardKpiDueTodayFollowUps,
               value: summary.dueTodayCount,
               tone: AppStatusTone.warning,
             ),
             _MetricChip(
-              label: l.salesCommandMetricOverdue,
+              label: l.dashboardOverdueFollowUps,
               value: summary.overdueCount,
               tone: AppStatusTone.error,
             ),
@@ -175,7 +175,7 @@ class _CommandCenterHeader extends StatelessWidget {
               tone: AppStatusTone.info,
             ),
             _MetricChip(
-              label: l.salesCommandMetricRisk,
+              label: l.dashboardDealRisks,
               value: summary.atRiskCount,
               tone: AppStatusTone.warning,
             ),

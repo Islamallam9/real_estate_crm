@@ -16,7 +16,7 @@ abstract interface class NotificationsRemoteDataSource {
   Stream<List<CrmNotificationModel>> watchNotifications({
     required String companyId,
     required String recipientUid,
-    int limit,
+    int limit = notificationDropdownLimit,
   });
 
   Stream<int> watchUnreadCount({
@@ -29,7 +29,7 @@ abstract interface class NotificationsRemoteDataSource {
     required String currentUserId,
     required UserRole role,
     String? managerTeamId,
-    int limit,
+    int limit = notificationMarkAllReadLimit,
   });
 
   Future<void> markAsRead({
@@ -40,7 +40,7 @@ abstract interface class NotificationsRemoteDataSource {
   Future<void> markAllRead({
     required String companyId,
     required String recipientUid,
-    int limit,
+    int limit = 60,
   });
 
   Future<void> markResolved({
@@ -72,24 +72,128 @@ class FirestoreNotificationsRemoteDataSource
     required String recipientUid,
     int limit = notificationDropdownLimit,
   }) {
-    return _notificationsCollection(companyId)
-        .where('recipientUid', isEqualTo: recipientUid)
-        .snapshots()
-        .map((snapshot) {
-      final notifications = snapshot.docs.map((document) {
-        final notification = CrmNotificationModel.fromFirestore(document);
-        _ensureRecipient(
-          companyId: companyId,
-          recipientUid: recipientUid,
-          notification: notification,
-        );
-        return notification;
-      }).where((notification) => !notification.isDismissed).toList()
+    final safeLimit = _safeNotificationLimit(limit);
+    final fetchLimit = _boundedNotificationFetchLimit(safeLimit);
+    final controller = StreamController<List<CrmNotificationModel>>();
+
+    List<CrmNotificationModel> orderedNotifications = const [];
+    List<CrmNotificationModel> recipientNotifications = const [];
+    Object? orderedError;
+    Object? recipientError;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? orderedSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? recipientSub;
+
+    void emitCombined() {
+      final byId = <String, CrmNotificationModel>{};
+      for (final notification in recipientNotifications) {
+        byId[notification.id] = notification;
+      }
+      for (final notification in orderedNotifications) {
+        byId[notification.id] = notification;
+      }
+      final notifications = byId.values
+          .where((notification) => !notification.isDismissed)
+          .toList()
         ..sort(_compareNotificationRecency);
-      return notifications.take(limit).toList();
-    }).handleError((Object error) {
-      throw NotificationException(_mapFirestoreError(error));
-    });
+
+      if (notifications.isEmpty && orderedError != null && recipientError != null) {
+        if (!controller.isClosed) {
+          controller.addError(
+            NotificationException(_mapFirestoreError(orderedError!)),
+          );
+        }
+        return;
+      }
+
+      if (!controller.isClosed) {
+        controller.add(notifications.take(safeLimit).toList());
+      }
+    }
+
+    List<CrmNotificationModel> parseSnapshot(
+      QuerySnapshot<Map<String, dynamic>> snapshot,
+    ) {
+      final parsed = <CrmNotificationModel>[];
+      for (final document in snapshot.docs) {
+        try {
+          final notification = CrmNotificationModel.fromFirestore(document);
+          _ensureRecipient(
+            companyId: companyId,
+            recipientUid: recipientUid,
+            notification: notification,
+          );
+          parsed.add(notification);
+        } on NotificationException catch (error) {
+          if (error.message == AppErrorMessages.permissionDenied) {
+            rethrow;
+          }
+          // Keep the center usable when one legacy notification document has
+          // malformed optional fields. Valid documents should still load.
+        } catch (_) {
+          // Keep the center usable when one legacy notification document has
+          // malformed optional fields. Valid documents should still load.
+        }
+      }
+      return parsed;
+    }
+
+    orderedSub = _notificationsCollection(companyId)
+        .where('recipientUid', isEqualTo: recipientUid)
+        .orderBy('createdAt', descending: true)
+        .limit(fetchLimit)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        try {
+          orderedError = null;
+          orderedNotifications = parseSnapshot(snapshot);
+          emitCombined();
+        } catch (error) {
+          orderedError = error;
+          orderedNotifications = const [];
+          emitCombined();
+        }
+      },
+      onError: (Object error) {
+        orderedError = error;
+        orderedNotifications = const [];
+        emitCombined();
+      },
+    );
+
+    // Legacy repair path: older notification docs may miss createdAt, isRead,
+    // or actionState. Firestore orderBy('createdAt') excludes those docs, so a
+    // bounded recipient-scoped stream keeps old notifications visible without
+    // opening broad company reads.
+    recipientSub = _notificationsCollection(companyId)
+        .where('recipientUid', isEqualTo: recipientUid)
+        .limit(fetchLimit)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        try {
+          recipientError = null;
+          recipientNotifications = parseSnapshot(snapshot);
+          emitCombined();
+        } catch (error) {
+          recipientError = error;
+          recipientNotifications = const [];
+          emitCombined();
+        }
+      },
+      onError: (Object error) {
+        recipientError = error;
+        recipientNotifications = const [];
+        emitCombined();
+      },
+    );
+
+    controller.onCancel = () async {
+      await orderedSub?.cancel();
+      await recipientSub?.cancel();
+    };
+
+    return controller.stream;
   }
 
   @override
@@ -99,9 +203,18 @@ class FirestoreNotificationsRemoteDataSource
   }) {
     final controller = StreamController<int>();
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? unreadSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacySub;
     Timer? timingRefreshTimer;
     var timingRefreshInFlight = false;
-    DateTime? lastActionableRefreshAt;
+    Set<String> unreadIds = <String>{};
+    Set<String> legacyUnreadIds = <String>{};
+
+    void emitCount() {
+      if (controller.isClosed) {
+        return;
+      }
+      controller.add({...unreadIds, ...legacyUnreadIds}.length);
+    }
 
     Future<void> refreshTimingNotifications() async {
       if (timingRefreshInFlight || controller.isClosed) {
@@ -110,14 +223,9 @@ class FirestoreNotificationsRemoteDataSource
       timingRefreshInFlight = true;
       try {
         await _refreshAppointmentTimingNotifications(companyId: companyId);
-        final now = DateTime.now();
-        final lastRefresh = lastActionableRefreshAt;
-        if (lastRefresh == null || now.difference(lastRefresh).inMinutes >= 5) {
-          lastActionableRefreshAt = now;
-          await _refreshActionableReminderNotifications(companyId: companyId);
-        }
+        await _refreshActionableReminderNotifications(companyId: companyId);
       } on FirebaseFunctionsException {
-        // Best-effort safety net. Keep the bell usable if the callable has not
+        // Best-effort safety net. Keep the bell usable if a callable has not
         // been deployed yet or the network is temporarily unavailable.
       } catch (_) {
         // Keep notification streams usable even if timing refresh fails.
@@ -133,22 +241,17 @@ class FirestoreNotificationsRemoteDataSource
         .snapshots()
         .listen(
       (snapshot) {
-        var unreadCount = 0;
         try {
-          for (final document in snapshot.docs) {
-            final notification = CrmNotificationModel.fromFirestore(document);
-            _ensureRecipient(
-              companyId: companyId,
-              recipientUid: recipientUid,
-              notification: notification,
-            );
-            if (!notification.isRead && !notification.isDismissed) {
-              unreadCount += 1;
-            }
-          }
-          if (!controller.isClosed) {
-            controller.add(unreadCount);
-          }
+          unreadIds = _safeParseNotifications(
+            snapshot,
+            companyId: companyId,
+            recipientUid: recipientUid,
+          )
+              .where((notification) =>
+                  !notification.isRead && !notification.isDismissed)
+              .map((notification) => notification.id)
+              .toSet();
+          emitCount();
         } catch (error) {
           if (!controller.isClosed) {
             controller.addError(NotificationException(_mapFirestoreError(error)));
@@ -162,9 +265,38 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
-    // The bell is always active in the app shell, so this makes due-now
-    // appointment notifications appear while the user is inside the app even
-    // if Cloud Scheduler is delayed. FCM remains out of scope.
+    // Count unread legacy docs that do not have isRead=false and therefore do
+    // not appear in the indexed unread query.
+    legacySub = _notificationsCollection(companyId)
+        .where('recipientUid', isEqualTo: recipientUid)
+        .limit(notificationUnreadCountLimit)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        try {
+          legacyUnreadIds = _safeParseNotifications(
+            snapshot,
+            companyId: companyId,
+            recipientUid: recipientUid,
+          )
+              .where((notification) =>
+                  !notification.isRead && !notification.isDismissed)
+              .map((notification) => notification.id)
+              .toSet();
+          emitCount();
+        } catch (error) {
+          if (!controller.isClosed) {
+            controller.addError(NotificationException(_mapFirestoreError(error)));
+          }
+        }
+      },
+      onError: (Object error) {
+        if (!controller.isClosed) {
+          controller.addError(NotificationException(_mapFirestoreError(error)));
+        }
+      },
+    );
+
     unawaited(refreshTimingNotifications());
     timingRefreshTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -174,6 +306,7 @@ class FirestoreNotificationsRemoteDataSource
     controller.onCancel = () async {
       timingRefreshTimer?.cancel();
       await unreadSub?.cancel();
+      await legacySub?.cancel();
     };
 
     return controller.stream;
@@ -202,7 +335,6 @@ class FirestoreNotificationsRemoteDataSource
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? appointmentsSub;
     Timer? appointmentTicker;
     var timingRefreshInFlight = false;
-    DateTime? lastActionableRefreshAt;
 
     Future<void> refreshTimingNotifications() async {
       if (timingRefreshInFlight || controller.isClosed) {
@@ -211,12 +343,9 @@ class FirestoreNotificationsRemoteDataSource
       timingRefreshInFlight = true;
       try {
         await _refreshAppointmentTimingNotifications(companyId: companyId);
-        final now = DateTime.now();
-        final lastRefresh = lastActionableRefreshAt;
-        if (lastRefresh == null || now.difference(lastRefresh).inMinutes >= 5) {
-          lastActionableRefreshAt = now;
-          await _refreshActionableReminderNotifications(companyId: companyId);
-        }
+        // Do not create persistent notification documents for general
+        // follow-up/task/deal suggestions. The live Attention section already
+        // shows them without inflating the bell count or unread list.
       } on FirebaseFunctionsException {
         // Timing refresh is a best-effort safety net. The scheduled backend
         // function remains the source of truth, so do not break the
@@ -433,7 +562,7 @@ class FirestoreNotificationsRemoteDataSource
           .where('assignedTo', isEqualTo: currentUserId)
           .where('isArchived', isEqualTo: false);
     }
-    return query.limit(limit);
+    return query.limit(limit * 3);
   }
 
   Query<Map<String, dynamic>> _taskReminderQuery({
@@ -456,7 +585,7 @@ class FirestoreNotificationsRemoteDataSource
           .where('assignedTo', isEqualTo: currentUserId)
           .where('isActive', isEqualTo: true);
     }
-    return query.limit(limit);
+    return query.limit(limit * 3);
   }
 
   Query<Map<String, dynamic>> _appointmentReminderQuery({
@@ -477,7 +606,7 @@ class FirestoreNotificationsRemoteDataSource
     } else if (role == UserRole.salesAgent || role == UserRole.marketing) {
       query = query.where('assignedTo', isEqualTo: currentUserId);
     }
-    return query.limit(limit);
+    return query.limit(limit * 3);
   }
 
   List<AttentionReminder> _leadRemindersFromSnapshot(
@@ -493,6 +622,10 @@ class FirestoreNotificationsRemoteDataSource
         throw const NotificationException(AppErrorMessages.permissionDenied);
       }
       if ((data['isArchived'] as bool?) ?? false) {
+        continue;
+      }
+      final status = (data['status'] as String? ?? '').trim();
+      if (status == 'won' || status == 'lost') {
         continue;
       }
       final title = data['fullName'] as String? ?? '';
@@ -673,7 +806,6 @@ class FirestoreNotificationsRemoteDataSource
     });
   }
 
-
   Future<void> _refreshActionableReminderNotifications({
     required String companyId,
   }) async {
@@ -685,6 +817,7 @@ class FirestoreNotificationsRemoteDataSource
     });
   }
 
+
   CollectionReference<Map<String, dynamic>> _notificationsCollection(
     String companyId,
   ) {
@@ -692,6 +825,52 @@ class FirestoreNotificationsRemoteDataSource
   }
 }
 
+
+
+int _safeNotificationLimit(int limit) {
+  if (limit <= 0) {
+    return notificationDropdownLimit;
+  }
+  if (limit > 300) {
+    return 300;
+  }
+  return limit;
+}
+
+int _boundedNotificationFetchLimit(int displayLimit) {
+  final minimum = displayLimit <= notificationDropdownLimit ? 120 : 500;
+  final computed = displayLimit * 8;
+  final effective = computed < minimum ? minimum : computed;
+  return effective > 900 ? 900 : effective;
+}
+
+
+List<CrmNotificationModel> _safeParseNotifications(
+  QuerySnapshot<Map<String, dynamic>> snapshot, {
+  required String companyId,
+  required String recipientUid,
+}) {
+  final parsed = <CrmNotificationModel>[];
+  for (final document in snapshot.docs) {
+    try {
+      final notification = CrmNotificationModel.fromFirestore(document);
+      _ensureRecipient(
+        companyId: companyId,
+        recipientUid: recipientUid,
+        notification: notification,
+      );
+      parsed.add(notification);
+    } on NotificationException catch (error) {
+      if (error.message == AppErrorMessages.permissionDenied) {
+        rethrow;
+      }
+    } catch (_) {
+      // Skip malformed legacy notification docs instead of breaking the badge
+      // or notification center for every valid document.
+    }
+  }
+  return parsed;
+}
 
 int _compareNotificationRecency(
   CrmNotificationModel a,
