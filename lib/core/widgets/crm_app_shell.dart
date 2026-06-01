@@ -16,6 +16,7 @@ import '../../features/global_search/domain/entities/global_search_result.dart';
 import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
 import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
 import '../../features/global_search/presentation/cubit/global_search_state.dart';
+import '../../features/notifications/domain/constants/notification_limits.dart';
 import '../../features/notifications/domain/entities/attention_reminder.dart';
 import '../../features/notifications/domain/entities/crm_notification.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
@@ -41,6 +42,7 @@ import 'app_feedback.dart';
 import 'masar_brand.dart';
 import 'masar_page_entrance.dart';
 import 'masar_refresh_indicator.dart';
+import 'masar_user_avatar.dart';
 import 'masar_loading_view.dart';
 import 'responsive_layout.dart';
 
@@ -53,6 +55,7 @@ enum CrmNavigationItem {
   appointments,
   deals,
   reports,
+  auditLogs,
   users,
   teams,
   dataHealth,
@@ -114,6 +117,11 @@ class CrmAppShell extends StatelessWidget {
       item: CrmNavigationItem.reports,
       icon: Icons.bar_chart_outlined,
       selectedIcon: Icons.bar_chart,
+    ),
+    _CrmShellItem(
+      item: CrmNavigationItem.auditLogs,
+      icon: Icons.manage_search_outlined,
+      selectedIcon: Icons.manage_search,
     ),
     _CrmShellItem(
       item: CrmNavigationItem.users,
@@ -224,10 +232,25 @@ class _ShellRefreshWrapperState extends State<_ShellRefreshWrapper> {
   int _refreshSeed = 0;
 
   Future<void> _handleRefresh() async {
+    final authState = context.read<AuthBloc>().state;
+    final profile = authState.userProfile;
+    if (profile != null && authState.user?.uid == profile.uid) {
+      try {
+        context.read<NotificationsCubit>().refresh(
+              companyId: profile.companyId,
+              currentUserId: profile.uid,
+              role: profile.role,
+              managerTeamId: profile.teamId,
+              notificationsLimit: 250,
+              remindersLimit: 60,
+            );
+      } catch (_) {
+        // Some public/platform pages do not provide company notification scope.
+      }
+    }
     if (mounted) {
       setState(() => _refreshSeed++);
     }
-    await Future<void>.delayed(const Duration(milliseconds: 180));
   }
 
   @override
@@ -357,6 +380,7 @@ class _NotificationFloatingToastState
   CrmNotification? _visibleNotification;
   Timer? _hideTimer;
   bool _primed = false;
+  late final DateTime _createdAt = DateTime.now();
 
   @override
   void dispose() {
@@ -371,11 +395,17 @@ class _NotificationFloatingToastState
         ..clear()
         ..addAll(currentIds);
       _primed = true;
+      final recentUnread = state.notifications.where(_shouldShowOnFirstPrime).toList();
+      if (recentUnread.isNotEmpty) {
+        recentUnread.sort(_compareToastNotificationRecency);
+        _show(recentUnread.first);
+      }
       return;
     }
 
     final newNotifications = state.notifications
         .where((item) => !_knownNotificationIds.contains(item.id))
+        .where(_shouldShowAfterPrime)
         .toList();
     _knownNotificationIds
       ..clear()
@@ -385,12 +415,58 @@ class _NotificationFloatingToastState
       return;
     }
 
-    newNotifications.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bDate.compareTo(aDate);
-    });
+    newNotifications.sort(_compareToastNotificationRecency);
     _show(newNotifications.first);
+  }
+
+  bool _shouldShowOnFirstPrime(CrmNotification item) {
+    return _isFreshUnreadToastCandidate(
+      item,
+      lowerBound: _createdAt.subtract(const Duration(seconds: 12)),
+    );
+  }
+
+  bool _shouldShowAfterPrime(CrmNotification item) {
+    return _isFreshUnreadToastCandidate(
+      item,
+      lowerBound: _createdAt,
+    );
+  }
+
+  bool _isFreshUnreadToastCandidate(
+    CrmNotification item, {
+    required DateTime lowerBound,
+  }) {
+    if (item.isRead || item.isDismissed) {
+      return false;
+    }
+    final createdAt = item.createdAt;
+    if (createdAt == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    if (createdAt.isBefore(lowerBound)) {
+      return false;
+    }
+    // Guard against legacy/backfilled documents and delayed query pages showing
+    // as brand-new overlay toasts. The full notification center can still show
+    // old records; the floating toast is only for fresh events.
+    if (createdAt.isBefore(now.subtract(const Duration(minutes: 2)))) {
+      return false;
+    }
+    if (createdAt.isAfter(now.add(const Duration(minutes: 1)))) {
+      return false;
+    }
+    return true;
+  }
+
+  int _compareToastNotificationRecency(
+    CrmNotification a,
+    CrmNotification b,
+  ) {
+    final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return bDate.compareTo(aDate);
   }
 
   void _show(CrmNotification notification) {
@@ -570,9 +646,10 @@ class _SmartGuidanceFloatingOverlayState
     if (!mounted) {
       return;
     }
-    final delay = initial
-        ? const Duration(seconds: 9)
-        : Duration(seconds: 34 + _random.nextInt(36));
+    // Keep smart guidance helpful but not intrusive. The overlay rotates
+    // with a random delay between 15 and 60 minutes, instead of appearing
+    // every few seconds/minutes.
+    final delay = Duration(minutes: 15 + _random.nextInt(46));
     _showTimer = Timer(delay, _showNextReminder);
   }
 
@@ -986,6 +1063,7 @@ CompanyFeature? _featureForNavigationItem(CrmNavigationItem item) {
     CrmNavigationItem.appointments => CompanyFeature.appointments,
     CrmNavigationItem.deals => CompanyFeature.deals,
     CrmNavigationItem.reports => CompanyFeature.reports,
+    CrmNavigationItem.auditLogs => CompanyFeature.auditLogs,
     CrmNavigationItem.users => CompanyFeature.userManagement,
     CrmNavigationItem.teams => null,
     CrmNavigationItem.dataHealth => null,
@@ -1021,6 +1099,8 @@ void _goToItem(BuildContext context, CrmNavigationItem item) {
       context.go(RouteNames.deals);
     case CrmNavigationItem.reports:
       context.go(RouteNames.reports);
+    case CrmNavigationItem.auditLogs:
+      context.go(RouteNames.auditLogs);
     case CrmNavigationItem.users:
       context.go(RouteNames.users);
     case CrmNavigationItem.teams:
@@ -1041,6 +1121,9 @@ List<_CrmShellItem> _visibleItemsForRole(
   return items.where((item) {
     if (item.item == CrmNavigationItem.users) {
       return role == UserRole.admin;
+    }
+    if (item.item == CrmNavigationItem.auditLogs) {
+      return role == UserRole.admin || role == UserRole.manager;
     }
     if (item.item == CrmNavigationItem.teams) {
       return role == UserRole.admin || role == UserRole.manager;
@@ -1149,13 +1232,9 @@ class _DesktopShellState extends State<_DesktopShell> {
                             AppSpacing.sm,
                             AppSpacing.sm,
                           ),
-                          child: Scrollbar(
+                          child: PrimaryScrollController(
                             controller: _mainScrollController,
-                            thumbVisibility: true,
-                            child: PrimaryScrollController(
-                              controller: _mainScrollController,
-                              child: _ShellRefreshWrapper(child: widget.child),
-                            ),
+                            child: _ShellRefreshWrapper(child: widget.child),
                           ),
                         ),
                       ),
@@ -1480,6 +1559,9 @@ class _MobileHeaderCard extends StatelessWidget {
           previous.userProfile?.fullName != current.userProfile?.fullName ||
           previous.user?.fullName != current.user?.fullName ||
           previous.userProfile?.photoUrl != current.userProfile?.photoUrl ||
+          previous.userProfile?.photoStoragePath !=
+              current.userProfile?.photoStoragePath ||
+          previous.userProfile?.updatedAt != current.userProfile?.updatedAt ||
           previous.user?.photoUrl != current.user?.photoUrl,
       builder: (context, state) {
         final localizations = AppLocalizations.of(context)!;
@@ -1686,6 +1768,7 @@ class _MobileBottomNavigationState extends State<_MobileBottomNavigation> {
             _optimisticSelectedItem == CrmNavigationItem.appointments ||
             _optimisticSelectedItem == CrmNavigationItem.deals ||
             _optimisticSelectedItem == CrmNavigationItem.reports ||
+            _optimisticSelectedItem == CrmNavigationItem.auditLogs ||
             _optimisticSelectedItem == CrmNavigationItem.users ||
             _optimisticSelectedItem == CrmNavigationItem.teams ||
             _optimisticSelectedItem == CrmNavigationItem.dataHealth ||
@@ -1900,15 +1983,15 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
 
       return Align(
         alignment: Alignment.bottomCenter,
-        child: Container(
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          decoration: BoxDecoration(
-            color: _CrmShellColors.of(sheetContext).chromeSurface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
+        child: Material(
+          color: _CrmShellColors.of(sheetContext).chromeSurface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(28),
           ),
-          child: SingleChildScrollView(
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
               AppSpacing.sm,
@@ -1970,6 +2053,19 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
                     context.go(RouteNames.reports);
                   },
                 ),
+                if (role == UserRole.admin || role == UserRole.manager)
+                  _MoreSheetTile(
+                    icon: Icons.manage_search_outlined,
+                    label: localizations.auditLogs,
+                    enabled: companyMetadata.isFeatureEnabled(
+                      CompanyFeature.auditLogs,
+                    ),
+                    disabledSubtitle: localizations.moduleDisabled,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.go(RouteNames.auditLogs);
+                    },
+                  ),
                 if (role == UserRole.admin)
                   _MoreSheetTile(
                     icon: Icons.manage_accounts_outlined,
@@ -2014,7 +2110,8 @@ Future<void> _showMobileMoreSheet(BuildContext context) {
             ),
           ),
         ),
-      );
+      ),
+    );
     },
   );
 }
@@ -2048,25 +2145,28 @@ class _MoreSheetTile extends StatelessWidget {
             : colors.textPrimary;
     final effectiveSubtitle = enabled ? subtitle : disabledSubtitle ?? subtitle;
 
-    return ListTile(
-      enabled: enabled,
-      leading: Icon(enabled ? icon : Icons.lock_outline, color: effectiveColor),
-      title: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w600),
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        enabled: enabled,
+        leading: Icon(enabled ? icon : Icons.lock_outline, color: effectiveColor),
+        title: Text(
+          label,
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w600),
+        ),
+        subtitle: effectiveSubtitle == null
+            ? null
+            : Text(
+                effectiveSubtitle,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
+                style: TextStyle(color: colors.textSecondary),
+              ),
+        onTap: enabled ? onTap : null,
+        contentPadding: EdgeInsets.zero,
       ),
-      subtitle: effectiveSubtitle == null
-          ? null
-          : Text(
-              effectiveSubtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: colors.textSecondary),
-            ),
-      onTap: enabled ? onTap : null,
-      contentPadding: EdgeInsets.zero,
     );
   }
 }
@@ -2730,32 +2830,35 @@ class _ThemeSheetAction extends StatelessWidget {
       builder: (context, themeMode) {
         final isDark = themeMode == ThemeMode.dark;
 
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-            color: colors.textPrimary,
-          ),
-          title: Text(
-            localizations.theme,
-            style: TextStyle(
+        return Material(
+          type: MaterialType.transparency,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
               color: colors.textPrimary,
-              fontWeight: FontWeight.w700,
             ),
+            title: Text(
+              localizations.theme,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              isDark ? localizations.darkMode : localizations.lightMode,
+              style: TextStyle(color: colors.textSecondary),
+            ),
+            trailing: Switch(
+              value: isDark,
+              activeThumbColor: colors.primary,
+              activeTrackColor: colors.primary.withValues(alpha: 0.35),
+              inactiveThumbColor: colors.textSecondary,
+              inactiveTrackColor: colors.border,
+              onChanged: (_) => themeCubit.toggle(),
+            ),
+            onTap: themeCubit.toggle,
           ),
-          subtitle: Text(
-            isDark ? localizations.darkMode : localizations.lightMode,
-            style: TextStyle(color: colors.textSecondary),
-          ),
-          trailing: Switch(
-            value: isDark,
-            activeThumbColor: colors.primary,
-            activeTrackColor: colors.primary.withValues(alpha: 0.35),
-            inactiveThumbColor: colors.textSecondary,
-            inactiveTrackColor: colors.border,
-            onChanged: (_) => themeCubit.toggle(),
-          ),
-          onTap: themeCubit.toggle,
         );
       },
     );
@@ -3212,6 +3315,7 @@ class _ProfileMenuButton extends StatelessWidget {
                 '')
             .trim();
         final photoUrl = _resolvedUserPhotoUrl(authState);
+        final photoCacheKey = _resolvedUserPhotoCacheKey(authState);
         _debugProfileImageSources(authState, 'account menu avatar');
 
         return PopupMenuButton<_ProfileMenuAction>(
@@ -3249,6 +3353,7 @@ class _ProfileMenuButton extends StatelessWidget {
                   name: userName,
                   subtitle: email,
                   photoUrl: photoUrl,
+                  cacheKey: photoCacheKey,
                 ),
               ),
               const PopupMenuDivider(height: 1),
@@ -3284,7 +3389,11 @@ class _ProfileMenuButton extends StatelessWidget {
             ),
             child: Padding(
               padding: EdgeInsets.all(compact ? 0 : 2),
-              child: _UserAvatar(name: userName, photoUrl: photoUrl),
+              child: _UserAvatar(
+                name: userName,
+                photoUrl: photoUrl,
+                cacheKey: photoCacheKey,
+              ),
             ),
           ),
         );
@@ -3298,17 +3407,19 @@ class _ProfileMenuHeader extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.photoUrl,
+    required this.cacheKey,
   });
 
   final String name;
   final String subtitle;
   final String photoUrl;
+  final String cacheKey;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _UserAvatar(name: name, photoUrl: photoUrl),
+        _UserAvatar(name: name, photoUrl: photoUrl, cacheKey: cacheKey),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
@@ -3388,64 +3499,21 @@ class _ProfileMenuTile extends StatelessWidget {
 }
 
 class _UserAvatar extends StatelessWidget {
-  const _UserAvatar({this.name, this.photoUrl});
+  const _UserAvatar({this.name, this.photoUrl, this.cacheKey});
 
   final String? name;
   final String? photoUrl;
+  final String? cacheKey;
 
   @override
   Widget build(BuildContext context) {
-    final cleanPhotoUrl = (photoUrl ?? '').trim();
-    final initial = _initialFor(name ?? AppLocalizations.of(context)!.crmUser);
-    final fallback = _UserInitialAvatar(initial: initial);
-
-    if (cleanPhotoUrl.isEmpty) {
-      return fallback;
-    }
-
-    return ClipOval(
-      child: SizedBox(
-        width: 36,
-        height: 36,
-        child: Image.network(
-          cleanPhotoUrl,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-          errorBuilder: (_, __, ___) => fallback,
-        ),
-      ),
-    );
-  }
-}
-
-class _UserInitialAvatar extends StatelessWidget {
-  const _UserInitialAvatar({required this.initial});
-
-  final String initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
+    return MasarUserAvatar(
+      name: name ?? AppLocalizations.of(context)!.crmUser,
+      photoUrl: photoUrl ?? '',
+      cacheKey: cacheKey ?? '',
       radius: 18,
-      backgroundColor: AppColors.primary,
-      child: Text(
-        initial,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
-}
-
-String _initialFor(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    return 'U';
-  }
-  return trimmed.substring(0, 1).toUpperCase();
 }
 
 String _resolvedUserPhotoUrl(AuthState state) {
@@ -3454,6 +3522,22 @@ String _resolvedUserPhotoUrl(AuthState state) {
     return profilePhoto;
   }
   return (state.user?.photoUrl ?? '').trim();
+}
+
+String _resolvedUserPhotoCacheKey(AuthState state) {
+  final profile = state.userProfile;
+  if (profile != null) {
+    return [
+      profile.photoStoragePath,
+      profile.updatedAt.millisecondsSinceEpoch.toString(),
+      profile.photoUrl.hashCode.toString(),
+    ].where((part) => part.trim().isNotEmpty).join(':');
+  }
+  final user = state.user;
+  if (user == null) {
+    return '';
+  }
+  return '${user.uid}:${(user.photoUrl ?? '').hashCode}';
 }
 
 void _debugProfileImageSources(AuthState state, String source) {
@@ -3567,6 +3651,8 @@ String _labelFor(BuildContext context, CrmNavigationItem item) {
       return localizations.deals;
     case CrmNavigationItem.reports:
       return localizations.reports;
+    case CrmNavigationItem.auditLogs:
+      return localizations.auditLogs;
     case CrmNavigationItem.users:
       return localizations.userManagement;
     case CrmNavigationItem.teams:

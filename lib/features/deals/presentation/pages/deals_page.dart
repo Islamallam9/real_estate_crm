@@ -93,9 +93,10 @@ class _DealsViewState extends State<_DealsView> {
     required String companyId,
     required UserRole role,
     required String uid,
+    String? teamId,
     required ArchiveFilter archiveFilter,
   }) {
-    final key = '$companyId:${role.name}:$uid:${archiveFilter.name}';
+    final key = '$companyId:${role.name}:$uid:${teamId ?? ''}:${archiveFilter.name}';
     if (_watchKey == key) {
       return;
     }
@@ -104,6 +105,7 @@ class _DealsViewState extends State<_DealsView> {
       companyId: companyId,
       role: role,
       currentUserId: uid,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     );
     _applyInitialFiltersIfNeeded();
@@ -152,6 +154,7 @@ class _DealsViewState extends State<_DealsView> {
     final companyId = session?.companyId ?? '';
     final role = session?.profile.role;
     final uid = session?.uid ?? '';
+    final teamId = session?.profile.teamId;
     final archiveFilter = context.select(
       (DealsCubit cubit) => cubit.state.archiveFilter,
     );
@@ -178,6 +181,7 @@ class _DealsViewState extends State<_DealsView> {
         companyId: companyId,
         role: role,
         uid: uid,
+        teamId: teamId,
         archiveFilter: archiveFilter,
       );
     }
@@ -263,12 +267,14 @@ class _DealsViewState extends State<_DealsView> {
                             companyId: companyId,
                             role: role,
                             currentUserId: uid,
+                            teamId: teamId,
                             users: users,
                           );
 
                           final body = _DealsBody(
                             companyId: companyId,
                             uid: uid,
+                            teamId: teamId,
                             role: role,
                             state: state,
                             canEdit: canEdit,
@@ -293,6 +299,7 @@ class _DealsViewState extends State<_DealsView> {
                                       companyId: companyId,
                                       role: role,
                                       currentUserId: uid,
+                                      teamId: teamId,
                                       archiveFilter: state.archiveFilter,
                                     );
 
@@ -353,6 +360,7 @@ class _DealsFilters extends StatelessWidget {
     required this.companyId,
     required this.role,
     required this.currentUserId,
+    this.teamId,
     required this.users,
   });
 
@@ -363,6 +371,7 @@ class _DealsFilters extends StatelessWidget {
   final String companyId;
   final UserRole role;
   final String currentUserId;
+  final String? teamId;
   final List<UserProfile> users;
 
   @override
@@ -447,6 +456,7 @@ class _DealsFilters extends StatelessWidget {
                 companyId: companyId,
                 role: role,
                 currentUserId: currentUserId,
+                teamId: teamId,
               ),
             ),
           ),
@@ -659,6 +669,7 @@ class _DealsBody extends StatelessWidget {
   const _DealsBody({
     required this.companyId,
     required this.uid,
+    this.teamId,
     required this.role,
     required this.state,
     required this.canEdit,
@@ -669,6 +680,7 @@ class _DealsBody extends StatelessWidget {
 
   final String companyId;
   final String uid;
+  final String? teamId;
   final UserRole role;
   final DealsState state;
   final bool canEdit;
@@ -694,6 +706,7 @@ class _DealsBody extends StatelessWidget {
             companyId: companyId,
             role: role,
             currentUserId: uid,
+            teamId: teamId,
             archiveFilter: state.archiveFilter,
           );
         },
@@ -1182,6 +1195,7 @@ String _workQueueFilterLabel(AppLocalizations l, DealWorkQueueFilter filter) {
   return switch (filter) {
     DealWorkQueueFilter.open => l.openDeals,
     DealWorkQueueFilter.atRisk => l.salesCommandMetricRisk,
+    DealWorkQueueFilter.wonThisMonth => l.wonDealsThisMonth,
   };
 }
 

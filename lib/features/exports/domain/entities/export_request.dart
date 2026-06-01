@@ -26,6 +26,8 @@ enum ExportDateRangePreset {
 
 enum ExportOutputLanguage { en, ar }
 
+enum ExportTrackingType { reportsExport, auditLogsExport, platformCompanyExport }
+
 class ExportActor extends Equatable {
   const ExportActor({
     required this.companyId,
@@ -124,6 +126,8 @@ class ExportRequest extends Equatable {
     required this.filters,
     required this.labels,
     required this.columns,
+    this.modules = const <ExportModule>[],
+    this.trackingType = ExportTrackingType.reportsExport,
   });
 
   final ExportModule module;
@@ -131,6 +135,21 @@ class ExportRequest extends Equatable {
   final ExportFilters filters;
   final Map<String, String> labels;
   final List<String> columns;
+  final List<ExportModule> modules;
+  final ExportTrackingType trackingType;
+
+  List<ExportModule> get effectiveModules {
+    if (modules.isEmpty) {
+      return <ExportModule>[module];
+    }
+    final unique = <ExportModule>[];
+    for (final item in modules) {
+      if (!unique.contains(item)) {
+        unique.add(item);
+      }
+    }
+    return unique.isEmpty ? <ExportModule>[module] : unique;
+  }
 
   ExportRequest copyWith({
     ExportModule? module,
@@ -138,6 +157,8 @@ class ExportRequest extends Equatable {
     ExportFilters? filters,
     Map<String, String>? labels,
     List<String>? columns,
+    List<ExportModule>? modules,
+    ExportTrackingType? trackingType,
   }) {
     return ExportRequest(
       module: module ?? this.module,
@@ -145,9 +166,19 @@ class ExportRequest extends Equatable {
       filters: filters ?? this.filters,
       labels: labels ?? this.labels,
       columns: columns ?? this.columns,
+      modules: modules ?? this.modules,
+      trackingType: trackingType ?? this.trackingType,
     );
   }
 
   @override
-  List<Object?> get props => [module, actor, filters, labels, columns];
+  List<Object?> get props => [
+    module,
+    actor,
+    filters,
+    labels,
+    columns,
+    modules,
+    trackingType,
+  ];
 }

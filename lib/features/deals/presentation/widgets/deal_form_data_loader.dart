@@ -44,11 +44,13 @@ class DealFormDataLoader extends StatefulWidget {
     required this.builder,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final Widget Function(BuildContext context, DealFormData data) builder;
 
   @override
@@ -97,6 +99,7 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
         widget.companyId,
         assignedTo: widget.assignedTo,
         managerId: widget.managerId,
+        teamId: widget.teamId,
       ),
       builder: (context, clientsSnapshot) {
         if (clientsSnapshot.hasError) {
@@ -109,6 +112,7 @@ class _DealFormDataLoaderState extends State<DealFormDataLoader> {
             widget.companyId,
             assignedTo: widget.assignedTo,
             managerId: widget.managerId,
+            teamId: widget.teamId,
           ),
           builder: (context, leadsSnapshot) {
             if (leadsSnapshot.hasError) {
@@ -182,6 +186,7 @@ Stream<List<Client>> _watchClients(
   String companyId, {
   String? assignedTo,
   String? managerId,
+  String? teamId,
 }) {
   final repository = ClientRepositoryImpl(
     remoteDataSource: FirestoreClientsRemoteDataSource(),
@@ -190,6 +195,7 @@ Stream<List<Client>> _watchClients(
     companyId: companyId,
     assignedTo: assignedTo,
     managerId: managerId,
+    teamId: teamId,
     limit: 80,
   );
 }
@@ -198,6 +204,7 @@ Stream<List<Lead>> _watchLeads(
   String companyId, {
   String? assignedTo,
   String? managerId,
+  String? teamId,
 }) {
   final repository = LeadsRepositoryImpl(
     remoteDataSource: FirestoreLeadsRemoteDataSource(),
@@ -206,6 +213,7 @@ Stream<List<Lead>> _watchLeads(
     companyId: companyId,
     assignedTo: assignedTo,
     managerId: managerId,
+    teamId: teamId,
     limit: 80,
   );
 }

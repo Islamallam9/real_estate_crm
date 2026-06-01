@@ -19,6 +19,16 @@ enum AppointmentStatus {
   rescheduled,
 }
 
+enum AppointmentOutcome {
+  successfulMeeting,
+  noAnswer,
+  clientPostponed,
+  clientNotInterested,
+  followUpNeeded,
+  dealOpportunity,
+  other,
+}
+
 enum AppointmentRelatedType { lead, client, property, deal, general }
 
 class Appointment extends Equatable {
@@ -44,7 +54,9 @@ class Appointment extends Equatable {
     required this.relatedSubtitle,
     required this.location,
     required this.notes,
+    this.outcome,
     required this.outcomeNotes,
+    this.cancellationReason = '',
     required this.createdAt,
     required this.createdBy,
     required this.updatedAt,
@@ -81,7 +93,9 @@ class Appointment extends Equatable {
   final String relatedSubtitle;
   final String location;
   final String notes;
+  final AppointmentOutcome? outcome;
   final String outcomeNotes;
+  final String cancellationReason;
   final DateTime? createdAt;
   final String createdBy;
   final DateTime? updatedAt;
@@ -118,7 +132,9 @@ class Appointment extends Equatable {
     String? relatedSubtitle,
     String? location,
     String? notes,
+    AppointmentOutcome? outcome,
     String? outcomeNotes,
+    String? cancellationReason,
     DateTime? createdAt,
     String? createdBy,
     DateTime? updatedAt,
@@ -155,7 +171,9 @@ class Appointment extends Equatable {
       relatedSubtitle: relatedSubtitle ?? this.relatedSubtitle,
       location: location ?? this.location,
       notes: notes ?? this.notes,
+      outcome: outcome ?? this.outcome,
       outcomeNotes: outcomeNotes ?? this.outcomeNotes,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -195,7 +213,9 @@ class Appointment extends Equatable {
         relatedSubtitle,
         location,
         notes,
+        outcome,
         outcomeNotes,
+        cancellationReason,
         createdAt,
         createdBy,
         updatedAt,

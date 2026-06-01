@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
+import '../../domain/entities/audit_log.dart';
 import '../models/audit_log_model.dart';
 
 abstract interface class AuditLogsRemoteDataSource {
@@ -15,6 +17,11 @@ abstract interface class AuditLogsRemoteDataSource {
     required String companyId,
     String? managerId,
     String? teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
     int limit,
   });
 }
@@ -55,9 +62,9 @@ class FirestoreAuditLogsRemoteDataSource
       id: document.id,
       companyId: companyId,
       actorId: auditLog.actorId,
-      actorName: _firstNonEmpty(auditLog.actorName, actor.name),
-      actorEmail: _firstNonEmpty(auditLog.actorEmail, actor.email),
-      actorRole: _firstNonEmpty(auditLog.actorRole, actor.role),
+      actorName: _firstNonEmpty(actor.name, auditLog.actorName),
+      actorEmail: _firstNonEmpty(actor.email, auditLog.actorEmail),
+      actorRole: _firstNonEmpty(actor.role, auditLog.actorRole),
       action: auditLog.action,
       module: auditLog.module,
       recordId: auditLog.recordId,
@@ -84,7 +91,14 @@ class FirestoreAuditLogsRemoteDataSource
       metadata: auditLog.metadata,
     );
 
-    await document.set(logToSave.toFirestore());
+    try {
+      await document.set(logToSave.toFirestore());
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Masar audit log write failed for $companyId/${document.id}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -92,6 +106,11 @@ class FirestoreAuditLogsRemoteDataSource
     required String companyId,
     String? managerId,
     String? teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
     int limit = 20,
   }) {
     final cleanManagerId = managerId?.trim() ?? '';
@@ -102,12 +121,23 @@ class FirestoreAuditLogsRemoteDataSource
         companyId: companyId,
         managerId: cleanManagerId,
         teamId: cleanTeamId,
+        module: module,
+        action: action,
+        actorId: actorId,
+        startAt: startAt,
+        endAt: endAt,
         limit: limit,
       );
     }
 
-    return _auditLogsCollection(companyId)
-        .orderBy('createdAt', descending: true)
+    return _applyAuditQueryFilters(
+          _auditLogsCollection(companyId),
+          module: module,
+          action: action,
+          actorId: actorId,
+          startAt: startAt,
+          endAt: endAt,
+        )
         .limit(limit)
         .snapshots()
         .map((snapshot) => _mapAuditLogSnapshot(snapshot, companyId, limit));
@@ -117,25 +147,25 @@ class FirestoreAuditLogsRemoteDataSource
     required String companyId,
     required String managerId,
     required String teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
     required int limit,
   }) {
     final collection = _auditLogsCollection(companyId);
+    // Keep manager reads scoped in Firestore but apply optional filters locally
+    // inside that safe scope. This avoids fragile composite-index requirements
+    // without broadening Manager visibility.
     final queries = <Query<Map<String, dynamic>>>[
-      // Do not order these manager scoped queries here. Combining equality
-      // filters with orderBy(createdAt) needs a composite index and caused the
-      // mobile dashboard to show a failure state until the index exists. We
-      // read a small, scoped batch and sort locally instead.
-      collection.where('managerId', isEqualTo: managerId).limit(limit * 2),
-      // Legacy/self fallback: older audit logs may have actorId but no
-      // managerId/team snapshot. This still stays safe because the rules only
-      // allow a manager to read their own actor logs through this query.
-      collection.where('actorId', isEqualTo: managerId).limit(limit * 2),
+      collection.where('managerId', isEqualTo: managerId).limit(limit * 3),
     ];
 
     if (teamId.isNotEmpty) {
-      // Legacy/team fallback: catches logs where teamId exists but managerId was
-      // missing during the transition to scoped audit logs.
-      queries.add(collection.where('teamId', isEqualTo: teamId).limit(limit * 2));
+      queries.add(
+        collection.where('teamId', isEqualTo: teamId).limit(limit * 3),
+      );
     }
 
     final controller = StreamController<List<AuditLogModel>>();
@@ -162,12 +192,22 @@ class FirestoreAuditLogsRemoteDataSource
       final index = i;
       final subscription = queries[index].snapshots().listen(
         (snapshot) {
-          latest[index] = _mapAuditLogSnapshot(snapshot, companyId, limit * 2);
+          final mapped = _mapAuditLogSnapshot(snapshot, companyId, limit * 3);
+          latest[index] = _filterAuditLogs(
+            mapped,
+            module: module,
+            action: action,
+            actorId: actorId,
+            startAt: startAt,
+            endAt: endAt,
+            limit: limit * 2,
+          );
           emitMerged();
         },
-        onError: (_) {
-          latest[index] = const <AuditLogModel>[];
-          emitMerged();
+        onError: (Object error, StackTrace stackTrace) {
+          if (!isClosed && !controller.isClosed) {
+            controller.addError(error, stackTrace);
+          }
         },
       );
       subscriptions.add(subscription);
@@ -181,6 +221,85 @@ class FirestoreAuditLogsRemoteDataSource
     };
 
     return controller.stream;
+  }
+
+  Query<Map<String, dynamic>> _applyAuditQueryFilters(
+    Query<Map<String, dynamic>> query, {
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
+  }) {
+    final cleanActorId = actorId?.trim() ?? '';
+    if (module != null) {
+      query = query.where('module', isEqualTo: auditLogModuleToValue(module));
+    }
+    if (action != null) {
+      query = query.where('action', isEqualTo: auditLogActionToValue(action));
+    }
+    if (cleanActorId.isNotEmpty) {
+      query = query.where('actorId', isEqualTo: cleanActorId);
+    }
+    if (startAt != null) {
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startAt),
+      );
+    }
+    if (endAt != null) {
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(endAt));
+    }
+    return query.orderBy('createdAt', descending: true);
+  }
+
+  List<AuditLogModel> _filterAuditLogs(
+    List<AuditLogModel> logs, {
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
+    required int limit,
+  }) {
+    final cleanActorId = actorId?.trim() ?? '';
+    final filtered = logs.where((log) {
+      if (_managerShouldHideAuditLog(log)) {
+        return false;
+      }
+      if (module != null && log.module != module) {
+        return false;
+      }
+      if (action != null && log.action != action) {
+        return false;
+      }
+      if (cleanActorId.isNotEmpty && log.actorId != cleanActorId) {
+        return false;
+      }
+      if (startAt != null && log.createdAt.isBefore(startAt)) {
+        return false;
+      }
+      if (endAt != null && !log.createdAt.isBefore(endAt)) {
+        return false;
+      }
+      return true;
+    }).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List<AuditLogModel>.unmodifiable(filtered.take(limit));
+  }
+
+  bool _managerShouldHideAuditLog(AuditLogModel log) {
+    if (log.module == AuditLogModule.exports ||
+        log.module == AuditLogModule.reports ||
+        log.module == AuditLogModule.auditLogs ||
+        log.action == AuditLogAction.exported ||
+        log.action == AuditLogAction.exportGenerated) {
+      return true;
+    }
+    return log.metadata.containsKey('exportType') ||
+        log.metadata.containsKey('exportScope') ||
+        log.metadata.containsKey('auditLogId') &&
+            (log.metadata['exportType']?.toString().isNotEmpty ?? false);
   }
 
   List<AuditLogModel> _mapAuditLogSnapshot(

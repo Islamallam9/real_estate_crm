@@ -12,6 +12,7 @@ class GetAppointmentRelatedRecordOptionsUseCase {
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 30,
   }) {
     return repository.getRelatedRecordOptions(
@@ -19,6 +20,7 @@ class GetAppointmentRelatedRecordOptionsUseCase {
       type: type,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }

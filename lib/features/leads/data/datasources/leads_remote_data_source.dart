@@ -47,6 +47,7 @@ abstract interface class LeadsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   });
@@ -76,33 +77,27 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     }
 
     try {
-      final snapshot = await _leadsCollection(companyId).get();
-      for (final document in snapshot.docs) {
-        if (excludeLeadId != null && document.id == excludeLeadId) {
-          continue;
-        }
-        final lead = LeadModel.fromFirestore(document);
-        if (excludeLeadId != null && lead.id == excludeLeadId) {
-          continue;
-        }
-        _ensureSameCompany(companyId: companyId, lead: lead);
-        if (lead.isArchived) {
-          continue;
-        }
-
-        final hasSamePhone =
-            normalizedPhone.isNotEmpty &&
-            _normalizePhone(lead.phone) == normalizedPhone;
-        final hasSameEmail =
-            normalizedEmail.isNotEmpty &&
-            _normalizeEmail(lead.email) == normalizedEmail;
-        if (hasSamePhone || hasSameEmail) {
-          return true;
-        }
+      final result = await _functions.httpsCallable('checkDuplicateLead').call(
+        <String, Object?>{
+          'companyId': companyId,
+          'phone': phone,
+          'email': email,
+          if ((excludeLeadId ?? '').trim().isNotEmpty)
+            'excludeLeadId': excludeLeadId!.trim(),
+        },
+      );
+      final data = result.data;
+      if (data is Map) {
+        return data['duplicate'] == true;
       }
       return false;
     } on LeadException {
       rethrow;
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'permission-denied') {
+        return false;
+      }
+      throw LeadException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         return false;
@@ -119,14 +114,14 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required LeadModel lead,
   }) async {
     _ensureSameCompany(companyId: companyId, lead: lead);
+    final collection = _leadsCollection(companyId);
+    final document = lead.id.isEmpty
+        ? collection.doc()
+        : collection.doc(lead.id);
+    final leadToSave = LeadModel.fromEntity(
+      lead.copyWith(id: document.id, companyId: companyId, isArchived: false),
+    );
     try {
-      final collection = _leadsCollection(companyId);
-      final document = lead.id.isEmpty
-          ? collection.doc()
-          : collection.doc(lead.id);
-      final leadToSave = LeadModel.fromEntity(
-        lead.copyWith(id: document.id, companyId: companyId, isArchived: false),
-      );
       await _saveLeadRecord(
         companyId: companyId,
         operation: 'create',
@@ -137,8 +132,26 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     } on LeadException {
       rethrow;
     } on FirebaseFunctionsException catch (error) {
+      if (_isUncertainLeadWriteError(error.code)) {
+        final savedLead = await _tryLoadSavedLead(
+          companyId: companyId,
+          document: document,
+        );
+        if (savedLead != null) {
+          return savedLead;
+        }
+      }
       throw LeadException(_mapFunctionsError(error));
     } on FirebaseException catch (error) {
+      if (_isUncertainLeadWriteError(error.code)) {
+        final savedLead = await _tryLoadSavedLead(
+          companyId: companyId,
+          document: document,
+        );
+        if (savedLead != null) {
+          return savedLead;
+        }
+      }
       throw LeadException(_mapFirestoreError(error));
     } catch (_) {
       throw const LeadException('Unable to create lead. Please try again.');
@@ -181,6 +194,25 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       'operation': operation,
       'lead': _leadCallableData(lead),
     });
+  }
+
+  Future<LeadModel?> _tryLoadSavedLead({
+    required String companyId,
+    required DocumentReference<Map<String, dynamic>> document,
+  }) async {
+    try {
+      final snapshot = await document.get();
+      if (!snapshot.exists) {
+        return null;
+      }
+      final savedLead = LeadModel.fromFirestore(snapshot);
+      if (savedLead.companyId != companyId) {
+        return null;
+      }
+      return savedLead;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -258,6 +290,7 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
@@ -267,7 +300,9 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     } else if (archiveFilter == ArchiveFilter.active) {
       query = query.where('isArchived', isEqualTo: false);
     }
-    if (managerId != null && managerId.trim().isNotEmpty) {
+    if (teamId != null && teamId.trim().isNotEmpty) {
+      query = query.where('teamId', isEqualTo: teamId.trim());
+    } else if (managerId != null && managerId.trim().isNotEmpty) {
       query = query.where('managerId', isEqualTo: managerId.trim());
     } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
@@ -393,7 +428,7 @@ String _normalizeEmail(String value) {
 }
 
 String _normalizePhone(String value) {
-  return value.replaceAll(RegExp(r'\s+'), '').trim();
+  return value.replaceAll(RegExp(r'[()\-\s]+'), '').trim();
 }
 
 void _ensureSameCompany({required String companyId, required LeadModel lead}) {
@@ -404,6 +439,13 @@ void _ensureSameCompany({required String companyId, required LeadModel lead}) {
   }
 }
 
+
+bool _isUncertainLeadWriteError(String code) {
+  return code == 'unavailable' ||
+      code == 'deadline-exceeded' ||
+      code == 'cancelled' ||
+      code == 'network-request-failed';
+}
 
 String _mapFunctionsError(FirebaseFunctionsException error) {
   switch (error.code) {

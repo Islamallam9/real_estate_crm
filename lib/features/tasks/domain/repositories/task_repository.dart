@@ -21,7 +21,8 @@ abstract interface class TaskRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    int limit = 40,
   });
 
   Future<List<TaskRelatedRecordOption>> getRelatedRecordOptions({
@@ -29,6 +30,7 @@ abstract interface class TaskRepository {
     required TaskRelatedType type,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    int limit = 30,
   });
 }

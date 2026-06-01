@@ -13,7 +13,10 @@ abstract interface class AppointmentsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
+    int limit = 80,
   });
 
   Stream<AppointmentModel?> watchAppointment({
@@ -32,7 +35,8 @@ abstract interface class AppointmentsRemoteDataSource {
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    int limit = 30,
   });
 }
 
@@ -52,14 +56,23 @@ class FirebaseAppointmentsRemoteDataSource
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
     int limit = 80,
   }) {
     Query<Map<String, dynamic>> query = _appointmentsCollection(companyId);
-    if (managerId != null && managerId.trim().isNotEmpty) {
-      query = query.where('managerId', isEqualTo: managerId.trim());
-    } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
-      query = query.where('assignedTo', isEqualTo: assignedTo.trim());
-    }
+    query = _applyScope(
+      query,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+    );
+    query = _applyScheduledRange(
+      query,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+    );
 
     return query.limit(limit).snapshots().map((snapshot) {
       final appointments = snapshot.docs.map((document) {
@@ -137,6 +150,7 @@ class FirebaseAppointmentsRemoteDataSource
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 30,
   }) async {
     try {
@@ -145,24 +159,28 @@ class FirebaseAppointmentsRemoteDataSource
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             limit: limit,
           ),
         AppointmentRelatedType.client => _getClientOptions(
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             limit: limit,
           ),
         AppointmentRelatedType.property => _getPropertyOptions(
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             limit: limit,
           ),
         AppointmentRelatedType.deal => _getDealOptions(
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             limit: limit,
           ),
         AppointmentRelatedType.general => const [],
@@ -180,12 +198,18 @@ class FirebaseAppointmentsRemoteDataSource
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     required int limit,
   }) async {
-    Query<Map<String, dynamic>> query = _firestore.collection(
-      FirebasePaths.companyLeads(companyId),
+    Query<Map<String, dynamic>> query = _firestore
+        .collection(FirebasePaths.companyLeads(companyId))
+        .where('isArchived', isEqualTo: false);
+    query = _applyScope(
+      query,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
     );
-    query = _applyScope(query, assignedTo: assignedTo, managerId: managerId);
     final snapshot = await query.limit(limit).get();
     final options = <AppointmentRelatedRecordOption>[];
     for (final document in snapshot.docs) {
@@ -211,12 +235,19 @@ class FirebaseAppointmentsRemoteDataSource
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collection(FirebasePaths.companyClients(companyId))
-        .where('isActive', isEqualTo: true);
-    query = _applyScope(query, assignedTo: assignedTo, managerId: managerId);
+        .where('isActive', isEqualTo: true)
+        .where('isArchived', isEqualTo: false);
+    query = _applyScope(
+      query,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+    );
     final snapshot = await query.limit(limit).get();
     final options = <AppointmentRelatedRecordOption>[];
     for (final document in snapshot.docs) {
@@ -241,18 +272,19 @@ class FirebaseAppointmentsRemoteDataSource
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyProperties(companyId),
     );
-    query = _applyScope(query, assignedTo: assignedTo, managerId: managerId);
     final snapshot = await query.limit(limit).get();
     final options = <AppointmentRelatedRecordOption>[];
     for (final document in snapshot.docs) {
       final data = document.data();
       _ensureRecordCompany(companyId, data);
-      if ((data['status'] as String? ?? '') == 'inactive') {
+      if ((data['status'] as String? ?? '') == 'inactive' ||
+          (data['isArchived'] as bool? ?? false)) {
         continue;
       }
       options.add(
@@ -271,12 +303,19 @@ class FirebaseAppointmentsRemoteDataSource
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     required int limit,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collection(FirebasePaths.companyDeals(companyId))
-        .where('isActive', isEqualTo: true);
-    query = _applyScope(query, assignedTo: assignedTo, managerId: managerId);
+        .where('isActive', isEqualTo: true)
+        .where('isArchived', isEqualTo: false);
+    query = _applyScope(
+      query,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+    );
     final snapshot = await query.limit(limit).get();
     final options = <AppointmentRelatedRecordOption>[];
     for (final document in snapshot.docs) {
@@ -305,7 +344,11 @@ class FirebaseAppointmentsRemoteDataSource
     Query<Map<String, dynamic>> query, {
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) {
+    if (teamId != null && teamId.trim().isNotEmpty) {
+      return query.where('teamId', isEqualTo: teamId.trim());
+    }
     if (managerId != null && managerId.trim().isNotEmpty) {
       return query.where('managerId', isEqualTo: managerId.trim());
     }
@@ -313,6 +356,32 @@ class FirebaseAppointmentsRemoteDataSource
       return query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
     return query;
+  }
+
+  Query<Map<String, dynamic>> _applyScheduledRange(
+    Query<Map<String, dynamic>> query, {
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
+  }) {
+    final hasStart = rangeStart != null;
+    final hasEnd = rangeEnd != null;
+    if (!hasStart && !hasEnd) {
+      return query;
+    }
+    var ranged = query.orderBy('scheduledAt');
+    if (hasStart) {
+      ranged = ranged.where(
+        'scheduledAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(rangeStart.toUtc()),
+      );
+    }
+    if (hasEnd) {
+      ranged = ranged.where(
+        'scheduledAt',
+        isLessThan: Timestamp.fromDate(rangeEnd.toUtc()),
+      );
+    }
+    return ranged;
   }
 
   CollectionReference<Map<String, dynamic>> _appointmentsCollection(

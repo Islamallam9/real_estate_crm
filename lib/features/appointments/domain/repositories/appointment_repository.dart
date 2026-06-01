@@ -6,7 +6,10 @@ abstract interface class AppointmentRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
+    int limit = 80,
   });
 
   Stream<Appointment?> watchAppointment({
@@ -25,6 +28,7 @@ abstract interface class AppointmentRepository {
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
-    int limit,
+    String? teamId,
+    int limit = 30,
   });
 }

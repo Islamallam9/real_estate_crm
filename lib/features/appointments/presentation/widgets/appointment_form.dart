@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -28,6 +29,7 @@ class AppointmentForm extends StatefulWidget {
     this.assignedTo = '',
     this.relatedRecordsAssignedTo,
     this.relatedRecordsManagerId,
+    this.relatedRecordsTeamId,
     this.initialRelatedType,
     this.initialRelatedId = '',
     this.initialRelatedTitle = '',
@@ -47,6 +49,7 @@ class AppointmentForm extends StatefulWidget {
   final String assignedTo;
   final String? relatedRecordsAssignedTo;
   final String? relatedRecordsManagerId;
+  final String? relatedRecordsTeamId;
   final AppointmentRelatedType? initialRelatedType;
   final String initialRelatedId;
   final String initialRelatedTitle;
@@ -65,9 +68,11 @@ class _AppointmentFormState extends State<AppointmentForm> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
   final _outcomeNotesController = TextEditingController();
+  final _cancellationReasonController = TextEditingController();
 
   AppointmentType _type = AppointmentType.meeting;
   AppointmentStatus _status = AppointmentStatus.scheduled;
+  AppointmentOutcome _outcome = AppointmentOutcome.successfulMeeting;
   AppointmentRelatedType _relatedType = AppointmentRelatedType.general;
   DateTime? _date;
   TimeOfDay? _startTime;
@@ -113,8 +118,10 @@ class _AppointmentFormState extends State<AppointmentForm> {
     _locationController.text = appointment.location;
     _notesController.text = appointment.notes;
     _outcomeNotesController.text = appointment.outcomeNotes;
+    _cancellationReasonController.text = appointment.cancellationReason;
     _type = appointment.type;
     _status = appointment.status;
+    _outcome = appointment.outcome ?? AppointmentOutcome.successfulMeeting;
     _relatedType = appointment.relatedType;
     _durationMinutes = appointment.durationMinutes;
     _assignedToName = appointment.assignedToName;
@@ -144,6 +151,7 @@ class _AppointmentFormState extends State<AppointmentForm> {
     _locationController.dispose();
     _notesController.dispose();
     _outcomeNotesController.dispose();
+    _cancellationReasonController.dispose();
     super.dispose();
   }
 
@@ -322,6 +330,28 @@ class _AppointmentFormState extends State<AppointmentForm> {
               enabled: !widget.isSaving,
               maxLines: 3,
             ),
+            if (widget.canEditStatus &&
+                _status == AppointmentStatus.completed) ...[
+              const SizedBox(height: AppSpacing.md),
+              AppDropdown<AppointmentOutcome>(
+                label: l.appointmentOutcome,
+                value: _outcome,
+                items: AppointmentOutcome.values,
+                itemLabelBuilder: (outcome) => appointmentOutcomeLabel(l, outcome),
+                enabled: !widget.isSaving,
+                onChanged: (value) => setState(() => _outcome = value),
+              ),
+            ],
+            if (widget.canEditStatus &&
+                _status == AppointmentStatus.cancelled) ...[
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _cancellationReasonController,
+                label: l.cancellationReason,
+                enabled: !widget.isSaving,
+                maxLines: 3,
+              ),
+            ],
           ]),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
@@ -493,7 +523,9 @@ class _AppointmentFormState extends State<AppointmentForm> {
             : relatedSubtitle.trim(),
         location: _locationController.text.trim(),
         notes: _notesController.text.trim(),
+        outcome: _status == AppointmentStatus.completed ? _outcome : null,
         outcomeNotes: _outcomeNotesController.text.trim(),
+        cancellationReason: _cancellationReasonController.text.trim(),
         createdAt: previous?.createdAt,
         createdBy: previous?.createdBy ?? widget.actorUid,
         updatedAt: DateTime.now(),
@@ -582,6 +614,7 @@ class _AppointmentFormState extends State<AppointmentForm> {
       type: type,
       assignedTo: widget.relatedRecordsAssignedTo,
       managerId: widget.relatedRecordsManagerId,
+      teamId: widget.relatedRecordsTeamId,
     );
   }
 }
@@ -627,7 +660,7 @@ class _RelatedRecordPicker extends StatelessWidget {
           if (state.relatedRecordsStatus ==
               AppointmentRelatedRecordsStatus.failure) {
             return Text(
-              l.unableToConnect,
+              localizeErrorMessage(l, state.relatedRecordsMessage),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.errorColor(context),
                   ),
@@ -729,20 +762,9 @@ List<_RelatedRecordSelection> _relatedRecordOptions(
 }) {
   final sortedRecords = [...records]
     ..sort((a, b) => a.title.compareTo(b.title));
-  final hasSelected = selectedId.trim().isEmpty ||
-      sortedRecords.any((record) => record.id == selectedId.trim());
   return [
     const _RelatedRecordSelection.placeholder(),
     for (final record in sortedRecords) _RelatedRecordSelection.value(record),
-    if (!hasSelected)
-      _RelatedRecordSelection.value(
-        AppointmentRelatedRecordOption(
-          id: selectedId.trim(),
-          type: selectedType,
-          title: selectedTitle,
-          subtitle: selectedSubtitle,
-        ),
-      ),
   ];
 }
 
@@ -875,6 +897,19 @@ String appointmentStatusLabel(AppLocalizations l, AppointmentStatus status) {
     AppointmentStatus.cancelled => l.appointmentStatusCancelled,
     AppointmentStatus.missed => l.appointmentStatusMissed,
     AppointmentStatus.rescheduled => l.appointmentStatusRescheduled,
+  };
+}
+
+String appointmentOutcomeLabel(AppLocalizations l, AppointmentOutcome outcome) {
+  return switch (outcome) {
+    AppointmentOutcome.successfulMeeting => l.appointmentOutcomeSuccessfulMeeting,
+    AppointmentOutcome.noAnswer => l.appointmentOutcomeNoAnswer,
+    AppointmentOutcome.clientPostponed => l.appointmentOutcomeClientPostponed,
+    AppointmentOutcome.clientNotInterested =>
+      l.appointmentOutcomeClientNotInterested,
+    AppointmentOutcome.followUpNeeded => l.appointmentOutcomeFollowUpNeeded,
+    AppointmentOutcome.dealOpportunity => l.appointmentOutcomeDealOpportunity,
+    AppointmentOutcome.other => l.appointmentOutcomeOther,
   };
 }
 

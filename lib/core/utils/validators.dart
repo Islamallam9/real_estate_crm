@@ -5,6 +5,9 @@ abstract final class AppValidators {
   static final _phonePattern = RegExp(r'^[0-9+()\-\s]{7,24}$');
   static final _companyIdPattern = RegExp(r'^[a-z0-9][a-z0-9_-]{2,48}[a-z0-9]$');
   static final _invitationPattern = RegExp(r'^MASAR-[A-Z0-9]{4}-[A-Z0-9]{4}$');
+  static final _lowercasePattern = RegExp(r'[a-z]');
+  static final _uppercasePattern = RegExp(r'[A-Z]');
+  static final _numberPattern = RegExp(r'\d');
 
   static String? requiredText(String? value, AppLocalizations l) {
     return (value ?? '').trim().isEmpty ? l.requiredField : null;
@@ -70,13 +73,17 @@ abstract final class AppValidators {
     return null;
   }
 
-  static String? password(String? value, AppLocalizations l) {
+  static String? password(
+    String? value,
+    AppLocalizations l, {
+    String? requiredMessage,
+  }) {
     final clean = value ?? '';
-    if (clean.isEmpty) return l.passwordRequired;
+    if (clean.trim().isEmpty) return requiredMessage ?? l.passwordRequired;
     if (clean.length < 8) return l.newPasswordTooShort;
-    if (!RegExp(r'[A-Za-z]').hasMatch(clean) || !RegExp(r'\d').hasMatch(clean)) {
-      return l.weakPassword;
-    }
+    if (!_lowercasePattern.hasMatch(clean)) return l.passwordMustIncludeLowercase;
+    if (!_uppercasePattern.hasMatch(clean)) return l.passwordMustIncludeUppercase;
+    if (!_numberPattern.hasMatch(clean)) return l.passwordMustIncludeNumber;
     return null;
   }
 

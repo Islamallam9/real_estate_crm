@@ -6,6 +6,7 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../domain/entities/crm_task.dart';
 import '../../domain/errors/task_exception.dart';
 import '../../domain/usecases/create_task_usecase.dart';
@@ -47,6 +48,7 @@ class TasksCubit extends Cubit<TasksState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) {
     emit(
       state.copyWith(
@@ -73,6 +75,7 @@ class TasksCubit extends Cubit<TasksState> {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
     ).listen(
       (tasks) {
         if (isClosed) {
@@ -428,6 +431,7 @@ class TasksCubit extends Cubit<TasksState> {
     required TaskRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) async {
     if (type == TaskRelatedType.general) {
       emit(
@@ -453,6 +457,7 @@ class TasksCubit extends Cubit<TasksState> {
         type: type,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: teamId,
       );
       if (isClosed) {
         return;
@@ -570,7 +575,7 @@ class TasksCubit extends Cubit<TasksState> {
     final dueDay = _dateOnly(dueDate);
     switch (filter) {
       case TaskDueDateFilter.overdue:
-        return _isIncomplete(task) && dueDay.isBefore(today);
+        return DashboardTruthRules.isOverdueTask(task, today);
       case TaskDueDateFilter.today:
         return dueDay == today;
       case TaskDueDateFilter.upcoming:

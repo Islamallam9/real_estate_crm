@@ -72,6 +72,7 @@ class _EditDealViewState extends State<_EditDealView> {
       companyId: session.companyId,
       role: role,
       currentUserId: session.uid,
+      teamId: session.profile.teamId,
     );
   }
 

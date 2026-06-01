@@ -8,6 +8,7 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../data/datasources/deals_remote_data_source.dart';
 import '../../data/models/deal_model.dart';
 import '../../domain/entities/deal.dart';
@@ -52,6 +53,7 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(
@@ -79,6 +81,7 @@ class DealsCubit extends Cubit<DealsState> {
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     ).listen(
       (deals) {
@@ -116,12 +119,14 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
   }) {
     emit(state.copyWith(archiveFilter: archiveFilter));
     watchDeals(
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     );
   }
@@ -529,9 +534,7 @@ class DealsCubit extends Cubit<DealsState> {
     DealWorkQueueFilter filter,
     DateTime now,
   ) {
-    final open = !deal.isArchived &&
-        deal.stage != DealStage.won &&
-        deal.stage != DealStage.lost;
+    final open = DashboardTruthRules.isOpenDeal(deal);
     switch (filter) {
       case DealWorkQueueFilter.open:
         return open;
@@ -539,16 +542,13 @@ class DealsCubit extends Cubit<DealsState> {
         if (!open) {
           return false;
         }
-        final closingDate = deal.closingDate;
-        if (closingDate != null &&
-            !_dateOnly(closingDate.toLocal()).isAfter(_dateOnly(now))) {
-          return true;
-        }
-        final lastActivity = deal.updatedAt ?? deal.createdAt;
-        if (lastActivity == null) {
-          return false;
-        }
-        return now.difference(lastActivity.toLocal()).inDays >= 14;
+        return DashboardTruthRules.isDealAtRisk(deal, now);
+      case DealWorkQueueFilter.wonThisMonth:
+        final closedAt = (deal.closingDate ?? deal.updatedAt ?? deal.createdAt)?.toLocal();
+        return deal.stage == DealStage.won &&
+            closedAt != null &&
+            closedAt.year == now.year &&
+            closedAt.month == now.month;
     }
   }
 

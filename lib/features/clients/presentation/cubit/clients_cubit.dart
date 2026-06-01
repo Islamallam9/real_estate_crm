@@ -56,6 +56,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(
@@ -83,6 +84,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     ).listen(
       (clients) {
@@ -127,12 +129,14 @@ class ClientsCubit extends Cubit<ClientsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) {
     emit(state.copyWith(archiveFilter: archiveFilter));
     watchClients(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     );
   }

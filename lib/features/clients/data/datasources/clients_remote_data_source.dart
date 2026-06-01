@@ -53,6 +53,7 @@ abstract interface class ClientsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   });
@@ -265,6 +266,7 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
@@ -277,7 +279,9 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
           .where('isArchived', isEqualTo: false);
     }
 
-    if (managerId != null && managerId.trim().isNotEmpty) {
+    if (teamId != null && teamId.trim().isNotEmpty) {
+      query = query.where('teamId', isEqualTo: teamId.trim());
+    } else if (managerId != null && managerId.trim().isNotEmpty) {
       query = query.where('managerId', isEqualTo: managerId.trim());
     } else if (assignedTo != null && assignedTo.trim().isNotEmpty) {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());

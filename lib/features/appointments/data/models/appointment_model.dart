@@ -25,7 +25,9 @@ class AppointmentModel extends Appointment {
     required super.relatedSubtitle,
     required super.location,
     required super.notes,
+    super.outcome,
     required super.outcomeNotes,
+    super.cancellationReason,
     required super.createdAt,
     required super.createdBy,
     required super.updatedAt,
@@ -64,7 +66,9 @@ class AppointmentModel extends Appointment {
       relatedSubtitle: appointment.relatedSubtitle,
       location: appointment.location,
       notes: appointment.notes,
+      outcome: appointment.outcome,
       outcomeNotes: appointment.outcomeNotes,
+      cancellationReason: appointment.cancellationReason,
       createdAt: appointment.createdAt,
       createdBy: appointment.createdBy,
       updatedAt: appointment.updatedAt,
@@ -110,7 +114,9 @@ class AppointmentModel extends Appointment {
       relatedSubtitle: data['relatedSubtitle'] as String? ?? '',
       location: data['location'] as String? ?? '',
       notes: data['notes'] as String? ?? '',
+      outcome: _outcomeFromValue(data['outcome']),
       outcomeNotes: data['outcomeNotes'] as String? ?? '',
+      cancellationReason: data['cancellationReason'] as String? ?? '',
       createdAt: _dateTimeFromValue(data['createdAt']),
       createdBy: data['createdBy'] as String? ?? '',
       updatedAt: _dateTimeFromValue(data['updatedAt']),
@@ -144,7 +150,9 @@ class AppointmentModel extends Appointment {
       'relatedSubtitle': relatedSubtitle,
       'location': location,
       'notes': notes,
+      'outcome': outcome?.name ?? '',
       'outcomeNotes': outcomeNotes,
+      'cancellationReason': cancellationReason,
       'updatedBy': updatedBy,
     };
   }
@@ -163,6 +171,17 @@ AppointmentStatus _statusFromValue(Object? value) {
   return AppointmentStatus.values.firstWhere(
     (status) => status.name == name,
     orElse: () => AppointmentStatus.scheduled,
+  );
+}
+
+AppointmentOutcome? _outcomeFromValue(Object? value) {
+  final name = (value as String? ?? '').trim();
+  if (name.isEmpty) {
+    return null;
+  }
+  return AppointmentOutcome.values.firstWhere(
+    (outcome) => outcome.name == name,
+    orElse: () => AppointmentOutcome.other,
   );
 }
 

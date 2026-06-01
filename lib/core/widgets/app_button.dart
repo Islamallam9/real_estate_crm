@@ -111,12 +111,13 @@ class _ButtonContent extends StatelessWidget {
       children: [
         Icon(icon, size: 18),
         const SizedBox(width: 8),
-        Flexible(
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
           child: Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
+            maxLines: 2,
+            overflow: TextOverflow.visible,
+            softWrap: true,
           ),
         ),
       ],

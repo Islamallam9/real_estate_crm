@@ -60,5 +60,5 @@ String _normalizeEmail(String value) {
 }
 
 String _normalizePhone(String value) {
-  return value.replaceAll(RegExp(r'\s+'), '').trim();
+  return value.replaceAll(RegExp(r'[()\-\s]+'), '').trim();
 }

@@ -70,17 +70,17 @@ class TasksPage extends StatelessWidget {
 
           String? assignedTo;
           String? managerId;
+          String? teamId;
 
           if (role == UserRole.manager) {
             managerId = profile.uid;
+            teamId = profile.teamId;
           } else if (role == UserRole.salesAgent ||
               role == UserRole.marketing ||
               role == UserRole.viewer) {
             assignedTo = profile.uid;
           }
-          final canCreate =
-              PermissionService.can(role, AppPermission.createTask) &&
-                  (role == UserRole.admin || role == UserRole.manager);
+          final canCreate = PermissionService.can(role, AppPermission.createTask);
           final canManageTasks =
               role == UserRole.admin ||
               role == UserRole.manager ||
@@ -94,6 +94,7 @@ class TasksPage extends StatelessWidget {
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,
+              teamId: teamId,
               canCreate: canCreate,
               canManageTasks: canManageTasks,
               canFilterAssignee: role == UserRole.admin || role == UserRole.manager,
@@ -118,11 +119,13 @@ class _TasksListContent extends StatefulWidget {
     required this.initialFilters,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final bool canCreate;
   final bool canManageTasks;
   final bool canFilterAssignee;
@@ -147,7 +150,8 @@ class _TasksListContentState extends State<_TasksListContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.companyId != widget.companyId ||
         oldWidget.assignedTo != widget.assignedTo ||
-        oldWidget.managerId != widget.managerId) {
+        oldWidget.managerId != widget.managerId ||
+        oldWidget.teamId != widget.teamId) {
       _watchScopedTasks();
     } else if (_filterSignature(oldWidget.initialFilters) !=
         _filterSignature(widget.initialFilters)) {
@@ -160,6 +164,7 @@ class _TasksListContentState extends State<_TasksListContent> {
       companyId: widget.companyId,
       assignedTo: widget.assignedTo,
       managerId: widget.managerId,
+      teamId: widget.teamId,
     );
     _applyInitialFiltersIfNeeded();
   }

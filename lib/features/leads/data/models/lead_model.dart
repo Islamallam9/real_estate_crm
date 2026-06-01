@@ -131,7 +131,9 @@ class LeadModel extends Lead {
       'companyId': companyId,
       'fullName': fullName,
       'phone': phone,
+      'phoneNormalized': _normalizePhone(phone),
       'email': email,
+      'emailNormalized': _normalizeEmail(email),
       'source': leadSourceToValue(source),
       'status': leadStatusToValue(status),
       'priority': leadPriorityToValue(priority),
@@ -267,6 +269,14 @@ String leadPriorityToValue(LeadPriority priority) {
     case LeadPriority.high:
       return 'high';
   }
+}
+
+String _normalizeEmail(String value) {
+  return value.trim().toLowerCase();
+}
+
+String _normalizePhone(String value) {
+  return value.replaceAll(RegExp(r'[()\-\s]+'), '').trim();
 }
 
 DateTime _dateTimeFromValue(Object? value) {

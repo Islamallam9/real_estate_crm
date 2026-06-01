@@ -47,6 +47,7 @@ abstract interface class ClientRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   });

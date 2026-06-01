@@ -241,131 +241,152 @@ class _SegmentedTabButtons extends StatelessWidget {
     isDark ? const Color(0xFF050505) : AppColors.textStrong;
     final inactiveForeground = AppColors.textSecondaryColor(context);
 
-    Widget buildButton(int index) {
+    Widget buildButton(int index, {required bool expanded}) {
       final tab = tabs[index];
       final selected = index == selectedIndex;
       final textColor = selected ? selectedForeground : inactiveForeground;
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Material(
-          color: selected ? primary.withValues(alpha: 0.96) : Colors.transparent,
-          borderRadius: BorderRadius.circular(compact ? 14 : 20),
-          child: InkWell(
-            onTap: () => onChanged(index),
-            borderRadius: BorderRadius.circular(compact ? 14 : 20),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 10 : 13,
-                vertical: compact ? 8 : 11,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(
-                        tab.icon,
-                        size: compact ? 18 : 20,
-                        color: textColor,
-                      ),
-                      if (tab.badge != null)
-                        PositionedDirectional(
-                          top: -8,
-                          end: -9,
-                          child: Container(
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            padding: const EdgeInsetsDirectional.symmetric(
-                              horizontal: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.errorColor(context),
-                              borderRadius: AppRadius.large,
-                              border: Border.all(
-                                color: AppColors.cardSurface(context),
-                                width: 1.2,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              tab.badge!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                height: 1,
-                              ),
+      final radius = BorderRadius.circular(compact ? 14 : 20);
+      final button = Material(
+        color: selected ? primary.withValues(alpha: 0.96) : Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: () => onChanged(index),
+          borderRadius: radius,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 10 : 13,
+              vertical: compact ? 8 : 11,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: compact ? 18 : 20,
+                      color: textColor,
+                    ),
+                    if (tab.badge != null)
+                      PositionedDirectional(
+                        top: -8,
+                        end: -9,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.errorColor(context),
+                            borderRadius: AppRadius.large,
+                            border: Border.all(
+                              color: AppColors.cardSurface(context),
+                              width: 1.2,
                             ),
                           ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            tab.badge!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1,
+                                ),
+                          ),
                         ),
-                    ],
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  fit: expanded ? FlexFit.tight : FlexFit.loose,
+                  child: Text(
+                    tab.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: textColor,
+                          fontWeight:
+                              selected ? FontWeight.w900 : FontWeight.w700,
+                          fontSize: compact ? 11 : 12,
+                        ),
                   ),
-                  const SizedBox(width: 7),
-                  if (fullWidth)
-                    Flexible(
-                      child: Text(
-                        tab.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: textColor,
-                          fontWeight:
-                          selected ? FontWeight.w900 : FontWeight.w700,
-                          fontSize: compact ? 11 : 12,
-                        ),
-                      ),
-                    )
-                  else
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: compact ? 58 : 70,
-                        maxWidth: compact ? 148 : 176,
-                      ),
-                      child: Text(
-                        tab.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: textColor,
-                          fontWeight:
-                          selected ? FontWeight.w900 : FontWeight.w700,
-                          fontSize: compact ? 11 : 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       );
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: expanded
+            ? SizedBox(width: double.infinity, child: button)
+            : ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: compact ? 40 : 48,
+                  minWidth: compact ? 96 : 112,
+                  maxWidth: compact ? 180 : 220,
+                ),
+                child: button,
+              ),
+      );
     }
 
     if (fullWidth) {
+      final narrow = MediaQuery.sizeOf(context).width < 430 || tabs.length > 5;
+      if (narrow) {
+        return SizedBox(
+          height: compact ? 48 : 58,
+          width: double.infinity,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var index = 0; index < tabs.length; index++)
+                    buildButton(index, expanded: false),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       return Row(
         children: [
           for (var index = 0; index < tabs.length; index++)
-            Expanded(child: buildButton(index)),
+            Expanded(child: buildButton(index, expanded: true)),
         ],
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var index = 0; index < tabs.length; index++) buildButton(index),
-        ],
+    return SizedBox(
+      height: compact ? 48 : 58,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < tabs.length; index++)
+                buildButton(index, expanded: false),
+            ],
+          ),
+        ),
       ),
     );
   }

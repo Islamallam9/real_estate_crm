@@ -32,6 +32,9 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
     case AppErrorMessages.cancelled:
     case AppErrorMessages.unknown:
       return l.somethingWentWrong;
+    case 'weak-password':
+    case 'Password is too weak.':
+      return l.weakPassword;
     case 'Unable to load your user profile.':
       return l.authErrorProfileMissing;
     case 'Unable to load leads. Please try again.':
@@ -41,7 +44,12 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
     case 'Unable to create lead. Please try again.':
       return l.unableToCreateLead;
     case 'A lead with this phone or email already exists.':
+    case 'Lead already exists.':
       return l.duplicateLeadFound;
+    case 'Budget cannot be negative.':
+      return l.valueMustBeNonNegative;
+    case 'Maximum budget cannot be less than minimum budget.':
+      return l.budgetMaxMustBeGreaterThanBudgetMin;
     case 'Unable to update lead. Please try again.':
       return l.leadUpdateFailed;
     case 'Unable to archive lead. Please try again.':

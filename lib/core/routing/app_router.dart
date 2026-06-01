@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/force_change_password_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/audit_logs/presentation/pages/audit_logs_page.dart';
 import '../../features/clients/presentation/pages/create_client_page.dart';
 import '../../features/clients/presentation/pages/client_details_page.dart';
 import '../../features/clients/presentation/pages/edit_client_page.dart';
@@ -258,6 +259,15 @@ abstract final class AppRouter {
           pageBuilder: (context, state) => _calmPage(state, const ReportsPage()),
         ),
         GoRoute(
+          path: RouteNames.auditLogs,
+          pageBuilder: (context, state) => _calmPage(
+            state,
+            AuditLogsPage.withDependencies(
+              initialFocusAuditId: state.uri.queryParameters['focus'],
+            ),
+          ),
+        ),
+        GoRoute(
           path: RouteNames.users,
           pageBuilder: (context, state) => _calmPage(
             state,
@@ -467,6 +477,9 @@ bool _blockedCompanyRouteForRole(String location, UserRole role) {
   if (location == RouteNames.teams) {
     return role != UserRole.admin && role != UserRole.manager;
   }
+  if (location == RouteNames.auditLogs) {
+    return false;
+  }
 
   final permission = _permissionForCompanyLocation(location);
   return permission != null && !PermissionService.can(role, permission);
@@ -478,6 +491,9 @@ AppPermission? _permissionForCompanyLocation(String location) {
   }
   if (location == RouteNames.reports) {
     return AppPermission.viewReports;
+  }
+  if (location == RouteNames.auditLogs) {
+    return AppPermission.viewAuditLogs;
   }
   if (location == RouteNames.leadsCreate) {
     return AppPermission.createLead;

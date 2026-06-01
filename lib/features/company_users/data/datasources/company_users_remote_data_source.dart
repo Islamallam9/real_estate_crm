@@ -61,7 +61,10 @@ class FirebaseCompanyUsersRemoteDataSource
         .orderBy('fullName')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        return data['authMissing'] != true;
+      }).map((doc) {
         final data = doc.data();
         return CompanyCrmUser(
           uid: data['uid'] as String? ?? doc.id,

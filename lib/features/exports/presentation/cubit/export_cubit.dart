@@ -29,8 +29,38 @@ class ExportCubit extends Cubit<ExportState> {
     emit(
       state.copyWith(
         module: module,
+        selectedModules: <ExportModule>[module],
         filters: state.filters.copyWith(status: '', assigneeId: ''),
         selectedColumns: const <String>[],
+        clearResult: true,
+        clearMessage: true,
+      ),
+    );
+  }
+
+  void toggleModule(ExportModule module) {
+    final next = state.selectedModules.toList(growable: true);
+    if (next.contains(module)) {
+      if (next.length == 1) {
+        emit(
+          state.copyWith(
+            module: module,
+            clearResult: true,
+            clearMessage: true,
+          ),
+        );
+        return;
+      }
+      next.remove(module);
+    } else {
+      next.add(module);
+    }
+    emit(
+      state.copyWith(
+        module: module,
+        selectedModules: next,
+        selectedColumns: const <String>[],
+        advancedColumns: false,
         clearResult: true,
         clearMessage: true,
       ),

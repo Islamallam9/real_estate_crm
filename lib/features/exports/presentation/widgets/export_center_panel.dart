@@ -24,10 +24,12 @@ class ExportCenterPanel extends StatefulWidget {
     super.key,
     required this.profile,
     required this.companyName,
+    this.exportsEnabled = true,
   });
 
   final UserProfile profile;
   final String companyName;
+  final bool exportsEnabled;
 
   @override
   State<ExportCenterPanel> createState() => _ExportCenterPanelState();
@@ -36,6 +38,7 @@ class ExportCenterPanel extends StatefulWidget {
 class _ExportCenterPanelState extends State<ExportCenterPanel> {
   late final ExportCubit _cubit;
   bool _languageSynced = false;
+  DownloadedFileResult? _lastDownloadedFile;
 
   @override
   void initState() {
@@ -98,6 +101,10 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.exportsEnabled) {
+      return _ExportFeatureDisabledPanel();
+    }
+
     return BlocProvider.value(
       value: _cubit,
       child: BlocConsumer<ExportCubit, ExportState>(
@@ -109,7 +116,10 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
         builder: (context, state) {
           final l = AppLocalizations.of(context)!;
           final request = _request(l, state);
-          final canExport = _canExport(widget.profile.role, state.module);
+          final canExport = state.selectedModules.isNotEmpty &&
+              state.selectedModules.every(
+                (module) => _canExport(widget.profile.role, module),
+              );
 
           return Container(
             padding: EdgeInsets.all(
@@ -128,9 +138,10 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
                 _ExportHeader(state: state),
                 const SizedBox(height: AppSpacing.sm),
                 _ModuleSelector(
-                  selected: state.module,
+                  active: state.module,
+                  selected: state.selectedModules,
                   role: widget.profile.role,
-                  onSelected: context.read<ExportCubit>().setModule,
+                  onSelected: context.read<ExportCubit>().toggleModule,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _FiltersPanel(
@@ -143,11 +154,24 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
                       context.read<ExportCubit>().setOutputLanguage,
                   onIncludeArchivedChanged:
                       context.read<ExportCubit>().setIncludeArchived,
+                  onClearFilters: () {
+                    context
+                        .read<ExportCubit>()
+                        .setDateRange(ExportDateRangePreset.thisMonth);
+                    context.read<ExportCubit>().setStatus('');
+                    context.read<ExportCubit>().setAssignee('');
+                    context.read<ExportCubit>().setIncludeArchived(false);
+                    final language = Localizations.localeOf(context).languageCode == 'ar'
+                        ? ExportOutputLanguage.ar
+                        : ExportOutputLanguage.en;
+                    context.read<ExportCubit>().setOutputLanguage(language);
+                  },
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _ColumnsPanel(
                   state: state,
                   availableColumns: _availableColumns(l, state.module),
+                  multiModule: state.selectedModules.length > 1,
                   onAdvancedChanged:
                       context.read<ExportCubit>().toggleAdvancedColumns,
                   onColumnChanged: context.read<ExportCubit>().toggleColumn,
@@ -170,7 +194,10 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
                   const SizedBox(height: AppSpacing.md),
                   _ExportResultCard(
                     state: state,
+                    downloadedFile: _lastDownloadedFile,
                     onDownload: () => _downloadResult(context, state),
+                    onOpenFile: () => _openResultFile(context, state),
+                    onOpenDownloads: () => _openDownloadsForResult(context, state),
                   ),
                 ],
               ],
@@ -190,7 +217,10 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
         ..._exportLabels(l),
         'selectedAssignee': _selectedAssigneeLabel(l, state),
       },
-      columns: state.advancedColumns ? state.selectedColumns : const <String>[],
+      columns: state.advancedColumns && state.selectedModules.length == 1
+          ? state.selectedColumns
+          : const <String>[],
+      modules: state.selectedModules,
     );
   }
 
@@ -208,24 +238,140 @@ class _ExportCenterPanelState extends State<ExportCenterPanel> {
   }
 
   Future<void> _downloadResult(BuildContext context, ExportState state) async {
+    await _ensureDownloadedResult(context, state, showSuccessMessage: true);
+  }
+
+  Future<void> _openResultFile(BuildContext context, ExportState state) async {
     final l = AppLocalizations.of(context)!;
-    final result = state.result;
-    if (result == null) {
+    final downloaded = await _ensureDownloadedResult(context, state);
+    if (!context.mounted || downloaded == null) {
       return;
     }
-    final ok = await downloadBytes(
+    final ok = await openDownloadedFile(downloaded);
+    if (!context.mounted || ok) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l.exportOpenFileFailed)),
+    );
+  }
+
+  Future<void> _openDownloadsForResult(BuildContext context, ExportState state) async {
+    final l = AppLocalizations.of(context)!;
+    final downloaded = await _ensureDownloadedResult(context, state);
+    if (!context.mounted || downloaded == null) {
+      return;
+    }
+    final ok = await openDownloadsLocation(downloaded);
+    if (!context.mounted || ok) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l.exportOpenDownloadsFailed)),
+    );
+  }
+
+  Future<DownloadedFileResult?> _ensureDownloadedResult(
+    BuildContext context,
+    ExportState state, {
+    bool showSuccessMessage = false,
+  }) async {
+    final existing = _lastDownloadedFile;
+    final result = state.result;
+    if (existing != null &&
+        existing.success &&
+        existing.fileName == result?.fileName &&
+        existing.uri.trim().isNotEmpty) {
+      return existing;
+    }
+    final l = AppLocalizations.of(context)!;
+    if (result == null) {
+      return null;
+    }
+    final downloaded = await downloadBytes(
       fileName: result.fileName,
       mimeType: result.mimeType,
       bytes: result.bytes,
     );
     if (!context.mounted) {
-      return;
+      return null;
+    }
+    if (downloaded.success) {
+      setState(() => _lastDownloadedFile = downloaded);
+      if (showSuccessMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.exportGeneratedSuccessfully)),
+        );
+      }
+      return downloaded;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? l.exportGeneratedSuccessfully : l.exportDownloadFailed,
-        ),
+      SnackBar(content: Text(l.exportDownloadFailed)),
+    );
+    return null;
+  }
+}
+
+class _ExportFeatureDisabledPanel extends StatelessWidget {
+  const _ExportFeatureDisabledPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: EdgeInsets.all(
+        MediaQuery.sizeOf(context).width < 600 ? AppSpacing.sm : AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: AppRadius.xLarge,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.warningColor(context).withValues(alpha: 0.12),
+                  borderRadius: AppRadius.medium,
+                ),
+                child: Icon(
+                  Icons.file_download_off_outlined,
+                  color: AppColors.warningColor(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.exportCenter,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    Text(
+                      l.featureUnavailableMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -335,12 +481,14 @@ class _ExportHeader extends StatelessWidget {
 
 class _ModuleSelector extends StatelessWidget {
   const _ModuleSelector({
+    required this.active,
     required this.selected,
     required this.role,
     required this.onSelected,
   });
 
-  final ExportModule selected;
+  final ExportModule active;
+  final List<ExportModule> selected;
   final UserRole role;
   final ValueChanged<ExportModule> onSelected;
 
@@ -368,7 +516,7 @@ class _ModuleSelector extends StatelessWidget {
                 crossAxisCount: columns,
                 crossAxisSpacing: AppSpacing.xs,
                 mainAxisSpacing: AppSpacing.xs,
-                childAspectRatio: availableWidth < 380 ? 3.7 : 4.4,
+                childAspectRatio: availableWidth < 380 ? 3.1 : 3.8,
               ),
               itemBuilder: (context, index) {
                 final module = ExportModule.values[index];
@@ -376,7 +524,8 @@ class _ModuleSelector extends StatelessWidget {
                   module: module,
                   label: _moduleLabel(l, module),
                   icon: _moduleIcon(module),
-                  selected: selected == module,
+                  selected: selected.contains(module),
+                  active: active == module,
                   enabled: _canExport(role, module),
                   onTap: () => onSelected(module),
                 );
@@ -395,6 +544,7 @@ class _ModuleCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.selected,
+    required this.active,
     required this.enabled,
     required this.onTap,
   });
@@ -403,6 +553,7 @@ class _ModuleCard extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
+  final bool active;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -443,8 +594,8 @@ class _ModuleCard extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       height: 1.05,
@@ -452,7 +603,13 @@ class _ModuleCard extends StatelessWidget {
                     ),
               ),
             ),
-            if (!enabled)
+            if (selected)
+              Icon(
+                active ? Icons.radio_button_checked : Icons.check_circle,
+                size: 15,
+                color: enabled ? color : Theme.of(context).disabledColor,
+              )
+            else if (!enabled)
               Tooltip(
                 message: l.exportNotAvailableForRole,
                 child: Icon(
@@ -524,6 +681,7 @@ class _FiltersPanel extends StatelessWidget {
     required this.onStatusChanged,
     required this.onLanguageChanged,
     required this.onIncludeArchivedChanged,
+    required this.onClearFilters,
   });
 
   final ExportState state;
@@ -533,118 +691,378 @@ class _FiltersPanel extends StatelessWidget {
   final ValueChanged<String> onStatusChanged;
   final ValueChanged<ExportOutputLanguage> onLanguageChanged;
   final ValueChanged<bool> onIncludeArchivedChanged;
+  final VoidCallback onClearFilters;
+
+  bool get _canFilterAssignee => role == UserRole.admin || role == UserRole.manager;
+  bool get _canIncludeArchived => role == UserRole.admin || role == UserRole.manager;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final statusOptions = _statusOptions(l, state.module);
-    final canFilterAssignee = role == UserRole.admin || role == UserRole.manager;
-    final canIncludeArchived = role == UserRole.admin || role == UserRole.manager;
+    final chips = _filterSummaryChips(l);
 
-    return _ExportSection(
-      title: l.filters,
-      icon: Icons.tune_rounded,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 720;
-            final twoColumnCompact = compact && constraints.maxWidth >= 300;
-            final fieldWidth = compact
-                ? twoColumnCompact
-                    ? (constraints.maxWidth - AppSpacing.xs) / 2
-                    : constraints.maxWidth
-                : 210.0;
-            final agentWidth = compact ? constraints.maxWidth : 230.0;
-            final languageWidth = compact
-                ? twoColumnCompact
-                    ? (constraints.maxWidth - AppSpacing.xs) / 2
-                    : constraints.maxWidth
-                : 170.0;
+    return Container(
+      padding: EdgeInsets.all(
+        MediaQuery.sizeOf(context).width < 600 ? AppSpacing.xs : AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 680;
+          final action = AppButton(
+            label: l.filters,
+            icon: Icons.tune_rounded,
+            variant: AppButtonVariant.secondary,
+            isExpanded: compact,
+            onPressed: () => _showExportFiltersSheet(context),
+          );
 
-            return Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: fieldWidth,
-                  child: AppDropdown<ExportDateRangePreset>(
-                    label: l.dateRange,
-                    value: state.filters.dateRange,
-                    items: ExportDateRangePreset.values
-                        .where((value) => value != ExportDateRangePreset.custom)
-                        .toList(),
-                    itemLabelBuilder: (value) => _dateRangeLabel(l, value),
-                    onChanged: onDateRangeChanged,
+          final summary = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: AppColors.primaryColor(context),
                   ),
-                ),
-                if (statusOptions.length > 1)
-                  SizedBox(
-                    width: fieldWidth,
-                    child: AppDropdown<_StatusOption>(
-                      label: l.exportStatusFilter,
-                      value: _StatusOption.fromValue(
-                        state.filters.status,
-                        statusOptions,
-                      ),
-                      items: statusOptions,
-                      itemLabelBuilder: (value) => value.label,
-                      onChanged: (value) => onStatusChanged(value.value),
-                    ),
-                  ),
-                if (canFilterAssignee)
-                  SizedBox(
-                    width: agentWidth,
-                    child: AppDropdown<_AssigneeFilterOption>(
-                      label: l.assignedAgent,
-                      value: _AssigneeFilterOption.fromValue(
-                        state.filters.assigneeId,
-                        state.assignees,
-                        l.allAgents,
-                      ),
-                      items: [
-                        _AssigneeFilterOption('', l.allAgents),
-                        for (final assignee in state.assignees)
-                          _AssigneeFilterOption(
-                            assignee.uid,
-                            assignee.displayName,
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      l.filters,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
                           ),
-                      ],
-                      itemLabelBuilder: (value) => value.label,
-                      onChanged: (value) => onAssigneeChanged(value.uid),
                     ),
                   ),
-                SizedBox(
-                  width: languageWidth,
-                  child: AppDropdown<ExportOutputLanguage>(
-                    label: l.exportLanguage,
-                    value: state.filters.outputLanguage,
-                    items: ExportOutputLanguage.values,
-                    itemLabelBuilder: (value) => value == ExportOutputLanguage.ar
-                        ? l.arabic
-                        : l.english,
-                    onChanged: onLanguageChanged,
-                  ),
-                ),
-                if (canIncludeArchived)
-                  SizedBox(
-                    width: compact
-                        ? twoColumnCompact
-                            ? (constraints.maxWidth - AppSpacing.xs) / 2
-                            : constraints.maxWidth
-                        : 230,
-                    child: _ExportToggleButton(
-                      label: l.includeArchivedRecords,
-                      icon: Icons.archive_outlined,
-                      selected: state.filters.includeArchived,
-                      onChanged: onIncludeArchivedChanged,
-                    ),
-                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final chip in chips) _FilterSummaryChip(label: chip),
+                ],
+              ),
+            ],
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                summary,
+                const SizedBox(height: AppSpacing.sm),
+                action,
               ],
             );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: summary),
+              const SizedBox(width: AppSpacing.sm),
+              action,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  List<String> _filterSummaryChips(AppLocalizations l) {
+    final chips = <String>[
+      _dateRangeLabel(l, state.filters.dateRange),
+    ];
+
+    final statusOptions = _statusOptions(l, state.module);
+    final status = state.filters.status.trim();
+    if (status.isNotEmpty) {
+      chips.add(_StatusOption.fromValue(status, statusOptions).label);
+    } else {
+      chips.add(l.allStatuses);
+    }
+
+    if (_canFilterAssignee) {
+      chips.add(_AssigneeFilterOption.fromValue(
+        state.filters.assigneeId,
+        state.assignees,
+        l.allAgents,
+      ).label);
+    }
+
+    chips.add(
+      state.filters.outputLanguage == ExportOutputLanguage.ar
+          ? l.arabic
+          : l.english,
+    );
+
+    if (_canIncludeArchived && state.filters.includeArchived) {
+      chips.add(l.includeArchivedRecords);
+    }
+
+    return chips;
+  }
+
+  Future<void> _showExportFiltersSheet(BuildContext context) async {
+    final l = AppLocalizations.of(context)!;
+    var dateRange = state.filters.dateRange;
+    var status = state.filters.status;
+    var assigneeId = state.filters.assigneeId;
+    var outputLanguage = state.filters.outputLanguage;
+    var includeArchived = state.filters.includeArchived;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.20),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final media = MediaQuery.of(sheetContext);
+            final maxHeight = media.size.height * 0.88;
+            final statusOptions = _statusOptions(l, state.module);
+            final assigneeOptions = <_AssigneeFilterOption>[
+              _AssigneeFilterOption('', l.allAgents),
+              for (final assignee in state.assignees)
+                _AssigneeFilterOption(assignee.uid, assignee.displayName),
+            ];
+
+            final sheetWidth = media.size.width < 720 ? media.size.width : 720.0;
+
+            return Align(
+              alignment: AlignmentDirectional.bottomCenter,
+              child: SizedBox(
+                width: sheetWidth,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: Material(
+                  color: AppColors.cardSurface(sheetContext),
+                  borderRadius: const BorderRadiusDirectional.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                      AppSpacing.md,
+                      AppSpacing.md + media.padding.bottom,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: AppColors.textSecondaryColor(sheetContext)
+                                  .withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l.filters,
+                                style: Theme.of(sheetContext)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: MaterialLocalizations.of(sheetContext)
+                                  .closeButtonTooltip,
+                              onPressed: () => Navigator.of(sheetContext).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final fieldWidth = constraints.maxWidth >= 560
+                                ? (constraints.maxWidth - AppSpacing.sm) / 2
+                                : constraints.maxWidth;
+                            return Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.sm,
+                              children: [
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: AppDropdown<ExportDateRangePreset>(
+                                    label: l.dateRange,
+                                    value: dateRange,
+                                    items: ExportDateRangePreset.values
+                                        .where((value) =>
+                                            value != ExportDateRangePreset.custom)
+                                        .toList(),
+                                    itemLabelBuilder: (value) =>
+                                        _dateRangeLabel(l, value),
+                                    onChanged: (value) {
+                                      setSheetState(() => dateRange = value);
+                                      onDateRangeChanged(value);
+                                    },
+                                  ),
+                                ),
+                                if (statusOptions.length > 1)
+                                  SizedBox(
+                                    width: fieldWidth,
+                                    child: AppDropdown<_StatusOption>(
+                                      label: l.exportStatusFilter,
+                                      value: _StatusOption.fromValue(
+                                        status,
+                                        statusOptions,
+                                      ),
+                                      items: statusOptions,
+                                      itemLabelBuilder: (value) => value.label,
+                                      onChanged: (value) {
+                                        setSheetState(() => status = value.value);
+                                        onStatusChanged(value.value);
+                                      },
+                                    ),
+                                  ),
+                                if (_canFilterAssignee)
+                                  SizedBox(
+                                    width: fieldWidth,
+                                    child: AppDropdown<_AssigneeFilterOption>(
+                                      label: l.assignedAgent,
+                                      value: _AssigneeFilterOption.fromValue(
+                                        assigneeId,
+                                        state.assignees,
+                                        l.allAgents,
+                                      ),
+                                      items: assigneeOptions,
+                                      itemLabelBuilder: (value) => value.label,
+                                      onChanged: (value) {
+                                        setSheetState(() => assigneeId = value.uid);
+                                        onAssigneeChanged(value.uid);
+                                      },
+                                    ),
+                                  ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: AppDropdown<ExportOutputLanguage>(
+                                    label: l.exportLanguage,
+                                    value: outputLanguage,
+                                    items: ExportOutputLanguage.values,
+                                    itemLabelBuilder: (value) =>
+                                        value == ExportOutputLanguage.ar
+                                            ? l.arabic
+                                            : l.english,
+                                    onChanged: (value) {
+                                      setSheetState(() => outputLanguage = value);
+                                      onLanguageChanged(value);
+                                    },
+                                  ),
+                                ),
+                                if (_canIncludeArchived)
+                                  SizedBox(
+                                    width: fieldWidth,
+                                    child: _ExportToggleButton(
+                                      label: l.includeArchivedRecords,
+                                      icon: Icons.archive_outlined,
+                                      selected: includeArchived,
+                                      onChanged: (value) {
+                                        setSheetState(() => includeArchived = value);
+                                        onIncludeArchivedChanged(value);
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton(
+                                label: l.clearFilters,
+                                icon: Icons.filter_alt_off_outlined,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () {
+                                  setSheetState(() {
+                                    dateRange = ExportDateRangePreset.thisMonth;
+                                    status = '';
+                                    assigneeId = '';
+                                    outputLanguage = Localizations.localeOf(context)
+                                                .languageCode ==
+                                            'ar'
+                                        ? ExportOutputLanguage.ar
+                                        : ExportOutputLanguage.en;
+                                    includeArchived = false;
+                                  });
+                                  onClearFilters();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: AppButton(
+                                label: l.applyFilters,
+                                icon: Icons.check_rounded,
+                                onPressed: () => Navigator.of(sheetContext).pop(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
           },
-        ),
-      ],
+        );
+      },
+    );
+  }
+}
+
+class _FilterSummaryChip extends StatelessWidget {
+  const _FilterSummaryChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Text(
+        label,
+        softWrap: true,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppColors.textSecondaryColor(context),
+              fontWeight: FontWeight.w800,
+            ),
+      ),
     );
   }
 }
@@ -689,15 +1107,15 @@ class _ExportToggleButton extends StatelessWidget {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: color,
                       fontWeight: FontWeight.w800,
@@ -721,12 +1139,14 @@ class _ColumnsPanel extends StatelessWidget {
   const _ColumnsPanel({
     required this.state,
     required this.availableColumns,
+    required this.multiModule,
     required this.onAdvancedChanged,
     required this.onColumnChanged,
   });
 
   final ExportState state;
   final List<_ColumnOption> availableColumns;
+  final bool multiModule;
   final ValueChanged<bool> onAdvancedChanged;
   final void Function(String columnId, bool selected) onColumnChanged;
 
@@ -739,7 +1159,7 @@ class _ColumnsPanel extends StatelessWidget {
       children: [
         InkWell(
           borderRadius: AppRadius.large,
-          onTap: () => onAdvancedChanged(!state.advancedColumns),
+          onTap: multiModule ? null : () => onAdvancedChanged(!state.advancedColumns),
           child: Container(
             padding: const EdgeInsetsDirectional.symmetric(
               horizontal: AppSpacing.sm,
@@ -757,16 +1177,18 @@ class _ColumnsPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        state.advancedColumns
-                            ? l.advancedColumns
-                            : l.recommendedColumns,
+                        multiModule
+                            ? l.recommendedColumns
+                            : state.advancedColumns
+                                ? l.advancedColumns
+                                : l.recommendedColumns,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.w900,
                             ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        l.exportColumns,
+                        multiModule ? l.multipleReportsColumnsHint : l.exportColumns,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondaryColor(context),
                             ),
@@ -775,14 +1197,14 @@ class _ColumnsPanel extends StatelessWidget {
                   ),
                 ),
                 Switch.adaptive(
-                  value: state.advancedColumns,
-                  onChanged: onAdvancedChanged,
+                  value: !multiModule && state.advancedColumns,
+                  onChanged: multiModule ? null : onAdvancedChanged,
                 ),
               ],
             ),
           ),
         ),
-        if (state.advancedColumns) ...[
+        if (!multiModule && state.advancedColumns) ...[
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.xs,
@@ -890,11 +1312,17 @@ class _ExportActionBar extends StatelessWidget {
 class _ExportResultCard extends StatelessWidget {
   const _ExportResultCard({
     required this.state,
+    required this.downloadedFile,
     required this.onDownload,
+    required this.onOpenFile,
+    required this.onOpenDownloads,
   });
 
   final ExportState state;
+  final DownloadedFileResult? downloadedFile;
   final VoidCallback onDownload;
+  final VoidCallback onOpenFile;
+  final VoidCallback onOpenDownloads;
 
   @override
   Widget build(BuildContext context) {
@@ -916,6 +1344,7 @@ class _ExportResultCard extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 560;
+          final savedPath = downloadedFile?.displayPath.trim() ?? '';
           final details = '${result.fileName} · ${result.recordCount} ${l.records}';
 
           final body = Row(
@@ -939,12 +1368,24 @@ class _ExportResultCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       details,
-                      maxLines: compact ? 3 : 2,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: compact ? 4 : 3,
+                      overflow: TextOverflow.visible,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondaryColor(context),
                           ),
                     ),
+                    if (savedPath.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${l.exportSavedTo}: $savedPath',
+                        maxLines: 4,
+                        overflow: TextOverflow.visible,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -957,11 +1398,29 @@ class _ExportResultCard extends StatelessWidget {
               children: [
                 body,
                 const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: l.downloadFile,
-                  icon: Icons.download_rounded,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: onDownload,
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppButton(
+                      label: l.downloadFile,
+                      icon: Icons.download_rounded,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: onDownload,
+                    ),
+                    AppButton(
+                      label: l.openFile,
+                      icon: Icons.open_in_new,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: onOpenFile,
+                    ),
+                    AppButton(
+                      label: l.openDownloads,
+                      icon: Icons.folder_open_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: onOpenDownloads,
+                    ),
+                  ],
                 ),
               ],
             );
@@ -971,11 +1430,29 @@ class _ExportResultCard extends StatelessWidget {
             children: [
               Expanded(child: body),
               const SizedBox(width: AppSpacing.sm),
-              AppButton(
-                label: l.downloadFile,
-                icon: Icons.download_rounded,
-                variant: AppButtonVariant.secondary,
-                onPressed: onDownload,
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  AppButton(
+                    label: l.downloadFile,
+                    icon: Icons.download_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onDownload,
+                  ),
+                  AppButton(
+                    label: l.openFile,
+                    icon: Icons.open_in_new,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onOpenFile,
+                  ),
+                  AppButton(
+                    label: l.openDownloads,
+                    icon: Icons.folder_open_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onOpenDownloads,
+                  ),
+                ],
               ),
             ],
           );
@@ -1347,6 +1824,7 @@ Map<String, String> _exportLabels(AppLocalizations l) {
     'value': l.value,
     'reportSummary': l.reportSummary,
     'dataSheet': l.dataSheet,
+    'multipleReports': l.multipleReports,
     'yes': l.yes,
     'no': l.no,
     'status': l.status,
@@ -1354,6 +1832,8 @@ Map<String, String> _exportLabels(AppLocalizations l) {
     'selectedAssignee': l.selectedAssignee,
     'includeArchived': l.includeArchivedRecords,
     'permissionDenied': l.permissionDenied,
+    'exportTrackingFailed': l.exportTrackingFailed,
+    'exportDownloadFailed': l.exportDownloadFailed,
     'scope.companyWide': l.companyWideExportScope,
     'scope.myTeam': l.myTeamExportScope,
     'scope.myRecords': l.myRecordsExportScope,

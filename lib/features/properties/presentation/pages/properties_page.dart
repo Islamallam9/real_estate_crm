@@ -29,7 +29,9 @@ import '../widgets/property_labels.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 
 class PropertiesPage extends StatelessWidget {
-  const PropertiesPage({super.key});
+  const PropertiesPage({super.key, this.initialFilters = const {}});
+
+  final Map<String, String> initialFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +73,7 @@ class PropertiesPage extends StatelessWidget {
               canEdit: PermissionService.can(role, AppPermission.editProperty),
               canDeactivate: canDeactivate,
               uid: profile.uid,
+              initialFilters: initialFilters,
             ),
           );
         },
@@ -87,6 +90,7 @@ class _PropertiesListContent extends StatefulWidget {
     required this.canEdit,
     required this.canDeactivate,
     required this.uid,
+    required this.initialFilters,
   });
 
   final String companyId;
@@ -94,12 +98,15 @@ class _PropertiesListContent extends StatefulWidget {
   final bool canEdit;
   final bool canDeactivate;
   final String uid;
+  final Map<String, String> initialFilters;
 
   @override
   State<_PropertiesListContent> createState() => _PropertiesListContentState();
 }
 
 class _PropertiesListContentState extends State<_PropertiesListContent> {
+  String? _appliedFilterSignature;
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +118,9 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.companyId != widget.companyId) {
       _watchProperties();
+    } else if (_filterSignature(oldWidget.initialFilters) !=
+        _filterSignature(widget.initialFilters)) {
+      _applyInitialFiltersIfNeeded();
     }
   }
 
@@ -118,6 +128,20 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
     context.read<PropertiesCubit>().watchProperties(
       companyId: widget.companyId,
     );
+    _applyInitialFiltersIfNeeded();
+  }
+
+  void _applyInitialFiltersIfNeeded() {
+    final signature = _filterSignature(widget.initialFilters);
+    if (signature.isEmpty || _appliedFilterSignature == signature) {
+      return;
+    }
+    _appliedFilterSignature = signature;
+    final status = _enumByName(
+      PropertyStatus.values,
+      widget.initialFilters['status'],
+    );
+    context.read<PropertiesCubit>().setStatusFilter(status);
   }
 
   @override
@@ -762,4 +786,25 @@ List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
     _FilterOption<T>.all(),
     for (final value in values) _FilterOption<T>.value(value),
   ];
+}
+
+String _filterSignature(Map<String, String> filters) {
+  final entries = filters.entries
+      .where((entry) => entry.value.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  final clean = name?.trim();
+  if (clean == null || clean.isEmpty) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == clean) {
+      return value;
+    }
+  }
+  return null;
 }

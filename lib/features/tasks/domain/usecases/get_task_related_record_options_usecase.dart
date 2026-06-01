@@ -12,6 +12,7 @@ class GetTaskRelatedRecordOptionsUseCase {
     required TaskRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 30,
   }) {
     return _repository.getRelatedRecordOptions(
@@ -19,6 +20,7 @@ class GetTaskRelatedRecordOptionsUseCase {
       type: type,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }

@@ -105,6 +105,7 @@ const _adminPermissions = <AppPermission>{
   AppPermission.editDeal,
   AppPermission.archiveDeal,
   AppPermission.viewReports,
+  AppPermission.viewAuditLogs,
   AppPermission.viewTasks,
   AppPermission.createTask,
   AppPermission.viewAppointments,
@@ -131,6 +132,7 @@ const _managerPermissions = <AppPermission>{
   AppPermission.editDeal,
   AppPermission.archiveDeal,
   AppPermission.viewReports,
+  AppPermission.viewAuditLogs,
   AppPermission.viewTasks,
   AppPermission.createTask,
   AppPermission.viewAppointments,
@@ -147,6 +149,7 @@ const _salesAgentPermissions = <AppPermission>{
   AppPermission.viewDeals,
   AppPermission.viewReports,
   AppPermission.viewTasks,
+  AppPermission.createTask,
   AppPermission.viewAppointments,
   AppPermission.createAppointment,
 };
@@ -158,6 +161,7 @@ const _marketingPermissions = <AppPermission>{
   AppPermission.editLead,
   AppPermission.viewProperties,
   AppPermission.viewTasks,
+  AppPermission.createTask,
   AppPermission.viewAppointments,
   AppPermission.createAppointment,
 };

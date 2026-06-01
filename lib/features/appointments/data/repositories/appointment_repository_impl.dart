@@ -14,12 +14,18 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
     int limit = 80,
   }) {
     return remoteDataSource.watchAppointments(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
       limit: limit,
     );
   }
@@ -54,6 +60,7 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 30,
   }) {
     return remoteDataSource.getRelatedRecordOptions(
@@ -61,6 +68,7 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
       type: type,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }

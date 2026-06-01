@@ -21,6 +21,7 @@ enum AppPermission {
   editDeal,
   archiveDeal,
   viewReports,
+  viewAuditLogs,
   viewTasks,
   createTask,
   viewAppointments,

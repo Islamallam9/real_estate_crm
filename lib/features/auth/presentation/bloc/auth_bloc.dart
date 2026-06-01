@@ -68,6 +68,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   int _invalidCredentialAttempts = 0;
   DateTime? _lockedUntil;
   int _sessionGeneration = 0;
+  String? _pendingManualLoginActivityUid;
+  String? _lastLoginActivityKey;
+  DateTime? _lastLoginActivityAt;
   String? _pendingUnauthenticatedMessage;
   AuthErrorCode? _pendingUnauthenticatedErrorCode;
 
@@ -100,7 +103,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit: emit,
       user: user,
       signOutOnFailure: false,
-      recordLoginActivity: false,
+      recordLoginActivity: true,
       expectedGeneration: generation,
     );
   }
@@ -145,6 +148,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
 
       _resetInvalidCredentialBackoff();
+      _pendingManualLoginActivityUid = user.uid;
       await _loadProfileAndEmitAuthenticated(
         emit: emit,
         user: user,
@@ -242,6 +246,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     _nextSessionGeneration();
+    _pendingManualLoginActivityUid = null;
+    _lastLoginActivityKey = null;
+    _lastLoginActivityAt = null;
     _clearPendingUnauthenticatedMessage();
     emit(
       state.copyWith(
@@ -334,11 +341,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     }
 
+    final shouldRecordLoginActivity =
+        _pendingManualLoginActivityUid == nextUser.uid ||
+        currentUid != nextUser.uid ||
+        state.status != AuthStatus.authenticated;
+
     await _loadProfileAndEmitAuthenticated(
       emit: emit,
       user: nextUser,
       signOutOnFailure: false,
-      recordLoginActivity: false,
+      recordLoginActivity: shouldRecordLoginActivity,
       expectedGeneration: generation,
     );
   }
@@ -369,13 +381,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (!_isCurrentSession(user.uid, expectedGeneration)) {
             return;
           }
+          await _recordPlatformLoginActivityIfNeeded(
+            recordLoginActivity: recordLoginActivity,
+          );
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
             platformFullName: resolution.platformFullName,
             platformPhotoUrl: resolution.platformPhotoUrl,
           );
-          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -404,13 +421,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (!_isCurrentSession(user.uid, expectedGeneration)) {
             return;
           }
+          await _recordPlatformLoginActivityIfNeeded(
+            recordLoginActivity: recordLoginActivity,
+          );
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
             platformFullName: resolution.platformFullName,
             platformPhotoUrl: resolution.platformPhotoUrl,
           );
-          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -435,13 +457,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (!_isCurrentSession(user.uid, expectedGeneration)) {
             return;
           }
+          await _recordPlatformLoginActivityIfNeeded(
+            recordLoginActivity: recordLoginActivity,
+          );
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
             platformFullName: resolution.platformFullName,
             platformPhotoUrl: resolution.platformPhotoUrl,
           );
-          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
         rethrow;
@@ -456,13 +483,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (!_isCurrentSession(user.uid, expectedGeneration)) {
             return;
           }
+          await _recordPlatformLoginActivityIfNeeded(
+            recordLoginActivity: recordLoginActivity,
+          );
+          if (!_isCurrentSession(user.uid, expectedGeneration)) {
+            return;
+          }
           _emitPlatformOnlySession(
             emit: emit,
             user: user,
             platformFullName: resolution.platformFullName,
             platformPhotoUrl: resolution.platformPhotoUrl,
           );
-          _recordLoginActivityIfNeeded(recordLoginActivity: recordLoginActivity);
           return;
         }
 
@@ -558,32 +590,40 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  void _recordLoginActivityIfNeeded({
+  Future<void> _recordPlatformLoginActivityIfNeeded({
     required bool recordLoginActivity,
-    String? companyId,
-  }) {
+  }) async {
     if (!recordLoginActivity) {
       return;
     }
 
-    unawaited(
-      _recordLoginActivity(companyId: companyId),
-    );
+    await _recordLoginActivity();
   }
 
   Future<void> _recordLoginActivity({String? companyId}) async {
+    final currentUid = _getCurrentUserUseCase()?.uid ?? '';
+    final activityKey = '$currentUid:${companyId ?? 'platform'}';
+    _lastLoginActivityKey = activityKey;
+    _lastLoginActivityAt = DateTime.now();
+
     try {
       await _recordLoginActivityUseCase(
         companyId: companyId,
         locale: Intl.getCurrentLocale(),
         timezone: DateTime.now().timeZoneName,
-        platform: defaultTargetPlatform.name,
+        platform: kIsWeb ? 'web' : defaultTargetPlatform.name,
         browser: kIsWeb ? 'web' : '',
         deviceType: kIsWeb ? 'web' : defaultTargetPlatform.name,
         userAgent: '',
         appVersion: AppConstants.appVersion,
-      );
+      ).timeout(const Duration(seconds: 8));
+      if (_pendingManualLoginActivityUid == currentUid) {
+        _pendingManualLoginActivityUid = null;
+      }
     } catch (_) {
+      if (_pendingManualLoginActivityUid == currentUid) {
+        _pendingManualLoginActivityUid = null;
+      }
       // Login telemetry should not block a valid session.
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -28,6 +29,7 @@ class TaskForm extends StatefulWidget {
     this.assignedTo = '',
     this.relatedRecordsAssignedTo,
     this.relatedRecordsManagerId,
+    this.relatedRecordsTeamId,
     this.initialRelatedType,
     this.initialRelatedId = '',
     this.initialRelatedTitle = '',
@@ -47,6 +49,7 @@ class TaskForm extends StatefulWidget {
   final String assignedTo;
   final String? relatedRecordsAssignedTo;
   final String? relatedRecordsManagerId;
+  final String? relatedRecordsTeamId;
   final TaskRelatedType? initialRelatedType;
   final String initialRelatedId;
   final String initialRelatedTitle;
@@ -437,6 +440,7 @@ class _TaskFormState extends State<TaskForm> {
       type: type,
       assignedTo: widget.relatedRecordsAssignedTo,
       managerId: widget.relatedRecordsManagerId,
+      teamId: widget.relatedRecordsTeamId,
     );
   }
 }
@@ -482,7 +486,7 @@ class _RelatedRecordPicker extends StatelessWidget {
 
           if (state.relatedRecordsStatus == TaskRelatedRecordsStatus.failure) {
             return Text(
-              l.unableToConnect,
+              localizeErrorMessage(l, state.relatedRecordsMessage),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.error,
               ),
@@ -605,21 +609,9 @@ List<_RelatedRecordSelection> _relatedRecordOptions(
 }) {
   final sortedRecords = [...records]
     ..sort((a, b) => a.title.compareTo(b.title));
-  final hasSelected = selectedId.trim().isEmpty ||
-      sortedRecords.any((record) => record.id == selectedId.trim());
-
   return [
     const _RelatedRecordSelection.placeholder(),
     for (final record in sortedRecords) _RelatedRecordSelection.value(record),
-    if (!hasSelected)
-      _RelatedRecordSelection.value(
-        TaskRelatedRecordOption(
-          id: selectedId.trim(),
-          type: selectedType,
-          title: '',
-          subtitle: '',
-        ),
-      ),
   ];
 }
 

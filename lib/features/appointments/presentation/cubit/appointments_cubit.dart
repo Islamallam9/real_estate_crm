@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/errors/appointment_exception.dart';
 import '../../domain/usecases/get_appointment_related_record_options_usecase.dart';
@@ -42,6 +43,10 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
+    int limit = 160,
   }) {
     emit(
       state.copyWith(
@@ -68,6 +73,10 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      limit: limit,
     ).listen(
       (appointments) {
         if (isClosed) {
@@ -228,6 +237,24 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     );
   }
 
+  void setCalendarView(AppointmentCalendarView view) {
+    emit(
+      state.copyWith(
+        calendarView: view,
+        selectedCalendarDate:
+            state.selectedCalendarDate ?? _dateOnly(DateTime.now()),
+      ),
+    );
+  }
+
+  void setSelectedCalendarDate(DateTime selectedDate) {
+    emit(
+      state.copyWith(
+        selectedCalendarDate: _dateOnly(selectedDate),
+      ),
+    );
+  }
+
   void setAssignedToFilter(String assignedTo) {
     emit(
       state.copyWith(
@@ -326,7 +353,9 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     required Appointment appointment,
     required AppointmentStatus status,
     required String updatedBy,
+    AppointmentOutcome? outcome,
     String outcomeNotes = '',
+    String cancellationReason = '',
   }) {
     final action = switch (status) {
       AppointmentStatus.completed => AppointmentAction.complete,
@@ -341,9 +370,13 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       appointment: appointment.copyWith(
         status: status,
         updatedBy: updatedBy,
+        outcome: outcome ?? appointment.outcome,
         outcomeNotes: outcomeNotes.trim().isEmpty
             ? appointment.outcomeNotes
             : outcomeNotes.trim(),
+        cancellationReason: cancellationReason.trim().isEmpty
+            ? appointment.cancellationReason
+            : cancellationReason.trim(),
       ),
       action: action,
     );
@@ -354,6 +387,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     required AppointmentRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) async {
     if (type == AppointmentRelatedType.general) {
       emit(
@@ -378,6 +412,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         type: type,
         assignedTo: assignedTo,
         managerId: managerId,
+        teamId: teamId,
       );
       if (isClosed) {
         return;
@@ -500,9 +535,8 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     }
     final today = _dateOnly(now);
     final day = _dateOnly(scheduledAt.toLocal());
-    final isMissed = appointment.status == AppointmentStatus.missed ||
-        (_isOpenScheduledStatus(appointment.status) &&
-            _isAppointmentPastStart(appointment, now));
+    final isMissed =
+        DashboardTruthRules.isMissedAppointment(appointment, now);
     switch (filter) {
       case AppointmentDateFilter.today:
         return day == today;
@@ -548,9 +582,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   }
 
   int _appointmentGroup(Appointment appointment, DateTime now) {
-    if (appointment.status == AppointmentStatus.missed ||
-        (_isOpenScheduledStatus(appointment.status) &&
-            _isAppointmentPastStart(appointment, now))) {
+    if (DashboardTruthRules.isMissedAppointment(appointment, now)) {
       return 0;
     }
     if (appointment.status == AppointmentStatus.scheduled ||
@@ -565,8 +597,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   }
 
   AppointmentStatus _effectiveStatus(Appointment appointment, DateTime now) {
-    if (_isOpenScheduledStatus(appointment.status) &&
-        _isAppointmentPastStart(appointment, now)) {
+    if (DashboardTruthRules.isMissedAppointment(appointment, now)) {
       return AppointmentStatus.missed;
     }
     return appointment.status;

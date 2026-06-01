@@ -12,6 +12,7 @@ class WatchDealsUseCase {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
@@ -19,6 +20,7 @@ class WatchDealsUseCase {
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
       limit: limit,
     );

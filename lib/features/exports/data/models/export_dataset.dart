@@ -7,6 +7,7 @@ class ExportDataset {
     required this.summary,
     this.extraSheets = const <ExportSheet>[],
     this.limitedByCap = false,
+    this.recordCountOverride,
   });
 
   final List<ExportColumn> columns;
@@ -14,8 +15,9 @@ class ExportDataset {
   final Map<String, String> summary;
   final List<ExportSheet> extraSheets;
   final bool limitedByCap;
+  final int? recordCountOverride;
 
-  int get recordCount => rows.length;
+  int get recordCount => recordCountOverride ?? rows.length;
 }
 
 class ExportSheet {

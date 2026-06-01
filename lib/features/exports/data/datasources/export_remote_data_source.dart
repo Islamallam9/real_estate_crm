@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
@@ -6,7 +7,6 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../audit_logs/data/models/audit_log_model.dart';
-import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../clients/data/models/client_model.dart';
 import '../../../deals/data/models/deal_model.dart';
 import '../../../deals/domain/entities/deal.dart';
@@ -33,10 +33,14 @@ abstract interface class ExportRemoteDataSource {
 }
 
 class FirestoreExportRemoteDataSource implements ExportRemoteDataSource {
-  FirestoreExportRemoteDataSource({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreExportRemoteDataSource({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   static const int exportLimit = 2000;
 
@@ -136,39 +140,37 @@ class FirestoreExportRemoteDataSource implements ExportRemoteDataSource {
     required ExportDataset dataset,
   }) async {
     try {
-      final logs = _firestore.collection(
-        FirebasePaths.companyAuditLogs(request.actor.companyId),
-      );
-      final id = logs.doc().id;
-      await logs.doc(id).set({
-        'id': id,
+      final callable = _functions.httpsCallable('recordReportExportActivity');
+      final selectedColumns = request.columns.isEmpty
+          ? request.filters.selectedColumnIds
+          : request.columns;
+      await callable.call(<String, Object?>{
         'companyId': request.actor.companyId,
-        'actorId': request.actor.uid,
-        'actorName': request.actor.name,
-        'actorEmail': request.actor.email,
-        'actorRole': RoleConstants.toValue(request.actor.role),
-        'action': 'exportGenerated',
-        'module': 'reports',
-        'recordId': request.module.name,
-        'recordTitle': _moduleLabel(request),
-        'recordSubtitle': _label(request, 'excel'),
-        'assignedTo': request.filters.assigneeId,
-        'teamId': request.actor.teamId,
-        'teamName': request.actor.teamName,
-        'managerId': request.actor.role == UserRole.manager ? request.actor.uid : '',
-        'managerName': request.actor.role == UserRole.manager ? request.actor.name : '',
-        'createdAt': Timestamp.now(),
-        'metadata': {
-          'format': 'excel',
-          'recordCount': dataset.recordCount,
-          'dateRange': request.filters.dateRange.name,
-          'scope': _scopeLabel(request),
-          'filters': _filtersSummary(request),
-          'limitedByCap': dataset.limitedByCap,
-        },
+        'labels': request.labels,
+        'exportType': request.trackingType.name,
+        'reportType': request.effectiveModules.length > 1 ? 'multiple' : request.module.name,
+        'exportedModule': request.effectiveModules.length > 1 ? 'multiple' : request.module.name,
+        'exportedModules': request.effectiveModules.map((module) => module.name).toList(growable: false),
+        'reportTypeLabel': request.effectiveModules.length > 1
+            ? _label(request, 'multipleReports')
+            : _moduleLabel(request),
+        'dateRangePreset': request.filters.dateRange.name,
+        'dateRangeLabel': _dateRangeLabel(request),
+        'filtersSummary': _filtersSummary(request),
+        'statusFilter': request.filters.status,
+        'assigneeFilterApplied': request.filters.assigneeId.trim().isNotEmpty,
+        'includeArchived': request.filters.includeArchived,
+        'selectedColumns': selectedColumns.take(40).toList(growable: false),
+        'selectedColumnsCount': selectedColumns.length,
+        'rowCount': dataset.recordCount,
+        'fileFormat': 'excel',
+        'exportScope': _scopeValue(request),
+        'limitedByCap': dataset.limitedByCap,
       });
+    } on FirebaseFunctionsException {
+      throw StateError(_label(request, 'exportTrackingFailed'));
     } catch (_) {
-      // Export should stay available even if audit logging is temporarily blocked.
+      throw StateError(_label(request, 'exportTrackingFailed'));
     }
   }
 
@@ -741,12 +743,6 @@ class FirestoreExportRemoteDataSource implements ExportRemoteDataSource {
             .limit(800)
             .get(),
       );
-      snapshots.add(
-        await collection
-            .where('actorId', isEqualTo: request.actor.uid)
-            .limit(800)
-            .get(),
-      );
       if (request.actor.teamId.trim().isNotEmpty) {
         snapshots.add(
           await collection
@@ -974,6 +970,15 @@ class FirestoreExportRemoteDataSource implements ExportRemoteDataSource {
       UserRole.manager => _label(request, 'scope.myTeam'),
       UserRole.salesAgent || UserRole.marketing => _label(request, 'scope.myRecords'),
       UserRole.viewer => _label(request, 'scope.restricted'),
+    };
+  }
+
+  String _scopeValue(ExportRequest request) {
+    return switch (request.actor.role) {
+      UserRole.admin => 'companyWide',
+      UserRole.manager => 'teamOnly',
+      UserRole.salesAgent || UserRole.marketing => 'assignedOnly',
+      UserRole.viewer => 'restricted',
     };
   }
 

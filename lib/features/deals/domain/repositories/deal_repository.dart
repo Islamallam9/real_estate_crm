@@ -7,6 +7,7 @@ abstract interface class DealRepository {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   });

@@ -13,10 +13,8 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../users/data/datasources/user_profile_remote_data_source.dart';
-import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
-import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../../users/presentation/widgets/active_users_stream_builder.dart';
 import '../cubit/leads_cubit.dart';
 import '../cubit/leads_state.dart';
 import '../widgets/lead_form.dart';
@@ -148,27 +146,22 @@ class _CreateLeadFormContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                StreamBuilder<List<UserProfile>>(
-                  stream: canAssign ? _watchActiveUsers(companyId) : null,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        canAssign) {
-                      return const Center(child: MasarLogoLoader(size: 40));
-                    }
-                    if (snapshot.hasError) {
-                      return AppErrorView(
-                        message: localizeThrownErrorMessage(
-                          l,
-                          snapshot.error,
-                        ),
-                        onRetry: () {
-                          context.read<LeadsCubit>().watchLeads(
-                            companyId: companyId,
-                          );
-                        },
-                      );
-                    }
-                    final users = snapshot.data ?? const <UserProfile>[];
+                ActiveUsersStreamBuilder(
+                  companyId: companyId,
+                  enabled: canAssign,
+                  loadingBuilder: (_) =>
+                      const Center(child: MasarLogoLoader(size: 40)),
+                  errorBuilder: (context, error) {
+                    return AppErrorView(
+                      message: localizeThrownErrorMessage(l, error),
+                      onRetry: () {
+                        context.read<LeadsCubit>().watchLeads(
+                              companyId: companyId,
+                            );
+                      },
+                    );
+                  },
+                  builder: (context, users) {
                     return BlocSelector<LeadsCubit, LeadsState, bool>(
                       selector: (state) => state.status == LeadsStatus.saving,
                       builder: (context, isSaving) {
@@ -264,9 +257,3 @@ String _successMessageForAction(AppLocalizations l, LeadsAction action) {
   }
 }
 
-Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
-  final repository = UserProfileRepositoryImpl(
-    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
-  );
-  return WatchActiveUsersUseCase(repository)(companyId: companyId);
-}

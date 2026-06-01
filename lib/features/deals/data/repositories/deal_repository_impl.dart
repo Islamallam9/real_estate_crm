@@ -16,6 +16,7 @@ class DealRepositoryImpl implements DealRepository {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
@@ -23,6 +24,7 @@ class DealRepositoryImpl implements DealRepository {
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
       limit: limit,
     );

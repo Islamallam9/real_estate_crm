@@ -75,6 +75,7 @@ class LeadsListPage extends StatelessWidget {
               key: ValueKey(session.scopeKey('leads-content')),
               companyId: companyId,
               uid: profile.uid,
+              teamId: profile.teamId,
               actorName: profile.fullName.trim().isEmpty
                   ? localizations.unknownUser
                   : profile.fullName,
@@ -96,6 +97,7 @@ class _LeadsListContent extends StatefulWidget {
     super.key,
     required this.companyId,
     required this.uid,
+    required this.teamId,
     required this.actorName,
     required this.canCreate,
     required this.canEdit,
@@ -106,6 +108,7 @@ class _LeadsListContent extends StatefulWidget {
 
   final String companyId;
   final String uid;
+  final String teamId;
   final String actorName;
   final bool canCreate;
   final bool canEdit;
@@ -130,6 +133,10 @@ class _LeadsListContentState extends State<_LeadsListContent> {
 
   String? get _managerIdFilter {
     return widget.roleName == 'manager' ? widget.uid : null;
+  }
+
+  String? get _teamIdFilter {
+    return widget.roleName == 'manager' ? widget.teamId : null;
   }
 
   @override
@@ -159,6 +166,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
       companyId: widget.companyId,
       assignedTo: _assignedToFilter,
       managerId: _managerIdFilter,
+      teamId: _teamIdFilter,
       archiveFilter: context.read<LeadsCubit>().state.archiveFilter,
     );
     _applyInitialFiltersIfNeeded();
@@ -266,6 +274,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                         companyId: widget.companyId,
                         assignedTo: _assignedToFilter,
                         managerId: _managerIdFilter,
+                        teamId: _teamIdFilter,
                         archiveFilter: state.archiveFilter,
                       );
                     },
@@ -281,6 +290,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   companyId: widget.companyId,
                   assignedTo: _assignedToFilter,
                   managerId: _managerIdFilter,
+                  teamId: _teamIdFilter,
                   users: users,
                 );
 
@@ -289,6 +299,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   companyId: widget.companyId,
                   assignedTo: _assignedToFilter,
                   managerId: _managerIdFilter,
+                  teamId: _teamIdFilter,
                   users: users,
                   roleName: widget.roleName,
                   canEdit: widget.canEdit,
@@ -341,6 +352,7 @@ class _LeadFilters extends StatelessWidget {
     required this.users,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final bool showAssignee;
@@ -349,6 +361,7 @@ class _LeadFilters extends StatelessWidget {
   final List<UserProfile> users;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +392,7 @@ class _LeadFilters extends StatelessWidget {
                 companyId: companyId,
                 assignedTo: assignedTo,
                 managerId: managerId,
+                teamId: teamId,
                 users: users,
               );
             }
@@ -453,6 +467,7 @@ class _LeadFilters extends StatelessWidget {
                         companyId: companyId,
                         assignedTo: assignedTo,
                         managerId: managerId,
+                        teamId: teamId,
                       ),
                     ),
                   ),
@@ -605,6 +620,7 @@ class _MobileLeadFilters extends StatelessWidget {
     required this.users,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final LeadsState state;
@@ -614,6 +630,7 @@ class _MobileLeadFilters extends StatelessWidget {
   final List<UserProfile> users;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
 
   @override
   Widget build(BuildContext context) {
@@ -691,6 +708,7 @@ class _MobileLeadFilters extends StatelessWidget {
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,
+              teamId: teamId,
             ),
           ),
         ],
@@ -1011,6 +1029,7 @@ class _LeadsBody extends StatelessWidget {
     required this.companyId,
     required this.assignedTo,
     required this.managerId,
+    required this.teamId,
     required this.users,
     required this.roleName,
     required this.canEdit,
@@ -1023,6 +1042,7 @@ class _LeadsBody extends StatelessWidget {
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final List<UserProfile> users;
   final String roleName;
   final bool canEdit;
@@ -1051,6 +1071,7 @@ class _LeadsBody extends StatelessWidget {
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             archiveFilter: state.archiveFilter,
           );
         },
@@ -1852,7 +1873,7 @@ class _LeadCard extends StatelessWidget {
     return InkWell(
       onTap: () => context.go(RouteNames.leadDetails(lead.id)),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8),
         decoration: BoxDecoration(
           color: AppColors.cardSurface(context),
           border: Border.all(color: AppColors.borderColor(context)),
@@ -1862,6 +1883,7 @@ class _LeadCard extends StatelessWidget {
               : AppShadows.card,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1877,46 +1899,48 @@ class _LeadCard extends StatelessWidget {
                 AppStatusBadge(label: _statusLabel(localizations, lead.status)),
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              contact,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    contact,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                AppStatusBadge(
+                  label: _followUpStatusLabel(localizations, lead),
+                  tone: _followUpStatusTone(lead),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 6),
             Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
+              spacing: 6,
+              runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 AppStatusBadge(
                   label: _priorityLabel(localizations, lead.priority),
                 ),
                 _LeadMetaChip(label: _sourceDisplayLabel(localizations, lead)),
+                _LeadMetaChip(label: assignee),
                 _LeadMetaChip(
-                  label: '${localizations.assignedToLabel}: $assignee',
-                ),
-                _LeadMetaChip(
-                  label:
-                      '${localizations.nextFollowUp}: ${_followUpDateLabel(localizations, lead.nextFollowUpAt)}',
-                ),
-                AppStatusBadge(
-                  label: _followUpStatusLabel(localizations, lead),
-                  tone: _followUpStatusTone(lead),
+                  label: _followUpDateLabel(
+                    localizations,
+                    lead.nextFollowUpAt,
+                  ),
                 ),
                 if (_needsStaleLeadAttention(lead))
-                  Tooltip(
-                    message: _staleLeadLabel(localizations, lead),
-                    child: AppStatusBadge(
-                      label: _staleLeadLabel(localizations, lead),
-                      tone: AppStatusTone.warning,
-                    ),
+                  AppStatusBadge(
+                    label: _staleLeadLabel(localizations, lead),
+                    tone: AppStatusTone.warning,
                   ),
-                _LeadMetaChip(
-                  label:
-                      '${localizations.updated}: ${_shortDate(lead.updatedAt)}',
-                ),
               ],
             ),
           ],
@@ -1935,8 +1959,8 @@ class _LeadMetaChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 5,
+        horizontal: 8,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         color: _LeadListColors.of(context).inputSurface,
@@ -2435,6 +2459,7 @@ String _workQueueFilterLabel(
 ) {
   return switch (filter) {
     LeadWorkQueueFilter.active => localizations.activeLeads,
+    LeadWorkQueueFilter.newToday => localizations.newLeads,
     LeadWorkQueueFilter.hot => localizations.dashboardKpiHotOpportunities,
     LeadWorkQueueFilter.stale => localizations.staleLead,
     LeadWorkQueueFilter.unassigned => localizations.unassignedLeads,

@@ -202,12 +202,36 @@ JourneyItem _appointmentToJourneyItem(Appointment appointment) {
     targetType: JourneyTargetType.appointment,
     targetId: appointment.id,
     title: appointment.title,
-    subtitle: appointment.relatedTitle.isNotEmpty ? appointment.relatedTitle : appointment.location,
+    subtitle: _appointmentJourneySubtitle(appointment),
     occurredAt: occurredAt,
     tone: tone,
     actorName: appointment.assignedToName,
     statusLabel: _humanizeToken(appointment.status.name),
+    metadata: {
+      'status': appointment.status.name,
+      'outcome': appointment.outcome?.name ?? '',
+      'outcomeNotes': appointment.outcomeNotes,
+      'cancellationReason': appointment.cancellationReason,
+      'scheduledAt': appointment.scheduledAt?.toIso8601String() ?? '',
+      'previousScheduledAt':
+          appointment.previousScheduledAt?.toIso8601String() ?? '',
+    },
   );
+}
+
+String _appointmentJourneySubtitle(Appointment appointment) {
+  if (appointment.status == AppointmentStatus.cancelled &&
+      appointment.cancellationReason.trim().isNotEmpty) {
+    return appointment.cancellationReason.trim();
+  }
+  if (appointment.status == AppointmentStatus.completed &&
+      appointment.outcomeNotes.trim().isNotEmpty) {
+    return appointment.outcomeNotes.trim();
+  }
+  if (appointment.relatedTitle.isNotEmpty) {
+    return appointment.relatedTitle;
+  }
+  return appointment.location;
 }
 
 JourneyItem _dealToJourneyItem(Deal deal) {

@@ -48,50 +48,55 @@ class LocalExportFileDataSource implements ExportFileDataSource {
     final dateRangeLabel = _dateRangeLabel(request);
     final filtersLabel = _filtersSummary(request);
 
+    final summarySheet = _XlsxSheet(
+      name: _label(request, 'reportSummary'),
+      rows: [
+        ['Masar CRM'],
+        [request.effectiveModules.length > 1
+            ? _label(request, 'multipleReports')
+            : moduleLabel],
+        const <String>[],
+        [_label(request, 'field'), _label(request, 'value'), _label(request, 'field'), _label(request, 'value')],
+        [_label(request, 'company'), request.actor.companyName, _label(request, 'reportName'), request.effectiveModules.length > 1 ? _label(request, 'multipleReports') : moduleLabel],
+        [_label(request, 'scope'), scopeLabel, _label(request, 'dateRange'), dateRangeLabel],
+        [_label(request, 'generatedBy'), request.actor.name, _label(request, 'generatedAt'), generatedAtLabel],
+        [_label(request, 'recordCount'), dataset.recordCount.toString(), _label(request, 'filtersSummary'), filtersLabel],
+        const <String>[],
+        [_label(request, 'reportSummary')],
+        for (final entry in dataset.summary.entries) [entry.key, entry.value],
+      ],
+      rightToLeft: isArabic,
+      titleRows: const {0},
+      subtitleRows: const {1},
+      headerRows: const {3, 9},
+      mergeTitleRows: true,
+    );
+
     final sheets = <_XlsxSheet>[
-      _XlsxSheet(
-        name: _label(request, 'reportSummary'),
-        rows: [
-          ['Masar CRM'],
-          [moduleLabel],
-          const <String>[],
-          [_label(request, 'field'), _label(request, 'value'), _label(request, 'field'), _label(request, 'value')],
-          [_label(request, 'company'), request.actor.companyName, _label(request, 'reportName'), moduleLabel],
-          [_label(request, 'scope'), scopeLabel, _label(request, 'dateRange'), dateRangeLabel],
-          [_label(request, 'generatedBy'), request.actor.name, _label(request, 'generatedAt'), generatedAtLabel],
-          [_label(request, 'recordCount'), dataset.recordCount.toString(), _label(request, 'filtersSummary'), filtersLabel],
-          const <String>[],
-          [_label(request, 'reportSummary')],
-          for (final entry in dataset.summary.entries) [entry.key, entry.value],
-        ],
-        rightToLeft: isArabic,
-        titleRows: const {0},
-        subtitleRows: const {1},
-        headerRows: const {3, 9},
-        mergeTitleRows: true,
-      ),
-      _XlsxSheet(
-        name: _label(request, 'dataSheet'),
-        rows: [
-          ['Masar CRM - $moduleLabel'],
-          [
-            '${_label(request, 'company')}: ${request.actor.companyName}  ·  '
-                '${_label(request, 'scope')}: $scopeLabel  ·  '
-                '${_label(request, 'dateRange')}: $dateRangeLabel',
+      summarySheet,
+      if (request.effectiveModules.length <= 1)
+        _XlsxSheet(
+          name: _label(request, 'dataSheet'),
+          rows: [
+            ['Masar CRM - $moduleLabel'],
+            [
+              '${_label(request, 'company')}: ${request.actor.companyName}  ·  '
+                  '${_label(request, 'scope')}: $scopeLabel  ·  '
+                  '${_label(request, 'dateRange')}: $dateRangeLabel',
+            ],
+            const <String>[],
+            dataset.columns.map((column) => column.label).toList(),
+            ...dataset.rows,
           ],
-          const <String>[],
-          dataset.columns.map((column) => column.label).toList(),
-          ...dataset.rows,
-        ],
-        rightToLeft: isArabic,
-        titleRows: const {0},
-        subtitleRows: const {1},
-        headerRows: const {3},
-        dataStartRow: 4,
-        freezeRows: 4,
-        autoFilterRow: 3,
-        mergeTitleRows: true,
-      ),
+          rightToLeft: isArabic,
+          titleRows: const {0},
+          subtitleRows: const {1},
+          headerRows: const {3},
+          dataStartRow: 4,
+          freezeRows: 4,
+          autoFilterRow: 3,
+          mergeTitleRows: true,
+        ),
       for (final sheet in dataset.extraSheets)
         _XlsxSheet(
           name: sheet.name,
@@ -366,7 +371,8 @@ class LocalExportFileDataSource implements ExportFileDataSource {
 
   String _fileName(ExportRequest request, DateTime generatedAt) {
     final stamp = DateFormat('yyyyMMdd_HHmm').format(generatedAt);
-    return 'masar_${request.module.name}_${_scopeSlug(request)}_$stamp.xlsx';
+    final moduleSlug = request.effectiveModules.length > 1 ? 'multiple_reports' : request.module.name;
+    return 'masar_${moduleSlug}_${_scopeSlug(request)}_$stamp.xlsx';
   }
 
   String _scopeSlug(ExportRequest request) {

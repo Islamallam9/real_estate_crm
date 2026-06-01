@@ -10,12 +10,22 @@ class WatchAuditLogsUseCase {
     required String companyId,
     String? managerId,
     String? teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
     int limit = 20,
   }) {
     return _repository.watchAuditLogs(
       companyId: companyId,
       managerId: managerId,
       teamId: teamId,
+      module: module,
+      action: action,
+      actorId: actorId,
+      startAt: startAt,
+      endAt: endAt,
       limit: limit,
     );
   }

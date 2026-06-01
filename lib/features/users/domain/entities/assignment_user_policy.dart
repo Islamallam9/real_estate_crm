@@ -22,7 +22,9 @@ abstract final class AssignmentUserPolicy {
         return user.role == UserRole.salesAgent ||
             user.role == UserRole.marketing;
       case AssignableWorkType.task:
-        return user.role == UserRole.salesAgent ||
+        return user.role == UserRole.admin ||
+            user.role == UserRole.manager ||
+            user.role == UserRole.salesAgent ||
             user.role == UserRole.marketing;
       case AssignableWorkType.appointment:
         return user.role == UserRole.admin ||

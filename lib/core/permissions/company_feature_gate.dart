@@ -9,6 +9,7 @@ enum CompanyFeature {
   appointments('appointments'),
   deals('deals'),
   reports('reports'),
+  exports('exports'),
   auditLogs('auditLogs'),
   notifications('notifications'),
   userManagement('userManagement');
@@ -66,6 +67,9 @@ CompanyFeature? companyFeatureForLocation(String location) {
   }
   if (location.startsWith(RouteNames.reports)) {
     return CompanyFeature.reports;
+  }
+  if (location.startsWith(RouteNames.auditLogs)) {
+    return CompanyFeature.auditLogs;
   }
   if (location.startsWith(RouteNames.notifications)) {
     return CompanyFeature.notifications;

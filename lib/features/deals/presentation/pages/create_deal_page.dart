@@ -111,6 +111,9 @@ class _CreateDealView extends StatelessWidget {
                               companyId: userProfile.companyId,
                               assignedTo: canEditAssignment ? null : user.uid,
                               managerId: role == UserRole.manager ? user.uid : null,
+                              teamId: role == UserRole.manager
+                                  ? userProfile.teamId
+                                  : null,
                               builder: (context, data) {
                                 final eligibleDealUsers = eligibleDealAssigneesForRole(
                                   users: data.users,

@@ -18,6 +18,8 @@ enum AppointmentAction {
 
 enum AppointmentDateFilter { today, thisWeek, upcoming, missed, feedbackNeeded, all }
 
+enum AppointmentCalendarView { today, month, week, day }
+
 class AppointmentsState extends Equatable {
   const AppointmentsState({
     required this.status,
@@ -29,6 +31,8 @@ class AppointmentsState extends Equatable {
     required this.typeFilter,
     required this.dateFilter,
     required this.selectedDateFilter,
+    required this.calendarView,
+    required this.selectedCalendarDate,
     required this.assignedToFilter,
     required this.message,
     required this.lastAction,
@@ -46,8 +50,10 @@ class AppointmentsState extends Equatable {
         searchQuery = '',
         statusFilter = null,
         typeFilter = null,
-        dateFilter = AppointmentDateFilter.today,
+        dateFilter = null,
         selectedDateFilter = null,
+        calendarView = AppointmentCalendarView.today,
+        selectedCalendarDate = null,
         assignedToFilter = '',
         message = null,
         lastAction = null,
@@ -65,6 +71,8 @@ class AppointmentsState extends Equatable {
   final AppointmentType? typeFilter;
   final AppointmentDateFilter? dateFilter;
   final DateTime? selectedDateFilter;
+  final AppointmentCalendarView calendarView;
+  final DateTime? selectedCalendarDate;
   final String assignedToFilter;
   final String? message;
   final AppointmentAction? lastAction;
@@ -83,6 +91,8 @@ class AppointmentsState extends Equatable {
     AppointmentType? typeFilter,
     AppointmentDateFilter? dateFilter,
     DateTime? selectedDateFilter,
+    AppointmentCalendarView? calendarView,
+    DateTime? selectedCalendarDate,
     String? assignedToFilter,
     String? message,
     AppointmentAction? lastAction,
@@ -97,6 +107,7 @@ class AppointmentsState extends Equatable {
     bool clearTypeFilter = false,
     bool clearDateFilter = false,
     bool clearSelectedDateFilter = false,
+    bool clearSelectedCalendarDate = false,
     bool clearRelatedRecords = false,
     bool clearRelatedRecordsMessage = false,
   }) {
@@ -117,6 +128,10 @@ class AppointmentsState extends Equatable {
       selectedDateFilter: clearSelectedDateFilter
           ? null
           : selectedDateFilter ?? this.selectedDateFilter,
+      calendarView: calendarView ?? this.calendarView,
+      selectedCalendarDate: clearSelectedCalendarDate
+          ? null
+          : selectedCalendarDate ?? this.selectedCalendarDate,
       assignedToFilter: assignedToFilter ?? this.assignedToFilter,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? null : lastAction ?? this.lastAction,
@@ -145,6 +160,8 @@ class AppointmentsState extends Equatable {
         typeFilter,
         dateFilter,
         selectedDateFilter,
+        calendarView,
+        selectedCalendarDate,
         assignedToFilter,
         message,
         lastAction,

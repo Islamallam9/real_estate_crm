@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -98,6 +99,8 @@ class ReportsPage extends StatelessWidget {
           final companyName = metadataName.trim().isEmpty
               ? companyId
               : metadataName.trim();
+          final exportsEnabled =
+              companyMetadata.isFeatureEnabled(CompanyFeature.exports);
 
           return LeadsScope(
             key: ValueKey('reports-leads-scope:$scopeKey'),
@@ -116,6 +119,7 @@ class ReportsPage extends StatelessWidget {
                       profile: profile,
                       role: role,
                       currentUserId: uid,
+                      exportsEnabled: exportsEnabled,
                     ),
                   ),
                 ),
@@ -136,6 +140,7 @@ class _ReportsContent extends StatefulWidget {
     required this.profile,
     required this.role,
     required this.currentUserId,
+    required this.exportsEnabled,
   });
 
   final String companyId;
@@ -143,6 +148,7 @@ class _ReportsContent extends StatefulWidget {
   final UserProfile profile;
   final UserRole role;
   final String currentUserId;
+  final bool exportsEnabled;
 
   @override
   State<_ReportsContent> createState() => _ReportsContentState();
@@ -188,26 +194,33 @@ class _ReportsContentState extends State<_ReportsContent> {
     final managerId = widget.role == UserRole.manager
         ? widget.currentUserId
         : null;
+    final managerTeamId = widget.role == UserRole.manager
+        ? widget.profile.teamId.trim()
+        : null;
     context.read<LeadsCubit>().watchLeads(
       companyId: widget.companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: managerTeamId,
     );
     context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
     context.read<ClientsCubit>().watchClients(
       companyId: widget.companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: managerTeamId,
     );
     context.read<TasksCubit>().watchTasks(
       companyId: widget.companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: managerTeamId,
     );
     context.read<DealsCubit>().watchDeals(
       companyId: widget.companyId,
       role: widget.role,
       currentUserId: widget.currentUserId,
+      teamId: managerTeamId,
     );
   }
 
@@ -293,6 +306,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                               assignedTo: _assignedTo,
                               searchController: _searchController,
                               searchQuery: _searchQuery,
+                              exportsEnabled: widget.exportsEnabled,
                               onPeriodChanged: (period) {
                                 setState(() => _period = period);
                               },
@@ -340,11 +354,13 @@ class _ReportsView extends StatelessWidget {
     required this.onClearFilters,
     required this.searchController,
     required this.searchQuery,
+    required this.exportsEnabled,
     required this.onSearchChanged,
   });
 
   final TextEditingController searchController;
   final String searchQuery;
+  final bool exportsEnabled;
   final ValueChanged<String> onSearchChanged;
   final _ReportsData data;
   final List<UserProfile> users;
@@ -377,6 +393,7 @@ class _ReportsView extends StatelessWidget {
         hasFilters: hasFilters,
         searchController: searchController,
         searchQuery: searchQuery,
+        exportsEnabled: exportsEnabled,
         onSearchChanged: onSearchChanged,
         onPeriodChanged: onPeriodChanged,
         onAssignedToChanged: onAssignedToChanged,
@@ -615,6 +632,7 @@ class _ReportsView extends StatelessWidget {
                         child: ExportCenterPanel(
                           profile: profile,
                           companyName: companyName,
+                          exportsEnabled: exportsEnabled,
                         ),
                       ),
                     ],
@@ -642,6 +660,7 @@ class _MobileReportsView extends StatelessWidget {
     required this.hasFilters,
     required this.searchController,
     required this.searchQuery,
+    required this.exportsEnabled,
     required this.onSearchChanged,
     required this.onPeriodChanged,
     required this.onAssignedToChanged,
@@ -658,6 +677,7 @@ class _MobileReportsView extends StatelessWidget {
   final bool hasFilters;
   final TextEditingController searchController;
   final String searchQuery;
+  final bool exportsEnabled;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<_ReportPeriod> onPeriodChanged;
   final ValueChanged<String> onAssignedToChanged;
@@ -871,6 +891,7 @@ class _MobileReportsView extends StatelessWidget {
             ExportCenterPanel(
               profile: profile,
               companyName: companyName,
+              exportsEnabled: exportsEnabled,
             ),
           ],
         ),

@@ -9,7 +9,7 @@ enum DealsAction { none, createDeal, updateDeal, updateStage, archiveDeal, resto
 
 enum DealClosingDateFilter { past, thisWeek, thisMonth }
 
-enum DealWorkQueueFilter { open, atRisk }
+enum DealWorkQueueFilter { open, atRisk, wonThisMonth }
 
 class DealsState extends Equatable {
   const DealsState({

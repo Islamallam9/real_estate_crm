@@ -14,10 +14,8 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../users/data/datasources/user_profile_remote_data_source.dart';
-import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
-import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../../users/presentation/widgets/active_users_stream_builder.dart';
 import '../../domain/entities/crm_task.dart';
 import '../cubit/tasks_cubit.dart';
 import '../cubit/tasks_state.dart';
@@ -56,8 +54,7 @@ class _CreateTaskView extends StatelessWidget {
     }
 
     final role = userProfile.role;
-    final canCreate = PermissionService.can(role, AppPermission.createTask) &&
-        (role == UserRole.admin || role == UserRole.manager);
+    final canCreate = PermissionService.can(role, AppPermission.createTask);
 
     return CrmAppShell(
       selectedItem: CrmNavigationItem.tasks,
@@ -111,20 +108,23 @@ class _CreateTaskView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            StreamBuilder<List<UserProfile>>(
-                              stream: _watchActiveUsers(userProfile.companyId),
-                              builder: (context, usersSnapshot) {
-                                if (usersSnapshot.hasError) {
-                                  return AppErrorView(
-                                    message: localizeThrownErrorMessage(
-                                      l,
-                                      usersSnapshot.error,
-                                    ),
-                                  );
-                                }
-                                final users = usersSnapshot.data ?? const [];
+                            ActiveUsersStreamBuilder(
+                              companyId: userProfile.companyId,
+                              enabled: role == UserRole.admin ||
+                                  role == UserRole.manager,
+                              errorBuilder: (context, error) {
+                                return AppErrorView(
+                                  message: localizeThrownErrorMessage(l, error),
+                                );
+                              },
+                              builder: (context, users) {
+                                final effectiveUsers = users.isEmpty &&
+                                        (role == UserRole.salesAgent ||
+                                            role == UserRole.marketing)
+                                    ? <UserProfile>[userProfile]
+                                    : users;
                                 final taskAssignees = eligibleTaskAssigneesForRole(
-                                  users: users,
+                                  users: effectiveUsers,
                                   role: role,
                                   currentUserId: user.uid,
                                   currentTeamId: userProfile.teamId,
@@ -137,9 +137,16 @@ class _CreateTaskView extends StatelessWidget {
                                       role == UserRole.admin ||
                                       role == UserRole.manager,
                                   relatedRecordsAssignedTo:
-                                      role == UserRole.salesAgent ? user.uid : null,
+                                      role == UserRole.salesAgent ||
+                                              role == UserRole.marketing
+                                          ? user.uid
+                                          : null,
                                   relatedRecordsManagerId:
                                       role == UserRole.manager ? user.uid : null,
+                                  relatedRecordsTeamId:
+                                      role == UserRole.manager
+                                          ? userProfile.teamId
+                                          : null,
                                   assignedTo: _initialAssignee(
                                     role: role,
                                     currentUserId: user.uid,
@@ -210,12 +217,6 @@ class _CreateTaskView extends StatelessWidget {
   }
 }
 
-Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
-  final repository = UserProfileRepositoryImpl(
-    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
-  );
-  return WatchActiveUsersUseCase(repository)(companyId: companyId);
-}
 
 TaskRelatedType? _initialRelatedType(Map<String, String> initialValues) {
   final value = initialValues['relatedType']?.trim();

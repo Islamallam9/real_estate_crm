@@ -201,6 +201,7 @@ class _EditAppointmentViewState extends State<_EditAppointmentView> {
                                     companyId: companyId,
                                     uid: uid,
                                     role: role,
+                                    teamId: session?.profile.teamId ?? '',
                                     appointment: appointment,
                                     users: users,
                                     canEditAssignment: true,
@@ -216,6 +217,7 @@ class _EditAppointmentViewState extends State<_EditAppointmentView> {
                                 companyId: companyId,
                                 uid: uid,
                                 role: role,
+                                teamId: session?.profile.teamId ?? '',
                                 appointment: appointment,
                                 users: const [],
                                 canEditAssignment: false,
@@ -249,6 +251,7 @@ class _AppointmentEditorForm extends StatelessWidget {
     required this.companyId,
     required this.uid,
     required this.role,
+    required this.teamId,
     required this.appointment,
     required this.users,
     required this.canEditAssignment,
@@ -259,6 +262,7 @@ class _AppointmentEditorForm extends StatelessWidget {
   final String companyId;
   final String uid;
   final UserRole? role;
+  final String teamId;
   final Appointment appointment;
   final List<UserProfile> users;
   final bool canEditAssignment;
@@ -278,6 +282,7 @@ class _AppointmentEditorForm extends StatelessWidget {
       relatedRecordsAssignedTo:
           role == UserRole.salesAgent || role == UserRole.marketing ? uid : null,
       relatedRecordsManagerId: role == UserRole.manager ? uid : null,
+      relatedRecordsTeamId: role == UserRole.manager ? teamId : null,
       isSaving: isSaving,
       submitLabel: l.updateAppointment,
       onSubmit: (updatedAppointment) {

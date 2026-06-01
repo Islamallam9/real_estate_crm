@@ -103,6 +103,7 @@ class ClientRepositoryImpl implements ClientRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
@@ -110,6 +111,7 @@ class ClientRepositoryImpl implements ClientRepository {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
       limit: limit,
     );

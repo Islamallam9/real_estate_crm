@@ -12,10 +12,8 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../users/data/datasources/user_profile_remote_data_source.dart';
-import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
-import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../../users/presentation/widgets/active_users_stream_builder.dart';
 import '../../domain/entities/appointment.dart';
 import '../cubit/appointments_cubit.dart';
 import '../cubit/appointments_state.dart';
@@ -105,18 +103,14 @@ class _CreateAppointmentView extends StatelessWidget {
                             const SizedBox(height: AppSpacing.md),
                             if (role == UserRole.admin ||
                                 role == UserRole.manager)
-                              StreamBuilder<List<UserProfile>>(
-                                stream: _watchActiveUsers(userProfile.companyId),
-                                builder: (context, usersSnapshot) {
-                                  if (usersSnapshot.hasError) {
-                                    return AppErrorView(
-                                      message: localizeThrownErrorMessage(
-                                        l,
-                                        usersSnapshot.error,
-                                      ),
-                                    );
-                                  }
-                                  final users = usersSnapshot.data ?? const [];
+                              ActiveUsersStreamBuilder(
+                                companyId: userProfile.companyId,
+                                errorBuilder: (context, error) {
+                                  return AppErrorView(
+                                    message: localizeThrownErrorMessage(l, error),
+                                  );
+                                },
+                                builder: (context, users) {
                                   return AppointmentForm(
                                     companyId: userProfile.companyId,
                                     actorUid: user.uid,
@@ -127,6 +121,10 @@ class _CreateAppointmentView extends StatelessWidget {
                                             '',
                                     relatedRecordsManagerId:
                                         role == UserRole.manager ? user.uid : null,
+                                    relatedRecordsTeamId:
+                                        role == UserRole.manager
+                                            ? userProfile.teamId
+                                            : null,
                                     initialRelatedType:
                                         _initialRelatedType(initialValues),
                                     initialRelatedId:
@@ -221,12 +219,6 @@ class _CreateAppointmentView extends StatelessWidget {
   }
 }
 
-Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
-  final repository = UserProfileRepositoryImpl(
-    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
-  );
-  return WatchActiveUsersUseCase(repository)(companyId: companyId);
-}
 
 AppointmentRelatedType? _initialRelatedType(
   Map<String, String> initialValues,

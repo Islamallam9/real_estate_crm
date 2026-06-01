@@ -118,6 +118,7 @@ AuditLogAction auditLogActionFromValue(String value) {
     'imageAdded' => AuditLogAction.imageAdded,
     'imageRemoved' => AuditLogAction.imageRemoved,
     'exportGenerated' => AuditLogAction.exportGenerated,
+    'exported' => AuditLogAction.exported,
     _ => AuditLogAction.update,
   };
 }
@@ -132,9 +133,14 @@ AuditLogModule auditLogModuleFromValue(String value) {
     'properties' => AuditLogModule.properties,
     'tasks' => AuditLogModule.tasks,
     'deals' => AuditLogModule.deals,
+    'appointments' => AuditLogModule.appointments,
+    'users' => AuditLogModule.users,
+    'teams' => AuditLogModule.teams,
     'reports' => AuditLogModule.reports,
+    'exports' => AuditLogModule.exports,
+    'auditLogs' => AuditLogModule.auditLogs,
     'leads' => AuditLogModule.leads,
-    _ => AuditLogModule.leads,
+    _ => AuditLogModule.other,
   };
 }
 

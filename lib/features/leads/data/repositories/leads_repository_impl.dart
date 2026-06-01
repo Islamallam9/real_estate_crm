@@ -82,6 +82,7 @@ class LeadsRepositoryImpl implements LeadsRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 30,
   }) {
@@ -89,6 +90,7 @@ class LeadsRepositoryImpl implements LeadsRepository {
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
       limit: limit,
     );

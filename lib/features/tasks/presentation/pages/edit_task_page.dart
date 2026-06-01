@@ -181,9 +181,15 @@ class _EditTaskViewState extends State<_EditTaskView> {
                             canEditAssignment: true,
                             canEditStatus: true,
                             relatedRecordsAssignedTo:
-                                role == UserRole.salesAgent ? uid : null,
+                                role == UserRole.salesAgent ||
+                                        role == UserRole.marketing
+                                    ? uid
+                                    : null,
                             relatedRecordsManagerId:
                                 role == UserRole.manager ? uid : null,
+                            relatedRecordsTeamId: role == UserRole.manager
+                                ? session?.profile.teamId
+                                : null,
                             isSaving: isSaving,
                             submitLabel: l.updateTask,
                             onSubmit: (updatedTask) {
@@ -220,9 +226,15 @@ class _EditTaskViewState extends State<_EditTaskView> {
                         task: task,
                         canEditStatus: true,
                         relatedRecordsAssignedTo:
-                            role == UserRole.salesAgent ? uid : null,
+                            role == UserRole.salesAgent ||
+                                    role == UserRole.marketing
+                                ? uid
+                                : null,
                         relatedRecordsManagerId:
                             role == UserRole.manager ? uid : null,
+                        relatedRecordsTeamId: role == UserRole.manager
+                            ? session?.profile.teamId
+                            : null,
                         isSaving: isSaving,
                         submitLabel: l.updateTask,
                         onSubmit: (updatedTask) {

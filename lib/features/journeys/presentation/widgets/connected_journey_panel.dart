@@ -478,6 +478,17 @@ class _JourneyTimelineTile extends StatelessWidget {
                                   height: 1.25,
                                 ),
                           ),
+                        if (_appointmentJourneyDetail(l, item).isNotEmpty)
+                          Text(
+                            _appointmentJourneyDetail(l, item),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textSecondaryColor(context),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                ),
+                          ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -591,6 +602,54 @@ String _itemTitle(AppLocalizations l, JourneyItem item) {
     JourneyItemType.dealAtRisk => l.dashboardStuckDeals,
     JourneyItemType.auditCreated => l.journeyItemAuditCreated,
     JourneyItemType.auditUpdated => l.journeyItemAuditUpdated,
+  };
+}
+
+String _appointmentJourneyDetail(AppLocalizations l, JourneyItem item) {
+  if (item.targetType != JourneyTargetType.appointment) {
+    return '';
+  }
+  if (item.type == JourneyItemType.appointmentRescheduled) {
+    final previousScheduledAt =
+        item.metadata['previousScheduledAt']?.toString().trim() ?? '';
+    final scheduledAt = item.metadata['scheduledAt']?.toString().trim() ?? '';
+    if (previousScheduledAt.isNotEmpty && scheduledAt.isNotEmpty) {
+      return l.changedFromTo(
+        _journeyMetadataDateTimeLabel(l, previousScheduledAt),
+        _journeyMetadataDateTimeLabel(l, scheduledAt),
+      );
+    }
+  }
+  final outcome = item.metadata['outcome']?.toString().trim() ?? '';
+  final cancellationReason =
+      item.metadata['cancellationReason']?.toString().trim() ?? '';
+  if (outcome.isNotEmpty) {
+    return '${l.appointmentOutcome}: ${_appointmentOutcomeLabel(l, outcome)}';
+  }
+  if (cancellationReason.isNotEmpty) {
+    return '${l.cancellationReason}: $cancellationReason';
+  }
+  return '';
+}
+
+String _journeyMetadataDateTimeLabel(AppLocalizations l, String value) {
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+  return DateFormat.yMMMd(l.localeName).add_jm().format(parsed.toLocal());
+}
+
+String _appointmentOutcomeLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'successfulMeeting' => l.appointmentOutcomeSuccessfulMeeting,
+    'noAnswer' => l.appointmentOutcomeNoAnswer,
+    'clientPostponed' => l.appointmentOutcomeClientPostponed,
+    'clientNotInterested' => l.appointmentOutcomeClientNotInterested,
+    'followUpNeeded' => l.appointmentOutcomeFollowUpNeeded,
+    'dealOpportunity' => l.appointmentOutcomeDealOpportunity,
+    'other' => l.appointmentOutcomeOther,
+    _ => value,
   };
 }
 

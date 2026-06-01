@@ -93,6 +93,7 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
       companyId: session.companyId,
       role: role,
       currentUserId: session.uid,
+      teamId: session.profile.teamId,
       archiveFilter: archiveFilter,
     );
   }
@@ -162,7 +163,11 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
           }
           final deal = _findDeal(state.deals, widget.dealId);
           if (deal == null || companyId.isEmpty || uid.isEmpty) {
-            return AppErrorView(message: l.dealNotFoundMessage);
+            return AppErrorView(
+              title: l.dealDetails,
+              message: l.dealNotFoundMessage,
+              onRetry: () => context.go(RouteNames.deals),
+            );
           }
 
           return RefreshIndicator(

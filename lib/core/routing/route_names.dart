@@ -11,6 +11,7 @@ abstract final class RouteNames {
   static const appointments = '/appointments';
   static const deals = '/deals';
   static const reports = '/reports';
+  static const auditLogs = '/audit-logs';
   static const users = '/users';
   static const teams = '/teams';
   static const dataHealth = '/data-health';

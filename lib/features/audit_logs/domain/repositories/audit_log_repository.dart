@@ -10,6 +10,11 @@ abstract interface class AuditLogRepository {
     required String companyId,
     String? managerId,
     String? teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    DateTime? startAt,
+    DateTime? endAt,
     int limit,
   });
 }

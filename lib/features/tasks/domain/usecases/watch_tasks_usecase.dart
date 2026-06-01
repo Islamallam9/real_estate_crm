@@ -10,12 +10,14 @@ class WatchTasksUseCase {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 40,
   }) {
     return _repository.watchTasks(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }

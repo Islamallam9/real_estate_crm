@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
@@ -65,8 +66,6 @@ class LeadsCubit extends Cubit<LeadsState> {
   StreamSubscription<List<LeadNote>>? _notesSubscription;
   StreamSubscription<List<LeadTimelineEvent>>? _timelineSubscription;
   final InitialLoadTimeout _leadsInitialLoadTimeout = InitialLoadTimeout();
-  static const Duration _firebaseTimeout = Duration(seconds: 10);
-
   Future<bool> _hasConnection() async {
     final results = await Connectivity().checkConnectivity();
     return results.any((result) => result != ConnectivityResult.none);
@@ -79,12 +78,7 @@ class LeadsCubit extends Cubit<LeadsState> {
       throw const LeadException(AppErrorMessages.unableToConnect);
     }
 
-    return action().timeout(
-      _firebaseTimeout,
-      onTimeout: () {
-        throw const LeadException(AppErrorMessages.unableToConnect);
-      },
-    );
+    return action();
   }
 
   String _leadErrorMessage(Object error, String fallback) {
@@ -99,6 +93,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
   }) {
     emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
@@ -119,6 +114,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           companyId: companyId,
           assignedTo: assignedTo,
           managerId: managerId,
+          teamId: teamId,
           archiveFilter: archiveFilter,
         ).listen(
           (leads) {
@@ -171,12 +167,14 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
   }) {
     emit(state.copyWith(archiveFilter: archiveFilter));
     watchLeads(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       archiveFilter: archiveFilter,
     );
   }
@@ -1156,18 +1154,17 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
   }
 
   final today = DateTime.now();
-  final todayOnly = DateTime(today.year, today.month, today.day);
-  final localFollowUp = nextFollowUpAt.toLocal();
-  final followUpOnly = DateTime(
-    localFollowUp.year,
-    localFollowUp.month,
-    localFollowUp.day,
-  );
 
   return switch (filter) {
-    LeadFollowUpFilter.overdue => followUpOnly.isBefore(todayOnly),
-    LeadFollowUpFilter.dueToday => followUpOnly == todayOnly,
-    LeadFollowUpFilter.upcoming => followUpOnly.isAfter(todayOnly),
+    LeadFollowUpFilter.overdue =>
+      DashboardTruthRules.isOverdueFollowUpLead(lead, today),
+    LeadFollowUpFilter.dueToday =>
+      DashboardTruthRules.isDueTodayFollowUpLead(lead, today),
+    LeadFollowUpFilter.upcoming =>
+      DashboardTruthRules.isActiveLead(lead) &&
+          DashboardTruthRules.dateOnly(nextFollowUpAt).isAfter(
+            DashboardTruthRules.dateOnly(today),
+          ),
     LeadFollowUpFilter.notScheduled => false,
   };
 }
@@ -1175,6 +1172,7 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
 bool _matchesWorkQueueFilter(Lead lead, LeadWorkQueueFilter filter) {
   return switch (filter) {
     LeadWorkQueueFilter.active => _isActiveLead(lead),
+    LeadWorkQueueFilter.newToday => _dateOnly(lead.createdAt) == _dateOnly(DateTime.now()),
     LeadWorkQueueFilter.hot => _isHotLead(lead),
     LeadWorkQueueFilter.stale => _isStaleLead(lead),
     LeadWorkQueueFilter.unassigned =>
@@ -1183,17 +1181,11 @@ bool _matchesWorkQueueFilter(Lead lead, LeadWorkQueueFilter filter) {
 }
 
 bool _isActiveLead(Lead lead) {
-  return !lead.isArchived &&
-      lead.status != LeadStatus.won &&
-      lead.status != LeadStatus.lost;
+  return DashboardTruthRules.isActiveLead(lead);
 }
 
 bool _isHotLead(Lead lead) {
-  return _isActiveLead(lead) &&
-      (lead.priority == LeadPriority.high ||
-          lead.status == LeadStatus.interested ||
-          lead.status == LeadStatus.visitScheduled ||
-          lead.status == LeadStatus.negotiation);
+  return DashboardTruthRules.isHotLead(lead);
 }
 
 bool _isStaleLead(Lead lead) {

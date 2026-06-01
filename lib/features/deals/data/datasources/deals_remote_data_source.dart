@@ -19,6 +19,7 @@ abstract interface class DealsRemoteDataSource {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   });
@@ -70,6 +71,7 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     required String companyId,
     required UserRole role,
     required String currentUserId,
+    String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
   }) {
@@ -83,7 +85,10 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     }
 
     if (role == UserRole.manager) {
-      query = query.where('managerId', isEqualTo: currentUserId);
+      final cleanTeamId = (teamId ?? '').trim();
+      query = cleanTeamId.isNotEmpty
+          ? query.where('teamId', isEqualTo: cleanTeamId)
+          : query.where('managerId', isEqualTo: currentUserId);
     } else if (role == UserRole.salesAgent ||
         role == UserRole.marketing ||
         role == UserRole.viewer) {

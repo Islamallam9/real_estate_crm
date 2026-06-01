@@ -22,6 +22,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -69,8 +70,10 @@ class AppointmentsPage extends StatelessWidget {
 
           String? assignedTo;
           String? managerId;
+          String? teamId;
           if (role == UserRole.manager) {
             managerId = profile.uid;
+            teamId = profile.teamId.trim().isEmpty ? null : profile.teamId;
           } else if (role == UserRole.salesAgent ||
               role == UserRole.marketing) {
             assignedTo = profile.uid;
@@ -86,6 +89,7 @@ class AppointmentsPage extends StatelessWidget {
               role: role,
               assignedTo: assignedTo,
               managerId: managerId,
+              teamId: teamId,
               initialFilters: initialFilters,
             ),
           );
@@ -103,6 +107,7 @@ class _AppointmentsContent extends StatefulWidget {
     required this.role,
     this.assignedTo,
     this.managerId,
+    this.teamId,
     required this.initialFilters,
   });
 
@@ -111,6 +116,7 @@ class _AppointmentsContent extends StatefulWidget {
   final UserRole role;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final Map<String, String> initialFilters;
 
   @override
@@ -142,7 +148,8 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.companyId != widget.companyId ||
         oldWidget.assignedTo != widget.assignedTo ||
-        oldWidget.managerId != widget.managerId) {
+        oldWidget.managerId != widget.managerId ||
+        oldWidget.teamId != widget.teamId) {
       _watchAppointments();
     } else if (_filterSignature(oldWidget.initialFilters) !=
         _filterSignature(widget.initialFilters)) {
@@ -155,6 +162,7 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
           companyId: widget.companyId,
           assignedTo: widget.assignedTo,
           managerId: widget.managerId,
+          teamId: widget.teamId,
         );
     _applyInitialFiltersIfNeeded();
   }
@@ -272,6 +280,7 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   canManage: canManage,
                   assignedTo: widget.assignedTo,
                   managerId: widget.managerId,
+                  teamId: widget.teamId,
                 );
                 final showAttentionTab = _selectedTab == 1;
 
@@ -349,155 +358,21 @@ class _AppointmentsTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final isDark = AppColors.isDark(context);
-    final primary = AppColors.primaryColor(context);
-    final border = AppColors.borderColor(context);
-    final surface = AppColors.cardSurface(context);
-    final selectedText = isDark ? const Color(0xFF050505) : AppColors.textStrong;
-    final items = [
-      _AppointmentTabData(
-        label: l.appointments,
-        icon: Icons.event_available_outlined,
-      ),
-      _AppointmentTabData(
-        label: l.attentionNeeded,
-        icon: Icons.notifications_active_outlined,
-        badge: attentionCount > 0 ? attentionCount.toString() : null,
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scrollable = constraints.maxWidth < 430;
-        final buttons = [
-          for (var index = 0; index < items.length; index++)
-            SizedBox(
-              width: scrollable ? (index == 0 ? 142 : 184) : null,
-              child: _AppointmentSegmentButton(
-                data: items[index],
-                selected: selectedIndex == index,
-                primary: primary,
-                selectedText: selectedText,
-                onTap: () => onChanged(index),
-              ),
-            ),
-        ];
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.darkSurfaceAlt.withValues(alpha: 0.86)
-                : surface.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.08) : border,
-            ),
-          ),
-          child: scrollable
-              ? SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(children: buttons),
-                )
-              : Row(
-                  children: [
-                    for (final button in buttons) Expanded(child: button),
-                  ],
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _AppointmentTabData {
-  const _AppointmentTabData({
-    required this.label,
-    required this.icon,
-    this.badge,
-  });
-
-  final String label;
-  final IconData icon;
-  final String? badge;
-}
-
-class _AppointmentSegmentButton extends StatelessWidget {
-  const _AppointmentSegmentButton({
-    required this.data,
-    required this.selected,
-    required this.primary,
-    required this.selectedText,
-    required this.onTap,
-  });
-
-  final _AppointmentTabData data;
-  final bool selected;
-  final Color primary;
-  final Color selectedText;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = selected
-        ? selectedText
-        : AppColors.textSecondaryColor(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Material(
-        color: selected ? primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(data.icon, size: 18, color: textColor),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    data.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: textColor,
-                          fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-                        ),
-                  ),
-                ),
-                if (data.badge != null) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? Colors.black.withValues(alpha: 0.10)
-                          : AppColors.errorColor(context).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      data.badge!,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: selected ? selectedText : AppColors.errorColor(context),
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+    return MasarSwitchTabBar(
+      compact: true,
+      selectedIndex: selectedIndex,
+      onChanged: onChanged,
+      tabs: [
+        MasarSwitchTabItem(
+          label: l.appointments,
+          icon: Icons.event_available_outlined,
         ),
-      ),
+        MasarSwitchTabItem(
+          label: l.attentionNeeded,
+          icon: Icons.notifications_active_outlined,
+          badge: attentionCount > 0 ? attentionCount.toString() : null,
+        ),
+      ],
     );
   }
 }
@@ -1025,7 +900,7 @@ class _AppointmentsFilters extends StatelessWidget {
     final cubit = context.read<AppointmentsCubit>();
     final hasFilters = state.statusFilter != null ||
         state.typeFilter != null ||
-        state.dateFilter != AppointmentDateFilter.today ||
+        state.dateFilter != null ||
         state.selectedDateFilter != null ||
         state.assignedToFilter.trim().isNotEmpty;
 
@@ -1237,6 +1112,7 @@ class _AppointmentsBody extends StatelessWidget {
     required this.canManage,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final String companyId;
@@ -1246,6 +1122,7 @@ class _AppointmentsBody extends StatelessWidget {
   final bool canManage;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
 
   @override
   Widget build(BuildContext context) {
@@ -1263,10 +1140,20 @@ class _AppointmentsBody extends StatelessWidget {
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,
+              teamId: teamId,
             ),
       );
     }
     if (state.appointments.isEmpty) {
+      if (state.dateFilter == AppointmentDateFilter.missed) {
+        return _AnimatedEmptyState(
+          child: AppEmptyState(
+            title: l.noMissedAppointments,
+            message: l.noAppointmentsMatchFilters,
+            icon: Icons.event_busy_outlined,
+          ),
+        );
+      }
       return _AnimatedEmptyState(
         child: AppEmptyState(
           title: l.noAppointmentsYet,
@@ -1278,47 +1165,928 @@ class _AppointmentsBody extends StatelessWidget {
     if (state.filteredAppointments.isEmpty) {
       return _AnimatedEmptyState(
         child: AppEmptyState(
-          title: l.noAppointmentsMatchFilters,
+          title: state.dateFilter == AppointmentDateFilter.missed
+              ? l.noMissedAppointments
+              : l.noAppointmentsMatchFilters,
           message: l.clearFilters,
-          icon: Icons.manage_search_outlined,
+          icon: state.dateFilter == AppointmentDateFilter.missed
+              ? Icons.event_busy_outlined
+              : Icons.manage_search_outlined,
         ),
       );
     }
 
+    if (state.dateFilter == AppointmentDateFilter.missed) {
+      return SingleChildScrollView(
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        child: _AgendaPanel(
+          title: l.missedAppointments,
+          appointments: state.filteredAppointments,
+          companyId: companyId,
+          uid: uid,
+          users: users,
+          canManage: canManage,
+          emptyMessage: l.noMissedAppointments,
+        ),
+      );
+    }
+
+    return _AppointmentsCalendarWorkspace(
+      state: state,
+      companyId: companyId,
+      uid: uid,
+      users: users,
+      canManage: canManage,
+    );
+  }
+}
+
+class _AppointmentsCalendarWorkspace extends StatelessWidget {
+  const _AppointmentsCalendarWorkspace({
+    required this.state,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+  });
+
+  final AppointmentsState state;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedDate = state.selectedCalendarDate ?? _dateOnly(DateTime.now());
+    final content = _CalendarWorkspaceContent(
+      state: state,
+      selectedDate: selectedDate,
+      companyId: companyId,
+      uid: uid,
+      users: users,
+      canManage: canManage,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 720) {
-          return Column(
-            children: [
-              for (var index = 0;
-                  index < state.filteredAppointments.length;
-                  index++) ...[
-                _AnimatedListItem(
-                  index: index,
-                  child: _AppointmentCard(
-                    appointment: state.filteredAppointments[index],
-                    companyId: companyId,
-                    uid: uid,
-                    users: users,
-                    canManage: canManage,
-                  ),
-                ),
-                if (index != state.filteredAppointments.length - 1)
-                  const SizedBox(height: AppSpacing.sm),
-              ],
-            ],
-          );
+        final child = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CalendarViewSelector(
+              selectedView: state.calendarView,
+              onChanged: context.read<AppointmentsCubit>().setCalendarView,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            content,
+          ],
+        );
+
+        if (!constraints.hasBoundedHeight) {
+          return child;
         }
-        return SizedBox.expand(
-          child: _AppointmentsTable(
-            appointments: state.filteredAppointments,
-            companyId: companyId,
-            uid: uid,
-            users: users,
-            canManage: canManage,
-          ),
+        return SingleChildScrollView(
+          primary: false,
+          physics: const ClampingScrollPhysics(),
+          child: child,
         );
       },
+    );
+  }
+}
+
+class _CalendarWorkspaceContent extends StatelessWidget {
+  const _CalendarWorkspaceContent({
+    required this.state,
+    required this.selectedDate,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+  });
+
+  final AppointmentsState state;
+  final DateTime selectedDate;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final appointments = state.filteredAppointments;
+    final effectiveSelectedDate = state.calendarView == AppointmentCalendarView.today
+        ? _dateOnly(DateTime.now())
+        : selectedDate;
+    final selectedDayAppointments =
+        _appointmentsForDay(appointments, effectiveSelectedDate);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 780;
+        final agenda = _AgendaPanel(
+          title: state.calendarView == AppointmentCalendarView.today
+              ? AppLocalizations.of(context)!.todayAgenda
+              : _agendaTitle(context, effectiveSelectedDate),
+          appointments: selectedDayAppointments,
+          companyId: companyId,
+          uid: uid,
+          users: users,
+          canManage: canManage,
+          emptyMessage: _emptyAgendaMessage(context, state.calendarView),
+          trailing: state.calendarView == AppointmentCalendarView.day
+              ? _CalendarNavigation(
+                  selectedDate: effectiveSelectedDate,
+                  onPrevious: () => context
+                      .read<AppointmentsCubit>()
+                      .setSelectedCalendarDate(
+                        effectiveSelectedDate.subtract(const Duration(days: 1)),
+                      ),
+                  onToday: () => context
+                      .read<AppointmentsCubit>()
+                      .setSelectedCalendarDate(_dateOnly(DateTime.now())),
+                  onNext: () => context
+                      .read<AppointmentsCubit>()
+                      .setSelectedCalendarDate(
+                        effectiveSelectedDate.add(const Duration(days: 1)),
+                      ),
+                )
+              : null,
+        );
+
+        switch (state.calendarView) {
+          case AppointmentCalendarView.month:
+            final month = _MonthCalendarPanel(
+              selectedDate: selectedDate,
+              appointments: appointments,
+              onDateSelected:
+                  context.read<AppointmentsCubit>().setSelectedCalendarDate,
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  month,
+                  const SizedBox(height: AppSpacing.sm),
+                  agenda,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: month),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(flex: 2, child: agenda),
+              ],
+            );
+          case AppointmentCalendarView.week:
+            return _WeekAgendaPanel(
+              selectedDate: selectedDate,
+              appointments: appointments,
+              companyId: companyId,
+              uid: uid,
+              users: users,
+              canManage: canManage,
+              onDateSelected:
+                  context.read<AppointmentsCubit>().setSelectedCalendarDate,
+            );
+          case AppointmentCalendarView.day:
+          case AppointmentCalendarView.today:
+            return agenda;
+        }
+      },
+    );
+  }
+}
+
+class _CalendarViewSelector extends StatelessWidget {
+  const _CalendarViewSelector({
+    required this.selectedView,
+    required this.onChanged,
+  });
+
+  final AppointmentCalendarView selectedView;
+  final ValueChanged<AppointmentCalendarView> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = AppointmentCalendarView.values;
+    return MasarSwitchTabBar(
+      compact: true,
+      selectedIndex: values.indexOf(selectedView),
+      onChanged: (index) => onChanged(values[index]),
+      tabs: [
+        for (final view in values)
+          MasarSwitchTabItem(
+            label: _calendarViewLabel(context, view),
+            icon: _calendarViewIcon(view),
+          ),
+      ],
+    );
+  }
+}
+
+class _MonthCalendarPanel extends StatelessWidget {
+  const _MonthCalendarPanel({
+    required this.selectedDate,
+    required this.appointments,
+    required this.onDateSelected,
+  });
+
+  final DateTime selectedDate;
+  final List<Appointment> appointments;
+  final ValueChanged<DateTime> onDateSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final localeName = l.localeName;
+    final visibleDays = _visibleMonthDays(context, selectedDate);
+    final monthLabel = intl.DateFormat.yMMMM(localeName).format(selectedDate);
+    final weekLabels = _weekdayLabels(context);
+
+    return _WorkspacePanel(
+      title: l.appointmentCalendarMonthView,
+      subtitle: monthLabel,
+      icon: Icons.calendar_month_outlined,
+      trailing: _CalendarNavigation(
+        selectedDate: selectedDate,
+        onPrevious: () => onDateSelected(
+          DateTime(selectedDate.year, selectedDate.month - 1, 1),
+        ),
+        onToday: () => onDateSelected(_dateOnly(DateTime.now())),
+        onNext: () => onDateSelected(
+          DateTime(selectedDate.year, selectedDate.month + 1, 1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (final label in weekLabels)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          GridView.builder(
+            shrinkWrap: true,
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              childAspectRatio: 0.92,
+            ),
+            itemCount: visibleDays.length,
+            itemBuilder: (context, index) {
+              final day = visibleDays[index];
+              final dayAppointments = _appointmentsForDay(appointments, day);
+              return _MonthDayCell(
+                day: day,
+                selected: _sameDay(day, selectedDate),
+                inCurrentMonth: day.month == selectedDate.month,
+                appointments: dayAppointments,
+                onTap: () => onDateSelected(day),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthDayCell extends StatelessWidget {
+  const _MonthDayCell({
+    required this.day,
+    required this.selected,
+    required this.inCurrentMonth,
+    required this.appointments,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final bool selected;
+  final bool inCurrentMonth;
+  final List<Appointment> appointments;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = _sameDay(day, now);
+    final missed = appointments.where((item) {
+      return _effectiveStatus(item) == AppointmentStatus.missed;
+    }).length;
+    final completed = appointments
+        .where((item) => item.status == AppointmentStatus.completed)
+        .length;
+    final cancelled = appointments
+        .where((item) => item.status == AppointmentStatus.cancelled)
+        .length;
+    final open = appointments.length - completed - cancelled;
+    final primary = AppColors.primaryColor(context);
+    final borderColor = selected
+        ? primary
+        : today
+            ? primary.withValues(alpha: 0.45)
+            : AppColors.borderColor(context);
+
+    return Material(
+      color: selected
+          ? primary.withValues(alpha: 0.10)
+          : AppColors.inputSurface(context),
+      borderRadius: AppRadius.medium,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.medium,
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            border: Border.all(color: borderColor),
+            borderRadius: AppRadius.medium,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      day.day.toString(),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: inCurrentMonth
+                                ? AppColors.textPrimaryColor(context)
+                                : AppColors.textMutedColor(context),
+                            fontWeight: selected || today
+                                ? FontWeight.w900
+                                : FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  if (appointments.isNotEmpty)
+                    Text(
+                      appointments.length.toString(),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              if (appointments.isEmpty)
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor(context),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    if (open > 0)
+                      Expanded(
+                        flex: open.clamp(1, 9).toInt(),
+                        child: _DensityBar(
+                          color: missed > 0
+                              ? AppColors.errorColor(context)
+                              : AppColors.warningColor(context),
+                        ),
+                      ),
+                    if (completed > 0) ...[
+                      const SizedBox(width: 3),
+                      Expanded(
+                        flex: completed.clamp(1, 9).toInt(),
+                        child: _DensityBar(
+                          color: AppColors.successColor(context),
+                        ),
+                      ),
+                    ],
+                    if (cancelled > 0) ...[
+                      const SizedBox(width: 3),
+                      Expanded(
+                        flex: cancelled.clamp(1, 9).toInt(),
+                        child: _DensityBar(
+                          color: AppColors.textMutedColor(context),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DensityBar extends StatelessWidget {
+  const _DensityBar({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 4,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+    );
+  }
+}
+
+class _WeekAgendaPanel extends StatelessWidget {
+  const _WeekAgendaPanel({
+    required this.selectedDate,
+    required this.appointments,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+    required this.onDateSelected,
+  });
+
+  final DateTime selectedDate;
+  final List<Appointment> appointments;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+  final ValueChanged<DateTime> onDateSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final days = _weekDays(context, selectedDate);
+    final weekLabel =
+        '${intl.DateFormat.MMMd(l.localeName).format(days.first)} - ${intl.DateFormat.MMMd(l.localeName).format(days.last)}';
+
+    return _WorkspacePanel(
+      title: l.appointmentCalendarWeekView,
+      subtitle: weekLabel,
+      icon: Icons.view_week_outlined,
+      trailing: _CalendarNavigation(
+        selectedDate: selectedDate,
+        onPrevious: () => onDateSelected(
+          selectedDate.subtract(const Duration(days: 7)),
+        ),
+        onToday: () => onDateSelected(_dateOnly(DateTime.now())),
+        onNext: () => onDateSelected(
+          selectedDate.add(const Duration(days: 7)),
+        ),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < days.length; index++) ...[
+            _WeekDayGroup(
+              day: days[index],
+              selected: _sameDay(days[index], selectedDate),
+              appointments: _appointmentsForDay(appointments, days[index]),
+              companyId: companyId,
+              uid: uid,
+              users: users,
+              canManage: canManage,
+              onTap: () => onDateSelected(days[index]),
+            ),
+            if (index != days.length - 1) const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekDayGroup extends StatelessWidget {
+  const _WeekDayGroup({
+    required this.day,
+    required this.selected,
+    required this.appointments,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final bool selected;
+  final List<Appointment> appointments;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final color = selected
+        ? AppColors.primaryColor(context)
+        : AppColors.textSecondaryColor(context);
+    final dateLabel = intl.DateFormat.EEEE(l.localeName).format(day);
+    final dayLabel = intl.DateFormat.MMMd(l.localeName).format(day);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: selected
+            ? AppColors.primaryColor(context).withValues(alpha: 0.08)
+            : AppColors.inputSurface(context),
+        border: Border.all(
+          color: selected
+              ? AppColors.primaryColor(context).withValues(alpha: 0.34)
+              : AppColors.borderColor(context),
+        ),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: AppRadius.large,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Row(
+                children: [
+                  Icon(Icons.event_note_outlined, size: 17, color: color),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      '$dateLabel - $dayLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                  AppStatusBadge(
+                    label: appointments.length.toString(),
+                    tone: appointments.any(
+                      (item) => _effectiveStatus(item) == AppointmentStatus.missed,
+                    )
+                        ? AppStatusTone.error
+                        : AppStatusTone.info,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (appointments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.sm,
+                0,
+                AppSpacing.sm,
+                AppSpacing.sm,
+              ),
+              child: Column(
+                children: [
+                  for (var index = 0; index < appointments.length; index++) ...[
+                    _AgendaAppointmentTile(
+                      appointment: appointments[index],
+                      companyId: companyId,
+                      uid: uid,
+                      users: users,
+                      canManage: canManage,
+                    ),
+                    if (index != appointments.length - 1)
+                      const SizedBox(height: AppSpacing.xs),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgendaPanel extends StatelessWidget {
+  const _AgendaPanel({
+    required this.title,
+    required this.appointments,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+    required this.emptyMessage,
+    this.trailing,
+  });
+
+  final String title;
+  final List<Appointment> appointments;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+  final String emptyMessage;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return _WorkspacePanel(
+      title: title,
+      subtitle: appointments.isEmpty
+          ? emptyMessage
+          : '${appointments.length} ${AppLocalizations.of(context)!.appointments}',
+      icon: Icons.today_outlined,
+      trailing: trailing,
+      child: appointments.isEmpty
+          ? AppEmptyState(
+              title: emptyMessage,
+              message: AppLocalizations.of(context)!.noAppointmentsMatchFilters,
+              icon: Icons.event_busy_outlined,
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < appointments.length; index++) ...[
+                  _AnimatedListItem(
+                    index: index,
+                    child: _AgendaAppointmentTile(
+                      appointment: appointments[index],
+                      companyId: companyId,
+                      uid: uid,
+                      users: users,
+                      canManage: canManage,
+                    ),
+                  ),
+                  if (index != appointments.length - 1)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _AgendaAppointmentTile extends StatelessWidget {
+  const _AgendaAppointmentTile({
+    required this.appointment,
+    required this.companyId,
+    required this.uid,
+    required this.users,
+    required this.canManage,
+  });
+
+  final Appointment appointment;
+  final String companyId;
+  final String uid;
+  final List<UserProfile> users;
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final status = _effectiveStatus(appointment);
+    final tone = _statusTone(status);
+    final color = _toneColor(context, tone);
+
+    return Material(
+      color: AppColors.inputSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        onTap: canManage
+            ? () => context.go(RouteNames.appointmentEdit(appointment.id))
+            : null,
+        borderRadius: AppRadius.large,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.large,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 58,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: AppRadius.medium,
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.schedule_outlined, size: 16, color: color),
+                    const SizedBox(height: 4),
+                    Text(
+                      _timeOnlyLabel(l, appointment.scheduledAt),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appointment.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        if (canManage)
+                          _AppointmentActions(
+                            appointment: appointment,
+                            companyId: companyId,
+                            updatedBy: uid,
+                            compact: true,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        _AnimatedStatusBadge(
+                          label: appointmentStatusLabel(l, status),
+                          tone: tone,
+                          statusKey: status.name,
+                        ),
+                        _Pill(label: _relatedRecordDisplayLabel(l, appointment)),
+                        _Pill(label: _assigneeDisplayLabel(l, appointment, users)),
+                      ],
+                    ),
+                    if (appointment.outcome != null ||
+                        appointment.cancellationReason.trim().isNotEmpty ||
+                        appointment.outcomeNotes.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _appointmentResultLine(l, appointment),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspacePanel extends StatelessWidget {
+  const _WorkspacePanel({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.subtitle = '',
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+        boxShadow:
+            Theme.of(context).brightness == Brightness.dark ? null : AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor(context).withValues(alpha: 0.11),
+                  borderRadius: AppRadius.medium,
+                ),
+                child: Icon(icon, size: 18, color: AppColors.primaryColor(context)),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    if (subtitle.trim().isNotEmpty)
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondaryColor(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                trailing!,
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarNavigation extends StatelessWidget {
+  const _CalendarNavigation({
+    required this.selectedDate,
+    required this.onPrevious,
+    required this.onToday,
+    required this.onNext,
+  });
+
+  final DateTime selectedDate;
+  final VoidCallback onPrevious;
+  final VoidCallback onToday;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: l.back,
+          visualDensity: VisualDensity.compact,
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        TextButton(
+          onPressed: onToday,
+          child: Text(l.today),
+        ),
+        IconButton(
+          tooltip: l.next,
+          visualDensity: VisualDensity.compact,
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ],
     );
   }
 }
@@ -1430,12 +2198,13 @@ class _AppointmentCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                _AppointmentActions(
-                  appointment: appointment,
-                  companyId: companyId,
-                  updatedBy: uid,
-                  compact: true,
-                ),
+                if (canManage)
+                  _AppointmentActions(
+                    appointment: appointment,
+                    companyId: companyId,
+                    updatedBy: uid,
+                    compact: true,
+                  ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -1466,6 +2235,20 @@ class _AppointmentCard extends StatelessWidget {
                   _Pill(label: appointment.location.trim()),
               ],
             ),
+            if (appointment.outcome != null ||
+                appointment.cancellationReason.trim().isNotEmpty ||
+                appointment.outcomeNotes.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _appointmentResultLine(l, appointment),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1632,6 +2415,7 @@ class _AnimatedStatusBadge extends StatelessWidget {
 
 enum _AppointmentActionMenu {
   edit,
+  openLinkedRecord,
   complete,
   cancel,
   missed,
@@ -1656,27 +2440,9 @@ class _AppointmentActions extends StatefulWidget {
 }
 
 class _AppointmentActionsState extends State<_AppointmentActions> {
-  _AppointmentActionMenu? _busyAction;
-
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final isBusy = _busyAction != null;
-    if (isBusy) {
-      return SizedBox(
-        width: widget.compact ? 40 : 48,
-        height: 36,
-        child: Center(
-          child: SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.2,
-              color: AppColors.primaryColor(context),
-            ),
-          ),
-        ),
-      );
-    }
     return PopupMenuButton<_AppointmentActionMenu>(
       tooltip: l.actions,
       onSelected: _handleAction,
@@ -1685,6 +2451,14 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
           value: _AppointmentActionMenu.edit,
           child: _MenuItem(icon: Icons.edit_outlined, label: l.editAppointment),
         ),
+        if (_linkedRecordRoute(widget.appointment) != null)
+          PopupMenuItem(
+            value: _AppointmentActionMenu.openLinkedRecord,
+            child: _MenuItem(
+              icon: Icons.open_in_new_rounded,
+              label: l.openLinkedRecord,
+            ),
+          ),
         PopupMenuItem(
           value: _AppointmentActionMenu.reschedule,
           child: _MenuItem(icon: Icons.event_repeat_outlined, label: l.reschedule),
@@ -1722,9 +2496,24 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
   }
 
   Future<void> _handleAction(_AppointmentActionMenu action) async {
-    if (action == _AppointmentActionMenu.edit ||
-        action == _AppointmentActionMenu.reschedule) {
+    if (action == _AppointmentActionMenu.edit) {
       context.go(RouteNames.appointmentEdit(widget.appointment.id));
+      return;
+    }
+    if (action == _AppointmentActionMenu.openLinkedRecord) {
+      final route = _linkedRecordRoute(widget.appointment);
+      if (route == null) {
+        AppFeedback.warning(
+          context,
+          AppLocalizations.of(context)!.relatedRecordUnavailable,
+        );
+        return;
+      }
+      context.go(route);
+      return;
+    }
+    if (action == _AppointmentActionMenu.reschedule) {
+      await _showRescheduleDialog();
       return;
     }
 
@@ -1749,19 +2538,27 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
       return;
     }
 
-    setState(() => _busyAction = action);
-    try {
-      await context.read<AppointmentsCubit>().changeStatus(
-            companyId: widget.companyId,
-            appointment: widget.appointment,
-            status: AppointmentStatus.completed,
-            updatedBy: widget.updatedBy,
-          );
-    } finally {
-      if (mounted) {
-        setState(() => _busyAction = null);
-      }
-    }
+    await _confirmStatusChange(
+      context,
+      title: AppLocalizations.of(context)!.completeAppointment,
+      message: AppLocalizations.of(context)!.completeAppointmentConfirmation,
+      status: AppointmentStatus.completed,
+    );
+  }
+
+  Future<void> _showRescheduleDialog() async {
+    final cubit = context.read<AppointmentsCubit>();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return _AppointmentRescheduleDialog(
+          appointment: widget.appointment,
+          companyId: widget.companyId,
+          updatedBy: widget.updatedBy,
+          cubit: cubit,
+        );
+      },
+    );
   }
 
   Future<void> _confirmStatusChange(
@@ -1812,9 +2609,240 @@ class _AppointmentStatusChangeDialog extends StatefulWidget {
       _AppointmentStatusChangeDialogState();
 }
 
+class _AppointmentRescheduleDialog extends StatefulWidget {
+  const _AppointmentRescheduleDialog({
+    required this.appointment,
+    required this.companyId,
+    required this.updatedBy,
+    required this.cubit,
+  });
+
+  final Appointment appointment;
+  final String companyId;
+  final String updatedBy;
+  final AppointmentsCubit cubit;
+
+  @override
+  State<_AppointmentRescheduleDialog> createState() =>
+      _AppointmentRescheduleDialogState();
+}
+
+class _AppointmentRescheduleDialogState
+    extends State<_AppointmentRescheduleDialog> {
+  DateTime? _date;
+  TimeOfDay? _time;
+  late int _durationMinutes;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final scheduledAt = widget.appointment.scheduledAt?.toLocal() ??
+        DateTime.now().add(const Duration(hours: 1));
+    _date = DateTime(scheduledAt.year, scheduledAt.month, scheduledAt.day);
+    _time = TimeOfDay.fromDateTime(scheduledAt);
+    _durationMinutes = widget.appointment.durationMinutes <= 0
+        ? 60
+        : widget.appointment.durationMinutes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.reschedule),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ScheduleComparisonRow(
+              label: l.currentAppointmentTime,
+              value: _dateTimeLabel(l, widget.appointment.scheduledAt),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton.icon(
+              onPressed: _isSubmitting ? null : _pickDate,
+              icon: const Icon(Icons.event_outlined),
+              label: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(_dateLabel(l)),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: _isSubmitting ? null : _pickTime,
+              icon: const Icon(Icons.schedule_outlined),
+              label: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(_timeLabel(l)),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppDropdown<int>(
+              label: l.duration,
+              value: _durationMinutes,
+              items: const [15, 30, 45, 60, 90, 120],
+              itemLabelBuilder: (value) => l.durationMinutes(value),
+              enabled: !_isSubmitting,
+              onChanged: (value) => setState(() => _durationMinutes = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.reschedule,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null && mounted) {
+      setState(() => _date = DateTime(picked.year, picked.month, picked.day));
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time ?? TimeOfDay.now(),
+    );
+    if (picked != null && mounted) {
+      setState(() => _time = picked);
+    }
+  }
+
+  String _dateLabel(AppLocalizations l) {
+    final date = _date;
+    if (date == null) {
+      return l.selectAppointmentDate;
+    }
+    return MaterialLocalizations.of(context).formatMediumDate(date);
+  }
+
+  String _timeLabel(AppLocalizations l) {
+    final time = _time;
+    if (time == null) {
+      return l.selectStartTime;
+    }
+    return MaterialLocalizations.of(context).formatTimeOfDay(time);
+  }
+
+  Future<void> _submit() async {
+    final date = _date;
+    final time = _time;
+    final l = AppLocalizations.of(context)!;
+    if (date == null || time == null) {
+      AppFeedback.warning(context, l.appointmentDateRequired);
+      return;
+    }
+    if (_durationMinutes <= 0) {
+      AppFeedback.warning(context, l.appointmentDurationRequired);
+      return;
+    }
+
+    final scheduledAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    final endAt = scheduledAt.add(Duration(minutes: _durationMinutes));
+    if (!endAt.isAfter(scheduledAt)) {
+      AppFeedback.warning(context, l.appointmentEndAfterStartRequired);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final success = await widget.cubit.saveAppointment(
+      companyId: widget.companyId,
+      operation: 'update',
+      appointment: widget.appointment.copyWith(
+        status: AppointmentStatus.rescheduled,
+        scheduledAt: scheduledAt,
+        endAt: endAt,
+        durationMinutes: _durationMinutes,
+        updatedBy: widget.updatedBy,
+        rescheduledFrom:
+            widget.appointment.rescheduledFrom ?? widget.appointment.scheduledAt,
+        previousScheduledAt: widget.appointment.scheduledAt,
+        previousEndAt: widget.appointment.endAt,
+      ),
+      action: AppointmentAction.reschedule,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _isSubmitting = false);
+  }
+}
+
+class _ScheduleComparisonRow extends StatelessWidget {
+  const _ScheduleComparisonRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.medium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppointmentStatusChangeDialogState
     extends State<_AppointmentStatusChangeDialog> {
   late final TextEditingController _controller;
+  AppointmentOutcome _outcome = AppointmentOutcome.successfulMeeting;
   bool _isSubmitting = false;
 
   @override
@@ -1839,6 +2867,8 @@ class _AppointmentStatusChangeDialogState
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final isComplete = widget.status == AppointmentStatus.completed;
+    final isCancel = widget.status == AppointmentStatus.cancelled;
     return AlertDialog(
       title: Text(widget.title),
       content: ConstrainedBox(
@@ -1850,10 +2880,24 @@ class _AppointmentStatusChangeDialogState
             children: [
               Text(widget.message),
               const SizedBox(height: AppSpacing.md),
+              if (isComplete) ...[
+                AppDropdown<AppointmentOutcome>(
+                  label: l.appointmentOutcome,
+                  value: _outcome,
+                  items: AppointmentOutcome.values,
+                  itemLabelBuilder: (outcome) =>
+                      appointmentOutcomeLabel(l, outcome),
+                  enabled: !_isSubmitting,
+                  onChanged: (value) => setState(() => _outcome = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               TextField(
                 controller: _controller,
                 maxLines: 3,
-                decoration: InputDecoration(labelText: l.outcomeNotes),
+                decoration: InputDecoration(
+                  labelText: isCancel ? l.cancellationReason : l.outcomeNotes,
+                ),
                 enabled: !_isSubmitting,
               ),
             ],
@@ -1876,13 +2920,23 @@ class _AppointmentStatusChangeDialogState
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+    final l = AppLocalizations.of(context)!;
+    if (widget.status == AppointmentStatus.cancelled &&
+        _controller.text.trim().isEmpty) {
+      AppFeedback.warning(context, l.cancellationReasonRequired);
+      return;
+    }
     setState(() => _isSubmitting = true);
     final success = await widget.cubit.changeStatus(
       companyId: widget.companyId,
       appointment: widget.appointment,
       status: widget.status,
       updatedBy: widget.updatedBy,
-      outcomeNotes: _controller.text,
+      outcome: widget.status == AppointmentStatus.completed ? _outcome : null,
+      outcomeNotes:
+          widget.status == AppointmentStatus.cancelled ? '' : _controller.text,
+      cancellationReason:
+          widget.status == AppointmentStatus.cancelled ? _controller.text : '',
     );
     if (!mounted) {
       return;
@@ -2243,6 +3297,99 @@ String _appointmentAttentionSubtitle(
   return parts.join(' - ');
 }
 
+String _calendarViewLabel(BuildContext context, AppointmentCalendarView view) {
+  final l = AppLocalizations.of(context)!;
+  return switch (view) {
+    AppointmentCalendarView.today => l.appointmentCalendarTodayView,
+    AppointmentCalendarView.month => l.appointmentCalendarMonthView,
+    AppointmentCalendarView.week => l.appointmentCalendarWeekView,
+    AppointmentCalendarView.day => l.appointmentCalendarDayView,
+  };
+}
+
+IconData _calendarViewIcon(AppointmentCalendarView view) {
+  return switch (view) {
+    AppointmentCalendarView.today => Icons.today_outlined,
+    AppointmentCalendarView.month => Icons.calendar_month_outlined,
+    AppointmentCalendarView.week => Icons.view_week_outlined,
+    AppointmentCalendarView.day => Icons.view_day_outlined,
+  };
+}
+
+String _agendaTitle(BuildContext context, DateTime selectedDate) {
+  final l = AppLocalizations.of(context)!;
+  return '${l.appointmentAgenda} - ${intl.DateFormat.yMMMd(l.localeName).format(selectedDate)}';
+}
+
+String _emptyAgendaMessage(
+  BuildContext context,
+  AppointmentCalendarView view,
+) {
+  final l = AppLocalizations.of(context)!;
+  return view == AppointmentCalendarView.today
+      ? l.noAppointmentsToday
+      : l.noAppointmentsForSelectedDay;
+}
+
+List<Appointment> _appointmentsForDay(
+  List<Appointment> appointments,
+  DateTime day,
+) {
+  final selected = _dateOnly(day);
+  return appointments.where((appointment) {
+    final scheduledAt = appointment.scheduledAt;
+    return scheduledAt != null && _dateOnly(scheduledAt) == selected;
+  }).toList()
+    ..sort((a, b) {
+      final aDate = a.scheduledAt ?? DateTime(9999);
+      final bDate = b.scheduledAt ?? DateTime(9999);
+      return aDate.compareTo(bDate);
+    });
+}
+
+List<DateTime> _visibleMonthDays(BuildContext context, DateTime selectedDate) {
+  final firstOfMonth = DateTime(selectedDate.year, selectedDate.month);
+  final firstDayIndex = MaterialLocalizations.of(context).firstDayOfWeekIndex;
+  final monthWeekdayIndex = firstOfMonth.weekday % DateTime.daysPerWeek;
+  final leadingDays =
+      (monthWeekdayIndex - firstDayIndex) % DateTime.daysPerWeek;
+  final firstVisible = firstOfMonth.subtract(Duration(days: leadingDays));
+  return [
+    for (var index = 0; index < 42; index++)
+      _dateOnly(firstVisible.add(Duration(days: index))),
+  ];
+}
+
+List<DateTime> _weekDays(BuildContext context, DateTime selectedDate) {
+  final firstDayIndex = MaterialLocalizations.of(context).firstDayOfWeekIndex;
+  final selectedWeekdayIndex = selectedDate.weekday % DateTime.daysPerWeek;
+  final leadingDays =
+      (selectedWeekdayIndex - firstDayIndex) % DateTime.daysPerWeek;
+  final start = _dateOnly(selectedDate.subtract(Duration(days: leadingDays)));
+  return [
+    for (var index = 0; index < DateTime.daysPerWeek; index++)
+      start.add(Duration(days: index)),
+  ];
+}
+
+List<String> _weekdayLabels(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
+  final days = _weekDays(context, DateTime(2024, 1, 7));
+  return [
+    for (final day in days) intl.DateFormat.E(l.localeName).format(day),
+  ];
+}
+
+DateTime _dateOnly(DateTime value) {
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+bool _sameDay(DateTime a, DateTime b) {
+  return _dateOnly(a) == _dateOnly(b);
+}
+
+
 String _dateTimeLabel(AppLocalizations l, DateTime? value) {
   if (value == null) {
     return l.notAvailable;
@@ -2251,6 +3398,45 @@ String _dateTimeLabel(AppLocalizations l, DateTime? value) {
   final date = intl.DateFormat.yMMMd(l.localeName).format(local);
   final time = intl.DateFormat.jm(l.localeName).format(local);
   return '$date - $time';
+}
+
+String _timeOnlyLabel(AppLocalizations l, DateTime? value) {
+  if (value == null) {
+    return l.notAvailable;
+  }
+  return intl.DateFormat.jm(l.localeName).format(value.toLocal());
+}
+
+String _appointmentResultLine(
+  AppLocalizations l,
+  Appointment appointment,
+) {
+  final parts = <String>[];
+  final outcome = appointment.outcome;
+  if (outcome != null) {
+    parts.add(appointmentOutcomeLabel(l, outcome));
+  }
+  if (appointment.cancellationReason.trim().isNotEmpty) {
+    parts.add('${l.cancellationReason}: ${appointment.cancellationReason.trim()}');
+  }
+  if (appointment.outcomeNotes.trim().isNotEmpty) {
+    parts.add(appointment.outcomeNotes.trim());
+  }
+  return parts.join(' - ');
+}
+
+String? _linkedRecordRoute(Appointment appointment) {
+  final id = appointment.relatedId.trim();
+  if (id.isEmpty || appointment.relatedType == AppointmentRelatedType.general) {
+    return null;
+  }
+  return switch (appointment.relatedType) {
+    AppointmentRelatedType.lead => RouteNames.leadDetails(id),
+    AppointmentRelatedType.client => RouteNames.clientDetails(id),
+    AppointmentRelatedType.property => RouteNames.propertyDetails(id),
+    AppointmentRelatedType.deal => RouteNames.dealDetails(id),
+    AppointmentRelatedType.general => null,
+  };
 }
 
 String _dateFilterLabel(AppLocalizations l, AppointmentDateFilter filter) {

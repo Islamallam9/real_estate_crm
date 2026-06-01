@@ -38,7 +38,7 @@ abstract final class AuthErrorMessages {
   static const currentPasswordIncorrect = 'Current password is incorrect.';
   static const recentLoginRequired =
       'Please sign in again before changing your password.';
-  static const weakPassword = 'New password is too short.';
+  static const weakPassword = 'weak-password';
   static const passwordChangeFailed =
       'Unable to change password. Please try again.';
 }

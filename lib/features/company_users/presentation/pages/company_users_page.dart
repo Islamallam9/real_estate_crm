@@ -735,7 +735,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
           phone: _phone.text.trim(),
           role: _role,
           temporaryPassword: _useTemporaryPassword
-              ? _temporaryPassword.text.trim()
+              ? _temporaryPassword.text
               : null,
         );
     if (!mounted) return;
@@ -983,6 +983,9 @@ String _shortSetupLink(String link) {
 }
 
 String _companyUserErrorMessage(AppLocalizations l, String? message) {
+  if (message == 'weak-password' || message == 'Password is too weak.') {
+    return l.weakPassword;
+  }
   return switch (message) {
     'company-user-already-exists' => l.companyUserAlreadyExists,
     'company-user-limit-reached' => l.userLimitReached,

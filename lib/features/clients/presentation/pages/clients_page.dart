@@ -87,6 +87,7 @@ class ClientsPage extends StatelessWidget {
               ? profile.uid
               : null;
           final managerId = role == UserRole.manager ? profile.uid : null;
+          final teamId = role == UserRole.manager ? profile.teamId : null;
           final scopeKey = ValueKey(session.scopeKey('clients-scope'));
 
           return ClientsScope(
@@ -96,6 +97,7 @@ class ClientsPage extends StatelessWidget {
               companyId: companyId,
               assignedTo: assignedTo,
               managerId: managerId,
+              teamId: teamId,
               canCreate: canCreate,
               canEdit: canEdit,
               canArchive: canArchive,
@@ -124,11 +126,13 @@ class _ClientsListContent extends StatefulWidget {
     required this.isSalesAgentView,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final bool canCreate;
   final bool canEdit;
   final bool canArchive;
@@ -153,7 +157,8 @@ class _ClientsListContentState extends State<_ClientsListContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.companyId != widget.companyId ||
         oldWidget.assignedTo != widget.assignedTo ||
-        oldWidget.managerId != widget.managerId) {
+        oldWidget.managerId != widget.managerId ||
+        oldWidget.teamId != widget.teamId) {
       _watchScopedClients();
     }
   }
@@ -163,6 +168,7 @@ class _ClientsListContentState extends State<_ClientsListContent> {
       companyId: widget.companyId,
       assignedTo: widget.assignedTo,
       managerId: widget.managerId,
+      teamId: widget.teamId,
       archiveFilter: context.read<ClientsCubit>().state.archiveFilter,
     );
   }
@@ -267,12 +273,14 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                     companyId: widget.companyId,
                     assignedTo: widget.assignedTo,
                     managerId: widget.managerId,
+                    teamId: widget.teamId,
                   );
 
                   final body = _ClientsBody(
                     companyId: widget.companyId,
                     assignedTo: widget.assignedTo,
                     managerId: widget.managerId,
+                    teamId: widget.teamId,
                     state: state,
                     canEdit: widget.canEdit,
                     canArchive: widget.canArchive,
@@ -332,6 +340,7 @@ class _ClientsFilters extends StatelessWidget {
     required this.companyId,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final ClientsState state;
@@ -341,6 +350,7 @@ class _ClientsFilters extends StatelessWidget {
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
 
   @override
   Widget build(BuildContext context) {
@@ -383,6 +393,7 @@ class _ClientsFilters extends StatelessWidget {
                     companyId: companyId,
                     assignedTo: assignedTo,
                     managerId: managerId,
+                    teamId: teamId,
                   ),
                 ),
               ],
@@ -434,6 +445,7 @@ class _ClientsFilters extends StatelessWidget {
                     companyId: companyId,
                     assignedTo: assignedTo,
                     managerId: managerId,
+                    teamId: teamId,
                   ),
                 ),
               ),
@@ -646,11 +658,13 @@ class _ClientsBody extends StatelessWidget {
     required this.isArchivedView,
     this.assignedTo,
     this.managerId,
+    this.teamId,
   });
 
   final String companyId;
   final String? assignedTo;
   final String? managerId;
+  final String? teamId;
   final ClientsState state;
   final bool canEdit;
   final bool canArchive;
@@ -678,6 +692,7 @@ class _ClientsBody extends StatelessWidget {
             companyId: companyId,
             assignedTo: assignedTo,
             managerId: managerId,
+            teamId: teamId,
             archiveFilter: state.archiveFilter,
           );
         },

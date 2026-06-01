@@ -205,15 +205,21 @@ class _LeadFormState extends State<LeadForm> {
             AppTextField(
               controller: _budgetMinController,
               label: l.budgetMin,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               enabled: !widget.isSaving,
+              validator: (value) => _optionalPositiveNumberValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               controller: _budgetMaxController,
               label: l.budgetMax,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               enabled: !widget.isSaving,
+              validator: (value) => _budgetMaxValidator(value, l),
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
@@ -305,6 +311,37 @@ class _LeadFormState extends State<LeadForm> {
   String? _required(String? value, AppLocalizations l) {
     if (value == null || value.trim().isEmpty) {
       return l.requiredField;
+    }
+    return null;
+  }
+
+  String? _optionalPositiveNumberValidator(
+    String? value,
+    AppLocalizations l,
+  ) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    final number = num.tryParse(trimmed);
+    if (number == null) {
+      return l.enterValidNumber;
+    }
+    if (number <= 0) {
+      return l.valueMustBePositive;
+    }
+    return null;
+  }
+
+  String? _budgetMaxValidator(String? value, AppLocalizations l) {
+    final baseError = _optionalPositiveNumberValidator(value, l);
+    if (baseError != null) {
+      return baseError;
+    }
+    final budgetMin = num.tryParse(_budgetMinController.text.trim());
+    final budgetMax = num.tryParse(_budgetMaxController.text.trim());
+    if (budgetMin != null && budgetMax != null && budgetMax < budgetMin) {
+      return l.budgetMaxMustBeGreaterThanBudgetMin;
     }
     return null;
   }

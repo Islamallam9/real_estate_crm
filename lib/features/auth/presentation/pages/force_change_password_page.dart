@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
 import '../../data/repositories/auth_repository_impl.dart';
@@ -169,7 +170,11 @@ class _ForceChangePasswordViewState extends State<_ForceChangePasswordView> {
                                   label: l.newPassword,
                                   obscureText: true,
                                   enabled: !saving,
-                                  validator: (value) => _newPasswordValidator(value, l),
+                                  validator: (value) => AppValidators.password(
+                                    value,
+                                    l,
+                                    requiredMessage: l.newPasswordRequired,
+                                  ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 AppTextField(
@@ -177,12 +182,11 @@ class _ForceChangePasswordViewState extends State<_ForceChangePasswordView> {
                                   label: l.confirmPassword,
                                   obscureText: true,
                                   enabled: !saving,
-                                  validator: (value) {
-                                    if ((value ?? '') != _newPassword.text) {
-                                      return l.passwordsDoNotMatch;
-                                    }
-                                    return null;
-                                  },
+                                  validator: (value) => AppValidators.confirmPassword(
+                                    value,
+                                    _newPassword.text,
+                                    l,
+                                  ),
                                 ),
                                 const SizedBox(height: AppSpacing.xl),
                                 AppButton(
@@ -233,22 +237,11 @@ class _ForceChangePasswordViewState extends State<_ForceChangePasswordView> {
   }
 }
 
-String? _newPasswordValidator(String? value, AppLocalizations l) {
-  final text = value ?? '';
-  if (text.isEmpty) {
-    return l.newPasswordRequired;
-  }
-  if (text.length < 8) {
-    return l.newPasswordTooShort;
-  }
-  return null;
-}
-
 String _passwordErrorLabel(AppLocalizations l, String? message) {
   return switch (message) {
     AuthErrorMessages.currentPasswordIncorrect => l.currentPasswordIncorrect,
     AuthErrorMessages.recentLoginRequired => l.recentLoginRequired,
-    AuthErrorMessages.weakPassword => l.newPasswordTooShort,
+    AuthErrorMessages.weakPassword => l.weakPassword,
     AuthErrorMessages.passwordChangeFailed => l.passwordChangeFailed,
     _ => l.passwordChangeFailed,
   };

@@ -45,12 +45,14 @@ class TaskRepositoryImpl implements TaskRepository {
     required String companyId,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 40,
   }) {
     return _remoteDataSource.watchTasks(
       companyId: companyId,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }
@@ -61,6 +63,7 @@ class TaskRepositoryImpl implements TaskRepository {
     required TaskRelatedType type,
     String? assignedTo,
     String? managerId,
+    String? teamId,
     int limit = 30,
   }) {
     return _remoteDataSource.getRelatedRecordOptions(
@@ -68,6 +71,7 @@ class TaskRepositoryImpl implements TaskRepository {
       type: type,
       assignedTo: assignedTo,
       managerId: managerId,
+      teamId: teamId,
       limit: limit,
     );
   }
