@@ -1,21 +1,34 @@
-// ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'dart:typed_data';
 
-Future<bool> downloadBytesImpl({
+import 'downloaded_file_result.dart';
+
+Future<DownloadedFileResult> downloadBytesImpl({
   required String fileName,
   required String mimeType,
   required Uint8List bytes,
 }) async {
   final blob = html.Blob([bytes], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
-  try {
-    html.AnchorElement(href: url)
-      ..download = fileName
-      ..style.display = 'none'
-      ..click();
-    return true;
-  } finally {
-    html.Url.revokeObjectUrl(url);
-  }
+  final anchor = html.AnchorElement(href: url)
+    ..download = fileName
+    ..style.display = 'none';
+  html.document.body?.children.add(anchor);
+  anchor.click();
+  anchor.remove();
+  html.Url.revokeObjectUrl(url);
+  return DownloadedFileResult(
+    success: true,
+    fileName: fileName,
+    displayPath: fileName,
+    mimeType: mimeType,
+  );
+}
+
+Future<bool> openDownloadedFileImpl(DownloadedFileResult file) async {
+  return false;
+}
+
+Future<bool> openDownloadsLocationImpl([DownloadedFileResult? file]) async {
+  return false;
 }

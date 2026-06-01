@@ -21,6 +21,7 @@ import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../platform/presentation/widgets/platform_account_shell.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/profile_image_upload.dart';
@@ -126,8 +127,9 @@ class _ProfileViewState extends State<_ProfileView> {
           );
         }
       },
-      child: CrmAppShell(
-        selectedItem: CrmNavigationItem.more,
+      child: _accountShell(
+        context: context,
+        authState: authState,
         title: l.myProfile,
         child: user == null
             ? AppErrorView(message: l.missingCompanyProfile)
@@ -258,6 +260,26 @@ class _ProfileViewState extends State<_ProfileView> {
           isPlatformAdmin: isPlatformAdmin,
         );
   }
+}
+
+Widget _accountShell({
+  required BuildContext context,
+  required AuthState authState,
+  required String title,
+  required Widget child,
+}) {
+  if (authState.isPlatformAdmin && authState.userProfile == null) {
+    return PlatformAccountShell(
+      selected: PlatformAccountNavItem.profile,
+      title: title,
+      child: child,
+    );
+  }
+  return CrmAppShell(
+    selectedItem: CrmNavigationItem.more,
+    title: title,
+    child: child,
+  );
 }
 
 

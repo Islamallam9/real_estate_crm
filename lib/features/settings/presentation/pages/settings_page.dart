@@ -5,18 +5,24 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/localization/locale_cubit.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/widgets/change_password_dialog.dart';
+import '../../../platform/presentation/widgets/platform_account_shell.dart';
+import '../../data/datasources/platform_owner_account_remote_data_source.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -24,33 +30,42 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final authState = context.watch<AuthBloc>().state;
+    final content = ListView(
+      primary: true,
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: const [
+              _AppearanceSection(),
+              SizedBox(height: AppSpacing.md),
+              _LanguageSection(),
+              SizedBox(height: AppSpacing.md),
+              _AccountSection(),
+              SizedBox(height: AppSpacing.md),
+              _SecuritySection(),
+              SizedBox(height: AppSpacing.md),
+              _AboutSection(),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (authState.isPlatformAdmin && authState.userProfile == null) {
+      return PlatformAccountShell(
+        selected: PlatformAccountNavItem.settings,
+        title: l.settings,
+        child: content,
+      );
+    }
     return CrmAppShell(
       selectedItem: CrmNavigationItem.more,
       title: l.settings,
-      child: ListView(
-        primary: true,
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
-                _AppearanceSection(),
-                SizedBox(height: AppSpacing.md),
-                _LanguageSection(),
-                SizedBox(height: AppSpacing.md),
-                _AccountSection(),
-                SizedBox(height: AppSpacing.md),
-                _SecuritySection(),
-                SizedBox(height: AppSpacing.md),
-                _AboutSection(),
-              ],
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
@@ -66,7 +81,9 @@ class _AppearanceSection extends StatelessWidget {
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
           final isDark = themeMode == ThemeMode.dark;
-          return SwitchListTile(
+          return Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(l.theme),
             subtitle: Text(isDark ? l.darkMode : l.lightMode),
@@ -84,6 +101,7 @@ class _AppearanceSection extends StatelessWidget {
               return AppColors.borderColor(context);
             }),
             onChanged: (_) => context.read<ThemeCubit>().toggle(),
+          ),
           );
         },
       ),
@@ -104,19 +122,25 @@ class _LanguageSection extends StatelessWidget {
           final selected = locale?.languageCode ?? 'en';
           return Column(
             children: [
-              RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.english),
-                value: 'en',
-                groupValue: selected,
-                onChanged: (_) => context.read<LocaleCubit>().setEnglish(),
+              Material(
+                color: Colors.transparent,
+                child: RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l.english),
+                  value: 'en',
+                  groupValue: selected,
+                  onChanged: (_) => context.read<LocaleCubit>().setEnglish(),
+                ),
               ),
-              RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.arabic),
-                value: 'ar',
-                groupValue: selected,
-                onChanged: (_) => context.read<LocaleCubit>().setArabic(),
+              Material(
+                color: Colors.transparent,
+                child: RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l.arabic),
+                  value: 'ar',
+                  groupValue: selected,
+                  onChanged: (_) => context.read<LocaleCubit>().setArabic(),
+                ),
               ),
             ],
           );
@@ -157,6 +181,18 @@ class _AccountSection extends StatelessWidget {
                     ? null
                     : () => showChangePasswordDialog(context),
               ),
+              if (authState.isPlatformAdmin &&
+                  authState.userProfile == null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                AppButton(
+                  label: l.changeEmail,
+                  icon: Icons.alternate_email,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: isLoggingOut
+                      ? null
+                      : () => _showPlatformOwnerEmailDialog(context),
+                ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               AppButton(
                 label: l.logout,
@@ -233,6 +269,127 @@ class _SecuritySection extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+Future<void> _showPlatformOwnerEmailDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => const _PlatformOwnerEmailDialog(),
+  );
+}
+
+class _PlatformOwnerEmailDialog extends StatefulWidget {
+  const _PlatformOwnerEmailDialog();
+
+  @override
+  State<_PlatformOwnerEmailDialog> createState() =>
+      _PlatformOwnerEmailDialogState();
+}
+
+class _PlatformOwnerEmailDialogState extends State<_PlatformOwnerEmailDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = context.read<AuthBloc>().state.user;
+    _emailController = TextEditingController(text: user?.email ?? '');
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.changeEmail),
+      content: Form(
+        key: _formKey,
+        child: AppTextField(
+          controller: _emailController,
+          label: l.email,
+          keyboardType: TextInputType.emailAddress,
+          enabled: !_isSaving,
+          validator: (value) => AppValidators.email(value, l),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        AppButton(
+          label: l.save,
+          isLoading: _isSaving,
+          onPressed: _isSaving ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+    final l = AppLocalizations.of(context)!;
+    final authState = context.read<AuthBloc>().state;
+    final appUser = authState.user;
+    final newEmail = _emailController.text.trim();
+    if (appUser == null ||
+        !authState.isPlatformAdmin ||
+        authState.userProfile != null) {
+      AppFeedback.error(context, l.permissionDenied);
+      return;
+    }
+    if ((appUser.email ?? '').trim().toLowerCase() ==
+        newEmail.toLowerCase()) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await FirebasePlatformOwnerAccountRemoteDataSource().updateEmail(
+        uid: appUser.uid,
+        email: newEmail,
+      );
+      if (!mounted) {
+        return;
+      }
+      context.read<AuthBloc>().add(const AuthStarted());
+      Navigator.of(context).pop();
+      AppFeedback.success(context, l.platformOwnerEmailUpdated);
+    } on PlatformOwnerAccountException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = switch (error.message) {
+        'requires-recent-login' => l.reauthenticationRequired,
+        'email-already-in-use' => l.adminEmailAlreadyExists,
+        'invalid-email' => l.invalidEmail,
+        AppErrorMessages.permissionDenied => l.permissionDenied,
+        AppErrorMessages.unauthenticated => l.authErrorProfileMissing,
+        AppErrorMessages.unableToConnect => l.unableToConnect,
+        _ => l.somethingWentWrong,
+      };
+      AppFeedback.error(context, message);
+    } catch (_) {
+      if (mounted) {
+        AppFeedback.error(context, l.somethingWentWrong);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 }
 

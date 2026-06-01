@@ -9,6 +9,9 @@ class PlatformNotificationModel extends PlatformNotification {
     required super.title,
     required super.message,
     required super.severity,
+    required super.deliveryMode,
+    required super.recipientScope,
+    required super.dedupeKey,
     required super.isRead,
     required super.createdAt,
     required super.updatedAt,
@@ -39,6 +42,13 @@ class PlatformNotificationModel extends PlatformNotification {
       severity: platformNotificationSeverityFromValue(
         data['severity'] as String? ?? '',
       ),
+      deliveryMode: platformNotificationDeliveryModeFromValue(
+        data['deliveryMode'] as String? ?? '',
+      ),
+      recipientScope: platformNotificationRecipientScopeFromValue(
+        data['recipientScope'] as String? ?? '',
+      ),
+      dedupeKey: data['dedupeKey'] as String? ?? '',
       isRead: data['isRead'] as bool? ?? false,
       createdAt: _dateTimeFromValue(data['createdAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),

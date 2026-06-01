@@ -1,8 +1,11 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../entities/android_version_adoption.dart';
 import '../entities/company_data_health_report.dart';
 import '../entities/password_reset_link_result.dart';
 import '../entities/platform_company_user.dart';
+import '../entities/platform_login_activity.dart';
 import '../entities/platform_payment_history.dart';
 
 abstract interface class PlatformRepository {
@@ -10,6 +13,11 @@ abstract interface class PlatformRepository {
 
   Stream<List<PlatformCompanyUser>> watchCompanyUsers({
     required String companyId,
+  });
+
+  Stream<List<PlatformLoginActivity>> watchCompanyLoginActivity({
+    required String companyId,
+    int limit = 300,
   });
 
   Stream<List<PlatformPaymentHistory>> watchPaymentHistory({
@@ -118,5 +126,21 @@ abstract interface class PlatformRepository {
   Future<Map<String, dynamic>> exportCompanyData({
     required String companyId,
     List<String>? collections,
+  });
+
+  Future<AndroidReleasePolicy> getAndroidReleasePolicy();
+
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption();
+
+  Future<void> updateAndroidReleasePolicy({
+    required bool enabled,
+    required bool releaseReady,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required String titleEn,
+    required String titleAr,
+    required String bodyEn,
+    required String bodyAr,
   });
 }

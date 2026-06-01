@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 
 import '../../../../core/constants/role_constants.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/export_company_data_usecase.dart';
 import '../../domain/usecases/extend_company_payment_due_date_usecase.dart';
+import '../../domain/usecases/get_android_release_policy_usecase.dart';
+import '../../domain/usecases/get_android_version_adoption_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/mark_company_payment_paid_usecase.dart';
@@ -18,8 +22,10 @@ import '../../domain/usecases/set_company_user_email_usecase.dart';
 import '../../domain/usecases/set_company_user_password_usecase.dart';
 import '../../domain/usecases/update_company_platform_settings_usecase.dart';
 import '../../domain/usecases/update_company_payment_status_usecase.dart';
+import '../../domain/usecases/update_android_release_policy_usecase.dart';
 import '../../domain/usecases/watch_platform_companies_usecase.dart';
 import '../../domain/usecases/watch_platform_company_users_usecase.dart';
+import '../../domain/usecases/watch_platform_login_activity_usecase.dart';
 import '../../domain/usecases/watch_platform_payment_history_usecase.dart';
 import 'platform_state.dart';
 
@@ -28,6 +34,7 @@ class PlatformCubit extends Cubit<PlatformState> {
     required WatchPlatformCompaniesUseCase watchCompaniesUseCase,
     required WatchPlatformCompanyUsersUseCase watchCompanyUsersUseCase,
     required WatchPlatformPaymentHistoryUseCase watchPaymentHistoryUseCase,
+    required WatchPlatformLoginActivityUseCase watchLoginActivityUseCase,
     required CreateCompanyWithAdminUseCase createCompanyWithAdminUseCase,
     required AddUserToCompanyUseCase addUserToCompanyUseCase,
     required SetCompanyActiveStatusUseCase setCompanyActiveStatusUseCase,
@@ -49,9 +56,14 @@ class PlatformCubit extends Cubit<PlatformState> {
         extendCompanyPaymentDueDateUseCase,
     required UpdateCompanyPaymentStatusUseCase
         updateCompanyPaymentStatusUseCase,
+    required UpdateAndroidReleasePolicyUseCase updateAndroidReleasePolicyUseCase,
+    required GetAndroidReleasePolicyUseCase getAndroidReleasePolicyUseCase,
+    required GetAndroidVersionAdoptionUseCase
+        getAndroidVersionAdoptionUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
        _watchCompanyUsersUseCase = watchCompanyUsersUseCase,
        _watchPaymentHistoryUseCase = watchPaymentHistoryUseCase,
+       _watchLoginActivityUseCase = watchLoginActivityUseCase,
        _createCompanyWithAdminUseCase = createCompanyWithAdminUseCase,
        _addUserToCompanyUseCase = addUserToCompanyUseCase,
        _setCompanyActiveStatusUseCase = setCompanyActiveStatusUseCase,
@@ -71,11 +83,15 @@ class PlatformCubit extends Cubit<PlatformState> {
        _extendCompanyPaymentDueDateUseCase =
            extendCompanyPaymentDueDateUseCase,
        _updateCompanyPaymentStatusUseCase = updateCompanyPaymentStatusUseCase,
+       _updateAndroidReleasePolicyUseCase = updateAndroidReleasePolicyUseCase,
+       _getAndroidReleasePolicyUseCase = getAndroidReleasePolicyUseCase,
+       _getAndroidVersionAdoptionUseCase = getAndroidVersionAdoptionUseCase,
        super(const PlatformState.initial());
 
   final WatchPlatformCompaniesUseCase _watchCompaniesUseCase;
   final WatchPlatformCompanyUsersUseCase _watchCompanyUsersUseCase;
   final WatchPlatformPaymentHistoryUseCase _watchPaymentHistoryUseCase;
+  final WatchPlatformLoginActivityUseCase _watchLoginActivityUseCase;
   final CreateCompanyWithAdminUseCase _createCompanyWithAdminUseCase;
   final AddUserToCompanyUseCase _addUserToCompanyUseCase;
   final SetCompanyActiveStatusUseCase _setCompanyActiveStatusUseCase;
@@ -94,10 +110,14 @@ class PlatformCubit extends Cubit<PlatformState> {
   final MarkCompanyPaymentPaidUseCase _markCompanyPaymentPaidUseCase;
   final ExtendCompanyPaymentDueDateUseCase _extendCompanyPaymentDueDateUseCase;
   final UpdateCompanyPaymentStatusUseCase _updateCompanyPaymentStatusUseCase;
+  final UpdateAndroidReleasePolicyUseCase _updateAndroidReleasePolicyUseCase;
+  final GetAndroidReleasePolicyUseCase _getAndroidReleasePolicyUseCase;
+  final GetAndroidVersionAdoptionUseCase _getAndroidVersionAdoptionUseCase;
 
   StreamSubscription? _companiesSubscription;
   StreamSubscription? _companyUsersSubscription;
   StreamSubscription? _paymentHistorySubscription;
+  StreamSubscription? _loginActivitySubscription;
 
   void watchCompanies() {
     emit(state.copyWith(status: PlatformStatus.loading, clearMessage: true));
@@ -122,6 +142,7 @@ class PlatformCubit extends Cubit<PlatformState> {
         if (nextSelectedId != null) {
           watchCompanyUsers(nextSelectedId);
           watchPaymentHistory(nextSelectedId);
+          watchLoginActivity(nextSelectedId);
         }
       },
       onError: (Object error) {
@@ -140,6 +161,7 @@ class PlatformCubit extends Cubit<PlatformState> {
       state.copyWith(
         selectedCompanyId: companyId,
         companyUsers: const [],
+        loginActivities: const [],
         paymentHistory: const [],
         clearDataHealthReport: true,
         clearMessage: true,
@@ -147,6 +169,7 @@ class PlatformCubit extends Cubit<PlatformState> {
     );
     watchCompanyUsers(companyId);
     watchPaymentHistory(companyId);
+    watchLoginActivity(companyId);
   }
 
   void updateSearchQuery(String query) {
@@ -190,6 +213,30 @@ class PlatformCubit extends Cubit<PlatformState> {
               state.copyWith(
                 status: PlatformStatus.ready,
                 paymentHistory: history,
+                clearMessage: true,
+              ),
+            );
+          },
+          onError: (Object error) {
+            emit(
+              state.copyWith(
+                status: PlatformStatus.failure,
+                message: _cleanError(error),
+              ),
+            );
+          },
+        );
+  }
+
+  void watchLoginActivity(String companyId) {
+    _loginActivitySubscription?.cancel();
+    _loginActivitySubscription = _watchLoginActivityUseCase(companyId: companyId)
+        .listen(
+          (activities) {
+            emit(
+              state.copyWith(
+                status: PlatformStatus.ready,
+                loginActivities: activities,
                 clearMessage: true,
               ),
             );
@@ -416,6 +463,96 @@ class PlatformCubit extends Cubit<PlatformState> {
       emit(
         state.copyWith(
           status: PlatformStatus.ready,
+          clearMessage: true,
+          clearActiveSettingsAction: true,
+        ),
+      );
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: _cleanError(error),
+          clearActiveSettingsAction: true,
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<void> loadAndroidReleasePolicy() async {
+    emit(
+      state.copyWith(
+        activeSettingsActionId: 'androidRelease:load',
+        clearMessage: true,
+      ),
+    );
+    try {
+      final results = await Future.wait([
+        _getAndroidReleasePolicyUseCase(),
+        _getAndroidVersionAdoptionUseCase(),
+      ]);
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          androidReleasePolicy: results[0] as AndroidReleasePolicy,
+          androidVersionAdoption:
+              results[1] as AndroidVersionAdoptionSummary,
+          clearActiveSettingsAction: true,
+          clearMessage: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: _cleanError(error),
+          clearActiveSettingsAction: true,
+        ),
+      );
+    }
+  }
+
+  Future<bool> updateAndroidReleasePolicy({
+    required bool enabled,
+    required bool releaseReady,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required String titleEn,
+    required String titleAr,
+    required String bodyEn,
+    required String bodyAr,
+  }) async {
+    emit(
+      state.copyWith(
+        status: PlatformStatus.saving,
+        activeSettingsActionId: 'androidRelease',
+        clearMessage: true,
+      ),
+    );
+    try {
+      await _updateAndroidReleasePolicyUseCase(
+        enabled: enabled,
+        releaseReady: releaseReady,
+        minimumSupportedBuildNumber: minimumSupportedBuildNumber,
+        latestBuildNumber: latestBuildNumber,
+        updateUrl: updateUrl,
+        titleEn: titleEn,
+        titleAr: titleAr,
+        bodyEn: bodyEn,
+        bodyAr: bodyAr,
+      );
+      final results = await Future.wait([
+        _getAndroidReleasePolicyUseCase(),
+        _getAndroidVersionAdoptionUseCase(),
+      ]);
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          androidReleasePolicy: results[0] as AndroidReleasePolicy,
+          androidVersionAdoption:
+              results[1] as AndroidVersionAdoptionSummary,
           clearMessage: true,
           clearActiveSettingsAction: true,
         ),
@@ -689,6 +826,7 @@ class PlatformCubit extends Cubit<PlatformState> {
     _companiesSubscription?.cancel();
     _companyUsersSubscription?.cancel();
     _paymentHistorySubscription?.cancel();
+    _loginActivitySubscription?.cancel();
     return super.close();
   }
 }

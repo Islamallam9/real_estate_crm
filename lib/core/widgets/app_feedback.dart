@@ -88,8 +88,8 @@ class AppFeedback {
                     Expanded(
                       child: Text(
                         message,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 4,
+                        overflow: TextOverflow.visible,
                         style: Theme.of(safeContext).textTheme.bodyMedium?.copyWith(
                               color: colors.text,
                               fontWeight: FontWeight.w700,

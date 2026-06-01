@@ -1,8 +1,11 @@
 import '../../../../core/constants/role_constants.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_login_activity.dart';
 import '../../domain/entities/platform_payment_history.dart';
 import '../../domain/repositories/platform_repository.dart';
 import '../datasources/platform_remote_data_source.dart';
@@ -23,6 +26,17 @@ class PlatformRepositoryImpl implements PlatformRepository {
     required String companyId,
   }) {
     return _remoteDataSource.watchCompanyUsers(companyId: companyId);
+  }
+
+  @override
+  Stream<List<PlatformLoginActivity>> watchCompanyLoginActivity({
+    required String companyId,
+    int limit = 300,
+  }) {
+    return _remoteDataSource.watchCompanyLoginActivity(
+      companyId: companyId,
+      limit: limit,
+    );
   }
 
   @override
@@ -252,4 +266,40 @@ class PlatformRepositoryImpl implements PlatformRepository {
       collections: collections,
     );
   }
+
+  @override
+  Future<AndroidReleasePolicy> getAndroidReleasePolicy() {
+    return _remoteDataSource.getAndroidReleasePolicy();
+  }
+
+  @override
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption() {
+    return _remoteDataSource.getAndroidVersionAdoption();
+  }
+
+  @override
+  Future<void> updateAndroidReleasePolicy({
+    required bool enabled,
+    required bool releaseReady,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required String titleEn,
+    required String titleAr,
+    required String bodyEn,
+    required String bodyAr,
+  }) {
+    return _remoteDataSource.updateAndroidReleasePolicy(
+      enabled: enabled,
+      releaseReady: releaseReady,
+      minimumSupportedBuildNumber: minimumSupportedBuildNumber,
+      latestBuildNumber: latestBuildNumber,
+      updateUrl: updateUrl,
+      titleEn: titleEn,
+      titleAr: titleAr,
+      bodyEn: bodyEn,
+      bodyAr: bodyAr,
+    );
+  }
+
 }

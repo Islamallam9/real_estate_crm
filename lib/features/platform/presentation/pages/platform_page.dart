@@ -8,6 +8,7 @@ import 'package:archive/archive.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/localization/locale_cubit.dart';
 import '../../../../core/routing/route_names.dart';
@@ -32,6 +33,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/widgets/change_password_dialog.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
 import '../../../platform_invitations/data/datasources/platform_invitations_remote_data_source.dart';
 import '../../../platform_invitations/data/repositories/platform_invitation_repository_impl.dart';
 import '../../../platform_invitations/domain/entities/platform_invitation.dart';
@@ -55,17 +57,21 @@ import '../../../platform_observability/domain/usecases/watch_platform_error_log
 import '../../../platform_observability/presentation/cubit/platform_observability_cubit.dart';
 import '../../../platform_observability/presentation/widgets/platform_monitoring_panel.dart';
 import '../../../support/presentation/pages/platform_support_inbox_panel.dart';
+import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../../users/domain/entities/company_metadata.dart';
 import '../../data/datasources/platform_remote_data_source.dart';
 import '../../data/repositories/platform_repository_impl.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_login_activity.dart';
 import '../../domain/entities/platform_payment_history.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/export_company_data_usecase.dart';
 import '../../domain/usecases/extend_company_payment_due_date_usecase.dart';
+import '../../domain/usecases/get_android_release_policy_usecase.dart';
+import '../../domain/usecases/get_android_version_adoption_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/mark_company_payment_paid_usecase.dart';
@@ -76,8 +82,10 @@ import '../../domain/usecases/set_company_user_email_usecase.dart';
 import '../../domain/usecases/set_company_user_password_usecase.dart';
 import '../../domain/usecases/update_company_platform_settings_usecase.dart';
 import '../../domain/usecases/update_company_payment_status_usecase.dart';
+import '../../domain/usecases/update_android_release_policy_usecase.dart';
 import '../../domain/usecases/watch_platform_companies_usecase.dart';
 import '../../domain/usecases/watch_platform_company_users_usecase.dart';
+import '../../domain/usecases/watch_platform_login_activity_usecase.dart';
 import '../../domain/usecases/watch_platform_payment_history_usecase.dart';
 import '../cubit/platform_cubit.dart';
 import '../cubit/platform_state.dart';
@@ -130,6 +138,8 @@ class PlatformPage extends StatelessWidget {
             ),
             watchPaymentHistoryUseCase:
                 WatchPlatformPaymentHistoryUseCase(repository),
+            watchLoginActivityUseCase:
+                WatchPlatformLoginActivityUseCase(repository),
             createCompanyWithAdminUseCase: CreateCompanyWithAdminUseCase(
               repository,
             ),
@@ -160,7 +170,15 @@ class PlatformPage extends StatelessWidget {
                 ExtendCompanyPaymentDueDateUseCase(repository),
             updateCompanyPaymentStatusUseCase:
                 UpdateCompanyPaymentStatusUseCase(repository),
-          )..watchCompanies(),
+            updateAndroidReleasePolicyUseCase:
+                UpdateAndroidReleasePolicyUseCase(repository),
+            getAndroidReleasePolicyUseCase:
+                GetAndroidReleasePolicyUseCase(repository),
+            getAndroidVersionAdoptionUseCase:
+                GetAndroidVersionAdoptionUseCase(repository),
+          )
+            ..watchCompanies()
+            ..loadAndroidReleasePolicy(),
         ),
         BlocProvider(
           create: (_) => PlatformInvitationsCubit(
@@ -222,7 +240,7 @@ class PlatformPage extends StatelessWidget {
         if (!context.mounted) {
           return;
         }
-        AppFeedback.error(context, state.message ?? l.unableToSave);
+        AppFeedback.error(context, _platformErrorMessage(l, state.message));
       },
       child: Scaffold(
         backgroundColor: AppColors.appBackground(context),
@@ -243,7 +261,11 @@ class PlatformPage extends StatelessWidget {
                       if (state.status == PlatformStatus.failure &&
                           state.companies.isEmpty) {
                         return AppErrorView(
-                          message: state.message ?? l.somethingWentWrong,
+                          message: _platformErrorMessage(
+                            l,
+                            state.message,
+                            fallback: l.somethingWentWrong,
+                          ),
                           onRetry: context.read<PlatformCubit>().watchCompanies,
                         );
                       }
@@ -631,7 +653,7 @@ class _PlatformProfileMenu extends StatelessWidget {
               case _PlatformProfileAction.profile:
                 context.go(RouteNames.profile);
               case _PlatformProfileAction.settings:
-                _showPlatformSettingsSheet(context);
+                context.go(RouteNames.settings);
               case _PlatformProfileAction.logout:
                 context.read<AuthBloc>().add(const AuthSignOutRequested());
             }
@@ -809,12 +831,15 @@ void _showPlatformSettingsSheet(BuildContext context) {
                 bloc: themeCubit,
                 builder: (context, themeMode) {
                   final isDark = themeMode == ThemeMode.dark;
-                  return SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(l.theme),
-                    subtitle: Text(isDark ? l.darkMode : l.lightMode),
-                    value: isDark,
-                    onChanged: (_) => themeCubit.toggle(),
+                  return Material(
+                    color: Colors.transparent,
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l.theme),
+                      subtitle: Text(isDark ? l.darkMode : l.lightMode),
+                      value: isDark,
+                      onChanged: (_) => themeCubit.toggle(),
+                    ),
                   );
                 },
               ),
@@ -824,19 +849,25 @@ void _showPlatformSettingsSheet(BuildContext context) {
                   final selected = locale?.languageCode ?? 'en';
                   return Column(
                     children: [
-                      RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(l.english),
-                        value: 'en',
-                        groupValue: selected,
-                        onChanged: (_) => localeCubit.setEnglish(),
+                      Material(
+                        color: Colors.transparent,
+                        child: RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l.english),
+                          value: 'en',
+                          groupValue: selected,
+                          onChanged: (_) => localeCubit.setEnglish(),
+                        ),
                       ),
-                      RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(l.arabic),
-                        value: 'ar',
-                        groupValue: selected,
-                        onChanged: (_) => localeCubit.setArabic(),
+                      Material(
+                        color: Colors.transparent,
+                        child: RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l.arabic),
+                          value: 'ar',
+                          groupValue: selected,
+                          onChanged: (_) => localeCubit.setArabic(),
+                        ),
                       ),
                     ],
                   );
@@ -900,6 +931,7 @@ enum _PlatformSection {
   invitations,
   companies,
   workspace,
+  releaseManagement,
   support,
   activity,
 }
@@ -1033,6 +1065,7 @@ class _PlatformSectionContent extends StatelessWidget {
         ),
       ],
       _PlatformSection.workspace => [_CompanyWorkspacePanel(state: state)],
+      _PlatformSection.releaseManagement => [_PlatformReleaseManagementPanel(state: state)],
       _PlatformSection.support => [
         PlatformSupportInboxPanel.withDependencies(companies: state.companies),
       ],
@@ -2150,9 +2183,11 @@ class _DashboardActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final users = state.companyUsers
-        .where((user) => user.lastLoginAt != null)
+        .where((user) =>
+            user.lastLoginAt != null ||
+            _activitiesForUser(state.loginActivities, user.uid).isNotEmpty)
         .toList(growable: false)
-      ..sort((a, b) => b.lastLoginAt!.compareTo(a.lastLoginAt!));
+      ..sort((a, b) => _latestLoginAt(state, b).compareTo(_latestLoginAt(state, a)));
     final visible = users.take(5).toList(growable: false);
 
     return _Panel(
@@ -2171,7 +2206,15 @@ class _DashboardActivityPanel extends StatelessWidget {
           : Column(
               children: [
                 for (final user in visible) ...[
-                  _LoginActivityRow(user: user),
+                  _LoginActivityRow(
+                    user: user,
+                    activities: _activitiesForUser(state.loginActivities, user.uid),
+                    onTap: () => _showLoginActivitySheet(
+                      context,
+                      user: user,
+                      activities: _activitiesForUser(state.loginActivities, user.uid),
+                    ),
+                  ),
                   if (user != visible.last)
                     const SizedBox(height: AppSpacing.xs),
                 ],
@@ -2761,13 +2804,15 @@ class _PlatformActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final company = state.selectedCompany;
-    final users = state.companyUsers
-        .where((user) => user.lastLoginAt != null)
-        .toList(growable: false)
+    final users = state.companyUsers.toList(growable: false)
       ..sort((a, b) {
-        return b.lastLoginAt!.compareTo(a.lastLoginAt!);
+        final aLatest = _latestLoginAt(state, a);
+        final bLatest = _latestLoginAt(state, b);
+        final compare = bLatest.compareTo(aLatest);
+        if (compare != 0) return compare;
+        return a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase());
       });
-    final visibleUsers = users.take(50).toList(growable: false);
+    final visibleUsers = users;
 
     return _Panel(
       title: l.recentLoginActivity,
@@ -2796,7 +2841,15 @@ class _PlatformActivityPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     for (final user in visibleUsers) ...[
-                      _LoginActivityRow(user: user),
+                      _LoginActivityRow(
+                        user: user,
+                        activities: _activitiesForUser(state.loginActivities, user.uid),
+                        onTap: () => _showLoginActivitySheet(
+                          context,
+                          user: user,
+                          activities: _activitiesForUser(state.loginActivities, user.uid),
+                        ),
+                      ),
                       if (user != visibleUsers.last)
                         const SizedBox(height: AppSpacing.xs),
                     ],
@@ -3426,6 +3479,208 @@ class _UserFiltersBar extends StatelessWidget {
   }
 }
 
+
+class _PlatformReleaseManagementPanel extends StatelessWidget {
+  const _PlatformReleaseManagementPanel({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final policy = state.androidReleasePolicy;
+    return _Panel(
+      title: l.androidReleaseManagement,
+      action: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          AppButton(
+            label: l.tryAgain,
+            icon: Icons.refresh_rounded,
+            variant: AppButtonVariant.ghost,
+            isLoading: state.activeSettingsActionId == 'androidRelease:load',
+            onPressed: state.status == PlatformStatus.saving
+                ? null
+                : context.read<PlatformCubit>().loadAndroidReleasePolicy,
+          ),
+          AppButton(
+            label: l.androidReleaseManagement,
+            icon: Icons.tune_outlined,
+            variant: AppButtonVariant.secondary,
+            isLoading: state.activeSettingsActionId == 'androidRelease',
+            onPressed: state.status == PlatformStatus.saving
+                ? null
+                : () => _showAndroidReleasePolicyDialog(context),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l.androidReleaseManagementSubtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (policy == null)
+            AppEmptyState(
+              icon: Icons.system_update_alt_rounded,
+              title: l.androidReleaseManagement,
+              message: l.androidReleasePolicyHint,
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                _InfoChip(label: l.enabled, value: policy.enabled ? l.yes : l.no),
+                _InfoChip(label: l.releaseReady, value: policy.releaseReady ? l.yes : l.no),
+                _InfoChip(label: l.minimumSupportedBuild, value: policy.minimumSupportedBuildNumber.toString()),
+                _InfoChip(label: l.latestBuild, value: policy.latestBuildNumber.toString()),
+                _InfoChip(label: l.updateUrl, value: policy.updateUrl.isEmpty ? l.notAvailable : policy.updateUrl),
+              ],
+            ),
+          const SizedBox(height: AppSpacing.md),
+          _AndroidVersionAdoptionCard(summary: state.androidVersionAdoption),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.warningColor(context).withValues(alpha: .10),
+              borderRadius: AppRadius.large,
+              border: Border.all(
+                color: AppColors.warningColor(context).withValues(alpha: .28),
+              ),
+            ),
+            child: Text(
+              l.androidReleasePolicyHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.warningColor(context),
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _AndroidVersionAdoptionCard extends StatelessWidget {
+  const _AndroidVersionAdoptionCard({required this.summary});
+
+  final AndroidVersionAdoptionSummary? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final data = summary;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined, color: AppColors.primaryColor(context)),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.androidVersionAdoption,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l.androidVersionAdoptionSubtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                            height: 1.25,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (data == null || data.versions.isEmpty)
+            Text(
+              l.noAndroidVersionData,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondaryColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+            )
+          else ...[
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                _InfoChip(
+                  label: l.activeUsers,
+                  value: data.totalActiveUsers.toString(),
+                ),
+                _InfoChip(
+                  label: l.activeDevices,
+                  value: data.totalActiveDevices.toString(),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ...data.versions.take(6).map((version) {
+              final label = version.appVersion.trim().isEmpty
+                  ? '${l.latestBuild} ${version.buildNumber}'
+                  : '${version.appVersion} +${version.buildNumber}';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    _InfoChip(label: l.version, value: label),
+                    _InfoChip(
+                      label: l.activeUsers,
+                      value: version.userCount.toString(),
+                    ),
+                    _InfoChip(
+                      label: l.activeDevices,
+                      value: version.deviceCount.toString(),
+                    ),
+                    _InfoChip(
+                      label: l.activeCompanies,
+                      value: version.companyCount.toString(),
+                    ),
+                    if (version.latestSeenAt != null)
+                      _InfoChip(
+                        label: l.latestSeen,
+                        value: _formatDate(context, version.latestSeenAt!),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _CompanySettingsPanel extends StatelessWidget {
   const _CompanySettingsPanel({required this.state});
 
@@ -3457,30 +3712,122 @@ class _CompanySettingsPanel extends StatelessWidget {
             ? null
             : () => _showEditCompanySettingsDialog(context, company),
       ),
-      child: Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _InfoChip(label: l.companyName, value: _companyTitle(company)),
-          _InfoChip(label: l.companyIdSlug, value: company.id),
-          _InfoChip(label: l.status, value: _statusLabel(l, company)),
-          _InfoChip(
-            label: l.active,
-            value: company.isActive ? l.active : l.inactive,
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _InfoChip(label: l.companyName, value: _companyTitle(company)),
+              _InfoChip(label: l.companyIdSlug, value: company.id),
+              _InfoChip(label: l.status, value: _statusLabel(l, company)),
+              _InfoChip(
+                label: l.active,
+                value: company.isActive ? l.active : l.inactive,
+              ),
+              _InfoChip(
+                label: l.locale,
+                value: company.settings['locale']?.toString() ?? l.notAvailable,
+              ),
+              _InfoChip(
+                label: l.timezone,
+                value: company.settings['timezone']?.toString() ?? l.notAvailable,
+              ),
+              _InfoChip(
+                label: l.updatedAt,
+                value: _formatDate(context, company.updatedAt),
+              ),
+            ],
           ),
-          _InfoChip(
-            label: l.locale,
-            value: company.settings['locale']?.toString() ?? l.notAvailable,
-          ),
-          _InfoChip(
-            label: l.timezone,
-            value: company.settings['timezone']?.toString() ?? l.notAvailable,
-          ),
-          _InfoChip(
-            label: l.updatedAt,
-            value: _formatDate(context, company.updatedAt),
-          ),
+
         ],
+      ),
+    );
+  }
+}
+
+class _AndroidReleasePolicyCard extends StatelessWidget {
+  const _AndroidReleasePolicyCard({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final busy = state.activeSettingsActionId == 'androidRelease';
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 560;
+          final info = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.system_update_alt_rounded, color: AppColors.primaryColor(context)),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.androidReleaseManagement,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l.androidReleaseManagementSubtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryColor(context),
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l.androidReleasePolicyHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.warningColor(context),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+          final button = AppButton(
+            label: l.androidReleaseManagement,
+            icon: Icons.tune_outlined,
+            variant: AppButtonVariant.secondary,
+            isLoading: busy,
+            onPressed: state.status == PlatformStatus.saving
+                ? null
+                : () => _showAndroidReleasePolicyDialog(context),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                info,
+                const SizedBox(height: AppSpacing.sm),
+                button,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: AppSpacing.md),
+              button,
+            ],
+          );
+        },
       ),
     );
   }
@@ -4382,22 +4729,233 @@ class _UsersTable extends StatelessWidget {
   }
 }
 
-class _LoginActivityRow extends StatelessWidget {
-  const _LoginActivityRow({required this.user});
 
-  final PlatformCompanyUser user;
+
+DateTime _latestLoginAt(PlatformState state, PlatformCompanyUser user) {
+  final activities = _activitiesForUser(state.loginActivities, user.uid);
+  final activityAt = activities.isNotEmpty ? activities.first.createdAt : null;
+  return activityAt ?? user.lastLoginAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+List<PlatformLoginActivity> _activitiesForUser(
+  List<PlatformLoginActivity> activities,
+  String uid,
+) {
+  final filtered = activities
+      .where((activity) => activity.uid == uid)
+      .toList(growable: false);
+  return filtered;
+}
+
+Future<void> _showLoginActivitySheet(
+  BuildContext context, {
+  required PlatformCompanyUser user,
+  required List<PlatformLoginActivity> activities,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    isDismissible: true,
+    enableDrag: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.20),
+    builder: (sheetContext) {
+      final media = MediaQuery.of(sheetContext);
+      final items = activities.toList(growable: false);
+      return Align(
+        alignment: AlignmentDirectional.bottomCenter,
+        child: SizedBox(
+          width: media.size.width < 760 ? media.size.width : 760,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: media.size.height * 0.88),
+            child: Material(
+              color: AppColors.cardSurface(sheetContext),
+              borderRadius: const BorderRadiusDirectional.vertical(
+                top: Radius.circular(28),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                      AppSpacing.sm,
+                      AppSpacing.xs,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: AppColors.textSecondaryColor(sheetContext)
+                                  .withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            _PlatformUserAvatar(
+                              name: user.fullName,
+                              photoUrl: user.photoUrl,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l.loginActivity,
+                                    style: Theme.of(sheetContext)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                  Text(
+                                    user.fullName.trim().isEmpty
+                                        ? user.email
+                                        : user.fullName,
+                                    style: Theme.of(sheetContext)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.textSecondaryColor(sheetContext),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: MaterialLocalizations.of(sheetContext)
+                                  .closeButtonTooltip,
+                              onPressed: () => Navigator.of(sheetContext).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: items.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: AppEmptyState(
+                              icon: Icons.manage_history_outlined,
+                              title: l.noLoginActivityYet,
+                              message: l.noLoginActivityYet,
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.md + media.padding.bottom,
+                            ),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: AppSpacing.xs),
+                            itemBuilder: (context, index) {
+                              return _LoginActivityEventCard(activity: items[index]);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _LoginActivityEventCard extends StatelessWidget {
+  const _LoginActivityEventCard({required this.activity});
+
+  final PlatformLoginActivity activity;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final at = activity.createdAt;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
       ),
-      child: LayoutBuilder(
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        children: [
+          _LoginInfoLine(
+            label: l.lastLogin,
+            value: at == null ? l.notAvailable : _formatDate(context, at),
+          ),
+          _LoginInfoLine(label: l.ipAddress, value: _loginValue(l, activity.ipAddress)),
+          _LoginInfoLine(
+            label: l.device,
+            value: _loginValue(l, _loginActivityDeviceLabel(activity)),
+          ),
+          if (activity.appVersion.trim().isNotEmpty)
+            _LoginInfoLine(label: l.version, value: activity.appVersion),
+        ],
+      ),
+    );
+  }
+}
+
+String _loginActivityDeviceLabel(PlatformLoginActivity activity) {
+  final values = [
+    activity.deviceType,
+    activity.browser,
+    activity.platform,
+  ].where((value) => value.trim().isNotEmpty).toSet().join(' / ');
+  return values;
+}
+
+class _LoginActivityRow extends StatelessWidget {
+  const _LoginActivityRow({
+    required this.user,
+    this.activities = const <PlatformLoginActivity>[],
+    this.onTap,
+  });
+
+  final PlatformCompanyUser user;
+  final List<PlatformLoginActivity> activities;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final latestActivity = activities.isNotEmpty ? activities.first : null;
+    return Material(
+      color: AppColors.inputSurface(context),
+      borderRadius: AppRadius.large,
+      child: InkWell(
+        borderRadius: AppRadius.large,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderColor(context)),
+            borderRadius: AppRadius.large,
+          ),
+          child: LayoutBuilder(
         builder: (context, constraints) {
           final identity = Row(
             children: [
@@ -4432,6 +4990,13 @@ class _LoginActivityRow extends StatelessWidget {
                 label: _roleLabel(l, user.role),
                 tone: AppStatusTone.info,
               ),
+              if (activities.length > 1) ...[
+                const SizedBox(width: AppSpacing.xs),
+                AppStatusBadge(
+                  label: activities.length.toString(),
+                  tone: AppStatusTone.neutral,
+                ),
+              ],
             ],
           );
           if (constraints.maxWidth < 640) {
@@ -4440,7 +5005,7 @@ class _LoginActivityRow extends StatelessWidget {
               children: [
                 identity,
                 const SizedBox(height: AppSpacing.xs),
-                _LoginDetails(user: user),
+                _LoginDetails(user: user, latestActivity: latestActivity),
               ],
             );
           }
@@ -4450,26 +5015,33 @@ class _LoginActivityRow extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 flex: 2,
-                child: _LoginDetails(user: user),
+                child: _LoginDetails(user: user, latestActivity: latestActivity),
               ),
             ],
           );
         },
+          ),
+        ),
       ),
     );
   }
 }
 
 class _LoginDetails extends StatelessWidget {
-  const _LoginDetails({required this.user, this.compact = false});
+  const _LoginDetails({
+    required this.user,
+    this.latestActivity,
+    this.compact = false,
+  });
 
   final PlatformCompanyUser user;
+  final PlatformLoginActivity? latestActivity;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final at = user.lastLoginAt;
+    final at = latestActivity?.createdAt ?? user.lastLoginAt;
     if (at == null) {
       return Text(
         l.noLoginActivityYet,
@@ -4483,8 +5055,19 @@ class _LoginDetails extends StatelessWidget {
 
     final rows = [
       _LoginInfoLine(label: l.lastLogin, value: _formatDate(context, at)),
-      _LoginInfoLine(label: l.ipAddress, value: _loginValue(l, user.lastLoginIp)),
-      _LoginInfoLine(label: l.device, value: _loginDeviceLabel(l, user)),
+      _LoginInfoLine(
+        label: l.ipAddress,
+        value: _loginValue(l, latestActivity?.ipAddress ?? user.lastLoginIp),
+      ),
+      _LoginInfoLine(
+        label: l.device,
+        value: _loginValue(
+          l,
+          latestActivity == null
+              ? _loginDeviceLabel(l, user)
+              : _loginActivityDeviceLabel(latestActivity!),
+        ),
+      ),
     ];
 
     if (compact) {
@@ -5201,6 +5784,266 @@ Future<void> _showGenerateResetLinkDialog(
       user: user,
     ),
   );
+}
+
+
+Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
+  final cubit = context.read<PlatformCubit>();
+  final l = AppLocalizations.of(context)!;
+  AndroidReleasePolicy? policy = cubit.state.androidReleasePolicy;
+  final currentBuild = int.tryParse(AppConstants.appBuildNumber) ?? 1;
+  final suggestedUpdateUrl =
+      '${AppConstants.publicWebBaseUrl}/downloads/masar-crm-${AppConstants.appVersion}-${AppConstants.appBuildNumber}.apk';
+  final minController = TextEditingController(
+    text: (policy?.minimumSupportedBuildNumber ?? currentBuild).toString(),
+  );
+  final latestController = TextEditingController(
+    text: (policy?.latestBuildNumber ?? currentBuild).toString(),
+  );
+  final urlController = TextEditingController(
+    text: (policy?.updateUrl.trim().isNotEmpty ?? false)
+        ? policy!.updateUrl
+        : suggestedUpdateUrl,
+  );
+  final titleEnController = TextEditingController(
+    text: (policy?.titleEn.trim().isNotEmpty ?? false)
+        ? policy!.titleEn
+        : 'Update required',
+  );
+  final titleArController = TextEditingController(
+    text: (policy?.titleAr.trim().isNotEmpty ?? false)
+        ? policy!.titleAr
+        : 'تحديث مطلوب',
+  );
+  final bodyEnController = TextEditingController(
+    text: (policy?.bodyEn.trim().isNotEmpty ?? false)
+        ? policy!.bodyEn
+        : 'This Android version is no longer supported. Update Masar CRM to continue safely.',
+  );
+  final bodyArController = TextEditingController(
+    text: (policy?.bodyAr.trim().isNotEmpty ?? false)
+        ? policy!.bodyAr
+        : 'هذا الإصدار من تطبيق أندرويد لم يعد مدعومًا. حدّث مسار CRM للاستمرار بأمان.',
+  );
+  var enabled = policy?.enabled ?? true;
+  var releaseReady = policy?.releaseReady ?? false;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          final size = MediaQuery.sizeOf(context);
+          final maxDialogWidth = size.width - 32;
+          final dialogWidth = maxDialogWidth < 560 ? maxDialogWidth : 560.0;
+          final dialogHeight = size.height * 0.88;
+
+          return Dialog(
+            insetPadding: const EdgeInsets.all(AppSpacing.lg),
+            child: SizedBox(
+              width: dialogWidth,
+              height: dialogHeight,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l.androidReleaseManagement,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              l.androidReleasePolicyHint,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.warningColor(context),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(l.enabled),
+                              value: enabled,
+                              onChanged: (value) => setDialogState(() => enabled = value),
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(l.releaseReady),
+                              subtitle: Text(l.androidReleasePolicyHint),
+                              value: releaseReady,
+                              onChanged: (value) => setDialogState(() => releaseReady = value),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: minController,
+                              label: l.minimumSupportedBuild,
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: latestController,
+                              label: l.latestBuild,
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: urlController,
+                              label: l.updateUrl,
+                              keyboardType: TextInputType.url,
+                              maxLines: 2,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.sm),
+                              decoration: BoxDecoration(
+                                color: AppColors.inputSurface(context),
+                                borderRadius: AppRadius.large,
+                                border: Border.all(color: AppColors.borderColor(context)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    l.suggestedUpdateUrl,
+                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  SelectableText(
+                                    suggestedUpdateUrl,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: AppColors.textSecondaryColor(context),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Wrap(
+                                    spacing: AppSpacing.xs,
+                                    runSpacing: AppSpacing.xs,
+                                    children: [
+                                      AppButton(
+                                        label: l.useSuggestedUpdateUrl,
+                                        icon: Icons.link_rounded,
+                                        variant: AppButtonVariant.secondary,
+                                        onPressed: () => setDialogState(
+                                          () => urlController.text = suggestedUpdateUrl,
+                                        ),
+                                      ),
+                                      AppButton(
+                                        label: l.copyLink,
+                                        icon: Icons.copy_rounded,
+                                        variant: AppButtonVariant.ghost,
+                                        onPressed: () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(text: suggestedUpdateUrl),
+                                          );
+                                          if (context.mounted) {
+                                            AppFeedback.success(context, l.linkCopied);
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: titleEnController,
+                              label: '${l.androidUpdateTitle} EN',
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: titleArController,
+                              label: '${l.androidUpdateTitle} AR',
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: bodyEnController,
+                              label: '${l.androidUpdateBody} EN',
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            AppTextField(
+                              controller: bodyArController,
+                              label: '${l.androidUpdateBody} AR',
+                              maxLines: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: Text(l.cancel),
+                        ),
+                        AppButton(
+                          label: l.saveReleasePolicy,
+                          icon: Icons.save_outlined,
+                          onPressed: () async {
+                            final minBuild = int.tryParse(minController.text.trim()) ?? 0;
+                            final latestBuild = int.tryParse(latestController.text.trim()) ?? 0;
+                            if (minBuild <= 0 || latestBuild <= 0 || latestBuild < minBuild) {
+                              AppFeedback.error(context, l.unableToSave);
+                              return;
+                            }
+                            if (releaseReady && urlController.text.trim().isEmpty) {
+                              AppFeedback.error(context, l.requiredField);
+                              return;
+                            }
+                            final success = await cubit.updateAndroidReleasePolicy(
+                              enabled: enabled,
+                              releaseReady: releaseReady,
+                              minimumSupportedBuildNumber: minBuild,
+                              latestBuildNumber: latestBuild,
+                              updateUrl: urlController.text.trim(),
+                              titleEn: titleEnController.text.trim(),
+                              titleAr: titleArController.text.trim(),
+                              bodyEn: bodyEnController.text.trim(),
+                              bodyAr: bodyArController.text.trim(),
+                            );
+                            if (!context.mounted) {
+                              return;
+                            }
+                            if (success) {
+                              Navigator.of(dialogContext).pop();
+                              AppFeedback.success(context, l.androidReleasePolicySaved);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  // Do not dispose these controllers immediately after showDialog completes.
+  // On Flutter Web the dialog overlay can still finish its route teardown for a
+  // frame after pop/hot restart, and disposing here can make TextFormField reuse
+  // a disposed controller, crashing /platform with a red screen.
 }
 
 Future<void> _showEditCompanySettingsDialog(
@@ -6189,12 +7032,11 @@ class _PlatformChangePasswordDialogState
                 label: l.confirmPassword,
                 obscureText: true,
                 enabled: !_saving,
-                validator: (value) {
-                  if ((value ?? '') != _newPassword.text) {
-                    return l.passwordsDoNotMatch;
-                  }
-                  return null;
-                },
+                validator: (value) => AppValidators.confirmPassword(
+                  value,
+                  _newPassword.text,
+                  l,
+                ),
               ),
             ],
           ),
@@ -6916,6 +7758,7 @@ String _sectionLabel(AppLocalizations l, _PlatformSection section) {
     _PlatformSection.invitations => l.invitations,
     _PlatformSection.companies => l.platformCompanies,
     _PlatformSection.workspace => l.workspace,
+    _PlatformSection.releaseManagement => l.androidReleaseManagement,
     _PlatformSection.support => l.platformSupportInbox,
     _PlatformSection.activity => l.recentLoginActivity,
   };
@@ -6962,6 +7805,7 @@ IconData _sectionIcon(_PlatformSection section) {
     _PlatformSection.invitations => Icons.mark_email_unread_outlined,
     _PlatformSection.companies => Icons.apartment_outlined,
     _PlatformSection.workspace => Icons.view_quilt_outlined,
+    _PlatformSection.releaseManagement => Icons.system_update_alt_rounded,
     _PlatformSection.support => Icons.support_agent_outlined,
     _PlatformSection.activity => Icons.manage_history_outlined,
   };
@@ -7054,6 +7898,7 @@ const _featureKeys = [
   'appointments',
   'deals',
   'reports',
+  'exports',
   'auditLogs',
   'notifications',
   'userManagement',
@@ -7068,6 +7913,7 @@ String _featureLabel(AppLocalizations l, String feature) {
     'appointments' => l.appointments,
     'deals' => l.deals,
     'reports' => l.reports,
+    'exports' => l.exportCenter,
     'auditLogs' => l.auditLogs,
     'notifications' => l.notifications,
     'userManagement' => l.userManagement,
@@ -7111,22 +7957,25 @@ Future<void> _exportCompanyData(BuildContext context, CompanyMetadata company) a
   }
 
   final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-  final fileName = 'masar_${company.id}_export_$timestamp.xlsx';
-  final bytes = _buildPlatformExportWorkbook(
-    context: context,
-    company: company,
-    payload: data,
-    collections: selectedCollections,
-  );
+  final serverBase64 = (data['base64Data'] ?? '').toString();
+  final fileName = (data['fileName'] ?? 'masar_${company.id}_export_$timestamp.xlsx').toString();
+  final bytes = serverBase64.trim().isNotEmpty
+      ? Uint8List.fromList(base64Decode(serverBase64))
+      : _buildPlatformExportWorkbook(
+          context: context,
+          company: company,
+          payload: data,
+          collections: selectedCollections,
+        );
   final downloaded = await downloadBytes(
     fileName: fileName,
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mimeType: (data['mimeType'] ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').toString(),
     bytes: bytes,
   );
   if (!context.mounted) {
     return;
   }
-  if (downloaded) {
+  if (downloaded.success) {
     AppFeedback.success(context, l.companyDataExported);
   } else {
     AppFeedback.error(context, l.exportDownloadFailed);
@@ -7812,14 +8661,25 @@ String? _email(String? value, AppLocalizations l) {
 }
 
 String? _password(String? value, AppLocalizations l) {
-  final text = value ?? '';
-  if (text.isEmpty) {
-    return l.newPasswordRequired;
+  return AppValidators.password(
+    value,
+    l,
+    requiredMessage: l.newPasswordRequired,
+  );
+}
+
+String _platformErrorMessage(
+  AppLocalizations l,
+  String? message, {
+  String? fallback,
+}) {
+  if (message == 'weak-password' || message == 'Password is too weak.') {
+    return l.weakPassword;
   }
-  if (text.length < 8) {
-    return l.newPasswordTooShort;
-  }
-  return null;
+  return switch (message) {
+    null => fallback ?? l.unableToSave,
+    _ => message,
+  };
 }
 
 String? _positiveInteger(String? value, AppLocalizations l) {

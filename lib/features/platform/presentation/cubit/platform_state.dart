@@ -1,8 +1,11 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_login_activity.dart';
 import '../../domain/entities/platform_payment_history.dart';
 
 enum PlatformStatus { initial, loading, ready, saving, failure }
@@ -25,6 +28,7 @@ class PlatformState extends Equatable {
     required this.status,
     this.companies = const [],
     this.companyUsers = const [],
+    this.loginActivities = const [],
     this.paymentHistory = const [],
     this.selectedCompanyId,
     this.searchQuery = '',
@@ -34,6 +38,8 @@ class PlatformState extends Equatable {
     this.activeSettingsActionId,
     this.activeStorageActionId,
     this.dataHealthReport,
+    this.androidReleasePolicy,
+    this.androidVersionAdoption,
     this.dataHealthLoading = false,
     this.activeDataHealthActionId,
     this.message,
@@ -44,6 +50,7 @@ class PlatformState extends Equatable {
   final PlatformStatus status;
   final List<CompanyMetadata> companies;
   final List<PlatformCompanyUser> companyUsers;
+  final List<PlatformLoginActivity> loginActivities;
   final List<PlatformPaymentHistory> paymentHistory;
   final String? selectedCompanyId;
   final String searchQuery;
@@ -53,6 +60,8 @@ class PlatformState extends Equatable {
   final String? activeSettingsActionId;
   final String? activeStorageActionId;
   final CompanyDataHealthReport? dataHealthReport;
+  final AndroidReleasePolicy? androidReleasePolicy;
+  final AndroidVersionAdoptionSummary? androidVersionAdoption;
   final bool dataHealthLoading;
   final String? activeDataHealthActionId;
   final String? message;
@@ -101,6 +110,7 @@ class PlatformState extends Equatable {
     PlatformStatus? status,
     List<CompanyMetadata>? companies,
     List<PlatformCompanyUser>? companyUsers,
+    List<PlatformLoginActivity>? loginActivities,
     List<PlatformPaymentHistory>? paymentHistory,
     String? selectedCompanyId,
     String? searchQuery,
@@ -110,6 +120,8 @@ class PlatformState extends Equatable {
     String? activeSettingsActionId,
     String? activeStorageActionId,
     CompanyDataHealthReport? dataHealthReport,
+    AndroidReleasePolicy? androidReleasePolicy,
+    AndroidVersionAdoptionSummary? androidVersionAdoption,
     bool? dataHealthLoading,
     String? activeDataHealthActionId,
     String? message,
@@ -125,6 +137,7 @@ class PlatformState extends Equatable {
       status: status ?? this.status,
       companies: companies ?? this.companies,
       companyUsers: companyUsers ?? this.companyUsers,
+      loginActivities: loginActivities ?? this.loginActivities,
       paymentHistory: paymentHistory ?? this.paymentHistory,
       selectedCompanyId: selectedCompanyId ?? this.selectedCompanyId,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -143,6 +156,9 @@ class PlatformState extends Equatable {
           : activeStorageActionId ?? this.activeStorageActionId,
       dataHealthReport:
           clearDataHealthReport ? null : dataHealthReport ?? this.dataHealthReport,
+      androidReleasePolicy: androidReleasePolicy ?? this.androidReleasePolicy,
+      androidVersionAdoption:
+          androidVersionAdoption ?? this.androidVersionAdoption,
       dataHealthLoading: dataHealthLoading ?? this.dataHealthLoading,
       activeDataHealthActionId: clearActiveDataHealthAction
           ? null
@@ -156,6 +172,7 @@ class PlatformState extends Equatable {
     status,
     companies,
     companyUsers,
+    loginActivities,
     paymentHistory,
     selectedCompanyId,
     searchQuery,
@@ -165,6 +182,8 @@ class PlatformState extends Equatable {
     activeSettingsActionId,
     activeStorageActionId,
     dataHealthReport,
+    androidReleasePolicy,
+    androidVersionAdoption,
     dataHealthLoading,
     activeDataHealthActionId,
     message,

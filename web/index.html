@@ -167,6 +167,14 @@
         }
       });
       window.setTimeout(showMasarPreloaderError, 15000);
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(function (error) {
+            console.warn('Masar FCM service worker registration failed.', error);
+          });
+        });
+      }
     })();
   </script>
 </head>

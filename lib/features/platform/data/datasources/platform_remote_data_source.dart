@@ -1,15 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../users/data/models/company_metadata_model.dart';
 import '../../../users/domain/entities/company_metadata.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_login_activity.dart';
 import '../models/company_data_health_report_model.dart';
 import '../models/platform_company_user_model.dart';
+import '../models/platform_login_activity_model.dart';
 import '../models/platform_payment_history_model.dart';
 
 abstract interface class PlatformRemoteDataSource {
@@ -17,6 +22,11 @@ abstract interface class PlatformRemoteDataSource {
 
   Stream<List<PlatformCompanyUser>> watchCompanyUsers({
     required String companyId,
+  });
+
+  Stream<List<PlatformLoginActivity>> watchCompanyLoginActivity({
+    required String companyId,
+    int limit = 300,
   });
 
   Stream<List<PlatformPaymentHistoryModel>> watchPaymentHistory({
@@ -126,6 +136,22 @@ abstract interface class PlatformRemoteDataSource {
     required String companyId,
     List<String>? collections,
   });
+
+  Future<AndroidReleasePolicy> getAndroidReleasePolicy();
+
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption();
+
+  Future<void> updateAndroidReleasePolicy({
+    required bool enabled,
+    required bool releaseReady,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required String titleEn,
+    required String titleAr,
+    required String bodyEn,
+    required String bodyAr,
+  });
 }
 
 class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
@@ -161,6 +187,24 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
           return snapshot.docs
               .map(PlatformCompanyUserModel.fromFirestore)
               .where((user) => user.companyId == companyId)
+              .toList();
+        });
+  }
+
+  @override
+  Stream<List<PlatformLoginActivity>> watchCompanyLoginActivity({
+    required String companyId,
+    int limit = 300,
+  }) {
+    return _firestore
+        .collection('${FirebasePaths.company(companyId)}/login_activity')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(PlatformLoginActivityModel.fromFirestore)
+              .where((item) => item.companyId == companyId)
               .toList();
         });
   }
@@ -417,6 +461,49 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
     });
   }
 
+  @override
+  Future<AndroidReleasePolicy> getAndroidReleasePolicy() async {
+    final data = await _callMap('getAndroidReleasePolicy', {
+      'appVersion': AppConstants.appVersion,
+      'buildNumber': AppConstants.appBuildNumber,
+      'platform': 'android',
+    });
+    return _androidReleasePolicyFromMap(data);
+  }
+
+  @override
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption() async {
+    final data = await _callMap('getAndroidVersionAdoption', {
+      'platform': 'android',
+    });
+    return _androidVersionAdoptionFromMap(data);
+  }
+
+  @override
+  Future<void> updateAndroidReleasePolicy({
+    required bool enabled,
+    required bool releaseReady,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required String titleEn,
+    required String titleAr,
+    required String bodyEn,
+    required String bodyAr,
+  }) async {
+    await _call('updateAndroidReleasePolicy', {
+      'enabled': enabled,
+      'releaseReady': releaseReady,
+      'minimumSupportedBuildNumber': minimumSupportedBuildNumber,
+      'latestBuildNumber': latestBuildNumber,
+      'updateUrl': updateUrl,
+      'titleEn': titleEn,
+      'titleAr': titleAr,
+      'bodyEn': bodyEn,
+      'bodyAr': bodyAr,
+    });
+  }
+
   Future<void> _call(String name, Map<String, Object?> data) async {
     await _callMap(name, data);
   }
@@ -438,6 +525,40 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       throw Exception(_mapFirebaseError(error));
     }
   }
+}
+
+
+AndroidReleasePolicy _androidReleasePolicyFromMap(Map<String, dynamic> data) {
+  return AndroidReleasePolicy(
+    enabled: data['enabled'] == true,
+    releaseReady: data['releaseReady'] == true,
+    updateRequired: data['updateRequired'] == true,
+    updateAvailable: data['updateAvailable'] == true,
+    currentBuildNumber: _intValue(data['currentBuildNumber']),
+    minimumSupportedBuildNumber: _intValue(data['minimumSupportedBuildNumber']),
+    latestBuildNumber: _intValue(data['latestBuildNumber']),
+    updateUrl: (data['updateUrl'] as String? ?? '').trim(),
+    serverTime: _dateValue(data['serverTime']) ?? DateTime.now(),
+    gracePeriodStartedAt: _dateValue(data['gracePeriodStartedAt']),
+    gracePeriodEndsAt: _dateValue(data['gracePeriodEndsAt']),
+    titleEn: data['titleEn'] as String? ?? '',
+    titleAr: data['titleAr'] as String? ?? '',
+    bodyEn: data['bodyEn'] as String? ?? '',
+    bodyAr: data['bodyAr'] as String? ?? '',
+  );
+}
+
+int _intValue(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+DateTime? _dateValue(Object? value) {
+  if (value is String && value.trim().isNotEmpty) {
+    return DateTime.tryParse(value)?.toLocal();
+  }
+  return null;
 }
 
 String _mapFirebaseError(FirebaseException error) {
@@ -463,4 +584,28 @@ int _legacyTrialDays(int value, String unit) {
     return (value / 24).ceil().clamp(1, 3650).toInt();
   }
   return value;
+}
+
+AndroidVersionAdoptionSummary _androidVersionAdoptionFromMap(
+  Map<String, dynamic> data,
+) {
+  final rawVersions = data['versions'];
+  final versions = rawVersions is List
+      ? rawVersions
+          .whereType<Map>()
+          .map((item) => AndroidVersionAdoption(
+                appVersion: (item['appVersion'] as String? ?? '').trim(),
+                buildNumber: _intValue(item['buildNumber']),
+                userCount: _intValue(item['userCount']),
+                deviceCount: _intValue(item['deviceCount']),
+                companyCount: _intValue(item['companyCount']),
+                latestSeenAt: _dateValue(item['latestSeenAt']),
+              ))
+          .toList()
+      : const <AndroidVersionAdoption>[];
+  return AndroidVersionAdoptionSummary(
+    versions: versions,
+    totalActiveUsers: _intValue(data['totalActiveUsers']),
+    totalActiveDevices: _intValue(data['totalActiveDevices']),
+  );
 }

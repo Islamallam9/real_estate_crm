@@ -2,6 +2,10 @@ import 'package:equatable/equatable.dart';
 
 enum PlatformNotificationSeverity { info, success, warning, urgent }
 
+enum PlatformNotificationDeliveryMode { inAppOnly, pushEligible, attentionOnly, auditOnly }
+
+enum PlatformNotificationRecipientScope { user, managerTeam, admins, platformOwner }
+
 enum PlatformNotificationSource {
   platform,
   support,
@@ -34,6 +38,14 @@ enum PlatformNotificationType {
   storageUsageRefreshed,
   storageNearLimit,
   platformFunctionFailed,
+  trialEndingSoon,
+  trialExpired,
+  paymentDueSoon,
+  paymentOverdue,
+  paymentGraceEnding,
+  paymentSuspended,
+  paymentReactivated,
+  paymentMarkedPaid,
   unknown,
 }
 
@@ -44,6 +56,9 @@ class PlatformNotification extends Equatable {
     required this.title,
     required this.message,
     required this.severity,
+    required this.deliveryMode,
+    required this.recipientScope,
+    required this.dedupeKey,
     required this.isRead,
     required this.createdAt,
     required this.updatedAt,
@@ -63,6 +78,9 @@ class PlatformNotification extends Equatable {
   final String title;
   final String message;
   final PlatformNotificationSeverity severity;
+  final PlatformNotificationDeliveryMode deliveryMode;
+  final PlatformNotificationRecipientScope recipientScope;
+  final String dedupeKey;
   final bool isRead;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -83,6 +101,9 @@ class PlatformNotification extends Equatable {
         title,
         message,
         severity,
+        deliveryMode,
+        recipientScope,
+        dedupeKey,
         isRead,
         createdAt,
         updatedAt,
@@ -111,6 +132,24 @@ PlatformNotificationSeverity platformNotificationSeverityFromValue(
   return PlatformNotificationSeverity.values.firstWhere(
     (severity) => severity.name == value,
     orElse: () => PlatformNotificationSeverity.info,
+  );
+}
+
+PlatformNotificationDeliveryMode platformNotificationDeliveryModeFromValue(
+  String value,
+) {
+  return PlatformNotificationDeliveryMode.values.firstWhere(
+    (mode) => mode.name == value,
+    orElse: () => PlatformNotificationDeliveryMode.inAppOnly,
+  );
+}
+
+PlatformNotificationRecipientScope platformNotificationRecipientScopeFromValue(
+  String value,
+) {
+  return PlatformNotificationRecipientScope.values.firstWhere(
+    (scope) => scope.name == value,
+    orElse: () => PlatformNotificationRecipientScope.platformOwner,
   );
 }
 

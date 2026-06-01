@@ -3,12 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'core/constants/role_constants.dart';
+import 'core/connectivity/connectivity_feedback_scope.dart';
 import 'core/localization/locale_cubit.dart';
 import 'core/observability/app_error_reporter.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_cubit.dart';
 import 'core/widgets/app_feedback.dart';
+import 'features/app_update/presentation/widgets/android_update_gate.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/auth_state_changes_usecase.dart';
@@ -19,6 +21,7 @@ import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/notifications/presentation/widgets/notification_push_token_scope.dart';
 import 'features/platform_observability/data/datasources/platform_observability_remote_data_source.dart';
 import 'features/platform_observability/data/repositories/platform_observability_repository_impl.dart';
 import 'features/platform_observability/domain/usecases/report_client_error_usecase.dart';
@@ -118,8 +121,9 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
         builder: (context, locale) {
           return BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
-              return MaterialApp.router(
-                scaffoldMessengerKey: AppFeedback.scaffoldMessengerKey,
+              return NotificationPushTokenScope(
+                child: MaterialApp.router(
+                  scaffoldMessengerKey: AppFeedback.scaffoldMessengerKey,
                 locale: locale,
                 onGenerateTitle: (context) =>
                     AppLocalizations.of(context)!.websiteTitle,
@@ -135,6 +139,14 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
                   GlobalWidgetsLocalizations.delegate,
                 ],
                 supportedLocales: AppLocalizations.supportedLocales,
+                  builder: (context, child) {
+                    return ConnectivityFeedbackScope(
+                      child: AndroidUpdateGate(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           );

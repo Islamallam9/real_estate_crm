@@ -782,8 +782,7 @@ String _notificationTitle(
     englishKey: 'titleEn',
     fallback: notification.title.trim(),
   );
-  if (notification.type == PlatformNotificationType.unknown &&
-      customTitle.isNotEmpty) {
+  if (customTitle.isNotEmpty) {
     return customTitle;
   }
   return switch (notification.type) {
@@ -826,8 +825,37 @@ String _notificationTitle(
       l.platformNotificationStorageNearLimit,
     PlatformNotificationType.platformFunctionFailed =>
       l.platformNotificationFunctionFailed,
+    PlatformNotificationType.trialEndingSoon =>
+      _safeLocalizedText(() => l.trialReminderTitle, 'Trial reminder'),
+    PlatformNotificationType.trialExpired =>
+      _safeLocalizedText(() => l.trialEnded, 'Trial ended'),
+    PlatformNotificationType.paymentDueSoon =>
+      _safeLocalizedText(() => l.paymentFollowUp, 'Payment follow-up'),
+    PlatformNotificationType.paymentOverdue =>
+      _safeLocalizedText(() => l.paymentFollowUp, 'Payment follow-up'),
+    PlatformNotificationType.paymentGraceEnding =>
+      _safeLocalizedText(() => l.paymentFollowUp, 'Payment follow-up'),
+    PlatformNotificationType.paymentSuspended =>
+      _safeLocalizedText(() => l.suspended, 'Suspended'),
+    PlatformNotificationType.paymentReactivated =>
+      _safeLocalizedText(() => l.reactivated, 'Reactivated'),
+    PlatformNotificationType.paymentMarkedPaid =>
+      _safeLocalizedText(() => l.markedPaid, 'Marked paid'),
     PlatformNotificationType.unknown => l.platformNotificationUnknown,
   };
+}
+
+
+String _safeLocalizedText(String Function() value, String fallback) {
+  try {
+    final text = value().trim();
+    if (text.isNotEmpty) {
+      return text;
+    }
+  } catch (_) {
+    // Keep legacy/generated localization mismatches from breaking the panel.
+  }
+  return fallback;
 }
 
 String _notificationMessage(

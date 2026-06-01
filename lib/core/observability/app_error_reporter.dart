@@ -54,10 +54,16 @@ class MasarObservabilityReporter {
     }
     _handlersInstalled = true;
     FlutterError.onError = (details) {
-      FlutterError.presentError(details);
+      if (_isFlutterWebInspectorNoise(details)) {
+        return;
+      }
+      _safePresentFlutterError(details);
       unawaited(reportFlutterError(details));
     };
     PlatformDispatcher.instance.onError = (error, stackTrace) {
+      if (_isFlutterWebRuntimeNoise(error, stackTrace)) {
+        return true;
+      }
       unawaited(
         reportUnhandledError(
           error,
@@ -70,6 +76,74 @@ class MasarObservabilityReporter {
     };
   }
 
+  bool _isFlutterWebInspectorNoise(FlutterErrorDetails details) {
+    if (!kIsWeb) {
+      return false;
+    }
+    final text = '${_safeErrorText(details.exception)} ${details.stack ?? ''}'
+        .toLowerCase();
+    return text.contains('trying to render a disposed engineflutterview') ||
+        text.contains('engineflutterview') ||
+        text.contains('widget_inspector') ||
+        text.contains('renderbox.size accessed beyond') ||
+        text.contains('sizeaccessallowed') ||
+        text.contains('_debugrender') ||
+        text.contains('_debugmutationslocked');
+  }
+
+  bool _isFlutterWebRuntimeNoise(Object error, StackTrace stackTrace) {
+    if (!kIsWeb) {
+      return false;
+    }
+    final text = '${_safeErrorText(error)} $stackTrace'.toLowerCase();
+    final isInspectorRenderNoise = text.contains('widget_inspector') ||
+        text.contains('diagnostics.dart') ||
+        text.contains('_debugrender') ||
+        text.contains('renderbox.size accessed beyond') ||
+        text.contains('sizeaccessallowed') ||
+        text.contains('_debugmutationslocked');
+    final isDisposedViewNoise = text.contains('disposed engineflutterview') ||
+        text.contains('engineflutterview');
+    final isHotRestartNoise = text.contains('unexpected null value') &&
+        (text.contains('diagnostics.dart') || text.contains('widget_inspector'));
+    return isDisposedViewNoise || isInspectorRenderNoise || isHotRestartNoise;
+  }
+
+  String _safeErrorText(Object? error) {
+    try {
+      return Error.safeToString(error);
+    } catch (_) {
+      return error.runtimeType.toString();
+    }
+  }
+
+  void _safePresentFlutterError(FlutterErrorDetails details) {
+    try {
+      FlutterError.presentError(details);
+    } catch (error, stackTrace) {
+      debugPrint('MasarObservabilityReporter: FlutterError.presentError failed: ${_safeErrorText(error)}');
+      final exceptionText = _safeErrorText(details.exception);
+      debugPrint('Original Flutter exception: $exceptionText');
+      final originalStack = details.stack?.toString().trim();
+      if (originalStack != null && originalStack.isNotEmpty) {
+        debugPrint(_sanitizeText(originalStack, 4000));
+      } else {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  String _safeDiagnosticDescription(DiagnosticsNode? node) {
+    if (node == null) {
+      return '';
+    }
+    try {
+      return node.toDescription();
+    } catch (_) {
+      return node.runtimeType.toString();
+    }
+  }
+
   Future<void> reportFlutterError(FlutterErrorDetails details) {
     return _reportError(
       details.exception,
@@ -78,7 +152,7 @@ class MasarObservabilityReporter {
       fatal: false,
       metadata: {
         'library': details.library ?? '',
-        'context': details.context?.toDescription() ?? '',
+        'context': _safeDiagnosticDescription(details.context),
         'silent': details.silent,
       },
     );
@@ -138,6 +212,11 @@ class MasarObservabilityReporter {
     );
 
     final lowerMessage = message.toLowerCase();
+    if (lowerMessage.contains('trying to render a disposed engineflutterview') ||
+        lowerMessage.contains('engineflutterview') ||
+        lowerMessage.contains('widget_inspector')) {
+      return;
+    }
     final isPermissionIssue = lowerMessage.contains('permission-denied') ||
         lowerMessage.contains('permission denied');
     final isNetworkIssue = lowerMessage.contains('network') ||
