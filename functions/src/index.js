@@ -20,6 +20,195 @@ exports.getServerTime = onCall(() => {
   };
 });
 
+exports.getAndroidReleasePolicy = onCall(async (request) => {
+  const data = request.data || {};
+  const platform = optionalString(data.platform).toLowerCase();
+  if (platform !== 'android') {
+    return androidReleasePolicyResponse({
+      currentBuildNumber: parseBuildNumber(data.buildNumber),
+      policy: {},
+      serverNow: new Date(),
+    });
+  }
+
+  const policySnapshot = await db.doc('platform_config/android_release_policy').get();
+  const policy = policySnapshot.exists ? policySnapshot.data() || {} : {};
+  return androidReleasePolicyResponse({
+    currentBuildNumber: parseBuildNumber(data.buildNumber),
+    policy,
+    serverNow: new Date(),
+  });
+});
+
+exports.updateAndroidReleasePolicy = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+
+  const data = request.data || {};
+  const minimumSupportedBuildNumber = parseBuildNumber(
+    data.minimumSupportedBuildNumber ?? data.minSupportedBuildNumber,
+  );
+  const latestBuildNumber = parseBuildNumber(data.latestBuildNumber);
+  const updateUrl = optionalString(data.updateUrl);
+
+  if (minimumSupportedBuildNumber <= 0 || latestBuildNumber <= 0) {
+    throw new HttpsError('invalid-argument', 'Build numbers must be positive whole numbers.');
+  }
+  if (latestBuildNumber < minimumSupportedBuildNumber) {
+    throw new HttpsError('invalid-argument', 'Latest build must be equal to or higher than the minimum supported build.');
+  }
+  if (data.releaseReady === true && updateUrl.length === 0) {
+    throw new HttpsError('invalid-argument', 'An update URL is required before marking the release as ready.');
+  }
+
+  await db.doc('platform_config/android_release_policy').set({
+    enabled: data.enabled === true,
+    releaseReady: data.releaseReady === true,
+    minimumSupportedBuildNumber,
+    latestBuildNumber,
+    updateUrl,
+    titleEn: sanitizeShortString(data.titleEn, 120),
+    titleAr: sanitizeShortString(data.titleAr, 120),
+    bodyEn: sanitizeShortString(data.bodyEn, 500),
+    bodyAr: sanitizeShortString(data.bodyAr, 500),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: request.auth.uid,
+  }, { merge: true });
+
+  return { ok: true };
+});
+
+
+exports.getAndroidVersionAdoption = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+
+  try {
+    const snapshot = await db
+      .collectionGroup('notification_tokens')
+      .where('platform', '==', 'android')
+      .where('isActive', '==', true)
+      .limit(1000)
+      .get();
+
+    const groups = new Map();
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const buildNumber = parseBuildNumber(data.buildNumber);
+      const appVersion = sanitizePlainString(optionalString(data.appVersion), 80) || 'unknown';
+      const key = `${appVersion}|${buildNumber}`;
+      const current = groups.get(key) || {
+        appVersion,
+        buildNumber,
+        userIds: new Set(),
+        companyIds: new Set(),
+        activeDevices: 0,
+        latestSeenMillis: 0,
+      };
+      current.activeDevices += 1;
+      const uid = optionalString(data.uid);
+      const companyId = optionalString(data.companyId);
+      if (uid) {
+        current.userIds.add(uid);
+      }
+      if (companyId) {
+        current.companyIds.add(companyId);
+      }
+      const seenAt = data.lastSeenAt;
+      if (seenAt && typeof seenAt.toMillis === 'function') {
+        current.latestSeenMillis = Math.max(current.latestSeenMillis, seenAt.toMillis());
+      }
+      groups.set(key, current);
+    });
+
+    const rows = Array.from(groups.values())
+      .sort((a, b) => b.buildNumber - a.buildNumber)
+      .map((group) => ({
+        appVersion: group.appVersion === 'unknown' ? '' : group.appVersion,
+        buildNumber: group.buildNumber,
+        activeUsers: group.userIds.size,
+        activeDevices: group.activeDevices,
+        activeCompanies: group.companyIds.size,
+        latestSeenAt: group.latestSeenMillis > 0
+          ? new Date(group.latestSeenMillis).toISOString()
+          : null,
+      }));
+
+    return { rows };
+  } catch (error) {
+    console.error('getAndroidVersionAdoption failed; returning empty optional dashboard.', {
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? error.message : String(error),
+    });
+    return { rows: [] };
+  }
+});
+
+function androidReleasePolicyResponse({ currentBuildNumber, policy, serverNow }) {
+  const enabled = policy.enabled === true;
+  const releaseReady = policy.releaseReady === true;
+  const updateUrl = optionalString(policy.updateUrl);
+  const hasUpdateUrl = updateUrl.length > 0;
+  const updateGateEnabled = enabled && releaseReady && hasUpdateUrl;
+  const minimumSupportedBuildNumber = parseBuildNumber(
+    policy.minimumSupportedBuildNumber ?? policy.minSupportedBuildNumber,
+  );
+  const latestBuildNumber = parseBuildNumber(policy.latestBuildNumber);
+  const effectiveLatestBuildNumber = Math.max(
+    latestBuildNumber,
+    minimumSupportedBuildNumber,
+  );
+  const updateRequired = updateGateEnabled &&
+    minimumSupportedBuildNumber > 0 &&
+    currentBuildNumber > 0 &&
+    currentBuildNumber < minimumSupportedBuildNumber;
+  const updateAvailable = updateGateEnabled &&
+    effectiveLatestBuildNumber > 0 &&
+    currentBuildNumber > 0 &&
+    currentBuildNumber < effectiveLatestBuildNumber;
+
+  return {
+    enabled,
+    releaseReady,
+    updateRequired,
+    updateAvailable,
+    currentBuildNumber,
+    minimumSupportedBuildNumber,
+    latestBuildNumber: effectiveLatestBuildNumber,
+    updateUrl,
+    serverTime: serverNow.toISOString(),
+    gracePeriodStartedAt: timestampToIsoString(policy.gracePeriodStartedAt),
+    gracePeriodEndsAt: timestampToIsoString(policy.gracePeriodEndsAt),
+    titleEn: sanitizeShortString(policy.titleEn, 120),
+    titleAr: sanitizeShortString(policy.titleAr, 120),
+    bodyEn: sanitizeShortString(policy.bodyEn, 500),
+    bodyAr: sanitizeShortString(policy.bodyAr, 500),
+  };
+}
+
+function parseBuildNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function timestampToIsoString(value) {
+  if (!value) {
+    return '';
+  }
+  if (typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  }
+  return '';
+}
+
 
 const ROLES = new Set(['admin', 'manager', 'salesAgent', 'marketing', 'viewer']);
 const COMPANY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,48}[a-z0-9]$/;
@@ -71,6 +260,7 @@ const FEATURE_KEYS = new Set([
   'appointments',
   'deals',
   'reports',
+  'exports',
   'auditLogs',
   'notifications',
   'userManagement',
@@ -94,6 +284,15 @@ const APPOINTMENT_STATUSES = new Set([
   'cancelled',
   'missed',
   'rescheduled',
+]);
+const APPOINTMENT_OUTCOMES = new Set([
+  'successfulMeeting',
+  'noAnswer',
+  'clientPostponed',
+  'clientNotInterested',
+  'followUpNeeded',
+  'dealOpportunity',
+  'other',
 ]);
 const LEAD_SOURCES = new Set([
   'facebook',
@@ -179,6 +378,8 @@ const NOTIFICATION_TYPES = new Set([
 ]);
 const NOTIFICATION_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
 const NOTIFICATION_ACTION_STATES = new Set(['none', 'actionNeeded', 'resolved', 'dismissed']);
+const NOTIFICATION_DELIVERY_MODES = new Set(['inAppOnly', 'pushEligible', 'attentionOnly', 'auditOnly']);
+const NOTIFICATION_RECIPIENT_SCOPES = new Set(['user', 'managerTeam', 'admins', 'platformOwner']);
 const PLATFORM_NOTIFICATION_TYPES = new Set([
   'companyRegistered',
   'companyCreated',
@@ -211,6 +412,8 @@ const PLATFORM_NOTIFICATION_TYPES = new Set([
   'paymentMarkedPaid',
 ]);
 const PLATFORM_NOTIFICATION_SEVERITIES = new Set(['info', 'success', 'warning', 'urgent']);
+const PLATFORM_NOTIFICATION_DELIVERY_MODES = new Set(['inAppOnly', 'pushEligible', 'attentionOnly', 'auditOnly']);
+const PLATFORM_NOTIFICATION_RECIPIENT_SCOPES = new Set(['user', 'managerTeam', 'admins', 'platformOwner']);
 const PLATFORM_NOTIFICATION_SOURCES = new Set([
   'platform',
   'support',
@@ -219,6 +422,38 @@ const PLATFORM_NOTIFICATION_SOURCES = new Set([
   'user',
   'storage',
   'system',
+]);
+const REPORT_EXPORT_TYPES = new Set([
+  'reportsExport',
+  'auditLogsExport',
+  'platformCompanyExport',
+]);
+const REPORT_EXPORT_MODULES = new Set([
+  'leads',
+  'clients',
+  'deals',
+  'tasks',
+  'appointments',
+  'properties',
+  'teamPerformance',
+  'pipeline',
+  'followUps',
+  'auditSummary',
+  'auditLogs',
+]);
+const REPORT_EXPORT_DATE_RANGES = new Set([
+  'allTime',
+  'today',
+  'thisWeek',
+  'thisMonth',
+  'lastMonth',
+  'custom',
+]);
+const REPORT_EXPORT_SCOPES = new Set([
+  'companyWide',
+  'teamOnly',
+  'assignedOnly',
+  'restricted',
 ]);
 const PLATFORM_ERROR_SOURCES = new Set([
   'flutter_web',
@@ -427,8 +662,8 @@ exports.acceptCompanyInvitation = onCall(async (request) => {
     const adminFullName = sanitizeProfileName(data.adminFullName);
     const adminPhone = sanitizeShortString(data.adminPhone, 80);
     const adminEmail = normalizeEmail(requiredString(data.adminEmail, 'adminEmail'));
-    const password = requiredString(data.password, 'password');
-    const confirmPassword = optionalString(data.confirmPassword);
+    const password = requiredPassword(data.password, 'password');
+    const confirmPassword = optionalPassword(data.confirmPassword);
     const locale = optionalString(data.locale) || 'en';
     const timezone = optionalString(data.timezone) || 'Africa/Cairo';
 
@@ -1062,6 +1297,7 @@ exports.createCompanyWithAdmin = onCall(async (request) => {
       appointments: true,
       deals: true,
       reports: true,
+      exports: true,
       auditLogs: true,
       notifications: true,
       userManagement: true,
@@ -1116,7 +1352,7 @@ exports.addUserToCompany = onCall(async (request) => {
   const email = normalizeEmail(requiredString(data.email, 'email'));
   const phone = optionalString(data.phone);
   const role = requiredString(data.role, 'role');
-  const temporaryPassword = optionalString(data.temporaryPassword);
+  const temporaryPassword = optionalPassword(data.temporaryPassword);
   const usesTemporaryPassword = temporaryPassword.length > 0;
 
   validateCompanyId(companyId);
@@ -2443,6 +2679,871 @@ exports.updateCompanyPaymentStatus = onCall(async (request) => {
   return { companyId, paymentStatus };
 });
 
+exports.recordReportExportActivity = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const actorUid = request.auth && request.auth.uid ? request.auth.uid : '';
+  if (!actorUid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'This role cannot export reports.');
+  }
+  await requireCompanyExportsEnabled(companyId);
+
+  const exportType = enumValueOrDefault(
+    data.exportType,
+    REPORT_EXPORT_TYPES,
+    'reportsExport',
+  );
+  const reportType = enumValueOrDefault(
+    data.reportType || data.exportedModule,
+    REPORT_EXPORT_MODULES,
+    'leads',
+  );
+  const dateRangePreset = enumValueOrDefault(
+    data.dateRangePreset,
+    REPORT_EXPORT_DATE_RANGES,
+    'thisMonth',
+  );
+  const exportScope = enumValueOrDefault(
+    data.exportScope,
+    REPORT_EXPORT_SCOPES,
+    exportScopeForRole(actorRole),
+  );
+
+  assertReportExportAllowed({ actorRole, exportType, reportType, exportScope });
+
+  const rowCount = boundedExportInteger(data.rowCount, 0, 2000);
+  const selectedColumns = safeStringList(data.selectedColumns, 40, 80);
+  const selectedColumnsCount = boundedExportInteger(
+    data.selectedColumnsCount,
+    selectedColumns.length,
+    200,
+  );
+  const labels = serverExportLabels(data.labels);
+  const exportedModules = safeStringList(data.exportedModules, 20, 80)
+    .filter((module) => REPORT_EXPORT_MODULES.has(module));
+  const exportedModuleLabels = exportedModules.length > 1
+    ? exportedModules.map((module) => labelForExport(labels, `module.${module}`, module))
+    : [];
+  const exportedModulesLabel = exportedModuleLabels.length > 1
+    ? exportedModuleLabels.join(', ')
+    : '';
+  const reportTypeLabel = sanitizeLogText(
+    exportedModulesLabel || optionalString(data.reportTypeLabel) || labelForExport(labels, `module.${reportType}`, reportType),
+    220,
+  );
+  const dateRangeLabel = sanitizeLogText(
+    optionalString(data.dateRangeLabel) || dateRangePreset,
+    120,
+  );
+  const filtersSummary = sanitizeLogText(optionalString(data.filtersSummary), 300);
+  const fileFormat = optionalString(data.fileFormat).toLowerCase() === 'excel'
+    ? 'Excel'
+    : 'Excel';
+  const exportedAt = new Date();
+  const exportedAtIso = exportedAt.toISOString();
+  const exportedAtLabel = exportedAtIso.slice(0, 16).replace('T', ' ');
+  const limitedByCap = data.limitedByCap === true;
+  const module = exportType === 'auditLogsExport' ? 'auditLogs' : 'reports';
+  const actorName = sanitizeLogText(
+    optionalString(actor.fullName) || optionalString(actor.email) || actorRole,
+    160,
+  );
+  const actorEmail = sanitizeLogText(optionalString(actor.email), 180);
+  const exportScopeSnapshot = await resolveExportActorScope({
+    companyId,
+    actor,
+    actorUid,
+    actorRole,
+    actorName,
+  });
+  const teamId = exportScopeSnapshot.teamId;
+  const teamName = exportScopeSnapshot.teamName;
+  const managerId = exportScopeSnapshot.managerId;
+  const managerName = exportScopeSnapshot.managerName;
+
+  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+  const notificationResult = await createExportSupervisorNotifications({
+    companyId,
+    actorUid,
+    actorRole,
+    actorName,
+    actorEmail,
+    teamId,
+    teamName,
+    managerId,
+    auditLogId: auditRef.id,
+    exportType,
+    reportType,
+    reportTypeLabel,
+    exportedModules,
+    exportedModuleLabels,
+    dateRangeLabel,
+    exportedAtLabel,
+    exportScope,
+    rowCount,
+  });
+
+  await auditRef.set({
+    id: auditRef.id,
+    companyId,
+    actorId: actorUid,
+    actorName,
+    actorEmail,
+    actorRole,
+    action: 'exported',
+    module,
+    recordId: reportType,
+    recordTitle: reportTypeLabel,
+    recordSubtitle: `${fileFormat} - ${dateRangeLabel}`,
+    assignedTo: actorRole === 'salesAgent' || actorRole === 'marketing'
+      ? actorUid
+      : '',
+    teamId,
+    teamName,
+    managerId,
+    managerName,
+    createdAt: FieldValue.serverTimestamp(),
+    metadata: {
+      exportType,
+      reportType,
+      exportedModule: reportType,
+      reportTypeLabel,
+      exportedModules,
+      exportedModuleLabels,
+      exportedModulesLabel,
+      dateRangePreset,
+      dateRangeLabel,
+      exportedAt: exportedAtIso,
+      filtersSummary,
+      selectedColumns,
+      selectedColumnsCount,
+      rowCount,
+      fileFormat,
+      exportScope,
+      limitedByCap,
+      auditLogId: auditRef.id,
+      notifiedAdminCount: notificationResult.notifiedAdminCount,
+      notifiedManagerCount: notificationResult.notifiedManagerCount,
+    },
+  });
+
+  return {
+    auditLogId: auditRef.id,
+    notifiedAdminCount: notificationResult.notifiedAdminCount,
+    notifiedManagerCount: notificationResult.notifiedManagerCount,
+  };
+});
+
+
+exports.generateReportExportFile = onCall(async (request) => {
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const actorUid = request.auth && request.auth.uid ? request.auth.uid : '';
+  if (!actorUid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'This role cannot export reports.');
+  }
+  await requireCompanyExportsEnabled(companyId);
+
+  const exportType = enumValueOrDefault(
+    data.exportType,
+    REPORT_EXPORT_TYPES,
+    'reportsExport',
+  );
+  const reportType = enumValueOrDefault(
+    data.reportType || data.exportedModule,
+    REPORT_EXPORT_MODULES,
+    'leads',
+  );
+  const dateRangePreset = enumValueOrDefault(
+    data.dateRangePreset,
+    REPORT_EXPORT_DATE_RANGES,
+    'thisMonth',
+  );
+  const exportScope = enumValueOrDefault(
+    data.exportScope,
+    REPORT_EXPORT_SCOPES,
+    exportScopeForRole(actorRole),
+  );
+  assertReportExportAllowed({ actorRole, exportType, reportType, exportScope });
+
+  const labels = serverExportLabels(data.labels);
+  const reportTypeLabel = sanitizeLogText(
+    optionalString(data.reportTypeLabel) || labelForExport(labels, `module.${reportType}`, reportType),
+    160,
+  );
+  const dateRangeLabel = sanitizeLogText(
+    optionalString(data.dateRangeLabel) || labelForExport(labels, `dateRange.${dateRangePreset}`, dateRangePreset),
+    120,
+  );
+  const filtersSummary = sanitizeLogText(optionalString(data.filtersSummary), 300);
+  const statusFilter = optionalString(data.statusFilter);
+  const assigneeId = optionalString(data.assigneeId);
+  const includeArchived = data.includeArchived === true;
+  const outputLanguage = optionalString(data.outputLanguage) === 'ar' ? 'ar' : 'en';
+  const selectedColumns = safeStringList(data.selectedColumns, 80, 80);
+  const exportScopeSnapshot = await resolveExportActorScope({
+    companyId,
+    actor,
+    actorUid,
+    actorRole,
+    actorName: sanitizeLogText(optionalString(actor.fullName) || optionalString(actor.email) || actorRole, 160),
+  });
+  const dateWindow = serverExportDateWindow({
+    dateRangePreset,
+    customStart: data.customStart,
+    customEnd: data.customEnd,
+  });
+
+  const dataset = await buildServerReportDataset({
+    companyId,
+    actorUid,
+    actorRole,
+    teamId: exportScopeSnapshot.teamId,
+    managerId: exportScopeSnapshot.managerId,
+    reportType,
+    labels,
+    selectedColumns,
+    dateWindow,
+    statusFilter,
+    assigneeId,
+    includeArchived,
+  });
+
+  const generatedAt = new Date();
+  const exportedAtIso = generatedAt.toISOString();
+  const exportedAtLabel = exportedAtIso.slice(0, 16).replace('T', ' ');
+  const actorName = sanitizeLogText(
+    optionalString(actor.fullName) || optionalString(actor.email) || actorRole,
+    160,
+  );
+  const actorEmail = sanitizeLogText(optionalString(actor.email), 180);
+  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+
+  const notificationResult = await createExportSupervisorNotifications({
+    companyId,
+    actorUid,
+    actorRole,
+    actorName,
+    actorEmail,
+    teamId: exportScopeSnapshot.teamId,
+    teamName: exportScopeSnapshot.teamName,
+    managerId: exportScopeSnapshot.managerId,
+    auditLogId: auditRef.id,
+    exportType,
+    reportType,
+    reportTypeLabel,
+    dateRangeLabel,
+    exportedAtLabel,
+    exportScope,
+    rowCount: dataset.recordCount,
+  });
+
+  const fileFormat = 'Excel';
+  await auditRef.set({
+    id: auditRef.id,
+    companyId,
+    actorId: actorUid,
+    actorName,
+    actorEmail,
+    actorRole,
+    action: 'exported',
+    module: exportType === 'auditLogsExport' ? 'auditLogs' : 'reports',
+    recordId: reportType,
+    recordTitle: reportTypeLabel,
+    recordSubtitle: `${fileFormat} - ${dateRangeLabel}`,
+    assignedTo: actorRole === 'salesAgent' || actorRole === 'marketing'
+      ? actorUid
+      : '',
+    teamId: exportScopeSnapshot.teamId,
+    teamName: exportScopeSnapshot.teamName,
+    managerId: exportScopeSnapshot.managerId,
+    managerName: exportScopeSnapshot.managerName,
+    createdAt: FieldValue.serverTimestamp(),
+    metadata: {
+      exportType,
+      reportType,
+      exportedModule: reportType,
+      reportTypeLabel,
+      dateRangePreset,
+      dateRangeLabel,
+      exportedAt: exportedAtIso,
+      filtersSummary,
+      selectedColumns: dataset.columns.map((column) => column.key).slice(0, 80),
+      selectedColumnsCount: dataset.columns.length,
+      rowCount: dataset.recordCount,
+      fileFormat,
+      exportScope,
+      limitedByCap: dataset.limitedByCap,
+      generatedServerSide: true,
+      auditLogId: auditRef.id,
+      notifiedAdminCount: notificationResult.notifiedAdminCount,
+      notifiedManagerCount: notificationResult.notifiedManagerCount,
+    },
+  });
+
+  const companyName = sanitizeLogText(optionalString(data.companyName) || companyId, 160);
+  const fileName = `masar_${companyId}_${reportType}_${serverExportFileStamp(generatedAt)}.xlsx`;
+  const workbook = buildServerXlsxWorkbook({
+    title: 'Masar CRM',
+    subtitle: reportTypeLabel,
+    summaryRows: [
+      [labelForExport(labels, 'company', 'Company'), companyName],
+      [labelForExport(labels, 'reportName', 'Report'), reportTypeLabel],
+      [labelForExport(labels, 'scope', 'Scope'), serverExportScopeLabel(labels, exportScope)],
+      [labelForExport(labels, 'dateRange', 'Date range'), dateRangeLabel],
+      [labelForExport(labels, 'generatedBy', 'Generated by'), actorName],
+      [labelForExport(labels, 'generatedAt', 'Generated at'), exportedAtLabel],
+      [labelForExport(labels, 'recordCount', 'Record count'), String(dataset.recordCount)],
+      [labelForExport(labels, 'filtersSummary', 'Filters'), filtersSummary],
+    ],
+    columns: dataset.columns.map((column) => column.label),
+    rows: dataset.rows,
+    summarySheetName: labelForExport(labels, 'reportSummary', 'Summary'),
+    dataSheetName: labelForExport(labels, 'dataSheet', 'Data'),
+    rtl: outputLanguage === 'ar',
+  });
+
+  return {
+    fileName,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    base64Data: workbook.toString('base64'),
+    generatedAt: exportedAtIso,
+    recordCount: dataset.recordCount,
+    auditLogId: auditRef.id,
+    notifiedAdminCount: notificationResult.notifiedAdminCount,
+    notifiedManagerCount: notificationResult.notifiedManagerCount,
+  };
+});
+
+function serverExportLabels(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const cleanKey = sanitizeLogText(String(key), 120);
+    if (!cleanKey) continue;
+    result[cleanKey] = sanitizeLogText(String(value ?? ''), 240);
+  }
+  return result;
+}
+
+function labelForExport(labels, key, fallback) {
+  return labels[key] || fallback || key;
+}
+
+function serverExportScopeLabel(labels, scope) {
+  switch (scope) {
+    case 'companyWide': return labelForExport(labels, 'scope.companyWide', 'Company-wide');
+    case 'teamOnly': return labelForExport(labels, 'scope.myTeam', 'My team');
+    case 'assignedOnly': return labelForExport(labels, 'scope.myRecords', 'My records');
+    default: return labelForExport(labels, 'scope.restricted', scope || 'Restricted');
+  }
+}
+
+function serverExportDateWindow({ dateRangePreset, customStart, customEnd }) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (dateRangePreset) {
+    case 'today':
+      return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
+    case 'thisWeek': {
+      const day = today.getDay();
+      const start = new Date(today.getTime() - day * 24 * 60 * 60 * 1000);
+      return { start, end: new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000) };
+    }
+    case 'thisMonth':
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: new Date(today.getFullYear(), today.getMonth() + 1, 1),
+      };
+    case 'lastMonth':
+      return {
+        start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+        end: new Date(today.getFullYear(), today.getMonth(), 1),
+      };
+    case 'custom': {
+      const start = new Date(optionalString(customStart));
+      const end = new Date(optionalString(customEnd));
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        return {
+          start: new Date(start.getFullYear(), start.getMonth(), start.getDate()),
+          end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+        };
+      }
+      return null;
+    }
+    case 'allTime':
+    default:
+      return null;
+  }
+}
+
+async function buildServerReportDataset({
+  companyId,
+  actorUid,
+  actorRole,
+  teamId,
+  managerId,
+  reportType,
+  labels,
+  selectedColumns,
+  dateWindow,
+  statusFilter,
+  assigneeId,
+  includeArchived,
+}) {
+  const collectionName = serverExportCollection(reportType);
+  if (!collectionName) {
+    throw new HttpsError('invalid-argument', 'Unsupported report export type.');
+  }
+  if (reportType === 'properties' && actorRole !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only admins can export properties.');
+  }
+  const docs = await fetchServerExportDocs({
+    companyId,
+    collectionName,
+    actorUid,
+    actorRole,
+    teamId,
+    managerId,
+  });
+  const columns = serverExportColumns(reportType, selectedColumns, labels);
+  const rows = [];
+  for (const doc of docs) {
+    const row = { id: doc.id, ...(doc.data || {}) };
+    if (!serverExportRowAllowed({ row, actorUid, actorRole, teamId, managerId, reportType })) continue;
+    if (!includeArchived && row.isArchived === true) continue;
+    if (row.isActive === false && ['clients', 'deals', 'tasks'].includes(reportType)) continue;
+    if (assigneeId && optionalString(row.assignedTo) !== assigneeId) continue;
+    if (statusFilter && !serverExportMatchesStatus(row, reportType, statusFilter)) continue;
+    if (dateWindow && !serverExportMatchesDate(row, reportType, dateWindow)) continue;
+    rows.push(columns.map((column) => serverExportCell(row, column.key)));
+    if (rows.length >= 2000) break;
+  }
+  return {
+    columns,
+    rows,
+    recordCount: rows.length,
+    limitedByCap: rows.length >= 2000,
+  };
+}
+
+function serverExportCollection(reportType) {
+  switch (reportType) {
+    case 'leads': return 'leads';
+    case 'clients': return 'clients';
+    case 'deals':
+    case 'pipeline': return 'deals';
+    case 'tasks':
+    case 'followUps': return 'tasks';
+    case 'appointments': return 'appointments';
+    case 'properties': return 'properties';
+    case 'teamPerformance': return 'users';
+    case 'auditSummary':
+    case 'auditLogs': return 'audit_logs';
+    default: return null;
+  }
+}
+
+async function fetchServerExportDocs({ companyId, collectionName, actorUid, actorRole, teamId, managerId }) {
+  const collection = db.collection(`companies/${companyId}/${collectionName}`);
+  const snapshots = [];
+  if (actorRole === 'admin') {
+    snapshots.push(await collection.limit(2001).get());
+  } else if (actorRole === 'manager') {
+    snapshots.push(await collection.where('managerId', '==', actorUid).limit(1200).get());
+    if (managerId && managerId !== actorUid) {
+      snapshots.push(await collection.where('managerId', '==', managerId).limit(1200).get());
+    }
+    if (teamId) {
+      snapshots.push(await collection.where('teamId', '==', teamId).limit(1200).get());
+    }
+  } else if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    snapshots.push(await collection.where('assignedTo', '==', actorUid).limit(2001).get());
+  }
+  const byId = new Map();
+  for (const snapshot of snapshots) {
+    for (const doc of snapshot.docs) {
+      byId.set(doc.id, { id: doc.id, data: doc.data() || {} });
+    }
+  }
+  return [...byId.values()];
+}
+
+function serverExportRowAllowed({ row, actorUid, actorRole, teamId, managerId, reportType }) {
+  if (actorRole === 'admin') return true;
+  if (actorRole === 'manager') {
+    const rowManagerId = optionalString(row.managerId);
+    const rowTeamId = optionalString(row.teamId);
+    return (rowManagerId && (rowManagerId === actorUid || rowManagerId === managerId)) ||
+      (teamId && rowTeamId === teamId);
+  }
+  if (actorRole === 'salesAgent' || actorRole === 'marketing') {
+    return optionalString(row.assignedTo) === actorUid;
+  }
+  return false;
+}
+
+function serverExportMatchesStatus(row, reportType, statusFilter) {
+  const value = reportType === 'deals' || reportType === 'pipeline'
+    ? optionalString(row.stage)
+    : optionalString(row.status);
+  return !statusFilter || value === statusFilter;
+}
+
+function serverExportMatchesDate(row, reportType, window) {
+  const raw = reportType === 'appointments'
+    ? row.scheduledAt
+    : reportType === 'followUps'
+      ? row.dueDate
+      : row.createdAt || row.updatedAt;
+  const date = serverExportDate(raw);
+  if (!date) return false;
+  return date >= window.start && date < window.end;
+}
+
+function serverExportDate(value) {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') return value.toDate();
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (typeof value === 'number') return new Date(value);
+  return null;
+}
+
+function serverExportColumns(reportType, selectedColumns, labels) {
+  const defaults = serverExportDefaultColumns(reportType);
+  const ids = selectedColumns.length > 0
+    ? selectedColumns.filter((id) => defaults.includes(id))
+    : defaults;
+  return ids.map((key) => ({ key, label: labelForExport(labels, `column.${key}`, humanizeServerExportKey(key)) }));
+}
+
+function serverExportDefaultColumns(reportType) {
+  switch (reportType) {
+    case 'leads': return ['leadName', 'phone', 'email', 'status', 'priority', 'source', 'assignedTo', 'team', 'manager', 'createdAt', 'updatedAt'];
+    case 'clients': return ['clientName', 'phone', 'email', 'assignedTo', 'team', 'manager', 'createdAt', 'updatedAt'];
+    case 'deals':
+    case 'pipeline': return ['dealTitle', 'client', 'property', 'stage', 'value', 'commission', 'assignedTo', 'team', 'manager', 'createdAt', 'updatedAt'];
+    case 'tasks':
+    case 'followUps': return ['title', 'status', 'priority', 'dueDate', 'assignedTo', 'team', 'manager', 'relatedType', 'relatedTitle', 'createdAt', 'updatedAt'];
+    case 'appointments': return ['title', 'scheduledAt', 'status', 'appointmentType', 'assignedTo', 'team', 'manager', 'relatedType', 'relatedTitle', 'location', 'createdAt', 'updatedAt'];
+    case 'properties': return ['propertyTitle', 'propertyType', 'listingType', 'status', 'price', 'location', 'bedrooms', 'bathrooms', 'area', 'assignedTo', 'createdAt', 'updatedAt', 'imageCount', 'archived'];
+    case 'teamPerformance': return ['fullName', 'email', 'role', 'team', 'manager', 'isActive', 'createdAt', 'updatedAt'];
+    case 'auditSummary':
+    case 'auditLogs': return ['createdAt', 'module', 'action', 'recordTitle', 'actor', 'assignedTo', 'team', 'manager'];
+    default: return ['title', 'status', 'assignedTo', 'createdAt'];
+  }
+}
+
+function serverExportCell(row, key) {
+  switch (key) {
+    case 'leadName': return cleanCell(row.fullName || row.name || row.title);
+    case 'clientName': return cleanCell(row.fullName || row.clientName || row.name);
+    case 'dealTitle': return cleanCell(row.title || row.clientName || row.propertyTitle || row.id);
+    case 'propertyTitle': return cleanCell(row.title || row.propertyTitle || row.name);
+    case 'appointmentType': return cleanCell(row.type || row.appointmentType);
+    case 'relatedType': return cleanCell(row.relatedType);
+    case 'relatedTitle': return cleanCell(row.relatedTitle || row.recordTitle);
+    case 'assignedTo': return cleanCell(row.assignedToName || row.assignedToEmail || row.assignedTo);
+    case 'team': return cleanCell(row.teamName || row.teamId);
+    case 'manager': return cleanCell(row.managerName || row.managerId);
+    case 'client': return cleanCell(row.clientName || row.clientTitle || row.clientId);
+    case 'property': return cleanCell(row.propertyTitle || row.propertyId);
+    case 'value': return cleanCell(row.value || row.dealValue || row.amount);
+    case 'imageCount': return Array.isArray(row.imageUrls) ? String(row.imageUrls.length) : cleanCell(row.imageCount);
+    case 'actor': return cleanCell(row.actorName || row.actorEmail || row.actorId);
+    case 'role': return cleanCell(row.role || row.actorRole);
+    case 'createdAt':
+    case 'updatedAt':
+    case 'scheduledAt':
+    case 'dueDate':
+    case 'expectedCloseDate': return formatServerExportDate(row[key]);
+    default: return cleanCell(row[key]);
+  }
+}
+
+function cleanCell(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return String(value);
+  if (typeof value.toDate === 'function') return formatServerExportDate(value);
+  if (Array.isArray(value)) return value.map(cleanCell).filter(Boolean).join(', ');
+  if (typeof value === 'object') return '';
+  return sanitizeLogText(String(value), 500);
+}
+
+function formatServerExportDate(value) {
+  const date = serverExportDate(value);
+  if (!date) return '';
+  return date.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+function humanizeServerExportKey(key) {
+  return String(key || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function serverExportFileStamp(date) {
+  return date.toISOString().slice(0, 16).replace(/[-:T]/g, '');
+}
+
+function buildServerXlsxWorkbook({ title, subtitle, summaryRows, columns, rows, summarySheetName, dataSheetName, rtl }) {
+  const sheets = [
+    {
+      name: safeSheetName(summarySheetName || 'Summary'),
+      rows: [
+        [title],
+        [subtitle],
+        [],
+        ['Field', 'Value'],
+        ...summaryRows,
+      ],
+      rtl,
+    },
+    {
+      name: safeSheetName(dataSheetName || 'Data'),
+      rows: [
+        [title + ' - ' + subtitle],
+        [],
+        [...columns],
+        ...rows,
+      ],
+      rtl,
+    },
+  ];
+  return buildMinimalXlsx(sheets);
+}
+
+function buildPlatformXlsxPayload({ companyId, company, collections, data, exportedAt }) {
+  const sheets = [
+    {
+      name: 'Summary',
+      rows: [
+        ['Masar CRM'],
+        ['Company export'],
+        [],
+        ['Company ID', companyId],
+        ['Company', cleanCell(company.displayName || company.name || companyId)],
+        ['Exported at', exportedAt.toISOString()],
+        ['Sections', collections.join(', ')],
+      ],
+      rtl: false,
+    },
+  ];
+  for (const collectionName of collections) {
+    const items = Array.isArray(data[collectionName]) ? data[collectionName] : [];
+    const keys = platformExportKeys(items);
+    sheets.push({
+      name: safeSheetName(collectionName),
+      rows: [
+        [collectionName],
+        [],
+        keys,
+        ...items.map((item) => keys.map((key) => cleanCell(item[key]))),
+      ],
+      rtl: false,
+    });
+  }
+  return buildMinimalXlsx(sheets);
+}
+
+function platformExportKeys(items) {
+  const blocked = new Set(['imageUrls', 'imageStoragePaths', 'photoUrl', 'downloadUrl', 'storagePath', 'token', 'password', 'resetLink']);
+  const keys = [];
+  for (const item of items.slice(0, 100)) {
+    if (!item || typeof item !== 'object') continue;
+    for (const key of Object.keys(item)) {
+      const lower = key.toLowerCase();
+      if (blocked.has(key) || lower.includes('token') || lower.includes('secret') || lower.includes('password')) continue;
+      if (!keys.includes(key) && keys.length < 40) keys.push(key);
+    }
+  }
+  return keys.length > 0 ? keys : ['id'];
+}
+
+function safeSheetName(name) {
+  const clean = String(name || 'Sheet').replace(/[\\/?*\[\]:]/g, ' ').trim().slice(0, 31);
+  return clean || 'Sheet';
+}
+
+function buildMinimalXlsx(sheets) {
+  const files = [];
+  files.push({ name: '[Content_Types].xml', content: Buffer.from(xlsxContentTypes(sheets.length), 'utf8') });
+  files.push({ name: '_rels/.rels', content: Buffer.from(xlsxRootRels(), 'utf8') });
+  files.push({ name: 'xl/workbook.xml', content: Buffer.from(xlsxWorkbook(sheets), 'utf8') });
+  files.push({ name: 'xl/_rels/workbook.xml.rels', content: Buffer.from(xlsxWorkbookRels(sheets.length), 'utf8') });
+  files.push({ name: 'xl/styles.xml', content: Buffer.from(xlsxStyles(), 'utf8') });
+  sheets.forEach((sheet, index) => {
+    files.push({ name: `xl/worksheets/sheet${index + 1}.xml`, content: Buffer.from(xlsxWorksheet(sheet), 'utf8') });
+  });
+  return zipStore(files);
+}
+
+function xlsxContentTypes(sheetCount) {
+  let overrides = '';
+  for (let i = 1; i <= sheetCount; i++) {
+    overrides += `<Override PartName="/xl/worksheets/sheet${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${overrides}</Types>`;
+}
+
+function xlsxRootRels() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+}
+
+function xlsxWorkbook(sheets) {
+  const sheetXml = sheets.map((sheet, index) => `<sheet name="${xmlEscape(safeSheetName(sheet.name))}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetXml}</sheets></workbook>`;
+}
+
+function xlsxWorkbookRels(sheetCount) {
+  let rels = '';
+  for (let i = 1; i <= sheetCount; i++) {
+    rels += `<Relationship Id="rId${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i}.xml"/>`;
+  }
+  rels += `<Relationship Id="rId${sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`;
+}
+
+function xlsxStyles() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+
+function xlsxWorksheet(sheet) {
+  const rows = sheet.rows || [];
+  const rowXml = rows.map((row, rowIndex) => {
+    const cells = (row || []).map((value, colIndex) => {
+      const ref = xlsxColumnName(colIndex + 1) + (rowIndex + 1);
+      const style = rowIndex === 0 || rowIndex === 2 ? ' s="1"' : '';
+      return `<c r="${ref}" t="inlineStr"${style}><is><t>${xmlEscape(cleanCell(value))}</t></is></c>`;
+    }).join('');
+    return `<row r="${rowIndex + 1}">${cells}</row>`;
+  }).join('');
+  const rtl = sheet.rtl ? '<sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews>' : '<sheetViews><sheetView workbookViewId="0"/></sheetViews>';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${rtl}<sheetData>${rowXml}</sheetData></worksheet>`;
+}
+
+function xlsxColumnName(index) {
+  let name = '';
+  let value = index;
+  while (value > 0) {
+    const rem = (value - 1) % 26;
+    name = String.fromCharCode(65 + rem) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+
+function xmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+const CRC_TABLE = (() => {
+  const table = new Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buffer) {
+  let crc = 0 ^ (-1);
+  for (let i = 0; i < buffer.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buffer[i]) & 0xFF];
+  }
+  return (crc ^ (-1)) >>> 0;
+}
+
+function zipStore(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for (const file of files) {
+    const nameBuffer = Buffer.from(file.name, 'utf8');
+    const content = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content || '');
+    const crc = crc32(content);
+    const local = Buffer.alloc(30 + nameBuffer.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(content.length, 18);
+    local.writeUInt32LE(content.length, 22);
+    local.writeUInt16LE(nameBuffer.length, 26);
+    local.writeUInt16LE(0, 28);
+    nameBuffer.copy(local, 30);
+    localParts.push(local, content);
+
+    const central = Buffer.alloc(46 + nameBuffer.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(0, 14);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(content.length, 20);
+    central.writeUInt32LE(content.length, 24);
+    central.writeUInt16LE(nameBuffer.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt16LE(0, 34);
+    central.writeUInt16LE(0, 36);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    nameBuffer.copy(central, 46);
+    centralParts.push(central);
+    offset += local.length + content.length;
+  }
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+  return Buffer.concat([...localParts, ...centralParts, end]);
+}
+
 
 
 exports.listPlatformErrorLogs = onCall(async (request) => {
@@ -2517,7 +3618,27 @@ exports.exportCompanyDataForPlatform = onCall(async (request) => {
     }));
   }
 
-  return result;
+  const exportedAt = new Date();
+  const workbook = buildPlatformXlsxPayload({
+    companyId,
+    company: result.company,
+    collections,
+    data: result.data,
+    exportedAt,
+  });
+  // Platform owner exports are administrative platform operations. They should
+  // not create company-visible audit logs or tenant admin notifications, because
+  // the company export feature toggle only controls tenant/company users.
+
+
+  return {
+    ...result,
+    fileName: `masar_${companyId}_platform_export_${serverExportFileStamp(exportedAt)}.xlsx`,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    base64Data: workbook.toString('base64'),
+    generatedAt: exportedAt.toISOString(),
+    recordCount: Object.values(result.data).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0),
+  };
 });
 
 exports.expireTrialCompanies = onSchedule('every 1 minutes', async () => {
@@ -2845,8 +3966,18 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   if (targetUser.companyId && targetUser.companyId !== companyId) {
     throw new HttpsError('permission-denied', 'Company user does not belong to this company.');
   }
+  const wasPlatformLocked = targetUser.platformDisabled === true ||
+    targetUser.platformDisabledAt ||
+    (targetUser.isActive === false && await isActivePlatformAdminUid(optionalString(targetUser.updatedBy)));
+
   if (!isPlatformActor) {
     enforceUserManagementFeature(company, false);
+    if (isActive && wasPlatformLocked) {
+      throw new HttpsError(
+        'permission-denied',
+        'This user was disabled by the platform owner. Contact platform owner support to reactivate it.',
+      );
+    }
     assertCompanyAdminCanManageTarget({
       actorUid,
       targetUid: uid,
@@ -2856,21 +3987,67 @@ exports.setCompanyUserActiveStatus = onCall(async (request) => {
   }
   if (!isActive) {
     await revokeRefreshTokensForUid(uid);
+    if (isPlatformActor) {
+      try {
+        await auth.updateUser(uid, { disabled: true });
+      } catch (error) {
+        if (!error || error.code !== 'auth/user-not-found') {
+          throw error;
+        }
+      }
+    }
+  } else {
+    // Older platform/user-management flows could leave Firebase Auth disabled
+    // while the company profile is reactivated. Re-enable Auth for allowed
+    // reactivation so the company Admin action actually restores login access.
+    try {
+      await auth.updateUser(uid, { disabled: false });
+    } catch (error) {
+      if (error && error.code === 'auth/user-not-found') {
+        const now = FieldValue.serverTimestamp();
+        await db.doc(`companies/${companyId}/users/${uid}`).set({
+          isActive: false,
+          authMissing: true,
+          authMissingAt: now,
+          updatedAt: now,
+          updatedBy: actorUid,
+        }, { merge: true });
+        throw new HttpsError(
+          'not-found',
+          'This company user has no Firebase Auth account. Recreate the user or repair it from platform data health.',
+        );
+      }
+      throw error;
+    }
   }
 
   const now = FieldValue.serverTimestamp();
   const status = isActive ? 'active' : 'inactive';
   const batch = db.batch();
-  batch.update(db.doc(`companies/${companyId}/users/${uid}`), {
+  const companyUserUpdate = {
     isActive,
+    authMissing: false,
     updatedAt: now,
     updatedBy: actorUid,
-  });
-  batch.update(db.doc(`users/${uid}/memberships/${companyId}`), {
+  };
+  if (isPlatformActor && !isActive) {
+    companyUserUpdate.platformDisabled = true;
+    companyUserUpdate.platformDisabledAt = now;
+    companyUserUpdate.platformDisabledBy = actorUid;
+  }
+  if (isPlatformActor && isActive) {
+    companyUserUpdate.platformDisabled = false;
+    companyUserUpdate.platformDisabledBy = '';
+    companyUserUpdate.platformReactivatedAt = now;
+    companyUserUpdate.platformReactivatedBy = actorUid;
+  }
+  batch.update(db.doc(`companies/${companyId}/users/${uid}`), companyUserUpdate);
+  batch.set(db.doc(`users/${uid}/memberships/${companyId}`), {
+    companyId,
     isActive,
     status,
     updatedAt: now,
-  });
+  }, { merge: true });
   await batch.commit();
   await syncGlobalUserActiveStatus(uid);
   {
@@ -2907,7 +4084,7 @@ exports.setCompanyUserPassword = onCall(async (request) => {
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
   const uid = requiredString(data.uid, 'uid');
-  const newPassword = requiredString(data.newPassword, 'newPassword');
+  const newPassword = requiredPassword(data.newPassword, 'newPassword');
   validateCompanyId(companyId);
   validatePassword(newPassword);
 
@@ -3027,6 +4204,91 @@ exports.setCompanyUserEmail = onCall(async (request) => {
 });
 
 
+exports.setPlatformOwnerEmail = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const uid = optionalString(data.uid) || actorUid;
+  const newEmail = normalizeEmail(requiredString(data.newEmail || data.email, 'email'));
+  validateEmail(newEmail);
+
+  if (uid !== actorUid) {
+    throw new HttpsError('permission-denied', 'You can only update your own platform owner email.');
+  }
+
+  const [platformAdminSnapshot, userRecord] = await Promise.all([
+    db.doc(`platform_admins/${uid}`).get(),
+    auth.getUser(uid),
+  ]);
+  if (!platformAdminSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Platform owner profile was not found.');
+  }
+  const platformAdmin = platformAdminSnapshot.data() || {};
+  if (platformAdmin.isActive === false) {
+    throw new HttpsError('permission-denied', 'Platform owner profile is inactive.');
+  }
+
+  const oldEmail = normalizeEmail(userRecord.email || platformAdmin.email || '');
+  if (oldEmail === newEmail) {
+    return { uid, email: newEmail };
+  }
+
+  try {
+    const existing = await auth.getUserByEmail(newEmail);
+    if (existing.uid !== uid) {
+      throw new HttpsError('already-exists', 'Email is already used by another user.');
+    }
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    if (error.code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
+
+  await auth.updateUser(uid, {
+    email: newEmail,
+    emailVerified: false,
+  });
+
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.set(db.doc(`platform_admins/${uid}`), {
+    email: newEmail,
+    updatedAt: now,
+    updatedBy: actorUid,
+  }, { merge: true });
+  batch.set(db.doc(`users/${uid}`), {
+    email: newEmail,
+    updatedAt: now,
+  }, { merge: true });
+  batch.set(db.collection('platform_security_alerts').doc(), {
+    type: 'platformOwnerEmailChanged',
+    targetUid: uid,
+    oldEmail,
+    newEmail,
+    actorUid,
+    createdAt: now,
+  });
+  await batch.commit();
+
+  await createPlatformNotificationSafely('set_platform_owner_email', {
+    type: 'platformOwnerEmailChanged',
+    title: 'Platform owner email changed',
+    message: `Platform owner email changed from ${oldEmail} to ${newEmail}.`,
+    severity: 'warning',
+    source: 'security',
+    route: '/platform/settings',
+    actorId: actorUid,
+    actorName: optionalString(platformAdmin.fullName),
+    actorEmail: newEmail,
+    metadata: { targetUid: uid, oldEmail, newEmail },
+  });
+
+  return { uid, email: newEmail };
+});
+
+
 exports.updateOwnProfileSettings = onCall(async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'Sign in is required.');
@@ -3044,6 +4306,17 @@ exports.updateOwnProfileSettings = onCall(async (request) => {
 
   if (!hasFullName && !hasPhotoUrl && !hasPhotoStoragePath) {
     throw new HttpsError('invalid-argument', 'No profile fields were provided.');
+  }
+
+  let companyUser = null;
+  if (companyId) {
+    validateCompanyId(companyId);
+    companyUser = await requireActiveCompanyUser(request, companyId);
+    if (hasFullName && optionalString(companyUser.role) !== 'admin') {
+      throw new HttpsError('permission-denied', 'Only company admins can update their profile name.');
+    }
+  } else {
+    await requireActivePlatformAdmin(request);
   }
 
   const profileUpdate = {
@@ -3075,11 +4348,8 @@ exports.updateOwnProfileSettings = onCall(async (request) => {
   batch.set(db.doc(`users/${uid}`), profileUpdate, { merge: true });
 
   if (companyId) {
-    validateCompanyId(companyId);
-    await requireActiveCompanyUser(request, companyId);
     batch.set(db.doc(`companies/${companyId}/users/${uid}`), profileUpdate, { merge: true });
   } else {
-    await requireActivePlatformAdmin(request);
     batch.set(db.doc(`platform_admins/${uid}`), profileUpdate, { merge: true });
   }
 
@@ -3227,6 +4497,16 @@ exports.saveLeadRecord = onCall(async (request) => {
     isCreate: operation === 'create',
   });
 
+  const hasDuplicateLead = await hasDuplicateLeadRecord({
+    companyId,
+    phone: payload.phone,
+    email: payload.email,
+    excludeLeadId: operation === 'update' ? leadId : '',
+  });
+  if (hasDuplicateLead) {
+    throw new HttpsError('already-exists', 'Lead already exists.');
+  }
+
   if (operation === 'create') {
     await leadRef.set(payload);
   } else {
@@ -3254,6 +4534,31 @@ exports.saveLeadRecord = onCall(async (request) => {
   }).catch(() => undefined);
 
   return { companyId, leadId };
+});
+
+exports.checkDuplicateLead = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const data = request.data || {};
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const actor = await requireActiveCompanyUser(request, companyId);
+  const actorRole = optionalString(actor.role);
+  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'You do not have permission to check lead duplicates.');
+  }
+
+  const duplicate = await hasDuplicateLeadRecord({
+    companyId,
+    phone: optionalString(data.phone),
+    email: optionalString(data.email),
+    excludeLeadId: optionalString(data.excludeLeadId),
+  });
+
+  return { duplicate };
 });
 
 
@@ -3752,6 +5057,12 @@ exports.saveAppointmentRecord = onCall(async (request) => {
     after: payload,
   }).catch(() => undefined);
 
+  await resolveStaleAppointmentTimingNotifications({
+    companyId,
+    appointmentId,
+    appointment: payload,
+  }).catch(() => undefined);
+
   await createAppointmentTimingNotifications({
     companyId,
     appointmentId,
@@ -3765,6 +5076,199 @@ exports.saveAppointmentRecord = onCall(async (request) => {
 
 
 
+
+
+exports.registerCompanyNotificationToken = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in is required.');
+    }
+
+    const data = request.data || {};
+    const companyId = requiredString(data.companyId, 'companyId');
+    validateCompanyId(companyId);
+    const token = sanitizeNotificationToken(data.token);
+    const platform = sanitizeNotificationTokenPlatform(data.platform);
+    const locale = sanitizeNotificationTokenLocale(data.locale);
+    const uid = request.auth.uid;
+
+    const [companySnapshot, companyUserSnapshot, userRecord] = await Promise.all([
+      db.doc(`companies/${companyId}`).get(),
+      db.doc(`companies/${companyId}/users/${uid}`).get(),
+      auth.getUser(uid).catch(() => null),
+    ]);
+
+    if (!companySnapshot.exists) {
+      throw new HttpsError('not-found', 'Company was not found.');
+    }
+    const company = companySnapshot.data() || {};
+    if (company.isActive !== true || company.status === 'inactive') {
+      throw new HttpsError('failed-precondition', 'Company is inactive.');
+    }
+    if (!companyUserSnapshot.exists) {
+      throw new HttpsError('permission-denied', 'Company user was not found.');
+    }
+    const companyUser = companyUserSnapshot.data() || {};
+    if (companyUser.companyId !== companyId || companyUser.isActive !== true) {
+      throw new HttpsError('permission-denied', 'Company user is inactive.');
+    }
+
+    const tokenHash = notificationTokenHash(token);
+    const tokenRef = db.collection(`companies/${companyId}/notification_tokens`).doc(tokenHash);
+
+    if (!companyFeatureEnabled(company, 'notifications')) {
+      await tokenRef.set({
+        tokenHash,
+        token: '',
+        scope: 'company',
+        companyId,
+        uid,
+        platform,
+        isActive: false,
+        deactivatedReason: 'notifications-feature-disabled',
+        deactivatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { registered: false, reason: 'notifications-feature-disabled' };
+    }
+
+    await deactivateNotificationTokenEverywhere({
+      tokenHash,
+      keepPath: tokenRef.path,
+      reason: 'registered-company-token',
+    });
+
+    const now = FieldValue.serverTimestamp();
+    await tokenRef.set({
+      tokenHash,
+      token,
+      scope: 'company',
+      companyId,
+      uid,
+      email: sanitizePlainString(optionalString(companyUser.email) || optionalString(userRecord && userRecord.email), 180),
+      fullName: sanitizePlainString(optionalString(companyUser.fullName) || optionalString(userRecord && userRecord.displayName), 160),
+      role: sanitizePlainString(optionalString(companyUser.role), 40),
+      teamId: sanitizePlainString(optionalString(companyUser.teamId), 160),
+      teamName: sanitizePlainString(optionalString(companyUser.teamName), 160),
+      managerId: sanitizePlainString(optionalString(companyUser.managerId), 160),
+      managerName: sanitizePlainString(optionalString(companyUser.managerName), 160),
+      locale,
+      platform,
+      appVersion: sanitizeShortString(data.appVersion, 40),
+      buildNumber: sanitizeShortString(data.buildNumber, 20),
+      timezone: sanitizeShortString(data.timezone, 80),
+      userAgent: sanitizeShortString(data.userAgent, 600),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      lastSeenAt: now,
+      deactivatedAt: null,
+      deactivatedReason: '',
+    }, { merge: true });
+
+    return { registered: true, scope: 'company', companyId, tokenHash };
+  },
+);
+
+exports.registerPlatformNotificationToken = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    const uid = await requireActivePlatformAdmin(request);
+    const data = request.data || {};
+    const token = sanitizeNotificationToken(data.token);
+    const platform = sanitizeNotificationTokenPlatform(data.platform);
+    const locale = sanitizeNotificationTokenLocale(data.locale);
+    const tokenHash = notificationTokenHash(token);
+    const tokenRef = db.collection('platform_notification_tokens').doc(tokenHash);
+
+    const [platformAdminSnapshot, userRecord] = await Promise.all([
+      db.doc(`platform_admins/${uid}`).get(),
+      auth.getUser(uid).catch(() => null),
+    ]);
+    const platformAdmin = platformAdminSnapshot.exists ? platformAdminSnapshot.data() || {} : {};
+
+    await deactivateNotificationTokenEverywhere({
+      tokenHash,
+      keepPath: tokenRef.path,
+      reason: 'registered-platform-token',
+    });
+
+    const now = FieldValue.serverTimestamp();
+    await tokenRef.set({
+      tokenHash,
+      token,
+      scope: 'platformOwner',
+      companyId: '',
+      uid,
+      email: sanitizePlainString(optionalString(platformAdmin.email) || optionalString(userRecord && userRecord.email), 180),
+      fullName: sanitizePlainString(optionalString(platformAdmin.fullName) || optionalString(userRecord && userRecord.displayName), 160),
+      role: 'platformOwner',
+      locale,
+      platform,
+      appVersion: sanitizeShortString(data.appVersion, 40),
+      buildNumber: sanitizeShortString(data.buildNumber, 20),
+      timezone: sanitizeShortString(data.timezone, 80),
+      userAgent: sanitizeShortString(data.userAgent, 600),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      lastSeenAt: now,
+      deactivatedAt: null,
+      deactivatedReason: '',
+    }, { merge: true });
+
+    return { registered: true, scope: 'platformOwner', tokenHash };
+  },
+);
+
+exports.removeNotificationToken = onCall(
+  { region: 'us-east1' },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in is required.');
+    }
+
+    const data = request.data || {};
+    const token = sanitizeNotificationToken(data.token);
+    const tokenHash = notificationTokenHash(token);
+    const scope = optionalString(data.scope) || 'company';
+    const uid = request.auth.uid;
+    const now = FieldValue.serverTimestamp();
+
+    if (scope === 'platformOwner') {
+      await requireActivePlatformAdmin(request);
+      await db.collection('platform_notification_tokens').doc(tokenHash).set({
+        isActive: false,
+        updatedAt: now,
+        deactivatedAt: now,
+        deactivatedReason: 'client-removed-token',
+      }, { merge: true });
+      return { removed: true, scope: 'platformOwner', tokenHash };
+    }
+
+    const companyId = requiredString(data.companyId, 'companyId');
+    validateCompanyId(companyId);
+    const companyUser = await requireActiveCompanyUser(request, companyId);
+    if (optionalString(companyUser.companyId) !== companyId) {
+      throw new HttpsError('permission-denied', 'Company user was not found.');
+    }
+
+    const tokenRef = db.collection(`companies/${companyId}/notification_tokens`).doc(tokenHash);
+    const snapshot = await tokenRef.get();
+    if (snapshot.exists && optionalString(snapshot.get('uid')) && optionalString(snapshot.get('uid')) !== uid) {
+      throw new HttpsError('permission-denied', 'Token belongs to another user.');
+    }
+
+    await tokenRef.set({
+      isActive: false,
+      updatedAt: now,
+      deactivatedAt: now,
+      deactivatedReason: 'client-removed-token',
+    }, { merge: true });
+    return { removed: true, scope: 'company', companyId, tokenHash };
+  },
+);
 
 exports.markCompanyNotificationRead = onCall(
   { region: 'us-east1' },
@@ -3957,6 +5461,11 @@ exports.createActionableReminderNotifications = onSchedule(
 );
 
 async function refreshActionableReminderWindow({ companyId, actorUid, actor, nowDate, limit }) {
+  // Live attention reminders are now shown from scoped CRM queries in the app.
+  // Do not create persistent notification documents for generic suggestions,
+  // because they flood the bell/unread list and make release QA noisy.
+  return { checked: 0, created: 0, mode: 'liveAttentionOnly' };
+
   const now = nowDate instanceof Date ? nowDate : new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -4993,7 +6502,7 @@ async function assertEmailNotUsedInCompanyUserProfiles(email) {
 async function getOrCreateUserForInvitation({ email, displayName, temporaryPassword = '' }) {
   let userRecord;
   let created = false;
-  const cleanTemporaryPassword = optionalString(temporaryPassword);
+  const cleanTemporaryPassword = optionalPassword(temporaryPassword);
   const usesTemporaryPassword = cleanTemporaryPassword.length > 0;
 
   try {
@@ -5489,6 +6998,17 @@ function optionalString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function requiredPassword(value, field) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new HttpsError('invalid-argument', `${field} is required.`);
+  }
+  return value;
+}
+
+function optionalPassword(value) {
+  return typeof value === 'string' ? value : '';
+}
+
 function requiredBoolean(value, field) {
   if (typeof value !== 'boolean') {
     throw new HttpsError('invalid-argument', `${field} must be true or false.`);
@@ -5509,8 +7029,11 @@ function requiredObject(value, field) {
 
 function validatePassword(password) {
   if (
+    typeof password !== 'string' ||
+    password.trim() === '' ||
     password.length < 8 ||
-    !/[A-Za-z]/.test(password) ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
     !/\d/.test(password)
   ) {
     throw new HttpsError(
@@ -5522,6 +7045,14 @@ function validatePassword(password) {
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
+}
+
+function normalizeLeadEmail(email) {
+  return optionalString(email).toLowerCase();
+}
+
+function normalizeLeadPhone(phone) {
+  return optionalString(phone).replace(/[()\-\s]/g, '');
 }
 
 function validateEmail(email) {
@@ -5664,6 +7195,21 @@ function validateCompanyFeatures(features) {
 function companyFeatureEnabled(company, feature) {
   const features = company && typeof company.features === 'object' ? company.features : {};
   return features[feature] !== false;
+}
+
+async function requireCompanyExportsEnabled(companyId) {
+  const companySnapshot = await db.doc(`companies/${companyId}`).get();
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  if (!companyFeatureEnabled(company, 'exports')) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Exports are disabled for this company.',
+    );
+  }
+  return company;
 }
 
 function enforceUserManagementFeature(company, isPlatformActor) {
@@ -6062,6 +7608,9 @@ function serializeExportValue(value) {
   if (typeof value === 'object') {
     const result = {};
     for (const [key, child] of Object.entries(value)) {
+      if (key === 'phoneNormalized' || key === 'emailNormalized') {
+        continue;
+      }
       result[key] = serializeExportValue(child);
     }
     return result;
@@ -6726,19 +8275,33 @@ function buildLeadPayload({
   const source = enumValue(leadInput.source, LEAD_SOURCES, 'source');
   const status = enumValue(leadInput.status, LEAD_STATUSES, 'status');
   const priority = enumValue(leadInput.priority, LEAD_PRIORITIES, 'priority');
+  const isClosedLeadStatus = status === 'won' || status === 'lost';
+
+  const phone = sanitizePlainString(requiredString(leadInput.phone, 'phone'), 80);
+  const email = sanitizePlainString(optionalString(leadInput.email), 160);
+  const budgetMin = numberValue(leadInput.budgetMin, 'budgetMin');
+  const budgetMax = numberValue(leadInput.budgetMax, 'budgetMax');
+  if (budgetMin < 0 || budgetMax < 0) {
+    throw new HttpsError('invalid-argument', 'Budget cannot be negative.');
+  }
+  if (budgetMin > 0 && budgetMax > 0 && budgetMax < budgetMin) {
+    throw new HttpsError('invalid-argument', 'Maximum budget cannot be less than minimum budget.');
+  }
 
   const payload = {
     id: leadId,
     companyId,
     fullName: sanitizePlainString(requiredString(leadInput.fullName, 'fullName'), 160),
-    phone: sanitizePlainString(requiredString(leadInput.phone, 'phone'), 80),
-    email: sanitizePlainString(optionalString(leadInput.email), 160),
+    phone,
+    phoneNormalized: normalizeLeadPhone(phone),
+    email,
+    emailNormalized: normalizeLeadEmail(email),
     source,
     sourceDetails: sanitizePlainString(optionalString(leadInput.sourceDetails), 200),
     status,
     priority,
-    budgetMin: numberValue(leadInput.budgetMin, 'budgetMin'),
-    budgetMax: numberValue(leadInput.budgetMax, 'budgetMax'),
+    budgetMin,
+    budgetMax,
     preferredLocation: sanitizePlainString(optionalString(leadInput.preferredLocation), 200),
     preferredPropertyType: sanitizePlainString(optionalString(leadInput.preferredPropertyType), 120),
     assignedTo,
@@ -6752,7 +8315,9 @@ function buildLeadPayload({
     updatedAt: now,
     updatedBy: actorUid,
     lastContactAt: optionalCallableTimestamp(leadInput.lastContactAt),
-    nextFollowUpAt: optionalCallableTimestamp(leadInput.nextFollowUpAt),
+    nextFollowUpAt: isClosedLeadStatus
+      ? null
+      : optionalCallableTimestamp(leadInput.nextFollowUpAt),
     isArchived: existingLead && existingLead.isArchived === true ? true : false,
     archivedAt: existingLead && existingLead.archivedAt ? existingLead.archivedAt : null,
     archivedBy: existingLead ? optionalString(existingLead.archivedBy) : '',
@@ -6777,6 +8342,95 @@ function buildLeadPayload({
   }
 
   return payload;
+}
+
+async function hasDuplicateLeadRecord({ companyId, phone, email, excludeLeadId = '' }) {
+  const normalizedPhone = normalizeLeadPhone(phone);
+  const normalizedEmail = normalizeLeadEmail(email);
+  if (!normalizedPhone && !normalizedEmail) {
+    return false;
+  }
+
+  const cleanExcludeLeadId = optionalString(excludeLeadId);
+  const leadsCollection = db.collection(`companies/${companyId}/leads`);
+  const checks = [];
+  const cleanPhone = optionalString(phone);
+  const cleanEmail = optionalString(email);
+
+  if (normalizedPhone) {
+    checks.push({
+      field: 'phoneNormalized',
+      value: normalizedPhone,
+      target: normalizedPhone,
+      normalizer: (lead) => normalizeLeadPhone(lead.phoneNormalized || lead.phone),
+    });
+    if (cleanPhone) {
+      checks.push({
+        field: 'phone',
+        value: cleanPhone,
+        target: normalizedPhone,
+        normalizer: (lead) => normalizeLeadPhone(lead.phone),
+      });
+    }
+    if (cleanPhone !== normalizedPhone) {
+      checks.push({
+        field: 'phone',
+        value: normalizedPhone,
+        target: normalizedPhone,
+        normalizer: (lead) => normalizeLeadPhone(lead.phone),
+      });
+    }
+  }
+
+  if (normalizedEmail) {
+    checks.push({
+      field: 'emailNormalized',
+      value: normalizedEmail,
+      target: normalizedEmail,
+      normalizer: (lead) => normalizeLeadEmail(lead.emailNormalized || lead.email),
+    });
+    if (cleanEmail) {
+      checks.push({
+        field: 'email',
+        value: cleanEmail,
+        target: normalizedEmail,
+        normalizer: (lead) => normalizeLeadEmail(lead.email),
+      });
+    }
+    if (cleanEmail !== normalizedEmail) {
+      checks.push({
+        field: 'email',
+        value: normalizedEmail,
+        target: normalizedEmail,
+        normalizer: (lead) => normalizeLeadEmail(lead.email),
+      });
+    }
+  }
+
+  const seenLeadIds = new Set();
+  for (const check of checks) {
+    const snapshot = await leadsCollection
+      .where(check.field, '==', check.value)
+      .where('isArchived', '==', false)
+      .limit(5)
+      .get();
+
+    for (const document of snapshot.docs) {
+      if (document.id === cleanExcludeLeadId || seenLeadIds.has(document.id)) {
+        continue;
+      }
+      seenLeadIds.add(document.id);
+      const lead = document.data() || {};
+      if (optionalString(lead.companyId) !== companyId || lead.isArchived === true) {
+        continue;
+      }
+      if (check.normalizer(lead) === check.target) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 async function updateCrmArchiveState(request, archive) {
@@ -7087,6 +8741,14 @@ function buildAppointmentPayload({
   if (scheduleChanged && !['completed', 'cancelled'].includes(normalizedWorkflowValue(status))) {
     status = 'rescheduled';
   }
+  const cleanOutcomeInput = optionalString(appointmentInput.outcome);
+  const outcome = cleanOutcomeInput
+    ? enumValue(cleanOutcomeInput, APPOINTMENT_OUTCOMES, 'outcome')
+    : '';
+  const cancellationReason = sanitizePlainString(
+    optionalString(appointmentInput.cancellationReason),
+    1000,
+  );
 
   const assigneeRole = optionalString(assignee.role);
   const assigneeIsManager = assigneeRole === 'manager';
@@ -7117,7 +8779,9 @@ function buildAppointmentPayload({
     relatedSubtitle: relatedSnapshot.relatedSubtitle,
     location: sanitizePlainString(optionalString(appointmentInput.location), 240),
     notes: sanitizePlainString(optionalString(appointmentInput.notes), 4000),
+    outcome: status === 'completed' ? outcome : '',
     outcomeNotes: sanitizePlainString(optionalString(appointmentInput.outcomeNotes), 4000),
+    cancellationReason: status === 'cancelled' ? cancellationReason : '',
     updatedAt: now,
     updatedBy: actorUid,
     completedAt: existingAppointment && existingAppointment.completedAt ? existingAppointment.completedAt : null,
@@ -7140,6 +8804,9 @@ function buildAppointmentPayload({
   if (status === 'completed' && optionalString(payload.completedBy) === '') {
     payload.completedAt = now;
     payload.completedBy = actorUid;
+    if (!payload.outcome) {
+      payload.outcome = 'other';
+    }
   }
   if (status === 'cancelled' && optionalString(payload.cancelledBy) === '') {
     payload.cancelledAt = now;
@@ -7160,6 +8827,8 @@ function buildAppointmentPayload({
       payload.cancelledBy = '';
       payload.missedAt = null;
       payload.missedBy = '';
+      payload.outcome = '';
+      payload.cancellationReason = '';
     }
   }
 
@@ -7258,6 +8927,9 @@ async function createAppointmentStatusNotifications({
       newStatus: nextStatus,
       assignedToName: optionalString(after.assignedToName),
       scheduledAt: firestoreTimestampToIso(after.scheduledAt),
+      previousScheduledAt: firestoreTimestampToIso(after.previousScheduledAt),
+      outcome: optionalString(after.outcome),
+      cancellationReason: optionalString(after.cancellationReason),
     },
   };
   const assignedTo = optionalString(after.assignedTo);
@@ -7289,6 +8961,62 @@ async function createAppointmentStatusNotifications({
     actorUid,
     dedupeKey: `appointment_status_${appointmentId}_${eventId}`,
   });
+}
+
+async function resolveStaleAppointmentTimingNotifications({
+  companyId,
+  appointmentId,
+  appointment,
+}) {
+  const status = normalizedWorkflowValue(appointment.status);
+  const scheduledAtIso = firestoreTimestampToIso(appointment.scheduledAt);
+  const openSchedule = ['scheduled', 'rescheduled'].includes(status);
+  const actionTypes = new Set([
+    'appointmentDueSoon',
+    'appointmentDueNow',
+    'appointmentMissed',
+    'teamAppointmentDueSoon',
+    'teamAppointmentDueNow',
+    'teamAppointmentMissed',
+  ]);
+  const snapshot = await db
+    .collection(`companies/${companyId}/notifications`)
+    .where('recordId', '==', appointmentId)
+    .limit(80)
+    .get();
+  if (snapshot.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  let writes = 0;
+  for (const document of snapshot.docs) {
+    const notification = document.data() || {};
+    const type = optionalString(notification.type);
+    if (optionalString(notification.module) !== 'appointments' ||
+        !actionTypes.has(type) ||
+        optionalString(notification.actionState) !== 'actionNeeded') {
+      continue;
+    }
+    const metadata = notification.metadata || {};
+    const notificationScheduledAt = optionalString(metadata.scheduledAt);
+    const stillCurrentOpenReminder = openSchedule &&
+      scheduledAtIso &&
+      notificationScheduledAt === scheduledAtIso;
+    if (stillCurrentOpenReminder) {
+      continue;
+    }
+    batch.update(document.ref, {
+      isRead: true,
+      actionState: 'resolved',
+      resolvedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    writes += 1;
+  }
+  if (writes > 0) {
+    await batch.commit();
+  }
 }
 
 async function createAppointmentTimingNotifications({
@@ -8116,6 +9844,336 @@ function dealTitle(record, fallbackId) {
   return clientName || propertyTitle || fallbackId;
 }
 
+function assertReportExportAllowed({ actorRole, exportType, reportType, exportScope }) {
+  if (actorRole === 'viewer') {
+    throw new HttpsError('permission-denied', 'This role cannot export reports.');
+  }
+  if (exportType === 'platformCompanyExport') {
+    throw new HttpsError('permission-denied', 'Platform export tracking is not available here.');
+  }
+  if (exportType === 'auditLogsExport' && !['admin', 'manager'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'This role cannot export audit logs.');
+  }
+  if (reportType === 'properties' && actorRole !== 'admin') {
+    throw new HttpsError('permission-denied', 'This role cannot export properties.');
+  }
+  if (['teamPerformance', 'auditSummary'].includes(reportType) &&
+      !['admin', 'manager'].includes(actorRole)) {
+    throw new HttpsError('permission-denied', 'This role cannot export this report.');
+  }
+  const expectedScope = exportScopeForRole(actorRole);
+  if (exportScope !== expectedScope) {
+    throw new HttpsError('permission-denied', 'Export scope does not match your role.');
+  }
+}
+
+function exportScopeForRole(role) {
+  if (role === 'admin') {
+    return 'companyWide';
+  }
+  if (role === 'manager') {
+    return 'teamOnly';
+  }
+  if (role === 'salesAgent' || role === 'marketing') {
+    return 'assignedOnly';
+  }
+  return 'restricted';
+}
+
+function boundedExportInteger(value, fallback, max) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(Math.floor(value), max));
+}
+
+function safeStringList(value, maxItems, maxLength) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => sanitizeLogText(optionalString(item), maxLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+async function resolveExportActorScope({ companyId, actor, actorUid, actorRole, actorName }) {
+  let teamId = optionalString(actor.teamId);
+  let teamName = sanitizeLogText(optionalString(actor.teamName), 160);
+  let managerId = actorRole === 'manager' ? actorUid : optionalString(actor.managerId);
+  let managerName = actorRole === 'manager'
+    ? actorName
+    : sanitizeLogText(optionalString(actor.managerName), 160);
+
+  if ((!managerId || !managerName || !teamName) && teamId) {
+    const teamSnapshot = await db.doc(`companies/${companyId}/teams/${teamId}`).get();
+    if (teamSnapshot.exists) {
+      const team = teamSnapshot.data() || {};
+      teamName = teamName || sanitizeLogText(optionalString(team.name), 160);
+      managerId = managerId || optionalString(team.managerId);
+      managerName = managerName || sanitizeLogText(optionalString(team.managerName), 160);
+    }
+  }
+
+  if ((actorRole === 'salesAgent' || actorRole === 'marketing') && !managerId && teamId) {
+    const managerSnapshot = await db.collection(`companies/${companyId}/users`)
+      .where('role', '==', 'manager')
+      .where('teamId', '==', teamId)
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
+    if (!managerSnapshot.empty) {
+      const managerDoc = managerSnapshot.docs[0];
+      const manager = managerDoc.data() || {};
+      managerId = managerDoc.id;
+      managerName = managerName || sanitizeLogText(
+        optionalString(manager.fullName) || optionalString(manager.email),
+        160,
+      );
+    }
+  }
+
+  return { teamId, teamName, managerId, managerName };
+}
+
+async function createExportSupervisorNotifications({
+  companyId,
+  actorUid,
+  actorRole,
+  actorName,
+  actorEmail,
+  teamId,
+  teamName,
+  managerId,
+  auditLogId,
+  exportType,
+  reportType,
+  reportTypeLabel,
+  exportedModules = [],
+  exportedModuleLabels = [],
+  dateRangeLabel,
+  exportedAtLabel,
+  exportScope,
+  rowCount,
+}) {
+  let notifiedAdminCount = 0;
+  let notifiedManagerCount = 0;
+  const cleanAuditLogId = optionalString(auditLogId);
+  const route = cleanAuditLogId ? `/audit-logs?focus=${encodeURIComponent(cleanAuditLogId)}` : '/audit-logs';
+  const titleEn = exportType === 'auditLogsExport'
+    ? 'Audit logs export'
+    : 'Report export';
+  const titleAr = exportType === 'auditLogsExport'
+    ? 'تصدير سجل النشاط'
+    : 'تنبيه تصدير';
+  const bodyEn = sanitizeLogText(exportNotificationBody({
+    locale: 'en',
+    actorName,
+    actorRole,
+    reportTypeLabel,
+    dateRangeLabel,
+    exportedAtLabel,
+    exportScope,
+  }), 220);
+  const bodyAr = sanitizeLogText(exportNotificationBody({
+    locale: 'ar',
+    actorName,
+    actorRole,
+    reportTypeLabel,
+    dateRangeLabel,
+    exportedAtLabel,
+    exportScope,
+  }), 220);
+  const metadata = {
+    titleEn,
+    titleAr,
+    bodyEn,
+    bodyAr,
+    exportType,
+    reportType,
+    exportedModules,
+    exportedModuleLabels,
+    exportScope,
+    dateRangeLabel,
+    exportedAtLabel,
+    rowCount,
+    actorRole,
+    auditLogId: cleanAuditLogId,
+  };
+
+  if (exportType !== 'platformCompanyExport') {
+    const adminsSnapshot = await db.collection(`companies/${companyId}/users`)
+      .where('role', '==', 'admin')
+      .where('isActive', '==', true)
+      .limit(100)
+      .get();
+    for (const document of adminsSnapshot.docs) {
+      const id = await createCompanyNotification({
+        companyId,
+        recipientUid: document.id,
+        recipientRole: 'admin',
+        type: 'systemInfo',
+        module: 'exports',
+        recordId: reportType,
+        recordTitle: reportTypeLabel,
+        recordSubtitle: dateRangeLabel,
+        route,
+        actorUid,
+        actorName,
+        teamId,
+        teamName,
+        managerId,
+        priority: 'normal',
+        actionState: 'none',
+        metadata,
+        fallbackTitle: titleEn,
+        fallbackBody: bodyEn,
+      });
+      if (id) {
+        notifiedAdminCount += 1;
+      }
+    }
+  }
+
+  // Export supervision notifications are Admin-only. Managers can still see
+  // operational team activity, but export activity is a company-admin privilege.
+
+
+  return { notifiedAdminCount, notifiedManagerCount };
+}
+
+function exportNotificationBody({
+  locale,
+  actorName,
+  actorRole,
+  reportTypeLabel,
+  dateRangeLabel,
+  exportedAtLabel,
+  exportScope,
+}) {
+  const actor = actorName || actorRole;
+  const timeEn = exportedAtLabel ? ` at ${exportedAtLabel}` : '';
+  const timeAr = exportedAtLabel ? ` في ${exportedAtLabel}` : '';
+  if (locale === 'ar') {
+    return `تم تصدير ${reportTypeLabel} بواسطة ${actor} (${exportRoleLabel(actorRole, 'ar')}) ضمن نطاق ${exportScopeLabel(exportScope, 'ar')} لفترة ${dateRangeLabel}${timeAr}.`;
+  }
+  return `${exportRoleLabel(actorRole, 'en')} ${actor} exported ${reportTypeLabel} for ${dateRangeLabel} (${exportScopeLabel(exportScope, 'en')})${timeEn}.`;
+}
+
+function exportRoleLabel(role, locale) {
+  if (locale === 'ar') {
+    return {
+      admin: 'مدير الشركة',
+      manager: 'مدير الفريق',
+      salesAgent: 'مسؤول المبيعات',
+      marketing: 'التسويق',
+      viewer: 'مشاهد',
+    }[role] || role;
+  }
+  return {
+    admin: 'Admin',
+    manager: 'Manager',
+    salesAgent: 'Sales Agent',
+    marketing: 'Marketing user',
+    viewer: 'Viewer',
+  }[role] || role;
+}
+
+function exportScopeLabel(scope, locale) {
+  if (locale === 'ar') {
+    return {
+      companyWide: 'الشركة',
+      teamOnly: 'فريق العمل فقط',
+      assignedOnly: 'السجلات المسندة فقط',
+      restricted: 'محدود',
+    }[scope] || scope;
+  }
+  return {
+    companyWide: 'company-wide',
+    teamOnly: 'team-only',
+    assignedOnly: 'assigned records',
+    restricted: 'restricted',
+  }[scope] || scope;
+}
+
+
+function sanitizeNotificationToken(value) {
+  const token = requiredString(value, 'token');
+  if (token.length < 20 || token.length > 4096 || /[<>\s]/.test(token)) {
+    throw new HttpsError('invalid-argument', 'Notification token is invalid.');
+  }
+  return token;
+}
+
+function notificationTokenHash(token) {
+  return hashText(token);
+}
+
+function sanitizeNotificationTokenPlatform(value) {
+  const platform = optionalString(value).toLowerCase();
+  if (platform === 'web' || platform === 'android') {
+    return platform;
+  }
+  throw new HttpsError('failed-precondition', 'Notification token platform is not supported yet.');
+}
+
+function sanitizeNotificationTokenLocale(value) {
+  const locale = optionalString(value).toLowerCase();
+  return locale === 'ar' ? 'ar' : 'en';
+}
+
+async function deactivateNotificationTokenEverywhere({ tokenHash, keepPath, reason }) {
+  const cleanHash = sanitizeHash(tokenHash);
+  if (!cleanHash) {
+    return;
+  }
+
+  const now = FieldValue.serverTimestamp();
+  const write = {
+    isActive: false,
+    updatedAt: now,
+    deactivatedAt: now,
+    deactivatedReason: sanitizePlainString(optionalString(reason) || 'replaced-token-owner', 120),
+  };
+
+  let batch = db.batch();
+  let count = 0;
+  const commitIfNeeded = async () => {
+    if (count === 0) {
+      return;
+    }
+    await batch.commit();
+    batch = db.batch();
+    count = 0;
+  };
+  const addWrite = (ref) => {
+    if (ref.path === keepPath) {
+      return;
+    }
+    batch.set(ref, write, { merge: true });
+    count += 1;
+  };
+
+  const companyTokenSnapshots = await db
+    .collectionGroup('notification_tokens')
+    .where('tokenHash', '==', cleanHash)
+    .get();
+  for (const document of companyTokenSnapshots.docs) {
+    addWrite(document.ref);
+    if (count >= 450) {
+      await commitIfNeeded();
+    }
+  }
+
+  const platformRef = db.collection('platform_notification_tokens').doc(cleanHash);
+  const platformSnapshot = await platformRef.get();
+  if (platformSnapshot.exists) {
+    addWrite(platformRef);
+  }
+
+  await commitIfNeeded();
+}
+
 async function createCompanyNotification({
   companyId,
   recipientUid,
@@ -8136,6 +10194,8 @@ async function createCompanyNotification({
   metadata,
   fallbackTitle,
   fallbackBody,
+  deliveryMode,
+  recipientScope,
   dedupeKey,
 }) {
   validateCompanyId(companyId);
@@ -8165,8 +10225,21 @@ async function createCompanyNotification({
   const cleanPriority = NOTIFICATION_PRIORITIES.has(optionalString(priority))
     ? optionalString(priority)
     : 'normal';
-  const cleanActionState = notificationActionStateOrDefault(actionState, cleanType);
   const cleanModule = sanitizePlainString(optionalString(module) || 'system', 40);
+  const cleanRecipientRole = optionalString(recipientRole) || optionalString(recipient.role);
+  const cleanDeliveryMode = notificationDeliveryModeOrDefault({
+    deliveryMode,
+    type: cleanType,
+    module: cleanModule,
+    priority: cleanPriority,
+  });
+  const cleanRecipientScope = notificationRecipientScopeOrDefault({
+    recipientScope,
+    type: cleanType,
+    recipientRole: cleanRecipientRole,
+  });
+  const cleanActionState = notificationActionStateOrDefault(actionState, cleanType);
+  const cleanDedupeKey = dedupeKey ? safeDocumentId(dedupeKey) : '';
   const cleanRecordId = sanitizePlainString(optionalString(recordId), 160);
   const cleanRecordTitle = sanitizePlainString(
     optionalString(recordTitle) || optionalString(recordSubtitle) || cleanRecordId || 'CRM notification',
@@ -8177,7 +10250,7 @@ async function createCompanyNotification({
     id: notificationRef.id,
     companyId,
     recipientUid: cleanRecipientUid,
-    recipientRole: optionalString(recipientRole) || optionalString(recipient.role),
+    recipientRole: cleanRecipientRole,
     type: cleanType,
     module: cleanModule,
     recordId: cleanRecordId,
@@ -8190,6 +10263,9 @@ async function createCompanyNotification({
     teamName: sanitizePlainString(optionalString(teamName), 160),
     managerId: sanitizePlainString(optionalString(managerId), 160),
     priority: cleanPriority,
+    deliveryMode: cleanDeliveryMode,
+    recipientScope: cleanRecipientScope,
+    dedupeKey: cleanDedupeKey,
     isRead: false,
     readAt: null,
     actionState: cleanActionState,
@@ -8213,6 +10289,72 @@ function notificationActionStateOrDefault(actionState, type) {
     return cleanState;
   }
   return notificationTypeNeedsAction(type) ? 'actionNeeded' : 'none';
+}
+
+function notificationDeliveryModeOrDefault({ deliveryMode, type, module, priority }) {
+  const cleanDeliveryMode = optionalString(deliveryMode);
+  if (NOTIFICATION_DELIVERY_MODES.has(cleanDeliveryMode)) {
+    return cleanDeliveryMode;
+  }
+  return defaultCompanyNotificationDeliveryMode({ type, module, priority });
+}
+
+function defaultCompanyNotificationDeliveryMode({ type, module, priority }) {
+  const cleanType = optionalString(type);
+  const cleanModule = optionalString(module);
+  const cleanPriority = optionalString(priority);
+  if (cleanModule === 'exports') {
+    return 'inAppOnly';
+  }
+  if (cleanModule === 'audit_logs' || cleanModule === 'auditLogs') {
+    return 'auditOnly';
+  }
+  if ([
+    'appointmentDueNow',
+    'appointmentMissed',
+    'appointmentCancelled',
+    'appointmentRescheduled',
+    'teamAppointmentDueNow',
+    'teamAppointmentMissed',
+    'teamAppointmentCancelled',
+    'teamAppointmentRescheduled',
+    'dealWon',
+    'dealLost',
+  ].includes(cleanType)) {
+    return 'pushEligible';
+  }
+  if (['high', 'urgent'].includes(cleanPriority) && [
+    'leadImportantStatusChanged',
+    'teamLeadStatusChanged',
+    'dealImportantStatusChanged',
+    'teamDealStageChanged',
+    'taskAssigned',
+    'taskReassigned',
+    'taskStatusChanged',
+    'teamTaskStatusChanged',
+  ].includes(cleanType)) {
+    return 'pushEligible';
+  }
+  if (cleanModule === 'company' && ['high', 'urgent'].includes(cleanPriority)) {
+    return 'pushEligible';
+  }
+  return 'inAppOnly';
+}
+
+function notificationRecipientScopeOrDefault({ recipientScope, type, recipientRole }) {
+  const cleanRecipientScope = optionalString(recipientScope);
+  if (NOTIFICATION_RECIPIENT_SCOPES.has(cleanRecipientScope)) {
+    return cleanRecipientScope;
+  }
+  const cleanRole = optionalString(recipientRole);
+  const cleanType = optionalString(type);
+  if (cleanRole === 'admin') {
+    return 'admins';
+  }
+  if (cleanRole === 'manager' || cleanType.startsWith('team')) {
+    return 'managerTeam';
+  }
+  return 'user';
 }
 
 function notificationTypeNeedsAction(type) {
@@ -8536,6 +10678,12 @@ async function createPlatformNotification(payload) {
   const source = PLATFORM_NOTIFICATION_SOURCES.has(requestedSource)
     ? requestedSource
     : 'platform';
+  const cleanDeliveryMode = platformNotificationDeliveryModeOrDefault({
+    deliveryMode: sourcePayload.deliveryMode,
+    type,
+    severity,
+  });
+  const cleanRecipientScope = platformNotificationRecipientScopeOrDefault(sourcePayload.recipientScope);
   const requestedId = optionalString(sourcePayload.id);
   const notificationRef = requestedId
     ? db.collection('platform_notifications').doc(safeDocumentId(requestedId))
@@ -8548,6 +10696,9 @@ async function createPlatformNotification(payload) {
     title: sanitizePlainString(optionalString(sourcePayload.title), 240),
     message: sanitizePlainString(optionalString(sourcePayload.message), 500),
     severity,
+    deliveryMode: cleanDeliveryMode,
+    recipientScope: cleanRecipientScope,
+    dedupeKey: requestedId ? safeDocumentId(requestedId) : '',
     isRead: false,
     readAt: null,
     createdAt: now,
@@ -8574,6 +10725,34 @@ async function createPlatformNotification(payload) {
   }
   await notificationRef.set(notification);
   return notificationRef.id;
+}
+
+function platformNotificationDeliveryModeOrDefault({ deliveryMode, type, severity }) {
+  const cleanDeliveryMode = optionalString(deliveryMode);
+  if (PLATFORM_NOTIFICATION_DELIVERY_MODES.has(cleanDeliveryMode)) {
+    return cleanDeliveryMode;
+  }
+  const cleanType = optionalString(type);
+  const cleanSeverity = optionalString(severity);
+  if (cleanSeverity === 'urgent' || [
+    'urgentSupportTicketCreated',
+    'platformFunctionFailed',
+    'trialExpired',
+    'paymentOverdue',
+    'paymentGraceEnding',
+    'paymentSuspended',
+    'storageNearLimit',
+  ].includes(cleanType)) {
+    return 'pushEligible';
+  }
+  return 'inAppOnly';
+}
+
+function platformNotificationRecipientScopeOrDefault(recipientScope) {
+  const cleanRecipientScope = optionalString(recipientScope);
+  return PLATFORM_NOTIFICATION_RECIPIENT_SCOPES.has(cleanRecipientScope)
+    ? cleanRecipientScope
+    : 'platformOwner';
 }
 
 async function createPlatformNotificationSafely(contextLabel, payload) {
@@ -8921,7 +11100,7 @@ function publicFeatureSummary(features) {
   const source = features && typeof features === 'object' ? features : {};
   const summary = {};
   for (const key of FEATURE_KEYS) {
-    summary[key] = source[key] === true;
+    summary[key] = source[key] !== false;
   }
   return summary;
 }
