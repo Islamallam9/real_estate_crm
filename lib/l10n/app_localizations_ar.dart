@@ -1561,7 +1561,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardTeamDeals => 'الصفقات';
 
   @override
-  String get dashboardTeamPipeline => 'القيمة';
+  String get dashboardTeamPipeline => 'قيمة الصفقات المفتوحة';
 
   @override
   String get dashboardNoValue => 'بدون قيمة';
@@ -3429,6 +3429,27 @@ class AppLocalizationsAr extends AppLocalizations {
       'هذا العنصر لم يعد متاحًا أو لا تملك صلاحية الوصول إليه.';
 
   @override
+  String get notificationPermissionPromptTitle => 'تفعيل الإشعارات';
+
+  @override
+  String get notificationPermissionPromptBody =>
+      'اسمح لمسار CRM بإرسال التكليفات والمواعيد والمتابعات العاجلة حتى خارج التطبيق.';
+
+  @override
+  String get notificationPermissionEnableAction => 'تفعيل';
+
+  @override
+  String get notificationPermissionUnavailableBody =>
+      'الإشعارات غير مفعّلة بعد. اسمح بها من المتصفح أو الجهاز ثم حاول مرة أخرى.';
+
+  @override
+  String get notificationPermissionSyncFailedBody =>
+      'تم السماح بالإشعارات، لكن تعذر حفظ رمز الجهاز. تحقق من الاتصال وحاول مرة أخرى.';
+
+  @override
+  String get retry => 'إعادة المحاولة';
+
+  @override
   String get notificationsUnavailableInPlatform =>
       'إشعارات مبيعات الشركات غير متاحة في وضع المنصة.';
 
@@ -5045,4 +5066,36 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noAndroidVersionData => 'لا توجد بيانات إصدارات أندرويد حتى الآن.';
+
+  @override
+  String get notNow => 'ليس الآن';
+
+  @override
+  String get dismiss => 'إخفاء';
+
+  @override
+  String get notificationPermissionEnabledTitle => 'تم تفعيل الإشعارات';
+
+  @override
+  String get notificationPermissionEnabledBody =>
+      'هذا الجهاز متصل وسيستقبل تنبيهات مسار CRM المهمة.';
+
+  @override
+  String get notificationPermissionNotConnectedTitle =>
+      'إشعارات الجهاز غير متصلة';
+
+  @override
+  String get notificationPermissionBlockedTitle => 'الإشعارات محظورة';
+
+  @override
+  String get notificationPermissionBlockedBody =>
+      'فعّل الإشعارات من إعدادات المتصفح أو الجهاز عندما تريد استقبال التنبيهات.';
+
+  @override
+  String get notificationPermissionConfigurationIssueTitle =>
+      'إعداد الإشعارات يحتاج ضبطًا';
+
+  @override
+  String get notificationPermissionConfigurationIssueBody =>
+      'مفتاح Web Push غير موجود في هذا البناء. أعد بناء التطبيق باستخدام مفتاح Firebase VAPID لتفعيل إشعارات المتصفح.';
 }

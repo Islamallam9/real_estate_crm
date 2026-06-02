@@ -1,5 +1,5 @@
 abstract interface class NotificationPushTokenRepository {
-  Future<String?> currentToken();
+  Future<String?> currentToken({bool requestPermission = false});
 
   Stream<String> watchTokenRefreshes();
 

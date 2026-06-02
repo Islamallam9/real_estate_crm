@@ -580,7 +580,7 @@
   "dashboardTeamUser": "المستشار",
   "dashboardTeamAppointments": "المواعيد",
   "dashboardTeamDeals": "الصفقات",
-  "dashboardTeamPipeline": "القيمة",
+  "dashboardTeamPipeline": "قيمة الصفقات المفتوحة",
   "dashboardNoValue": "بدون قيمة",
   "dashboardAddLead": "إضافة عميل محتمل",
   "dashboardAddClient": "إضافة عميل",
@@ -1311,6 +1311,12 @@
     }
   },
   "notificationRouteUnavailable": "هذا العنصر لم يعد متاحًا أو لا تملك صلاحية الوصول إليه.",
+  "notificationPermissionPromptTitle": "تفعيل الإشعارات",
+  "notificationPermissionPromptBody": "اسمح لمسار CRM بإرسال التكليفات والمواعيد والمتابعات العاجلة حتى خارج التطبيق.",
+  "notificationPermissionEnableAction": "تفعيل",
+  "notificationPermissionUnavailableBody": "الإشعارات غير مفعّلة بعد. اسمح بها من المتصفح أو الجهاز ثم حاول مرة أخرى.",
+  "notificationPermissionSyncFailedBody": "تم السماح بالإشعارات، لكن تعذر حفظ رمز الجهاز. تحقق من الاتصال وحاول مرة أخرى.",
+  "retry": "إعادة المحاولة",
   "notificationsUnavailableInPlatform": "إشعارات مبيعات الشركات غير متاحة في وضع المنصة.",
   "appointments": "المواعيد",
   "appointmentsSubtitle": "نظم المعاينات والاجتماعات والمكالمات ومتابعات الصفقات في جدول واحد مضبوط.",
@@ -1862,5 +1868,14 @@
   "androidVersionAdoptionSubtitle": "المستخدمون النشطون حسب إصدار التطبيق المثبّت، بناءً على آخر أجهزة مسجلة.",
   "activeDevices": "الأجهزة النشطة",
   "latestSeen": "آخر ظهور",
-  "noAndroidVersionData": "لا توجد بيانات إصدارات أندرويد حتى الآن."
+  "noAndroidVersionData": "لا توجد بيانات إصدارات أندرويد حتى الآن.",
+  "notNow": "ليس الآن",
+  "dismiss": "إخفاء",
+  "notificationPermissionEnabledTitle": "تم تفعيل الإشعارات",
+  "notificationPermissionEnabledBody": "هذا الجهاز متصل وسيستقبل تنبيهات مسار CRM المهمة.",
+  "notificationPermissionNotConnectedTitle": "إشعارات الجهاز غير متصلة",
+  "notificationPermissionBlockedTitle": "الإشعارات محظورة",
+  "notificationPermissionBlockedBody": "فعّل الإشعارات من إعدادات المتصفح أو الجهاز عندما تريد استقبال التنبيهات.",
+  "notificationPermissionConfigurationIssueTitle": "إعداد الإشعارات يحتاج ضبطًا",
+  "notificationPermissionConfigurationIssueBody": "مفتاح Web Push غير موجود في هذا البناء. أعد بناء التطبيق باستخدام مفتاح Firebase VAPID لتفعيل إشعارات المتصفح."
 }

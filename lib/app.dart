@@ -10,6 +10,10 @@ import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_cubit.dart';
 import 'core/widgets/app_feedback.dart';
+import 'core/widgets/crm_app_shell.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/app_update/presentation/widgets/android_update_gate.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -20,7 +24,6 @@ import 'features/auth/domain/usecases/send_password_reset_email_usecase.dart';
 import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
-import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/notifications/presentation/widgets/notification_push_token_scope.dart';
 import 'features/platform_observability/data/datasources/platform_observability_remote_data_source.dart';
 import 'features/platform_observability/data/repositories/platform_observability_repository_impl.dart';
@@ -140,10 +143,23 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
                 ],
                 supportedLocales: AppLocalizations.supportedLocales,
                   builder: (context, child) {
-                    return ConnectivityFeedbackScope(
-                      child: AndroidUpdateGate(
-                        child: child ?? const SizedBox.shrink(),
-                      ),
+                    return BlocBuilder<AuthBloc, AuthState>(
+                      buildWhen: (previous, current) =>
+                          previous.status != current.status ||
+                          previous.user != current.user ||
+                          previous.userProfile != current.userProfile ||
+                          previous.companyMetadata != current.companyMetadata ||
+                          previous.isPlatformAdmin != current.isPlatformAdmin,
+                      builder: (context, authState) {
+                        return CrmNotificationsOverlayScope(
+                          authState: authState,
+                          child: ConnectivityFeedbackScope(
+                            child: AndroidUpdateGate(
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),

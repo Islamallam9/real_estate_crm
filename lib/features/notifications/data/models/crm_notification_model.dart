@@ -42,31 +42,31 @@ class CrmNotificationModel extends CrmNotification {
       throw StateError('Notification data was not found.');
     }
     return CrmNotificationModel(
-      id: data['id'] as String? ?? document.id,
-      companyId: data['companyId'] as String? ?? '',
-      recipientUid: data['recipientUid'] as String? ?? '',
-      recipientRole: data['recipientRole'] as String? ?? '',
-      type: notificationTypeFromValue(data['type'] as String? ?? ''),
-      module: data['module'] as String? ?? '',
-      recordId: data['recordId'] as String? ?? '',
-      recordTitle: data['recordTitle'] as String? ?? '',
-      recordSubtitle: data['recordSubtitle'] as String? ?? '',
-      route: data['route'] as String? ?? '',
-      actorUid: data['actorUid'] as String? ?? '',
-      actorName: data['actorName'] as String? ?? '',
-      teamId: data['teamId'] as String? ?? '',
-      teamName: data['teamName'] as String? ?? '',
-      managerId: data['managerId'] as String? ?? '',
+      id: _stringFromValue(data['id'], fallback: document.id),
+      companyId: _stringFromValue(data['companyId']),
+      recipientUid: _stringFromValue(data['recipientUid']),
+      recipientRole: _stringFromValue(data['recipientRole']),
+      type: notificationTypeFromValue(_stringFromValue(data['type'])),
+      module: _stringFromValue(data['module']),
+      recordId: _stringFromValue(data['recordId']),
+      recordTitle: _stringFromValue(data['recordTitle']),
+      recordSubtitle: _stringFromValue(data['recordSubtitle']),
+      route: _stringFromValue(data['route']),
+      actorUid: _stringFromValue(data['actorUid']),
+      actorName: _stringFromValue(data['actorName']),
+      teamId: _stringFromValue(data['teamId']),
+      teamName: _stringFromValue(data['teamName']),
+      managerId: _stringFromValue(data['managerId']),
       priority: notificationPriorityFromValue(
-        data['priority'] as String? ?? '',
+        _stringFromValue(data['priority']),
       ),
       deliveryMode: notificationDeliveryModeFromValue(
-        data['deliveryMode'] as String? ?? '',
+        _stringFromValue(data['deliveryMode']),
       ),
       recipientScope: notificationRecipientScopeFromValue(
-        data['recipientScope'] as String? ?? '',
+        _stringFromValue(data['recipientScope']),
       ),
-      dedupeKey: data['dedupeKey'] as String? ?? '',
+      dedupeKey: _stringFromValue(data['dedupeKey']),
       isRead: data['isRead'] as bool? ?? false,
       readAt: _dateTimeFromValue(data['readAt']),
       createdAt: _dateTimeFromValue(data['createdAt']),
@@ -74,20 +74,75 @@ class CrmNotificationModel extends CrmNotification {
       resolvedAt: _dateTimeFromValue(data['resolvedAt']),
       dismissedAt: _dateTimeFromValue(data['dismissedAt']),
       metadata: _metadataFromValue(data['metadata']),
-      fallbackTitle: data['fallbackTitle'] as String? ?? '',
-      fallbackBody: data['fallbackBody'] as String? ?? '',
+      fallbackTitle: _stringFromValue(data['fallbackTitle']),
+      fallbackBody: _stringFromValue(data['fallbackBody']),
     );
   }
 }
 
 Map<String, Object?> _metadataFromValue(Object? value) {
   if (value is Map<String, dynamic>) {
-    return Map<String, Object?>.from(value);
+    return value.map(
+      (key, entry) => MapEntry(key, _safeMetadataValue(entry)),
+    );
   }
   if (value is Map) {
-    return value.map((key, entry) => MapEntry(key.toString(), entry));
+    final clean = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = _stringFromValue(entry.key);
+      if (key.isEmpty) {
+        continue;
+      }
+      clean[key] = _safeMetadataValue(entry.value);
+    }
+    return clean;
   }
   return const {};
+}
+
+Object? _safeMetadataValue(Object? value) {
+  if (value == null ||
+      value is String ||
+      value is num ||
+      value is bool ||
+      value is Timestamp ||
+      value is DateTime) {
+    return value;
+  }
+  if (value is Map<String, dynamic>) {
+    return value.map(
+      (key, entry) => MapEntry(key, _safeMetadataValue(entry)),
+    );
+  }
+  if (value is Map) {
+    final clean = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = _stringFromValue(entry.key);
+      if (key.isEmpty) {
+        continue;
+      }
+      clean[key] = _safeMetadataValue(entry.value);
+    }
+    return clean;
+  }
+  if (value is Iterable) {
+    return value
+        .map(_safeMetadataValue)
+        .where((entry) => entry != null)
+        .take(20)
+        .toList(growable: false);
+  }
+  return null;
+}
+
+String _stringFromValue(Object? value, {String fallback = ''}) {
+  if (value is String) {
+    return value;
+  }
+  if (value is num || value is bool) {
+    return value.toString();
+  }
+  return fallback;
 }
 
 DateTime? _dateTimeFromValue(Object? value) {
@@ -101,7 +156,7 @@ DateTime? _dateTimeFromValue(Object? value) {
 }
 
 CrmNotificationActionState _actionStateFromData(Map<String, dynamic> data) {
-  final stored = (data['actionState'] as String? ?? '').trim();
+  final stored = _stringFromValue(data['actionState']).trim();
   if (stored.isNotEmpty) {
     return notificationActionStateFromValue(stored);
   }
@@ -111,7 +166,7 @@ CrmNotificationActionState _actionStateFromData(Map<String, dynamic> data) {
   if (data['resolvedAt'] != null || data['isResolved'] == true) {
     return CrmNotificationActionState.resolved;
   }
-  final type = notificationTypeFromValue(data['type'] as String? ?? '');
+  final type = notificationTypeFromValue(_stringFromValue(data['type']));
   if (notificationTypeUsuallyNeedsAction(type)) {
     return CrmNotificationActionState.actionNeeded;
   }

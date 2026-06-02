@@ -12,7 +12,7 @@ import '../../../../core/observability/device_metadata.dart';
 import '../../domain/errors/notification_exception.dart';
 
 abstract interface class NotificationPushTokenRemoteDataSource {
-  Future<String?> currentToken();
+  Future<String?> currentToken({bool requestPermission = false});
 
   Stream<String> watchTokenRefreshes();
 
@@ -45,32 +45,54 @@ class FirebaseNotificationPushTokenRemoteDataSource
         _functions =
             functions ?? FirebaseFunctions.instanceFor(region: 'us-east1');
 
+  // FCM Web requires a VAPID key. It should come from
+  // --dart-define-from-file=config/firebase.local.json. The fallback below is
+  // the public Web Push key for the current Firebase project, so local runs
+  // still work if the developer forgets the dart-define file.
   static const _webVapidKey = String.fromEnvironment(
     'FIREBASE_WEB_VAPID_KEY',
+    defaultValue:
+        'BMJxnIOuiZcPYJekEx_CQitzBdHlbq6xH4RLZdpeO7T-jXhhOvd7a6a-VtMgNACLFI6ud-8RCYxu1iIgRm4tW-A',
   );
 
   final FirebaseMessaging _messaging;
   final FirebaseFunctions _functions;
 
   @override
-  Future<String?> currentToken() async {
+  Future<String?> currentToken({bool requestPermission = false}) async {
     try {
       if (!_isSupportedPlatform()) {
+        _debugTokenStatus('unsupported-platform');
         return null;
       }
       if (kIsWeb && _webVapidKey.trim().isEmpty) {
-        return null;
+        _debugTokenStatus('missing-web-vapid-key');
+        throw const NotificationException('missing-web-vapid-key');
       }
 
-      final settings = await _ensurePermission();
+      final settings = await _ensurePermission(requestPermission: requestPermission);
+      _debugTokenStatus(
+        'permission-${settings.authorizationStatus.name}',
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        throw const NotificationException('notification-permission-denied');
+      }
       if (!_canUsePushToken(settings.authorizationStatus)) {
         return null;
       }
 
-      return _messaging.getToken(vapidKey: kIsWeb ? _webVapidKey : null);
+      final token = await _messaging.getToken(
+        vapidKey: kIsWeb ? _webVapidKey : null,
+      );
+      _debugTokenStatus(
+        token == null || token.trim().isEmpty ? 'token-empty' : 'token-obtained',
+      );
+      return token;
     } on FirebaseException catch (error) {
+      _debugTokenStatus('firebase-error-${error.code}');
       throw NotificationException(_mapFirebaseError(error));
     } catch (_) {
+      _debugTokenStatus('token-error');
       return null;
     }
   }
@@ -87,16 +109,45 @@ class FirebaseNotificationPushTokenRemoteDataSource
     required String locale,
     required String role,
   }) async {
-    await _callTokenFunction(
+    final payload = <String, dynamic>{
+      'companyId': companyId,
+      'token': token,
+      'locale': locale,
+      'role': role,
+      ..._clientMetadata(),
+    };
+    final result = await _callTokenFunction(
       'registerCompanyNotificationToken',
-      <String, dynamic>{
-        'companyId': companyId,
-        'token': token,
-        'locale': locale,
-        'role': role,
-        ..._clientMetadata(),
-      },
+      payload,
     );
+    if (_requiresCachedWebTokenRefresh(result)) {
+      final refreshedToken = await _refreshCachedWebTokenAfterServerRejection();
+      if (refreshedToken == null || refreshedToken.trim().isEmpty) {
+        throw const NotificationException('web-token-refresh-failed');
+      }
+      if (refreshedToken == token) {
+        throw const NotificationException('web-token-refresh-returned-same-token');
+      }
+      final refreshedResult = await _callTokenFunction(
+        'registerCompanyNotificationToken',
+        <String, dynamic>{
+          ...payload,
+          'token': refreshedToken,
+          ..._clientMetadata(),
+        },
+      );
+      _ensureTokenRegistrationAccepted(refreshedResult);
+      if (_requiresCachedWebTokenRefresh(refreshedResult)) {
+        _debugTokenStatus('company-token-refresh-rejected-${refreshedResult['reason'] ?? 'unknown'}');
+        throw NotificationException(
+          refreshedResult['reason']?.toString() ?? 'web-token-refresh-failed',
+        );
+      }
+      _debugTokenStatus('company-token-save-success-refreshed');
+      return;
+    }
+    _ensureTokenRegistrationAccepted(result);
+    _debugTokenStatus('company-token-save-success');
   }
 
   @override
@@ -104,14 +155,43 @@ class FirebaseNotificationPushTokenRemoteDataSource
     required String token,
     required String locale,
   }) async {
-    await _callTokenFunction(
+    final payload = <String, dynamic>{
+      'token': token,
+      'locale': locale,
+      ..._clientMetadata(),
+    };
+    final result = await _callTokenFunction(
       'registerPlatformNotificationToken',
-      <String, dynamic>{
-        'token': token,
-        'locale': locale,
-        ..._clientMetadata(),
-      },
+      payload,
     );
+    if (_requiresCachedWebTokenRefresh(result)) {
+      final refreshedToken = await _refreshCachedWebTokenAfterServerRejection();
+      if (refreshedToken == null || refreshedToken.trim().isEmpty) {
+        throw const NotificationException('web-token-refresh-failed');
+      }
+      if (refreshedToken == token) {
+        throw const NotificationException('web-token-refresh-returned-same-token');
+      }
+      final refreshedResult = await _callTokenFunction(
+        'registerPlatformNotificationToken',
+        <String, dynamic>{
+          ...payload,
+          'token': refreshedToken,
+          ..._clientMetadata(),
+        },
+      );
+      _ensureTokenRegistrationAccepted(refreshedResult);
+      if (_requiresCachedWebTokenRefresh(refreshedResult)) {
+        _debugTokenStatus('platform-token-refresh-rejected-${refreshedResult['reason'] ?? 'unknown'}');
+        throw NotificationException(
+          refreshedResult['reason']?.toString() ?? 'web-token-refresh-failed',
+        );
+      }
+      _debugTokenStatus('platform-token-save-success-refreshed');
+      return;
+    }
+    _ensureTokenRegistrationAccepted(result);
+    _debugTokenStatus('platform-token-save-success');
   }
 
   @override
@@ -140,16 +220,69 @@ class FirebaseNotificationPushTokenRemoteDataSource
     );
   }
 
-  Future<void> _callTokenFunction(
+  Future<Map<String, dynamic>> _callTokenFunction(
     String functionName,
     Map<String, dynamic> payload,
   ) async {
     try {
-      await _functions.httpsCallable(functionName).call(payload);
+      final result = await _functions.httpsCallable(functionName).call(payload);
+      final data = result.data;
+      if (data is Map) {
+        return data.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+      }
+      return const <String, dynamic>{};
     } on FirebaseFunctionsException catch (error) {
+      _debugTokenStatus('callable-$functionName-failed-${error.code}');
       throw NotificationException(_mapFirebaseFunctionsError(error));
-    } catch (_) {
+    } catch (error) {
+      _debugTokenStatus('callable-$functionName-failed-unknown');
       throw const NotificationException(AppErrorMessages.unknown);
+    }
+  }
+
+  bool _requiresCachedWebTokenRefresh(Map<String, dynamic> result) {
+    if (!kIsWeb || result['refreshRequired'] != true) {
+      return false;
+    }
+    final reason = result['reason']?.toString();
+    return reason == 'cached-invalid-web-token' ||
+        reason == 'web-token-probe-failed';
+  }
+
+  void _ensureTokenRegistrationAccepted(Map<String, dynamic> result) {
+    if (result['registered'] == false) {
+      final reason = result['reason']?.toString().trim();
+      throw NotificationException(
+        reason == null || reason.isEmpty
+            ? 'notification-token-registration-rejected'
+            : reason,
+      );
+    }
+  }
+
+  Future<String?> _refreshCachedWebTokenAfterServerRejection() async {
+    if (!kIsWeb) {
+      return null;
+    }
+    try {
+      _debugTokenStatus('web-token-refresh-required');
+      await _messaging.deleteToken();
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      final token = await _messaging.getToken(vapidKey: _webVapidKey);
+      _debugTokenStatus(
+        token == null || token.trim().isEmpty
+            ? 'web-token-refresh-empty'
+            : 'web-token-refresh-obtained',
+      );
+      return token;
+    } on FirebaseException catch (error) {
+      _debugTokenStatus('web-token-refresh-failed-${error.code}');
+      throw NotificationException(_mapFirebaseError(error));
+    } catch (error) {
+      _debugTokenStatus('web-token-refresh-failed-${error.runtimeType}');
+      return null;
     }
   }
 
@@ -162,24 +295,40 @@ class FirebaseNotificationPushTokenRemoteDataSource
       'timezone': DateTime.now().timeZoneName,
       if ((device['userAgent'] ?? '').trim().isNotEmpty)
         'userAgent': device['userAgent'],
+      ..._webLocationMetadata(),
     };
   }
 
-  Future<NotificationSettings> _ensurePermission() async {
+  Map<String, dynamic> _webLocationMetadata() {
+    if (!kIsWeb) {
+      return const <String, dynamic>{};
+    }
+    try {
+      return <String, dynamic>{
+        'webOrigin': Uri.base.origin,
+        'webHref': Uri.base.toString(),
+      };
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
+  }
+
+  Future<NotificationSettings> _ensurePermission({
+    required bool requestPermission,
+  }) async {
     final settings = await _messaging.getNotificationSettings();
-    if (_canUsePushToken(settings.authorizationStatus) ||
-        settings.authorizationStatus == AuthorizationStatus.denied) {
+    if (_canUsePushToken(settings.authorizationStatus)) {
       return settings;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final permissionKey = 'masar_fcm_permission_requested_${_platformName()}';
-    if (prefs.getBool(permissionKey) == true) {
+    // Professional UX rule:
+    // - Automatic background sync must not trigger browser/OS prompts.
+    // - The native prompt is requested only after the user taps Enable notifications.
+    if (!requestPermission) {
       return settings;
     }
 
-    await prefs.setBool(permissionKey, true);
-    return _messaging.requestPermission(
+    final requested = await _messaging.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
@@ -188,6 +337,13 @@ class FirebaseNotificationPushTokenRemoteDataSource
       provisional: false,
       sound: true,
     );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'masar_fcm_permission_last_requested_${_platformName()}',
+      DateTime.now().toIso8601String(),
+    );
+    return requested;
   }
 
   bool _canUsePushToken(AuthorizationStatus status) {
@@ -207,6 +363,17 @@ class FirebaseNotificationPushTokenRemoteDataSource
       return 'android';
     }
     return defaultTargetPlatform.name;
+  }
+
+  void _debugTokenStatus(String status) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      'MasarFCM: status=$status '
+      'platform=${_platformName()} '
+      'hasVapidKey=${!kIsWeb || _webVapidKey.trim().isNotEmpty}',
+    );
   }
 
   String _mapFirebaseError(FirebaseException error) {

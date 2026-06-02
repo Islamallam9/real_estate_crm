@@ -22,6 +22,7 @@ import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/widgets/change_password_dialog.dart';
 import '../../../platform/presentation/widgets/platform_account_shell.dart';
+import '../../../notifications/presentation/widgets/notification_push_status_card.dart';
 import '../../data/datasources/platform_owner_account_remote_data_source.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -48,6 +49,8 @@ class SettingsPage extends StatelessWidget {
               _AccountSection(),
               SizedBox(height: AppSpacing.md),
               _SecuritySection(),
+              SizedBox(height: AppSpacing.md),
+              _NotificationSettingsSection(),
               SizedBox(height: AppSpacing.md),
               _AboutSection(),
             ],
@@ -438,6 +441,20 @@ class _PlatformOwnerSecurityDetails extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+
+class _NotificationSettingsSection extends StatelessWidget {
+  const _NotificationSettingsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return _SettingsSection(
+      title: l.notifications,
+      child: const NotificationPushStatusCard(),
     );
   }
 }

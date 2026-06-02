@@ -1,65 +1,75 @@
-/*
- * Firebase Cloud Messaging service worker for Masar CRM web push.
- * Uses Firebase Hosting reserved URLs so the live Firebase web config is not
- * hardcoded in source files. This works after Hosting deploy; for local web
- * testing, use Firebase Hosting emulator/serve if the /__/firebase URLs are
- * unavailable from flutter run.
- */
-importScripts('/__/firebase/8.10.1/firebase-app.js');
-importScripts('/__/firebase/8.10.1/firebase-messaging.js');
-importScripts('/__/firebase/init.js');
+/* Masar CRM Firebase Messaging service worker. */
+const MASAR_FCM_SW_VERSION = '2.30.2+99';
 
-try {
-  const messaging = firebase.messaging();
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
 
-  messaging.onBackgroundMessage((payload) => {
-    const data = payload && payload.data ? payload.data : {};
-    const notification = payload && payload.notification ? payload.notification : {};
-    const title = notification.title || data.title || 'Masar CRM';
-    const body = notification.body || data.body || '';
-    const route = data.route || '/dashboard';
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
 
-    self.registration.showNotification(title, {
-      body,
-      icon: '/icons/Icon-192.png',
-      badge: '/icons/Icon-192.png',
-      tag: data.dedupeKey || data.notificationId || undefined,
-      data: {
-        route,
-        notificationId: data.notificationId || '',
-        companyId: data.companyId || '',
-        platform: data.platform || '',
-      },
-    });
-  });
-} catch (error) {
-  // Keep the worker installable even if Firebase Hosting reserved config is not
-  // available in a local non-hosting web run.
-  console.warn('Masar FCM service worker initialization skipped.', error);
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: 'AIzaSyCteQzvKC5G4z4J-X8jivrtbYX4GObFOGU',
+  appId: '1:138177769693:web:7c3cc46c0cd53057ae6b34',
+  projectId: 'real-escrm-ia',
+  authDomain: 'real-escrm-ia.firebaseapp.com',
+  storageBucket: 'real-escrm-ia.firebasestorage.app',
+  messagingSenderId: '138177769693',
+});
+
+const messaging = firebase.messaging();
+
+function cleanRoute(route) {
+  if (!route || typeof route !== 'string') return '/notifications';
+  const trimmed = route.trim();
+  if (!trimmed || trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('javascript:')) return '/notifications';
+  if (trimmed.startsWith('/#')) {
+    const hashRoute = trimmed.slice(trimmed.indexOf('#') + 1).trim();
+    return hashRoute.startsWith('/') ? hashRoute : '/notifications';
+  }
+  if (trimmed.startsWith('#/')) return trimmed.slice(1);
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
+function routeUrl(data) { return `${self.location.origin}/#${cleanRoute(data && data.route)}`; }
+function safeNotificationText(payload, field, fallback) {
+  const notificationValue = payload && payload.notification && payload.notification[field];
+  const dataValue = payload && payload.data && payload.data[field];
+  return (notificationValue || dataValue || fallback || '').toString().slice(0, 220);
+}
+
+messaging.onBackgroundMessage((payload) => {
+  const data = payload.data || {};
+  const title = safeNotificationText(payload, 'title', 'Masar CRM');
+  const body = safeNotificationText(payload, 'body', 'Open Masar CRM to review the latest update.');
+  const tag = data.dedupeKey || data.notificationId || undefined;
+  return self.registration.showNotification(title, {
+    body,
+    tag,
+    renotify: true,
+    icon: '/icons/Icon-192.png',
+    badge: '/icons/Icon-192.png',
+    data: { ...data, type: 'MASAR_FCM_NOTIFICATION_CLICK', route: cleanRoute(data.route), url: routeUrl(data) },
+  });
+});
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  const data = event.notification && event.notification.data ? event.notification.data : {};
-  const route = typeof data.route === 'string' && data.route.trim()
-    ? data.route.trim()
-    : '/dashboard';
-  const targetUrl = new URL(route.startsWith('/#') ? route : `/#${route}`, self.location.origin).href;
-
+  const data = event.notification.data || {};
+  const route = cleanRoute(data.route);
+  const targetUrl = data.url || routeUrl(data);
   event.waitUntil((async () => {
-    const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of windowClients) {
-      if ('focus' in client) {
-        await client.focus();
-        if ('navigate' in client) {
-          await client.navigate(targetUrl);
-        }
-        return;
+    const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if (client.url && client.url.startsWith(self.location.origin)) {
+        try { client.postMessage({ type: 'MASAR_FCM_NOTIFICATION_CLICK', route }); } catch (_) {}
+        if ('navigate' in client) { try { await client.navigate(targetUrl); } catch (_) {} }
+        return client.focus();
       }
     }
-    if (clients.openWindow) {
-      await clients.openWindow(targetUrl);
-    }
+    return clients.openWindow(targetUrl);
   })());
 });

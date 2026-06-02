@@ -72,6 +72,76 @@ abstract final class NotificationRouteResolver {
     );
   }
 
+
+  static NotificationRouteResolution resolvePushData(Map<String, dynamic> data) {
+    final module = _normalizeModule(_stringValue(data['module']));
+    final recordId = _stringValue(data['recordId']);
+    final type = _stringValue(data['type']);
+
+    final attentionRoute = _appointmentRouteForTypeName(type);
+    if (attentionRoute != null) {
+      return NotificationRouteResolution(route: attentionRoute, usedFallback: false);
+    }
+
+    final structuredRoute = _structuredRouteFromStrings(
+      module: module,
+      recordId: recordId,
+    );
+    if (structuredRoute != null) {
+      return NotificationRouteResolution(route: structuredRoute, usedFallback: false);
+    }
+
+    final rawRoute = _safeStoredRoute(_stringValue(data['route']));
+    if (rawRoute != null) {
+      return NotificationRouteResolution(route: rawRoute, usedFallback: false);
+    }
+
+    return NotificationRouteResolution(
+      route: _moduleFallbackRoute(module),
+      usedFallback: true,
+    );
+  }
+
+  static String? _structuredRouteFromStrings({
+    required String module,
+    required String recordId,
+  }) {
+    if (recordId.isEmpty) {
+      return null;
+    }
+    return switch (module) {
+      'leads' => RouteNames.leadDetails(recordId),
+      'clients' => RouteNames.clientDetails(recordId),
+      'tasks' => RouteNames.taskEdit(recordId),
+      'deals' => RouteNames.dealDetails(recordId),
+      'appointments' => RouteNames.appointmentEdit(recordId),
+      'properties' => RouteNames.propertyDetails(recordId),
+      _ => null,
+    };
+  }
+
+  static String? _appointmentRouteForTypeName(String type) {
+    return switch (type.trim()) {
+      'appointmentMissed' || 'teamAppointmentMissed' =>
+        RouteNames.filteredAppointments(date: 'missed'),
+      'appointmentDueNow' || 'teamAppointmentDueNow' =>
+        RouteNames.filteredAppointments(date: 'today'),
+      'appointmentDueSoon' || 'teamAppointmentDueSoon' =>
+        RouteNames.filteredAppointments(date: 'upcoming'),
+      _ => null,
+    };
+  }
+
+  static String _stringValue(Object? value) {
+    if (value == null) {
+      return '';
+    }
+    if (value is String) {
+      return value.trim();
+    }
+    return value.toString().trim();
+  }
+
   static String? _structuredRoute({
     required String module,
     required String recordId,

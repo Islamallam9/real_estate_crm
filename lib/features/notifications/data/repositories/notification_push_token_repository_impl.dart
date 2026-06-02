@@ -8,7 +8,8 @@ class NotificationPushTokenRepositoryImpl
   final NotificationPushTokenRemoteDataSource remoteDataSource;
 
   @override
-  Future<String?> currentToken() => remoteDataSource.currentToken();
+  Future<String?> currentToken({bool requestPermission = false}) =>
+      remoteDataSource.currentToken(requestPermission: requestPermission);
 
   @override
   Stream<String> watchTokenRefreshes() => remoteDataSource.watchTokenRefreshes();

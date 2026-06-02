@@ -29,10 +29,43 @@ class NotificationPushTokenScope extends StatelessWidget {
   }
 }
 
-class _NotificationPushTokenBridge extends StatelessWidget {
+class _NotificationPushTokenBridge extends StatefulWidget {
   const _NotificationPushTokenBridge({required this.child});
 
   final Widget child;
+
+  @override
+  State<_NotificationPushTokenBridge> createState() =>
+      _NotificationPushTokenBridgeState();
+}
+
+class _NotificationPushTokenBridgeState
+    extends State<_NotificationPushTokenBridge> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _sync(context, context.read<AuthBloc>().state);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) {
+      return;
+    }
+    _sync(context, context.read<AuthBloc>().state);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +84,7 @@ class _NotificationPushTokenBridge extends StatelessWidget {
           ),
         ),
       ],
-      child: child,
+      child: widget.child,
     );
   }
 
@@ -60,7 +93,10 @@ class _NotificationPushTokenBridge extends StatelessWidget {
     final locale = _localeCode(context.read<LocaleCubit>().state);
     final session = authState.protectedCompanySession;
     if (session != null &&
-        (authState.companyMetadata?.isFeatureEnabled(CompanyFeature.notifications) ?? false)) {
+        (authState.companyMetadata?.isFeatureEnabled(
+              CompanyFeature.notifications,
+            ) ??
+            false)) {
       cubit.syncCompany(
         companyId: session.companyId,
         uid: session.uid,
@@ -85,7 +121,10 @@ class _NotificationPushTokenBridge extends StatelessWidget {
     final localeCode = _localeCode(locale);
     final session = state.protectedCompanySession;
     if (session != null &&
-        (state.companyMetadata?.isFeatureEnabled(CompanyFeature.notifications) ?? false)) {
+        (state.companyMetadata?.isFeatureEnabled(
+              CompanyFeature.notifications,
+            ) ??
+            false)) {
       return 'company:${session.companyId}:${session.uid}:${session.profile.role.name}:$localeCode';
     }
     final user = state.user;

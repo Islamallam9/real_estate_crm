@@ -3053,7 +3053,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardTeamPipeline.
   ///
   /// In en, this message translates to:
-  /// **'Pipeline'**
+  /// **'Open pipeline value'**
   String get dashboardTeamPipeline;
 
   /// No description provided for @dashboardNoValue.
@@ -6365,6 +6365,42 @@ abstract class AppLocalizations {
   /// **'This item is no longer available or you do not have access.'**
   String get notificationRouteUnavailable;
 
+  /// No description provided for @notificationPermissionPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get notificationPermissionPromptTitle;
+
+  /// No description provided for @notificationPermissionPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Masar CRM to send important assignments, appointments, and urgent follow-ups even when you are outside the app.'**
+  String get notificationPermissionPromptBody;
+
+  /// No description provided for @notificationPermissionEnableAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get notificationPermissionEnableAction;
+
+  /// No description provided for @notificationPermissionUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are not enabled yet. Allow them from the browser or device prompt, then try again.'**
+  String get notificationPermissionUnavailableBody;
+
+  /// No description provided for @notificationPermissionSyncFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications were allowed, but the device token could not be saved. Check your connection and try again.'**
+  String get notificationPermissionSyncFailedBody;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
   /// No description provided for @notificationsUnavailableInPlatform.
   ///
   /// In en, this message translates to:
@@ -9388,6 +9424,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Android version data yet.'**
   String get noAndroidVersionData;
+
+  /// No description provided for @notNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notNow;
+
+  /// No description provided for @dismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get dismiss;
+
+  /// No description provided for @notificationPermissionEnabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications enabled'**
+  String get notificationPermissionEnabledTitle;
+
+  /// No description provided for @notificationPermissionEnabledBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This device is connected and will receive important Masar CRM alerts.'**
+  String get notificationPermissionEnabledBody;
+
+  /// No description provided for @notificationPermissionNotConnectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device notifications not connected'**
+  String get notificationPermissionNotConnectedTitle;
+
+  /// No description provided for @notificationPermissionBlockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked'**
+  String get notificationPermissionBlockedTitle;
+
+  /// No description provided for @notificationPermissionBlockedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications from your browser or device settings when you want alerts.'**
+  String get notificationPermissionBlockedBody;
+
+  /// No description provided for @notificationPermissionConfigurationIssueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification setup needs configuration'**
+  String get notificationPermissionConfigurationIssueTitle;
+
+  /// No description provided for @notificationPermissionConfigurationIssueBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.'**
+  String get notificationPermissionConfigurationIssueBody;
 }
 
 class _AppLocalizationsDelegate

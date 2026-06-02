@@ -9,6 +9,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const auth = admin.auth();
+const messaging = admin.messaging();
 const FieldValue = admin.firestore.FieldValue;
 
 
@@ -4513,16 +4514,9 @@ exports.saveLeadRecord = onCall(async (request) => {
     await leadRef.set(payload, { merge: true });
   }
 
-  await createLeadAssignmentNotifications({
-    companyId,
-    leadId,
-    operation,
-    actorUid,
-    actor,
-    existingLead,
-    payload,
-    assignee,
-  }).catch(() => undefined);
+  // Lead assignment notifications are emitted by the Firestore write trigger below.
+  // Keeping assignment notifications in one trigger covers both callable saves and
+  // any safe server-side assignment updates without double-sending.
 
   await createLeadImportantStatusNotifications({
     companyId,
@@ -5133,10 +5127,69 @@ exports.registerCompanyNotificationToken = onCall(
       return { registered: false, reason: 'notifications-feature-disabled' };
     }
 
-    await deactivateNotificationTokenEverywhere({
+    const existingTokenSnapshot = await tokenRef.get();
+    const existingToken = existingTokenSnapshot.exists ? (existingTokenSnapshot.data() || {}) : {};
+    if (
+      platform === 'web' &&
+      existingToken.isActive !== true &&
+      optionalString(existingToken.deactivatedReason) === 'fcm-invalid-token' &&
+      (optionalString(existingToken.tokenHash) || tokenRef.id) === tokenHash
+    ) {
+      return {
+        registered: false,
+        refreshRequired: true,
+        reason: 'cached-invalid-web-token',
+        scope: 'company',
+        companyId,
+        tokenHash,
+      };
+    }
+
+    const webProbe = await probeWebNotificationToken({
+      token,
+      platform,
+      scope: 'company',
+      companyId,
+      uid,
+      tokenHash,
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+    });
+    if (!webProbe.ok) {
+      await tokenRef.set({
+        tokenHash,
+        token: '',
+        scope: 'company',
+        companyId,
+        uid,
+        platform,
+        isActive: false,
+        deactivatedReason: 'fcm-invalid-token',
+        deactivatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        validationStatus: 'failed',
+        validationErrorCode: sanitizePushText(webProbe.code, 80),
+        validationErrorMessage: sanitizeLogText(webProbe.message, 180),
+        webOrigin: sanitizeShortString(data.webOrigin, 240),
+        webHref: sanitizeShortString(data.webHref, 500),
+      }, { merge: true });
+      return {
+        registered: false,
+        refreshRequired: isInvalidMessagingTokenErrorCode(webProbe.code),
+        reason: 'web-token-probe-failed',
+        errorCode: sanitizePushText(webProbe.code, 80),
+        scope: 'company',
+        companyId,
+        tokenHash,
+      };
+    }
+
+    await bestEffortDeactivateNotificationTokenEverywhere({
       tokenHash,
       keepPath: tokenRef.path,
       reason: 'registered-company-token',
+      scope: 'company',
+      companyId,
+      uid,
     });
 
     const now = FieldValue.serverTimestamp();
@@ -5159,6 +5212,8 @@ exports.registerCompanyNotificationToken = onCall(
       buildNumber: sanitizeShortString(data.buildNumber, 20),
       timezone: sanitizeShortString(data.timezone, 80),
       userAgent: sanitizeShortString(data.userAgent, 600),
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+      webHref: sanitizeShortString(data.webHref, 500),
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -5166,6 +5221,14 @@ exports.registerCompanyNotificationToken = onCall(
       deactivatedAt: null,
       deactivatedReason: '',
     }, { merge: true });
+
+    await bestEffortDeactivateSiblingCompanyNotificationTokens({
+      companyId,
+      uid,
+      platform,
+      currentTokenHash: tokenHash,
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+    });
 
     return { registered: true, scope: 'company', companyId, tokenHash };
   },
@@ -5188,10 +5251,67 @@ exports.registerPlatformNotificationToken = onCall(
     ]);
     const platformAdmin = platformAdminSnapshot.exists ? platformAdminSnapshot.data() || {} : {};
 
-    await deactivateNotificationTokenEverywhere({
+    const existingTokenSnapshot = await tokenRef.get();
+    const existingToken = existingTokenSnapshot.exists ? (existingTokenSnapshot.data() || {}) : {};
+    if (
+      platform === 'web' &&
+      existingToken.isActive !== true &&
+      optionalString(existingToken.deactivatedReason) === 'fcm-invalid-token' &&
+      (optionalString(existingToken.tokenHash) || tokenRef.id) === tokenHash
+    ) {
+      return {
+        registered: false,
+        refreshRequired: true,
+        reason: 'cached-invalid-web-token',
+        scope: 'platformOwner',
+        tokenHash,
+      };
+    }
+
+    const webProbe = await probeWebNotificationToken({
+      token,
+      platform,
+      scope: 'platformOwner',
+      companyId: '',
+      uid,
+      tokenHash,
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+    });
+    if (!webProbe.ok) {
+      await tokenRef.set({
+        tokenHash,
+        token: '',
+        scope: 'platformOwner',
+        companyId: '',
+        uid,
+        platform,
+        isActive: false,
+        deactivatedReason: 'fcm-invalid-token',
+        deactivatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        validationStatus: 'failed',
+        validationErrorCode: sanitizePushText(webProbe.code, 80),
+        validationErrorMessage: sanitizeLogText(webProbe.message, 180),
+        webOrigin: sanitizeShortString(data.webOrigin, 240),
+        webHref: sanitizeShortString(data.webHref, 500),
+      }, { merge: true });
+      return {
+        registered: false,
+        refreshRequired: isInvalidMessagingTokenErrorCode(webProbe.code),
+        reason: 'web-token-probe-failed',
+        errorCode: sanitizePushText(webProbe.code, 80),
+        scope: 'platformOwner',
+        tokenHash,
+      };
+    }
+
+    await bestEffortDeactivateNotificationTokenEverywhere({
       tokenHash,
       keepPath: tokenRef.path,
       reason: 'registered-platform-token',
+      scope: 'platformOwner',
+      companyId: '',
+      uid,
     });
 
     const now = FieldValue.serverTimestamp();
@@ -5210,6 +5330,8 @@ exports.registerPlatformNotificationToken = onCall(
       buildNumber: sanitizeShortString(data.buildNumber, 20),
       timezone: sanitizeShortString(data.timezone, 80),
       userAgent: sanitizeShortString(data.userAgent, 600),
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+      webHref: sanitizeShortString(data.webHref, 500),
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -5221,6 +5343,134 @@ exports.registerPlatformNotificationToken = onCall(
     return { registered: true, scope: 'platformOwner', tokenHash };
   },
 );
+
+
+async function probeWebNotificationToken({
+  token,
+  platform,
+  scope,
+  companyId,
+  uid,
+  tokenHash,
+  webOrigin,
+}) {
+  if (optionalString(platform) !== 'web') {
+    return { ok: true, code: '', message: '' };
+  }
+  try {
+    await messaging.send({
+      token,
+      data: {
+        type: 'MASAR_FCM_TOKEN_PROBE',
+        scope: optionalString(scope),
+        companyId: optionalString(companyId),
+        uid: optionalString(uid),
+        tokenHash: optionalString(tokenHash),
+        webOrigin: sanitizeShortString(webOrigin, 240),
+      },
+      webpush: {
+        headers: {
+          TTL: '0',
+          Urgency: 'very-low',
+        },
+      },
+    }, true);
+    return { ok: true, code: '', message: '' };
+  } catch (error) {
+    const code = optionalString(error && error.code);
+    const message = sanitizeLogText(optionalString(error && error.message), 240);
+    console.error('notification_web_token_probe_failed', {
+      scope: optionalString(scope),
+      companyId: optionalString(companyId),
+      uid: optionalString(uid),
+      tokenHash: optionalString(tokenHash),
+      webOrigin: sanitizeShortString(webOrigin, 240),
+      code,
+      message,
+    });
+    return { ok: false, code, message };
+  }
+}
+
+
+async function bestEffortDeactivateSiblingCompanyNotificationTokens({
+  companyId,
+  uid,
+  platform,
+  currentTokenHash,
+  webOrigin,
+}) {
+  try {
+    if (optionalString(platform) !== 'web') {
+      return;
+    }
+    const cleanCompanyId = optionalString(companyId);
+    const cleanUid = optionalString(uid);
+    const cleanCurrentHash = optionalString(currentTokenHash);
+    const cleanOrigin = optionalString(webOrigin);
+    if (!cleanCompanyId || !cleanUid || !cleanCurrentHash) {
+      return;
+    }
+    const snapshot = await db
+      .collection(`companies/${cleanCompanyId}/notification_tokens`)
+      .where('uid', '==', cleanUid)
+      .limit(100)
+      .get();
+    if (snapshot.empty) {
+      return;
+    }
+    const currentIsLocalhost = isLocalhostWebOrigin(cleanOrigin);
+    let batch = db.batch();
+    let updates = 0;
+    snapshot.docs.forEach((document) => {
+      const data = document.data() || {};
+      const hash = optionalString(data.tokenHash) || document.id;
+      if (hash === cleanCurrentHash) {
+        return;
+      }
+      if (data.isActive !== true || optionalString(data.platform) !== 'web') {
+        return;
+      }
+      const oldOrigin = optionalString(data.webOrigin);
+      const sameOrigin = cleanOrigin && oldOrigin === cleanOrigin;
+      const sameLocalhostFamily = currentIsLocalhost && isLocalhostWebOrigin(oldOrigin);
+      const missingOrigin = !oldOrigin;
+      if (!sameOrigin && !sameLocalhostFamily && !missingOrigin) {
+        return;
+      }
+      batch.set(document.ref, {
+        isActive: false,
+        updatedAt: FieldValue.serverTimestamp(),
+        deactivatedAt: FieldValue.serverTimestamp(),
+        deactivatedReason: sameOrigin
+          ? 'replaced-by-new-web-token-same-origin'
+          : (missingOrigin
+            ? 'replaced-by-new-web-token-missing-origin'
+            : 'replaced-by-new-localhost-web-token'),
+      }, { merge: true });
+      updates += 1;
+    });
+    if (updates > 0) {
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error('notification_sibling_token_cleanup_failed', {
+      companyId: optionalString(companyId),
+      uid: optionalString(uid),
+      platform: optionalString(platform),
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? sanitizeLogText(error.message, 240) : '',
+    });
+  }
+}
+
+function isLocalhostWebOrigin(value) {
+  const origin = optionalString(value).toLowerCase();
+  return origin.startsWith('http://localhost:') ||
+    origin.startsWith('https://localhost:') ||
+    origin.startsWith('http://127.0.0.1:') ||
+    origin.startsWith('https://127.0.0.1:');
+}
 
 exports.removeNotificationToken = onCall(
   { region: 'us-east1' },
@@ -5912,6 +6162,68 @@ function companyIdFromAppointmentPath(path) {
   return parts[companiesIndex + 1];
 }
 
+exports.createLeadAssignmentNotification = onDocumentWritten(
+  'companies/{companyId}/leads/{leadId}',
+  async (event) => {
+    const companyId = optionalString(event.params.companyId);
+    const leadId = optionalString(event.params.leadId);
+    validateCompanyId(companyId);
+    if (!event.data || !event.data.after.exists) {
+      return;
+    }
+    const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
+    const after = event.data.after.data() || {};
+    const afterCompanyId = optionalString(after.companyId);
+    const afterRecordId = optionalString(after.id) || leadId;
+    if ((afterCompanyId && afterCompanyId !== companyId) || afterRecordId !== leadId) {
+      return;
+    }
+    if (after.isArchived === true || after.isActive === false) {
+      return;
+    }
+
+    const previousAssignedTo = before ? optionalString(before.assignedTo) : '';
+    const nextAssignedTo = optionalString(after.assignedTo);
+    if (previousAssignedTo === nextAssignedTo) {
+      await createLeadImportantStatusNotifications({
+        companyId,
+        leadId,
+        actorUid: optionalString(after.updatedBy) || optionalString(after.createdBy),
+        actor: await loadCompanyUserSafe(companyId, optionalString(after.updatedBy) || optionalString(after.createdBy)),
+        existingLead: before,
+        payload: after,
+      }).catch(() => undefined);
+      return;
+    }
+
+    const actorUid = optionalString(after.updatedBy) || optionalString(after.createdBy);
+    const actor = await loadCompanyUserSafe(companyId, actorUid);
+    const actorName = actor ? optionalString(actor.fullName) || optionalString(actor.email) : '';
+    await createAssignmentNotificationsForRecord({
+      companyId,
+      module: 'leads',
+      recordId: leadId,
+      recordTitle: optionalString(after.fullName),
+      recordSubtitle: optionalString(after.sourceDetails) || optionalString(after.source),
+      route: `/leads/${leadId}`,
+      previousRecord: before,
+      nextRecord: after,
+      actorUid,
+      actorName,
+      assignedType: previousAssignedTo ? 'leadReassigned' : 'leadAssigned',
+      removedType: 'leadRemovedFromYou',
+      priority: optionalString(after.priority) === 'high' ? 'high' : 'normal',
+      metadata: {
+        source: optionalString(after.source),
+        status: optionalString(after.status),
+        previousAssignedTo,
+        assignedToName: optionalString(after.assignedToName),
+      },
+      dedupePrefix: `lead_${leadId}_${event.id}`,
+    }).catch(() => undefined);
+  },
+);
+
 exports.createTaskAssignmentNotification = onDocumentWritten(
   'companies/{companyId}/tasks/{taskId}',
   async (event) => {
@@ -5924,7 +6236,9 @@ exports.createTaskAssignmentNotification = onDocumentWritten(
 
     const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
     const after = event.data.after.data() || {};
-    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== taskId) {
+    const afterCompanyId = optionalString(after.companyId);
+    const afterRecordId = optionalString(after.id) || taskId;
+    if ((afterCompanyId && afterCompanyId !== companyId) || afterRecordId !== taskId) {
       return;
     }
     if (after.isActive === false) {
@@ -5987,7 +6301,9 @@ exports.createClientAssignmentNotification = onDocumentWritten(
     }
     const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
     const after = event.data.after.data() || {};
-    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== clientId) {
+    const afterCompanyId = optionalString(after.companyId);
+    const afterRecordId = optionalString(after.id) || clientId;
+    if ((afterCompanyId && afterCompanyId !== companyId) || afterRecordId !== clientId) {
       return;
     }
     if (after.isActive === false) {
@@ -6035,7 +6351,9 @@ exports.createDealAssignmentNotification = onDocumentWritten(
     }
     const before = event.data.before.exists ? (event.data.before.data() || {}) : null;
     const after = event.data.after.data() || {};
-    if (optionalString(after.companyId) !== companyId || optionalString(after.id) !== dealId) {
+    const afterCompanyId = optionalString(after.companyId);
+    const afterRecordId = optionalString(after.id) || dealId;
+    if ((afterCompanyId && afterCompanyId !== companyId) || afterRecordId !== dealId) {
       return;
     }
     if (after.isActive === false) {
@@ -8900,11 +9218,15 @@ async function createAppointmentStatusNotifications({
   }
   const previousStatus = optionalString(before.status);
   const nextStatus = optionalString(after.status);
-  if (!nextStatus || previousStatus === nextStatus) {
+  const scheduleChanged = appointmentScheduleChanged(before, after);
+  if (!nextStatus || (previousStatus === nextStatus && !scheduleChanged)) {
     return;
   }
-  const userType = appointmentStatusNotificationType(nextStatus);
-  const teamType = teamAppointmentStatusNotificationType(nextStatus);
+  const effectiveStatus = scheduleChanged && previousStatus === nextStatus
+    ? 'rescheduled'
+    : nextStatus;
+  const userType = appointmentStatusNotificationType(effectiveStatus);
+  const teamType = teamAppointmentStatusNotificationType(effectiveStatus);
   if (!userType || !teamType) {
     return;
   }
@@ -8921,10 +9243,10 @@ async function createAppointmentStatusNotifications({
     teamId: optionalString(after.teamId),
     teamName: optionalString(after.teamName),
     managerId: optionalString(after.managerId),
-    priority: nextStatus === 'cancelled' || nextStatus === 'missed' ? 'high' : 'normal',
+    priority: effectiveStatus === 'cancelled' || effectiveStatus === 'missed' || effectiveStatus === 'rescheduled' ? 'high' : 'normal',
     metadata: {
       previousStatus,
-      newStatus: nextStatus,
+      newStatus: effectiveStatus,
       assignedToName: optionalString(after.assignedToName),
       scheduledAt: firestoreTimestampToIso(after.scheduledAt),
       previousScheduledAt: firestoreTimestampToIso(after.previousScheduledAt),
@@ -9185,6 +9507,18 @@ function appointmentDueDedupeKeySegment(scheduledAt) {
   return scheduledAt.toMillis().toString();
 }
 
+function appointmentScheduleChanged(before, after) {
+  return appointmentTimestampMillis(before && before.scheduledAt) !== appointmentTimestampMillis(after && after.scheduledAt) ||
+    appointmentTimestampMillis(before && before.endAt) !== appointmentTimestampMillis(after && after.endAt);
+}
+
+function appointmentTimestampMillis(value) {
+  if (!value || typeof value.toMillis !== 'function') {
+    return 0;
+  }
+  return value.toMillis();
+}
+
 function appointmentStatusNotificationType(status) {
   if (status === 'rescheduled') {
     return 'appointmentRescheduled';
@@ -9302,7 +9636,7 @@ async function createLeadImportantStatusNotifications({
     priority: nextStatus === 'won' || nextStatus === 'lost' ? 'high' : 'normal',
     metadata: {
       previousStatus,
-      newStatus: nextStatus,
+      newStatus: effectiveStatus,
     },
   };
 
@@ -9383,7 +9717,7 @@ async function createAssignmentNotificationsForRecord({
       teamId: nextSnapshot.teamId,
       teamName: nextSnapshot.teamName,
       managerId: nextSnapshot.managerId,
-      priority,
+      priority: assignmentPushPriority(assignedType, priority),
       metadata: {
         ...safeNotificationMetadata(metadata),
         assignedToName: nextSnapshot.name,
@@ -9440,6 +9774,27 @@ async function createAssignmentNotificationsForRecord({
     managerReassignedType,
     managerRemovedType,
   });
+}
+
+function assignmentPushPriority(type, priority) {
+  const cleanPriority = optionalString(priority);
+  if (['high', 'urgent', 'critical'].includes(cleanPriority)) {
+    return cleanPriority;
+  }
+  return [
+    'leadAssigned',
+    'leadReassigned',
+    'taskAssigned',
+    'taskReassigned',
+    'appointmentAssigned',
+    'appointmentReassigned',
+    'clientAssigned',
+    'clientReassigned',
+    'dealAssigned',
+    'dealReassigned',
+  ].includes(optionalString(type))
+    ? 'high'
+    : cleanPriority || 'normal';
 }
 
 function assigneeNotificationSnapshot(user, record) {
@@ -9575,7 +9930,7 @@ async function createTaskStatusNotifications({
     priority: nextStatus === 'cancelled' || nextStatus === 'canceled' ? 'high' : 'normal',
     metadata: {
       previousStatus,
-      newStatus: nextStatus,
+      newStatus: effectiveStatus,
       assignedToName: optionalString(after.assignedToName),
     },
   };
@@ -10174,6 +10529,662 @@ async function deactivateNotificationTokenEverywhere({ tokenHash, keepPath, reas
   await commitIfNeeded();
 }
 
+async function bestEffortDeactivateNotificationTokenEverywhere({
+  tokenHash,
+  keepPath,
+  reason,
+  scope,
+  companyId,
+  uid,
+}) {
+  try {
+    await deactivateNotificationTokenEverywhere({ tokenHash, keepPath, reason });
+  } catch (error) {
+    // Token registration must not fail just because stale-token cleanup failed.
+    // The current token write below is the source of truth. Cleanup can be retried
+    // by a later registration/sign-out cycle or an admin maintenance task.
+    console.error('notification_token_cleanup_failed', {
+      scope: optionalString(scope),
+      companyId: optionalString(companyId),
+      uid: optionalString(uid),
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? sanitizeLogText(error.message, 240) : '',
+    });
+  }
+}
+
+async function sendPushForCompanyNotification({
+  companyId,
+  notificationId,
+  notification,
+  notificationRef,
+}) {
+  try {
+    if (!isCompanyPushEligible(notification)) {
+      return { sent: 0, skipped: true };
+    }
+
+    const cleanCompanyId = optionalString(companyId);
+    const cleanNotificationId = optionalString(notificationId);
+    const recipientUid = optionalString(notification.recipientUid);
+    if (!cleanCompanyId || !cleanNotificationId || !recipientUid) {
+      return { sent: 0, skipped: true };
+    }
+
+    const locked = await reserveNotificationPushAttempt(notificationRef);
+    if (!locked) {
+      return { sent: 0, duplicate: true };
+    }
+
+    const tokensSnapshot = await db
+      .collection(`companies/${cleanCompanyId}/notification_tokens`)
+      .where('uid', '==', recipientUid)
+      .where('isActive', '==', true)
+      .where('platform', 'in', ['android', 'web'])
+      .limit(50)
+      .get();
+
+    const tokenDocs = activePushTokenDocs(tokensSnapshot.docs, {
+      companyId: cleanCompanyId,
+      uid: recipientUid,
+      scope: 'company',
+    });
+    if (tokenDocs.length === 0) {
+      await notificationRef.set({
+        push: {
+          status: 'skipped',
+          skippedReason: 'no-active-token',
+          tokenCount: 0,
+          successCount: 0,
+          failureCount: 0,
+          finishedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { sent: 0, skipped: true };
+    }
+
+    const result = await sendNotificationPushBatch({
+      tokenDocs,
+      message: buildCompanyPushMessage(notification, tokenDocs[0].data()),
+    });
+
+    await notificationRef.set({
+      push: {
+        status: result.successCount > 0 ? 'sent' : 'failed',
+        tokenCount: tokenDocs.length,
+        successCount: result.successCount,
+        failureCount: result.failureCount,
+        invalidTokenCount: result.invalidTokenCount,
+        webSuccessCount: result.webSuccessCount || 0,
+        androidSuccessCount: result.androidSuccessCount || 0,
+        tokenResults: (result.tokenResults || []).slice(0, 25),
+        sentAt: result.successCount > 0 ? FieldValue.serverTimestamp() : null,
+        finishedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { sent: result.successCount, failed: result.failureCount };
+  } catch (error) {
+    await markPushFailed(notificationRef, error);
+    console.error('company_notification_push_failed', {
+      companyId: optionalString(companyId),
+      notificationId: optionalString(notificationId),
+      type: notification && notification.type ? notification.type : '',
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? error.message : '',
+    });
+    return { sent: 0, failed: true };
+  }
+}
+
+async function sendPushForPlatformNotification({
+  notificationId,
+  notification,
+  notificationRef,
+}) {
+  try {
+    if (!isPlatformPushEligible(notification)) {
+      return { sent: 0, skipped: true };
+    }
+
+    const cleanNotificationId = optionalString(notificationId);
+    if (!cleanNotificationId) {
+      return { sent: 0, skipped: true };
+    }
+
+    const locked = await reserveNotificationPushAttempt(notificationRef);
+    if (!locked) {
+      return { sent: 0, duplicate: true };
+    }
+
+    const tokensSnapshot = await db
+      .collection('platform_notification_tokens')
+      .where('isActive', '==', true)
+      .where('platform', 'in', ['android', 'web'])
+      .limit(100)
+      .get();
+
+    const tokenDocs = activePushTokenDocs(tokensSnapshot.docs, {
+      scope: 'platformOwner',
+    });
+    if (tokenDocs.length === 0) {
+      await notificationRef.set({
+        push: {
+          status: 'skipped',
+          skippedReason: 'no-active-token',
+          tokenCount: 0,
+          successCount: 0,
+          failureCount: 0,
+          finishedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { sent: 0, skipped: true };
+    }
+
+    const result = await sendNotificationPushBatch({
+      tokenDocs,
+      message: buildPlatformPushMessage(notification, tokenDocs[0].data()),
+    });
+
+    await notificationRef.set({
+      push: {
+        status: result.successCount > 0 ? 'sent' : 'failed',
+        tokenCount: tokenDocs.length,
+        successCount: result.successCount,
+        failureCount: result.failureCount,
+        invalidTokenCount: result.invalidTokenCount,
+        webSuccessCount: result.webSuccessCount || 0,
+        androidSuccessCount: result.androidSuccessCount || 0,
+        tokenResults: (result.tokenResults || []).slice(0, 25),
+        sentAt: result.successCount > 0 ? FieldValue.serverTimestamp() : null,
+        finishedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { sent: result.successCount, failed: result.failureCount };
+  } catch (error) {
+    await markPushFailed(notificationRef, error);
+    console.error('platform_notification_push_failed', {
+      notificationId: optionalString(notificationId),
+      type: notification && notification.type ? notification.type : '',
+      code: error && error.code ? error.code : '',
+      message: error && error.message ? error.message : '',
+    });
+    return { sent: 0, failed: true };
+  }
+}
+
+function isCompanyPushEligible(notification) {
+  if (!notification || typeof notification !== 'object') {
+    return false;
+  }
+  if (optionalString(notification.deliveryMode) !== 'pushEligible') {
+    return false;
+  }
+  const priority = optionalString(notification.priority);
+  if (!['high', 'urgent', 'critical'].includes(priority)) {
+    return false;
+  }
+  const module = optionalString(notification.module);
+  if (module === 'exports' || module === 'audit_logs' || module === 'auditLogs') {
+    return false;
+  }
+  const type = optionalString(notification.type);
+  if (module === 'company' && type === 'systemInfo') {
+    return ['high', 'urgent', 'critical'].includes(priority);
+  }
+  return [
+    'leadAssigned',
+    'leadReassigned',
+    'taskAssigned',
+    'taskReassigned',
+    'appointmentAssigned',
+    'appointmentReassigned',
+    'clientAssigned',
+    'clientReassigned',
+    'dealAssigned',
+    'dealReassigned',
+    'appointmentDueSoon',
+    'appointmentDueNow',
+    'appointmentMissed',
+    'teamAppointmentDueSoon',
+    'teamAppointmentDueNow',
+    'teamAppointmentMissed',
+    'followUpOverdue',
+    'taskOverdue',
+    'leadImportantStatusChanged',
+    'dealImportantStatusChanged',
+    'dealWon',
+    'dealLost',
+    'trialEndingSoon',
+    'trialExpired',
+    'paymentDueSoon',
+    'paymentOverdue',
+    'paymentGraceEnding',
+    'paymentSuspended',
+  ].includes(type);
+}
+
+function isPlatformPushEligible(notification) {
+  if (!notification || typeof notification !== 'object') {
+    return false;
+  }
+  if (optionalString(notification.deliveryMode) !== 'pushEligible') {
+    return false;
+  }
+  const severity = optionalString(notification.severity);
+  const type = optionalString(notification.type);
+  const importantType = [
+    'urgentSupportTicketCreated',
+    'platformFunctionFailed',
+    'trialExpired',
+    'paymentOverdue',
+    'paymentGraceEnding',
+    'paymentSuspended',
+    'storageNearLimit',
+  ].includes(type);
+  return optionalString(notification.recipientScope) === 'platformOwner' &&
+    (severity === 'urgent' || importantType);
+}
+
+async function reserveNotificationPushAttempt(notificationRef) {
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(notificationRef);
+    if (!snapshot.exists) {
+      return false;
+    }
+    const data = snapshot.data() || {};
+    const push = data.push && typeof data.push === 'object' ? data.push : {};
+    if (push.startedAt || push.sentAt || push.status === 'sent') {
+      return false;
+    }
+    transaction.set(notificationRef, {
+      push: {
+        status: 'sending',
+        startedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return true;
+  });
+}
+
+function activePushTokenDocs(documents, expected) {
+  const scope = optionalString(expected.scope);
+  const companyId = optionalString(expected.companyId);
+  const uid = optionalString(expected.uid);
+  return documents.filter((document) => {
+    const data = document.data() || {};
+    const platform = optionalString(data.platform);
+    if (!['android', 'web'].includes(platform)) {
+      return false;
+    }
+    if (data.isActive !== true || optionalString(data.token).length < 20) {
+      return false;
+    }
+    if (scope && optionalString(data.scope) !== scope) {
+      return false;
+    }
+    if (companyId && optionalString(data.companyId) !== companyId) {
+      return false;
+    }
+    if (uid && optionalString(data.uid) !== uid) {
+      return false;
+    }
+    return true;
+  });
+}
+
+async function sendNotificationPushBatch({ tokenDocs, message }) {
+  const tokenPairs = tokenDocs
+    .map((document) => ({ document, token: optionalString(document.get('token')) }))
+    .filter((item) => item.token);
+  const tokens = tokenPairs.map((item) => item.token);
+  if (tokens.length === 0) {
+    return {
+      successCount: 0,
+      failureCount: 0,
+      invalidTokenCount: 0,
+      webSuccessCount: 0,
+      androidSuccessCount: 0,
+      tokenResults: [],
+    };
+  }
+
+  const response = await messaging.sendEachForMulticast({
+    ...message,
+    tokens,
+  });
+  const invalidTokenRefs = [];
+  const tokenResults = [];
+  let webSuccessCount = 0;
+  let androidSuccessCount = 0;
+  response.responses.forEach((item, index) => {
+    const pair = tokenPairs[index];
+    const document = pair.document;
+    const data = document.data() || {};
+    const platform = optionalString(data.platform);
+    const success = item.success === true;
+    if (success && platform === 'web') {
+      webSuccessCount += 1;
+    }
+    if (success && platform === 'android') {
+      androidSuccessCount += 1;
+    }
+    if (!success && isInvalidMessagingTokenError(item.error)) {
+      invalidTokenRefs.push(document.ref);
+    }
+    tokenResults.push({
+      tokenHash: optionalString(data.tokenHash) || document.id,
+      platform,
+      scope: optionalString(data.scope),
+      webOrigin: sanitizeShortString(data.webOrigin, 240),
+      appVersion: sanitizeShortString(data.appVersion, 40),
+      buildNumber: sanitizeShortString(data.buildNumber, 20),
+      success,
+      errorCode: success ? '' : optionalString(item.error && item.error.code),
+      errorMessage: success ? '' : sanitizeLogText(optionalString(item.error && item.error.message), 180),
+    });
+  });
+  await deactivateInvalidPushTokens(invalidTokenRefs);
+  return {
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+    invalidTokenCount: invalidTokenRefs.length,
+    webSuccessCount,
+    androidSuccessCount,
+    tokenResults,
+  };
+}
+
+function buildCompanyPushMessage(notification, tokenData) {
+  const locale = notificationLocale(tokenData);
+  const text = companyPushText(notification, locale);
+  const data = safePushData({
+    notificationId: notification.id,
+    companyId: notification.companyId,
+    module: notification.module,
+    recordId: notification.recordId,
+    route: notification.route,
+    type: notification.type,
+    dedupeKey: notification.dedupeKey,
+    priority: notification.priority,
+    deliveryMode: notification.deliveryMode,
+    platform: 'company',
+    title: text.title,
+    body: text.body,
+  });
+  const link = webPushLink(data.route, tokenData);
+  return {
+    notification: {
+      title: text.title,
+      body: text.body,
+    },
+    data,
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'masar_crm_notifications',
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    },
+    webpush: {
+      headers: {
+        Urgency: 'high',
+        TTL: '3600',
+      },
+      fcmOptions: {
+        link,
+      },
+      notification: {
+        title: text.title,
+        body: text.body,
+        tag: data.dedupeKey || data.notificationId,
+        icon: '/icons/Icon-192.png',
+        badge: '/icons/Icon-192.png',
+        renotify: true,
+        requireInteraction: false,
+        data: {
+          ...data,
+          type: 'MASAR_FCM_NOTIFICATION_CLICK',
+          route: data.route || '/notifications',
+          url: link,
+        },
+      },
+    },
+  };
+}
+
+function buildPlatformPushMessage(notification, tokenData) {
+  const locale = notificationLocale(tokenData);
+  const title = localizedMetadataText(notification.metadata, locale, 'title') ||
+    optionalString(notification.title) ||
+    'Masar CRM';
+  const body = localizedMetadataText(notification.metadata, locale, 'body') ||
+    optionalString(notification.message) ||
+    'Open Masar CRM to review the latest platform alert.';
+  const data = safePushData({
+    notificationId: notification.id,
+    companyId: notification.companyId,
+    module: 'platform',
+    recordId: '',
+    route: notification.route || '/platform/notifications',
+    type: notification.type,
+    dedupeKey: notification.dedupeKey || notification.id,
+    priority: notification.priority,
+    deliveryMode: notification.deliveryMode,
+    platform: 'platformOwner',
+    title,
+    body,
+  });
+  const link = webPushLink(data.route, tokenData);
+  return {
+    notification: {
+      title,
+      body,
+    },
+    data,
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'masar_crm_notifications',
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    },
+    webpush: {
+      headers: {
+        Urgency: 'high',
+        TTL: '3600',
+      },
+      fcmOptions: {
+        link,
+      },
+      notification: {
+        title,
+        body,
+        tag: data.dedupeKey || data.notificationId,
+        icon: '/icons/Icon-192.png',
+        badge: '/icons/Icon-192.png',
+        renotify: true,
+        requireInteraction: false,
+        data: {
+          ...data,
+          type: 'MASAR_FCM_NOTIFICATION_CLICK',
+          route: data.route || '/platform/notifications',
+          url: link,
+        },
+      },
+    },
+  };
+}
+
+function companyPushText(notification, locale) {
+  const metadata = notification.metadata || {};
+  const title = localizedMetadataText(metadata, locale, 'title') ||
+    optionalString(notification.fallbackTitle) ||
+    defaultCompanyPushTitle(notification.type);
+  const body = localizedMetadataText(metadata, locale, 'body') ||
+    optionalString(notification.fallbackBody) ||
+    defaultCompanyPushBody(notification);
+  return {
+    title: sanitizePushText(title, 120) || 'Masar CRM',
+    body: sanitizePushText(body, 220),
+  };
+}
+
+function localizedMetadataText(metadata, locale, field) {
+  const source = metadata && typeof metadata === 'object' ? metadata : {};
+  const preferredKey = locale === 'ar' ? `${field}Ar` : `${field}En`;
+  const fallbackKey = locale === 'ar' ? `${field}En` : `${field}Ar`;
+  return optionalString(source[preferredKey]) || optionalString(source[fallbackKey]);
+}
+
+function defaultCompanyPushTitle(type) {
+  switch (optionalString(type)) {
+    case 'leadAssigned':
+    case 'leadReassigned':
+      return 'Lead assigned';
+    case 'taskAssigned':
+    case 'taskReassigned':
+      return 'Task assigned';
+    case 'appointmentAssigned':
+    case 'appointmentReassigned':
+      return 'Appointment assigned';
+    case 'clientAssigned':
+    case 'clientReassigned':
+      return 'Client assigned';
+    case 'dealAssigned':
+    case 'dealReassigned':
+      return 'Deal assigned';
+    case 'appointmentDueSoon':
+    case 'teamAppointmentDueSoon':
+      return 'Appointment in 10 minutes';
+    case 'appointmentDueNow':
+    case 'teamAppointmentDueNow':
+      return 'Appointment due now';
+    case 'appointmentMissed':
+    case 'teamAppointmentMissed':
+      return 'Appointment missed';
+    case 'taskOverdue':
+    case 'followUpOverdue':
+      return 'Follow-up overdue';
+    case 'dealWon':
+      return 'Deal won';
+    case 'dealLost':
+      return 'Deal lost';
+    case 'paymentOverdue':
+    case 'paymentSuspended':
+      return 'Payment needs attention';
+    case 'trialExpired':
+      return 'Trial expired';
+    case 'trialEndingSoon':
+      return 'Trial ending soon';
+    default:
+      return 'Masar CRM';
+  }
+}
+
+function defaultCompanyPushBody(notification) {
+  const recordTitle = optionalString(notification.recordTitle) ||
+    optionalString(notification.recordSubtitle) ||
+    'Open Masar CRM';
+  return `${recordTitle} needs your attention.`;
+}
+
+function notificationLocale(tokenData) {
+  return optionalString(tokenData && tokenData.locale).toLowerCase() === 'ar' ? 'ar' : 'en';
+}
+
+function safePushData(source) {
+  const data = {};
+  for (const [key, value] of Object.entries(source || {})) {
+    const cleanKey = sanitizePlainString(optionalString(key), 40);
+    if (!cleanKey) {
+      continue;
+    }
+    data[cleanKey] = sanitizePushText(value, 240);
+  }
+  return data;
+}
+
+function sanitizePushText(value, maxLength) {
+  return optionalString(value)
+    .replace(/[<>]/g, '')
+    .slice(0, maxLength);
+}
+
+function webPushLink(route, tokenData) {
+  const cleanRoute = optionalString(route) || '/dashboard';
+  const hashRoute = cleanRoute.startsWith('/#') ? cleanRoute : `/#${cleanRoute.startsWith('/') ? cleanRoute : `/${cleanRoute}`}`;
+  const origin = optionalString(tokenData && tokenData.webOrigin);
+  if (origin.startsWith('https://')) {
+    return `${origin}${hashRoute}`;
+  }
+  return `https://masarcrm.web.app${hashRoute}`;
+}
+
+
+function isInvalidMessagingTokenErrorCode(code) {
+  return [
+    'messaging/invalid-argument',
+    'messaging/invalid-registration-token',
+    'messaging/registration-token-not-registered',
+    'messaging/third-party-auth-error',
+  ].includes(optionalString(code));
+}
+
+function isInvalidMessagingTokenError(error) {
+  return isInvalidMessagingTokenErrorCode(error && error.code);
+}
+
+async function deactivateInvalidPushTokens(tokenRefs) {
+  if (!tokenRefs || tokenRefs.length === 0) {
+    return;
+  }
+  let batch = db.batch();
+  let count = 0;
+  const commitIfNeeded = async () => {
+    if (count === 0) {
+      return;
+    }
+    await batch.commit();
+    batch = db.batch();
+    count = 0;
+  };
+  for (const ref of tokenRefs) {
+    batch.set(ref, {
+      isActive: false,
+      updatedAt: FieldValue.serverTimestamp(),
+      deactivatedAt: FieldValue.serverTimestamp(),
+      deactivatedReason: 'fcm-invalid-token',
+    }, { merge: true });
+    count += 1;
+    if (count >= 450) {
+      await commitIfNeeded();
+    }
+  }
+  await commitIfNeeded();
+}
+
+async function markPushFailed(notificationRef, error) {
+  try {
+    await notificationRef.set({
+      push: {
+        status: 'failed',
+        errorCode: sanitizePushText(error && error.code ? error.code : '', 80),
+        finishedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (_) {
+    // Push metadata is best effort; never let this break notification creation.
+  }
+}
+
 async function createCompanyNotification({
   companyId,
   recipientUid,
@@ -10279,6 +11290,12 @@ async function createCompanyNotification({
   };
 
   await notificationRef.set(payload, { merge: false });
+  await sendPushForCompanyNotification({
+    companyId,
+    notificationId: notificationRef.id,
+    notification: payload,
+    notificationRef,
+  });
   return notificationRef.id;
 }
 
@@ -10308,6 +11325,20 @@ function defaultCompanyNotificationDeliveryMode({ type, module, priority }) {
   }
   if (cleanModule === 'audit_logs' || cleanModule === 'auditLogs') {
     return 'auditOnly';
+  }
+  if ([
+    'leadAssigned',
+    'leadReassigned',
+    'taskAssigned',
+    'taskReassigned',
+    'appointmentAssigned',
+    'appointmentReassigned',
+    'clientAssigned',
+    'clientReassigned',
+    'dealAssigned',
+    'dealReassigned',
+  ].includes(cleanType)) {
+    return 'pushEligible';
   }
   if ([
     'appointmentDueNow',
@@ -10724,6 +11755,11 @@ async function createPlatformNotification(payload) {
     }
   }
   await notificationRef.set(notification);
+  await sendPushForPlatformNotification({
+    notificationId: notificationRef.id,
+    notification,
+    notificationRef,
+  });
   return notificationRef.id;
 }
 

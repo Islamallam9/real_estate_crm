@@ -1569,7 +1569,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardTeamDeals => 'Deals';
 
   @override
-  String get dashboardTeamPipeline => 'Pipeline';
+  String get dashboardTeamPipeline => 'Open pipeline value';
 
   @override
   String get dashboardNoValue => 'No value';
@@ -3443,6 +3443,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'This item is no longer available or you do not have access.';
 
   @override
+  String get notificationPermissionPromptTitle => 'Enable notifications';
+
+  @override
+  String get notificationPermissionPromptBody =>
+      'Allow Masar CRM to send important assignments, appointments, and urgent follow-ups even when you are outside the app.';
+
+  @override
+  String get notificationPermissionEnableAction => 'Enable';
+
+  @override
+  String get notificationPermissionUnavailableBody =>
+      'Notifications are not enabled yet. Allow them from the browser or device prompt, then try again.';
+
+  @override
+  String get notificationPermissionSyncFailedBody =>
+      'Notifications were allowed, but the device token could not be saved. Check your connection and try again.';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
   String get notificationsUnavailableInPlatform =>
       'Tenant sales notifications are not available in platform mode.';
 
@@ -5077,4 +5098,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noAndroidVersionData => 'No Android version data yet.';
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get notificationPermissionEnabledTitle => 'Notifications enabled';
+
+  @override
+  String get notificationPermissionEnabledBody =>
+      'This device is connected and will receive important Masar CRM alerts.';
+
+  @override
+  String get notificationPermissionNotConnectedTitle =>
+      'Device notifications not connected';
+
+  @override
+  String get notificationPermissionBlockedTitle => 'Notifications are blocked';
+
+  @override
+  String get notificationPermissionBlockedBody =>
+      'Enable notifications from your browser or device settings when you want alerts.';
+
+  @override
+  String get notificationPermissionConfigurationIssueTitle =>
+      'Notification setup needs configuration';
+
+  @override
+  String get notificationPermissionConfigurationIssueBody =>
+      'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.';
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -12,10 +13,23 @@ import 'core/localization/locale_cubit.dart';
 import 'core/observability/app_error_reporter.dart';
 import 'core/widgets/masar_loading_view.dart';
 
+
+@pragma('vm:entry-point')
+Future<void> masarFirebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await FirebaseInitializer.initialize();
+  } catch (error, stackTrace) {
+    debugPrint('MasarFCM: background-initialize-failed ${error.runtimeType}');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+}
+
 Future<void> main() async {
   await runZonedGuarded<Future<void>>(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      FirebaseMessaging.onBackgroundMessage(masarFirebaseMessagingBackgroundHandler);
       MasarObservabilityReporter.instance.installGlobalErrorHandlers();
       Bloc.observer = MasarBlocObserver(MasarObservabilityReporter.instance);
       VisibilityDetectorController.instance.updateInterval = const Duration(

@@ -24,6 +24,7 @@ import '../cubit/notifications_cubit.dart';
 import '../cubit/notifications_state.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_cards.dart';
+import '../widgets/notification_push_status_card.dart';
 
 enum _NotificationFilter {
   all,
@@ -185,6 +186,8 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                   children: [
                     header,
                     const SizedBox(height: 8),
+                    const NotificationPushStatusCard(),
+                    const SizedBox(height: 8),
                     filters,
                     const SizedBox(height: AppSpacing.sm),
                     _MobileNotificationSections(
@@ -202,6 +205,8 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 header,
+                const SizedBox(height: 8),
+                const NotificationPushStatusCard(),
                 const SizedBox(height: 8),
                 filters,
                 const SizedBox(height: AppSpacing.sm),
@@ -245,11 +250,11 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
   List<CrmNotification> _filteredNotifications(
     List<CrmNotification> notifications,
   ) {
-    return switch (_filter) {
+    final filtered = switch (_filter) {
       _NotificationFilter.all => notifications,
       _NotificationFilter.unread =>
         notifications.where((item) => !item.isRead).toList(),
-      _NotificationFilter.attention => const [],
+      _NotificationFilter.attention => const <CrmNotification>[],
       _NotificationFilter.leads =>
         notifications.where((item) => item.module == 'leads').toList(),
       _NotificationFilter.tasks =>
@@ -266,6 +271,27 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
               item.type == CrmNotificationType.dataHealthIssue)
           .toList(),
     };
+    return _sortNotificationsForDisplay(filtered);
+  }
+
+  List<CrmNotification> _sortNotificationsForDisplay(
+    List<CrmNotification> notifications,
+  ) {
+    final sorted = [...notifications]..sort((a, b) {
+        if (a.isRead != b.isRead) {
+          return a.isRead ? 1 : -1;
+        }
+        final aDate =
+            a.createdAt ?? a.readAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate =
+            b.createdAt ?? b.readAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateCompare = bDate.compareTo(aDate);
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+        return b.id.compareTo(a.id);
+      });
+    return sorted;
   }
 
   List<AttentionReminder> _filteredReminders(List<AttentionReminder> reminders) {

@@ -152,11 +152,9 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
       notification.type == CrmNotificationType.teamAppointmentCompleted ||
       notification.type == CrmNotificationType.teamAppointmentMissed ||
       notification.type == CrmNotificationType.genericStatusChanged) {
-    final next = (notification.metadata['newStatus'] ??
-            notification.metadata['newStage'] ??
-            '')
-        .toString()
-        .trim();
+    final next = _safeTextValue(
+      notification.metadata['newStatus'] ?? notification.metadata['newStage'],
+    ).trim();
     if (next.isNotEmpty) {
       final label = _statusLabel(l, next);
       return actor.isEmpty
@@ -169,15 +167,12 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
       notification.type == CrmNotificationType.teamMemberRemovedFromRecord ||
       notification.type == CrmNotificationType.teamAppointmentAssigned ||
       notification.type == CrmNotificationType.teamAppointmentReassigned) {
-    final member = (notification.metadata['assignedToName'] ??
-            notification.metadata['previousAssignedToName'] ??
-            '')
-        .toString()
-        .trim();
+    final member = _safeTextValue(
+      notification.metadata['assignedToName'] ??
+          notification.metadata['previousAssignedToName'],
+    ).trim();
     final previousMember =
-        (notification.metadata['previousAssignedToName'] ?? '')
-            .toString()
-            .trim();
+        _safeTextValue(notification.metadata['previousAssignedToName']).trim();
     if ((notification.type == CrmNotificationType.teamMemberReassigned ||
             notification.type == CrmNotificationType.teamAppointmentReassigned) &&
         previousMember.isNotEmpty &&
@@ -227,9 +222,7 @@ String notificationBody(AppLocalizations l, CrmNotification notification) {
     );
   }
   if (notification.type == CrmNotificationType.dataHealthIssue) {
-    final issueType = (notification.metadata['issueType'] ?? '')
-        .toString()
-        .trim();
+    final issueType = _safeTextValue(notification.metadata['issueType']).trim();
     return l.notificationDataHealthIssueBody(
       record,
       _dataHealthIssueLabel(l, issueType),
@@ -252,15 +245,48 @@ String _localizedNotificationText(
       ? arabicKey
       : englishKey;
   final alternateKey = preferredKey == arabicKey ? englishKey : arabicKey;
-  final preferred = (notification.metadata[preferredKey] ?? '').toString().trim();
+  final preferred = _safeTextValue(
+    notification.metadata[preferredKey],
+    localeName: l.localeName,
+  ).trim();
   if (preferred.isNotEmpty) {
     return preferred;
   }
-  final alternate = (notification.metadata[alternateKey] ?? '').toString().trim();
+  final alternate = _safeTextValue(
+    notification.metadata[alternateKey],
+    localeName: l.localeName,
+  ).trim();
   if (alternate.isNotEmpty && fallback.trim().isEmpty) {
     return alternate;
   }
   return fallback;
+}
+
+String _safeTextValue(Object? value, {String? localeName}) {
+  if (value == null) {
+    return '';
+  }
+  if (value is String) {
+    return value;
+  }
+  if (value is num || value is bool) {
+    return value.toString();
+  }
+  if (value is Map) {
+    final locale = (localeName ?? '').toLowerCase().startsWith('ar')
+        ? 'ar'
+        : 'en';
+    final keys = locale == 'ar'
+        ? const ['ar', 'ar-EG', 'titleAr', 'bodyAr', 'en', 'titleEn', 'bodyEn']
+        : const ['en', 'en-US', 'titleEn', 'bodyEn', 'ar', 'titleAr', 'bodyAr'];
+    for (final key in keys) {
+      final text = _safeTextValue(value[key]).trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+  }
+  return '';
 }
 
 String reminderTitle(AppLocalizations l, AttentionReminder reminder) {

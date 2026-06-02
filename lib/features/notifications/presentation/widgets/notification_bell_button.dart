@@ -71,9 +71,17 @@ class NotificationBellButton extends StatelessWidget {
               context.go(RouteNames.notifications);
               return;
             }
+            final cubit = context.read<NotificationsCubit>();
+            cubit.refresh(
+              companyId: profile.companyId,
+              currentUserId: authUid,
+              role: profile.role,
+              managerTeamId: profile.teamId,
+              notificationsLimit: notificationDropdownLimit * 2,
+            );
             _showNotificationsPanel(
               context: context,
-              cubit: context.read<NotificationsCubit>(),
+              cubit: cubit,
               companyId: profile.companyId,
               currentUserId: authUid,
             );
@@ -457,8 +465,7 @@ class _PanelNotificationList extends StatelessWidget {
         icon: Icons.notifications_none,
       );
     }
-    final visibleNotifications =
-        state.notifications.take(notificationDropdownLimit).toList();
+    final visibleNotifications = _panelNotifications(state.notifications);
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -495,6 +502,23 @@ class _PanelNotificationList extends StatelessWidget {
       },
     );
   }
+}
+
+
+List<CrmNotification> _panelNotifications(List<CrmNotification> notifications) {
+  final sorted = [...notifications]..sort((a, b) {
+      if (a.isRead != b.isRead) {
+        return a.isRead ? 1 : -1;
+      }
+      final aDate = a.createdAt ?? a.readAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? b.readAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final dateCompare = bDate.compareTo(aDate);
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+      return b.id.compareTo(a.id);
+    });
+  return sorted.take(notificationDropdownLimit).toList(growable: false);
 }
 
 class _PanelInlineMessage extends StatelessWidget {

@@ -580,7 +580,7 @@
   "dashboardTeamUser": "Consultant",
   "dashboardTeamAppointments": "Appts",
   "dashboardTeamDeals": "Deals",
-  "dashboardTeamPipeline": "Pipeline",
+  "dashboardTeamPipeline": "Open pipeline value",
   "dashboardNoValue": "No value",
   "dashboardAddLead": "Add lead",
   "dashboardAddClient": "Add client",
@@ -1310,6 +1310,12 @@
     }
   },
   "notificationRouteUnavailable": "This item is no longer available or you do not have access.",
+  "notificationPermissionPromptTitle": "Enable notifications",
+  "notificationPermissionPromptBody": "Allow Masar CRM to send important assignments, appointments, and urgent follow-ups even when you are outside the app.",
+  "notificationPermissionEnableAction": "Enable",
+  "notificationPermissionUnavailableBody": "Notifications are not enabled yet. Allow them from the browser or device prompt, then try again.",
+  "notificationPermissionSyncFailedBody": "Notifications were allowed, but the device token could not be saved. Check your connection and try again.",
+  "retry": "Retry",
   "notificationsUnavailableInPlatform": "Tenant sales notifications are not available in platform mode.",
   "appointments": "Appointments",
   "appointmentsSubtitle": "Plan viewings, meetings, calls, and deal follow-ups in one controlled schedule.",
@@ -1862,5 +1868,14 @@
   "androidVersionAdoptionSubtitle": "Active Android users by installed app version, based on latest registered device tokens.",
   "activeDevices": "Active devices",
   "latestSeen": "Latest seen",
-  "noAndroidVersionData": "No Android version data yet."
+  "noAndroidVersionData": "No Android version data yet.",
+  "notNow": "Not now",
+  "dismiss": "Dismiss",
+  "notificationPermissionEnabledTitle": "Notifications enabled",
+  "notificationPermissionEnabledBody": "This device is connected and will receive important Masar CRM alerts.",
+  "notificationPermissionNotConnectedTitle": "Device notifications not connected",
+  "notificationPermissionBlockedTitle": "Notifications are blocked",
+  "notificationPermissionBlockedBody": "Enable notifications from your browser or device settings when you want alerts.",
+  "notificationPermissionConfigurationIssueTitle": "Notification setup needs configuration",
+  "notificationPermissionConfigurationIssueBody": "The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications."
 }

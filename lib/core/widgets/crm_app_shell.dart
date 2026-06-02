@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -19,11 +20,16 @@ import '../../features/global_search/presentation/cubit/global_search_state.dart
 import '../../features/notifications/domain/constants/notification_limits.dart';
 import '../../features/notifications/domain/entities/attention_reminder.dart';
 import '../../features/notifications/domain/entities/crm_notification.dart';
+import '../../features/notifications/presentation/cubit/notification_push_token_cubit.dart';
+import '../../features/notifications/presentation/cubit/notification_push_token_state.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
 import '../../features/notifications/presentation/cubit/notifications_state.dart';
 import '../../features/notifications/presentation/widgets/notification_bell_button.dart';
 import '../../features/notifications/presentation/widgets/notifications_scope.dart';
 import '../../features/notifications/presentation/widgets/notification_text.dart';
+import '../../features/notifications/presentation/widgets/notification_push_status_card.dart';
+import '../../features/notifications/presentation/routing/notification_route_resolver.dart';
+import '../../features/notifications/presentation/routing/web_foreground_notification_notifier.dart';
 import '../../features/users/domain/entities/company_metadata.dart';
 import '../auth/protected_company_session.dart';
 import '../constants/role_constants.dart';
@@ -188,31 +194,28 @@ class CrmAppShell extends StatelessWidget {
         onItemSelected ?? (item) => _goToItem(context, item);
 
     return _AuthLogoutListener(
-      child: _CrmNotificationsScope(
-        authState: authState,
-        child: ResponsiveLayout(
-          mobile: _MobileShell(
-            selectedItem: selectedItem,
-            title: title,
-            items: mobileItems,
-            companyMetadata: companyMetadata,
-            onItemSelected: effectiveOnItemSelected,
-            child: child,
-          ),
-          tablet: _DesktopShell(
-            selectedItem: selectedItem,
-            title: title,
-            items: desktopItems,
-            onItemSelected: effectiveOnItemSelected,
-            child: child,
-          ),
-          desktop: _DesktopShell(
-            selectedItem: selectedItem,
-            title: title,
-            items: desktopItems,
-            onItemSelected: effectiveOnItemSelected,
-            child: child,
-          ),
+      child: ResponsiveLayout(
+        mobile: _MobileShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: mobileItems,
+          companyMetadata: companyMetadata,
+          onItemSelected: effectiveOnItemSelected,
+          child: child,
+        ),
+        tablet: _DesktopShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: desktopItems,
+          onItemSelected: effectiveOnItemSelected,
+          child: child,
+        ),
+        desktop: _DesktopShell(
+          selectedItem: selectedItem,
+          title: title,
+          items: desktopItems,
+          onItemSelected: effectiveOnItemSelected,
+          child: child,
         ),
       ),
     );
@@ -265,8 +268,9 @@ class _ShellRefreshWrapperState extends State<_ShellRefreshWrapper> {
   }
 }
 
-class _CrmNotificationsScope extends StatelessWidget {
-  const _CrmNotificationsScope({
+class CrmNotificationsOverlayScope extends StatelessWidget {
+  const CrmNotificationsOverlayScope({
+    super.key,
     required this.authState,
     required this.child,
   });
@@ -318,6 +322,170 @@ class _CrmNotificationsStarter extends StatefulWidget {
       _CrmNotificationsStarterState();
 }
 
+
+class _NotificationPermissionBanner extends StatelessWidget {
+  const _NotificationPermissionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 720;
+    return PositionedDirectional(
+      top: isMobile ? AppSpacing.sm : AppSpacing.lg,
+      start: isMobile ? AppSpacing.sm : null,
+      end: isMobile ? AppSpacing.sm : AppSpacing.xl,
+      child: const SafeArea(
+        child: NotificationPushStatusCard(
+          mode: NotificationPushStatusCardMode.banner,
+        ),
+      ),
+    );
+  }
+}
+
+
+class _PushNotificationOpenRouter extends StatefulWidget {
+  const _PushNotificationOpenRouter({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_PushNotificationOpenRouter> createState() =>
+      _PushNotificationOpenRouterState();
+}
+
+class _PushNotificationOpenRouterState
+    extends State<_PushNotificationOpenRouter> {
+  StreamSubscription<RemoteMessage>? _openedSubscription;
+  StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  StreamSubscription<Object?>? _webClickSubscription;
+  final Set<String> _handledMessages = <String>{};
+  String? _pendingRoute;
+
+  @override
+  void initState() {
+    super.initState();
+    _openedSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
+    if (kIsWeb) {
+      _foregroundSubscription =
+          FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      _webClickSubscription = listenForMasarWebNotificationClicks(_queueRoute);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) {
+        _handleOpenedMessage(initial);
+      }
+      _flushPendingRoute();
+    });
+  }
+
+  @override
+  void dispose() {
+    _openedSubscription?.cancel();
+    _foregroundSubscription?.cancel();
+    _webClickSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _handleOpenedMessage(RemoteMessage message) {
+    final signature = message.messageId ??
+        message.sentTime?.toIso8601String() ??
+        message.data.toString();
+    if (!_handledMessages.add(signature)) {
+      return;
+    }
+    final resolution = NotificationRouteResolver.resolvePushData(message.data);
+    debugPrint('MasarFCM: status=push-opened route=${resolution.route}');
+    _queueRoute(resolution.route);
+  }
+
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    if (!kIsWeb) {
+      return;
+    }
+    final resolution = NotificationRouteResolver.resolvePushData(message.data);
+    final notification = message.notification;
+    final title = notification?.title ??
+        (message.data['title']?.toString() ?? 'Masar CRM');
+    final body = notification?.body ??
+        (message.data['body']?.toString() ??
+            'Open Masar CRM to review the latest update.');
+    final tag = message.data['dedupeKey']?.toString() ??
+        message.data['notificationId']?.toString() ??
+        message.messageId ??
+        resolution.route;
+    debugPrint('MasarFCM: status=foreground-web-message route=${resolution.route}');
+    await showMasarWebForegroundNotification(
+      title: title,
+      body: body,
+      route: resolution.route,
+      tag: tag,
+    );
+  }
+
+  void _queueRoute(String route) {
+    final cleanRoute = _safePushRoute(route);
+    _pendingRoute = cleanRoute;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingRoute());
+  }
+
+  String _safePushRoute(String route) {
+    final trimmed = route.trim();
+    if (trimmed.isEmpty ||
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('javascript:')) {
+      return RouteNames.notifications;
+    }
+    if (trimmed.startsWith('/#')) {
+      final hashIndex = trimmed.indexOf('#');
+      final hashRoute = hashIndex >= 0 ? trimmed.substring(hashIndex + 1).trim() : '';
+      return hashRoute.startsWith('/') ? hashRoute : RouteNames.notifications;
+    }
+    if (trimmed.startsWith('#/')) {
+      return trimmed.substring(1);
+    }
+    return trimmed.startsWith('/') ? trimmed : '/$trimmed';
+  }
+
+  void _flushPendingRoute() {
+    if (!mounted) {
+      return;
+    }
+    final route = _pendingRoute;
+    if (route == null || route.trim().isEmpty) {
+      return;
+    }
+    _pendingRoute = null;
+    try {
+      context.go(route);
+    } catch (error) {
+      debugPrint('MasarFCM: status=push-route-failed ${error.runtimeType}');
+      context.go(RouteNames.notifications);
+      return;
+    }
+    // Some push taps arrive while the shell is rebuilding after resume. A
+    // short second pass keeps routing reliable without duplicating navigation.
+    Future<void>.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      try {
+        if (GoRouterState.of(context).uri.toString() != route) {
+          context.go(route);
+        }
+      } catch (_) {
+        context.go(RouteNames.notifications);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingRoute());
+    return widget.child;
+  }
+}
+
 class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
   @override
   void initState() {
@@ -347,19 +515,22 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        widget.child,
-        // Toast for brand-new notifications only.
-        // This is separate from the smart guidance overlay, which rotates
-        // existing attention reminders and can appear on any CRM page.
-        _NotificationFloatingToast(
-          companyId: widget.companyId,
-        ),
-        _SmartGuidanceFloatingOverlay(
-          companyId: widget.companyId,
-        ),
-      ],
+    return _PushNotificationOpenRouter(
+      child: Stack(
+        children: [
+          widget.child,
+          const _NotificationPermissionBanner(),
+          // Toast for brand-new notifications only.
+          // This is separate from the smart guidance overlay, which rotates
+          // existing attention reminders and can appear on any CRM page.
+          _NotificationFloatingToast(
+            companyId: widget.companyId,
+          ),
+          _SmartGuidanceFloatingOverlay(
+            companyId: widget.companyId,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -475,11 +646,41 @@ class _NotificationFloatingToastState
       return;
     }
     setState(() => _visibleNotification = notification);
+    _showForegroundBrowserNotification(notification);
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         setState(() => _visibleNotification = null);
       }
     });
+  }
+
+  void _showForegroundBrowserNotification(CrmNotification notification) {
+    if (!kIsWeb ||
+        notification.deliveryMode != CrmNotificationDeliveryMode.pushEligible) {
+      return;
+    }
+    final pushState = context.read<NotificationPushTokenCubit>().state;
+    if (!pushState.isRegistered) {
+      return;
+    }
+    final l = AppLocalizations.of(context);
+    if (l == null) {
+      return;
+    }
+    final route = notification.route.trim().isEmpty
+        ? RouteNames.notifications
+        : notification.route.trim();
+    final tag = notification.dedupeKey.trim().isEmpty
+        ? notification.id
+        : notification.dedupeKey.trim();
+    unawaited(
+      showMasarWebForegroundNotification(
+        title: notificationTitle(l, notification),
+        body: notificationBody(l, notification),
+        route: route,
+        tag: tag,
+      ),
+    );
   }
 
   @override
@@ -826,7 +1027,6 @@ class _SmartGuidanceCard extends StatelessWidget {
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: l.close,
                   onPressed: onClose,
                   icon: const Icon(Icons.close_rounded, size: 18),
                 ),
@@ -970,8 +1170,9 @@ class _NotificationToastCard extends StatelessWidget {
                     notification: notification,
                   );
               onClose();
-              if (context.mounted && notification.route.trim().isNotEmpty) {
-                context.go(notification.route.trim());
+              if (context.mounted) {
+                final resolution = NotificationRouteResolver.resolve(notification);
+                context.go(resolution.route);
               }
             },
             child: Container(
@@ -1028,8 +1229,8 @@ class _NotificationToastCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   IconButton(
+                    tooltip: '',
                     visualDensity: VisualDensity.compact,
-                    tooltip: l.close,
                     onPressed: onClose,
                     icon: const Icon(Icons.close_rounded, size: 18),
                   ),
