@@ -429,9 +429,23 @@ class DealsCubit extends Cubit<DealsState> {
       if (isClosed) {
         return false;
       }
+      final updatedDeals = result is Deal
+          ? _upsertDealInCurrentList(result)
+          : state.deals;
       emit(
         state.copyWith(
           status: DealsStatus.saved,
+          deals: updatedDeals,
+          filteredDeals: result is Deal
+              ? _applyFilters(
+                  updatedDeals,
+                  searchQuery: state.searchQuery,
+                  stageFilter: state.stageFilter,
+                  assignedToFilter: state.assignedToFilter,
+                  closingDateFilter: state.closingDateFilter,
+                  workQueueFilter: state.workQueueFilter,
+                )
+              : state.filteredDeals,
           clearMessage: true,
           lastAction: action,
         ),
@@ -473,6 +487,18 @@ class DealsCubit extends Cubit<DealsState> {
       }
     }
     return null;
+  }
+
+
+  List<Deal> _upsertDealInCurrentList(Deal updated) {
+    final next = List<Deal>.of(state.deals);
+    final index = next.indexWhere((deal) => deal.id == updated.id);
+    if (index < 0) {
+      next.insert(0, updated);
+    } else {
+      next[index] = updated;
+    }
+    return next;
   }
 
   List<Deal> _applyFilters(

@@ -101,7 +101,9 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
     _ensureSameCompany(companyId: companyId, task: task);
     try {
       final document = _tasksCollection(companyId).doc(task.id);
-      final snapshot = await document.get();
+      final snapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
       if (!snapshot.exists) {
         throw const TaskException(AppErrorMessages.notFound);
       }
@@ -128,7 +130,9 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
         'updatedAt': Timestamp.now(),
         'updatedBy': task.updatedBy,
       });
-      final updatedSnapshot = await document.get();
+      final updatedSnapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
       return CrmTaskModel.fromFirestore(updatedSnapshot);
     } on TaskException {
       rethrow;

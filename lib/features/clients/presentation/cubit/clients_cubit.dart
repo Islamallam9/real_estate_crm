@@ -325,9 +325,20 @@ class ClientsCubit extends Cubit<ClientsState> {
       if (isClosed) {
         return;
       }
+      final updatedClients = _replaceClientInCurrentList(updatedClient);
       emit(
         state.copyWith(
           status: ClientsStatus.saved,
+          clients: updatedClients,
+          filteredClients: _applyFilters(
+            updatedClients,
+            searchQuery: state.searchQuery,
+            assignedToFilter: state.assignedToFilter,
+            overrideAssignedToFilter: true,
+          ),
+          selectedClient: state.selectedClient?.id == updatedClient.id
+              ? updatedClient
+              : state.selectedClient,
           clearMessage: true,
           lastAction: ClientsAction.updateClient,
         ),
@@ -649,6 +660,17 @@ class ClientsCubit extends Cubit<ClientsState> {
       }
     }
     return null;
+  }
+
+
+  List<Client> _replaceClientInCurrentList(Client updated) {
+    final index = state.clients.indexWhere((client) => client.id == updated.id);
+    if (index < 0) {
+      return state.clients;
+    }
+    final next = List<Client>.of(state.clients);
+    next[index] = updated;
+    return next;
   }
 
   List<Client> _applyFilters(

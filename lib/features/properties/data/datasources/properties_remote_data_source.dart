@@ -156,7 +156,9 @@ class FirestorePropertiesRemoteDataSource
           .update(propertyToSave.toFirestore())
           .timeout(_firestoreWriteTimeout);
       await _deleteStoragePaths(removedImageStoragePaths);
-      final snapshot = await document.get().timeout(_firestoreWriteTimeout);
+      final snapshot = await document
+          .get(const GetOptions(source: Source.server))
+          .timeout(_firestoreWriteTimeout);
       return PropertyModel.fromFirestore(snapshot);
     } on PropertyException {
       await _deleteStoragePaths(uploadedStoragePaths);

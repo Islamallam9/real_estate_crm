@@ -127,8 +127,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
         operation: 'create',
         lead: leadToSave,
       );
-      final snapshot = await document.get();
-      return LeadModel.fromFirestore(snapshot);
+      return _loadLeadAfterConfirmedWrite(
+        companyId: companyId,
+        document: document,
+        fallback: leadToSave,
+      );
     } on LeadException {
       rethrow;
     } on FirebaseFunctionsException catch (error) {
@@ -171,8 +174,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
         lead: lead,
       );
       final document = _leadsCollection(companyId).doc(lead.id);
-      final snapshot = await document.get();
-      return LeadModel.fromFirestore(snapshot);
+      return _loadLeadAfterConfirmedWrite(
+        companyId: companyId,
+        document: document,
+        fallback: lead,
+      );
     } on LeadException {
       rethrow;
     } on FirebaseFunctionsException catch (error) {
@@ -201,7 +207,9 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     required DocumentReference<Map<String, dynamic>> document,
   }) async {
     try {
-      final snapshot = await document.get();
+      final snapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
       if (!snapshot.exists) {
         return null;
       }
@@ -213,6 +221,29 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<LeadModel> _loadLeadAfterConfirmedWrite({
+    required String companyId,
+    required DocumentReference<Map<String, dynamic>> document,
+    required LeadModel fallback,
+  }) async {
+    try {
+      final snapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
+      if (snapshot.exists) {
+        final savedLead = LeadModel.fromFirestore(snapshot);
+        if (savedLead.companyId == companyId) {
+          return savedLead;
+        }
+      }
+    } catch (_) {
+      // The callable already confirmed the write. Returning the intended model
+      // avoids showing stale cached data while the role-scoped stream catches up
+      // on slow connections.
+    }
+    return fallback;
   }
 
   @override

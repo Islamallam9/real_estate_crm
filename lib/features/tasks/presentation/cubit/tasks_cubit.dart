@@ -367,9 +367,22 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) {
         return false;
       }
+      final updatedTasks = _replaceTaskInCurrentList(updatedTask);
       emit(
         state.copyWith(
           status: TasksStatus.saved,
+          tasks: updatedTasks,
+          filteredTasks: _applyFilters(
+            updatedTasks,
+            searchQuery: state.searchQuery,
+            statusFilter: state.statusFilter,
+            priorityFilter: state.priorityFilter,
+            dueDateFilter: state.dueDateFilter,
+            assignedToFilter: state.assignedToFilter,
+          ),
+          selectedTask: state.selectedTask?.id == updatedTask.id
+              ? updatedTask
+              : state.selectedTask,
           clearMessage: true,
           lastAction: action,
         ),
@@ -510,6 +523,17 @@ class TasksCubit extends Cubit<TasksState> {
 
   void clearAction() {
     emit(state.copyWith(clearLastAction: true));
+  }
+
+
+  List<CrmTask> _replaceTaskInCurrentList(CrmTask updated) {
+    final index = state.tasks.indexWhere((task) => task.id == updated.id);
+    if (index < 0) {
+      return state.tasks;
+    }
+    final next = List<CrmTask>.of(state.tasks);
+    next[index] = updated;
+    return next;
   }
 
   List<CrmTask> _applyFilters(

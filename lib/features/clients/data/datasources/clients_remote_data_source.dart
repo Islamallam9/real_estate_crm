@@ -127,7 +127,9 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     _ensureSameCompany(companyId: companyId, client: client);
     try {
       final document = _clientsCollection(companyId).doc(client.id);
-      final snapshot = await document.get();
+      final snapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
       if (!snapshot.exists) {
         throw const ClientException(AppErrorMessages.notFound);
       }
@@ -153,7 +155,9 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'updatedAt': Timestamp.now(),
         'updatedBy': client.updatedBy,
       });
-      final updatedSnapshot = await document.get();
+      final updatedSnapshot = await document.get(
+        const GetOptions(source: Source.server),
+      );
       return ClientModel.fromFirestore(updatedSnapshot);
     } on ClientException {
       rethrow;

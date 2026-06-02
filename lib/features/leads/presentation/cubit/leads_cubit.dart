@@ -467,9 +467,21 @@ class LeadsCubit extends Cubit<LeadsState> {
       if (isClosed) {
         return;
       }
+      final updatedLeads = _replaceLeadInCurrentList(updated);
       emit(
         state.copyWith(
           status: LeadsStatus.saved,
+          leads: updatedLeads,
+          filteredLeads: _applyFilters(
+            updatedLeads,
+            searchQuery: state.searchQuery,
+            statusFilter: state.statusFilter,
+            sourceFilter: state.sourceFilter,
+            priorityFilter: state.priorityFilter,
+            assignedToFilter: state.assignedToFilter,
+            followUpFilter: state.followUpFilter,
+            workQueueFilter: state.workQueueFilter,
+          ),
           selectedLead: updated,
           clearMessage: true,
           lastAction:
@@ -499,6 +511,17 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     }
+  }
+
+
+  List<Lead> _replaceLeadInCurrentList(Lead updated) {
+    final index = state.leads.indexWhere((lead) => lead.id == updated.id);
+    if (index < 0) {
+      return state.leads;
+    }
+    final next = List<Lead>.of(state.leads);
+    next[index] = updated;
+    return next;
   }
 
   Future<void> updateStatus({
@@ -1277,7 +1300,9 @@ String _timelineDateValue(DateTime? value) {
   final local = value.toLocal();
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
-  return '${local.year}-$month-$day';
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day $hour:$minute';
 }
 
 String _leadTitle(Lead lead) {

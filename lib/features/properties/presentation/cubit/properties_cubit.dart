@@ -359,9 +359,18 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       if (isClosed) {
         return;
       }
+      final updatedProperties = _replacePropertyInCurrentList(updatedProperty);
       emit(
         state.copyWith(
           status: PropertiesStatus.saved,
+          properties: updatedProperties,
+          filteredProperties: _applyFilters(
+            updatedProperties,
+            searchQuery: state.searchQuery,
+            propertyTypeFilter: state.propertyTypeFilter,
+            listingTypeFilter: state.listingTypeFilter,
+            statusFilter: state.statusFilter,
+          ),
           clearMessage: true,
           lastAction: PropertiesAction.updateProperty,
         ),
@@ -519,6 +528,17 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       }
     }
     return null;
+  }
+
+
+  List<Property> _replacePropertyInCurrentList(Property updated) {
+    final index = state.properties.indexWhere((property) => property.id == updated.id);
+    if (index < 0) {
+      return state.properties;
+    }
+    final next = List<Property>.of(state.properties);
+    next[index] = updated;
+    return next;
   }
 
   List<Property> _applyFilters(
