@@ -248,18 +248,35 @@ class DashboardTeamPerformanceRow extends Equatable {
   const DashboardTeamPerformanceRow({
     required this.userId,
     required this.name,
+    required this.leads,
     required this.appointments,
     required this.deals,
+    required this.wonDeals,
     required this.pipelineValue,
+    required this.tasks,
+    required this.completedTasks,
+    required this.overdueTasks,
     required this.activeRecords,
     this.conversionPercent,
   });
 
   final String userId;
   final String name;
+
+  /// Assigned non-archived leads in the currently scoped dashboard stream.
+  /// This is intentionally separate from [activeRecords] so the UI does not
+  /// label a mixed workload number as leads.
+  final int leads;
   final int appointments;
   final int deals;
+  final int wonDeals;
   final num pipelineValue;
+  final int tasks;
+  final int completedTasks;
+  final int overdueTasks;
+
+  /// Mixed workload used for sorting/weighting only: active leads + open tasks
+  /// + open deals. Do not display this as a raw lead count.
   final int activeRecords;
   final int? conversionPercent;
 
@@ -267,9 +284,14 @@ class DashboardTeamPerformanceRow extends Equatable {
   List<Object?> get props => [
         userId,
         name,
+        leads,
         appointments,
         deals,
+        wonDeals,
         pipelineValue,
+        tasks,
+        completedTasks,
+        overdueTasks,
         activeRecords,
         conversionPercent,
       ];

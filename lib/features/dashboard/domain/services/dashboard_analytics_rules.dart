@@ -756,12 +756,36 @@ class DashboardAnalyticsRules {
     }
 
     if (input.includeLeads) {
-      for (final lead in input.leads.where(DashboardTruthRules.isActiveLead)) {
+      for (final lead in input.leads.where((item) => !item.isArchived)) {
         final assignedTo = lead.assignedTo.trim();
         if (assignedTo.isEmpty) {
           continue;
         }
-        row(assignedTo, lead.assignedToName).activeRecords++;
+        final item = row(assignedTo, lead.assignedToName);
+        item.leads++;
+        if (DashboardTruthRules.isActiveLead(lead)) {
+          item.activeRecords++;
+        }
+      }
+    }
+
+    if (input.includeTasks) {
+      for (final task in input.tasks) {
+        final assignedTo = task.assignedTo.trim();
+        if (assignedTo.isEmpty) {
+          continue;
+        }
+        final item = row(assignedTo, task.assignedToName);
+        item.tasks++;
+        if (task.status == TaskStatus.completed) {
+          item.completedTasks++;
+        }
+        if (DashboardTruthRules.isOverdueTask(task, input.today)) {
+          item.overdueTasks++;
+        }
+        if (DashboardTruthRules.isOpenTask(task)) {
+          item.activeRecords++;
+        }
       }
     }
 
@@ -776,14 +800,20 @@ class DashboardAnalyticsRules {
     }
 
     if (input.includeDeals) {
-      for (final deal in input.deals.where(DashboardTruthRules.isOpenDeal)) {
+      for (final deal in input.deals.where((item) => item.isActive && !item.isArchived)) {
         final assignedTo = deal.assignedTo.trim();
         if (assignedTo.isEmpty) {
           continue;
         }
         final item = row(assignedTo, deal.assignedToName);
         item.deals++;
-        item.pipelineValue += deal.expectedValue;
+        if (deal.stage == DealStage.won) {
+          item.wonDeals++;
+        }
+        if (DashboardTruthRules.isOpenDeal(deal)) {
+          item.activeRecords++;
+          item.pipelineValue += deal.expectedValue;
+        }
       }
     }
 
@@ -1132,7 +1162,9 @@ bool _isOperationalTeamRow(
       label.contains('مسؤول')) {
     return false;
   }
-  return row.activeRecords > 0 ||
+  return row.leads > 0 ||
+      row.tasks > 0 ||
+      row.completedTasks > 0 ||
       row.appointments > 0 ||
       row.deals > 0 ||
       row.pipelineValue > 0;
@@ -1140,9 +1172,13 @@ bool _isOperationalTeamRow(
 
 num _teamRowScore(DashboardTeamPerformanceRow row) {
   return row.pipelineValue +
-      (row.deals * 120000) +
-      (row.appointments * 60000) +
-      (row.activeRecords * 25000);
+      (row.wonDeals * 150000) +
+      (row.deals * 100000) +
+      (row.completedTasks * 45000) +
+      (row.appointments * 35000) +
+      (row.leads * 20000) +
+      (row.activeRecords * 15000) -
+      (row.overdueTasks * 60000);
 }
 
 class _TeamRowAccumulator {
@@ -1150,23 +1186,35 @@ class _TeamRowAccumulator {
 
   final String userId;
   final String name;
+  int leads = 0;
   int appointments = 0;
   int deals = 0;
+  int wonDeals = 0;
   num pipelineValue = 0;
+  int tasks = 0;
+  int completedTasks = 0;
+  int overdueTasks = 0;
   int activeRecords = 0;
 
   DashboardTeamPerformanceRow toEntity() {
-    final conversionPercent = activeRecords == 0
-        ? null
-        : ((deals / activeRecords) * 100).round();
+    final completionPercent = tasks > 0
+        ? ((completedTasks / tasks) * 100).round()
+        : deals > 0
+            ? ((wonDeals / deals) * 100).round()
+            : null;
     return DashboardTeamPerformanceRow(
       userId: userId,
       name: name,
+      leads: leads,
       appointments: appointments,
       deals: deals,
+      wonDeals: wonDeals,
       pipelineValue: pipelineValue,
+      tasks: tasks,
+      completedTasks: completedTasks,
+      overdueTasks: overdueTasks,
       activeRecords: activeRecords,
-      conversionPercent: conversionPercent,
+      conversionPercent: completionPercent,
     );
   }
 }

@@ -1090,7 +1090,7 @@ class _TimelineItem extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   Text(
-                    event.createdAt.toLocal().toString(),
+                    _timelineDateTimeLabel(event.createdAt),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -1101,6 +1101,16 @@ class _TimelineItem extends StatelessWidget {
       ),
     );
   }
+}
+
+
+String _timelineDateTimeLabel(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day $hour:$minute';
 }
 
 String _timelineTitle(

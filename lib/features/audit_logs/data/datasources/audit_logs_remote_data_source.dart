@@ -155,16 +155,23 @@ class FirestoreAuditLogsRemoteDataSource
     required int limit,
   }) {
     final collection = _auditLogsCollection(companyId);
-    // Keep manager reads scoped in Firestore but apply optional filters locally
-    // inside that safe scope. This avoids fragile composite-index requirements
-    // without broadening Manager visibility.
+    // Keep manager reads scoped in Firestore and order before limiting so the
+    // dashboard rail does not show stale activity just because the unordered
+    // scoped query returned an older slice first. Optional filters still run
+    // locally inside this safe manager/team scope.
     final queries = <Query<Map<String, dynamic>>>[
-      collection.where('managerId', isEqualTo: managerId).limit(limit * 3),
+      collection
+          .where('managerId', isEqualTo: managerId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit * 3),
     ];
 
     if (teamId.isNotEmpty) {
       queries.add(
-        collection.where('teamId', isEqualTo: teamId).limit(limit * 3),
+        collection
+            .where('teamId', isEqualTo: teamId)
+            .orderBy('createdAt', descending: true)
+            .limit(limit * 3),
       );
     }
 

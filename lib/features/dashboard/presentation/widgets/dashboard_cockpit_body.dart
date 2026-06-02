@@ -1933,8 +1933,7 @@ class _AgentActivityDashboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final score = _teamScore(row);
-    final completionPercent = row.conversionPercent ??
-        (row.activeRecords == 0 ? 0 : ((row.deals / row.activeRecords) * 100).round());
+    final completionPercent = row.conversionPercent ?? 0;
     final color = completionPercent >= 80
         ? AppColors.successColor(context)
         : completionPercent >= 40
@@ -1970,7 +1969,7 @@ class _AgentActivityDashboardCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${row.activeRecords} ${l.leads} · ${row.appointments} ${l.appointments} · ${row.deals} ${l.deals}',
+                      '${row.leads} ${l.leads} · ${row.tasks} ${l.tasks} · ${row.deals} ${l.deals}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1995,9 +1994,14 @@ class _AgentActivityDashboardCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              _CompactAgentMetric(label: l.leads, value: row.activeRecords),
+              _CompactAgentMetric(label: l.leads, value: row.leads),
+              _CompactAgentMetric(label: l.tasks, value: row.tasks),
+              _CompactAgentMetric(label: l.completedTasks, value: row.completedTasks),
               _CompactAgentMetric(label: l.appointments, value: row.appointments),
               _CompactAgentMetric(label: l.deals, value: row.deals),
+              _CompactAgentMetric(label: l.wonDeals, value: row.wonDeals),
+              if (row.overdueTasks > 0)
+                _CompactAgentMetric(label: l.overdueTasks, value: row.overdueTasks),
               _CompactAgentMoney(label: l.dashboardTeamPipeline, value: row.pipelineValue),
             ],
           ),
@@ -2070,7 +2074,14 @@ class _CompactAgentMoney extends StatelessWidget {
 }
 
 num _teamScore(DashboardTeamPerformanceRow row) {
-  return row.pipelineValue + (row.deals * 120000) + (row.appointments * 60000) + (row.activeRecords * 25000);
+  return row.pipelineValue +
+      (row.wonDeals * 150000) +
+      (row.deals * 100000) +
+      (row.completedTasks * 45000) +
+      (row.appointments * 35000) +
+      (row.leads * 20000) +
+      (row.activeRecords * 15000) -
+      (row.overdueTasks * 60000);
 }
 
 class DashboardOpportunitiesStrip extends StatefulWidget {
