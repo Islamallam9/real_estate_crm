@@ -224,7 +224,6 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
         }
         await register(token).timeout(_tokenRegisterTimeout);
         final activeToken = await _activeTokenAfterRegistration(token);
-        await prefs.setBool(_registrationHintKey(scopedState), true);
         final registeredState = scopedState.copyWith(
           isSyncing: false,
           status: NotificationPushTokenStatus.registered,
@@ -234,7 +233,17 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
           localRegistrationHint: true,
         );
         emit(registeredState);
-        await _startRefreshListener(register, registeredState);
+        try {
+          await prefs.setBool(_registrationHintKey(scopedState), true);
+          await _startRefreshListener(register, registeredState);
+        } catch (error) {
+          _debugStatus(
+            'token-sync-post-register-state-persist-failed-${error.runtimeType}',
+            companyId: companyId,
+            uid: uid,
+            role: role,
+          );
+        }
         _debugStatus('token-sync-local-hint-revalidated', companyId: companyId, uid: uid, role: role);
         return;
       } on NotificationException catch (error) {
@@ -284,17 +293,27 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
 
       await register(token).timeout(_tokenRegisterTimeout);
       final activeToken = await _activeTokenAfterRegistration(token);
-      await prefs.setBool(_registrationHintKey(baseState), true);
-      await prefs.remove(_promptDismissedKey(baseState));
-      _debugStatus('token-save-success');
-      emit(baseState.copyWith(
+      final registeredState = baseState.copyWith(
         isSyncing: false,
         status: NotificationPushTokenStatus.registered,
         token: activeToken,
         clearPromptDismissedUntil: true,
         localRegistrationHint: true,
-      ));
-      await _startRefreshListener(register, baseState);
+      );
+      _debugStatus('token-save-success');
+      emit(registeredState);
+      try {
+        await prefs.setBool(_registrationHintKey(baseState), true);
+        await prefs.remove(_promptDismissedKey(baseState));
+        await _startRefreshListener(register, registeredState);
+      } catch (error) {
+        _debugStatus(
+          'token-sync-post-register-state-persist-failed-${error.runtimeType}',
+          companyId: companyId,
+          uid: uid,
+          role: role,
+        );
+      }
     } on NotificationException catch (error) {
       final denied = error.message == 'notification-permission-denied';
       if (denied) {

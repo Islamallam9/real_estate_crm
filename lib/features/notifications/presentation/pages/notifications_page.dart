@@ -591,7 +591,7 @@ class _AttentionListState extends State<_AttentionList> {
     Widget content;
     if (widget.state.reminderMessage != null) {
       content = _InlineErrorMessage(
-        message: localizeErrorMessage(l, widget.state.reminderMessage),
+        message: _localizedAttentionError(l, widget.state.reminderMessage),
       );
     } else if (widget.reminders.isEmpty) {
       content = AppEmptyState(
@@ -786,4 +786,11 @@ void _openReminderRoute(BuildContext context, AttentionReminder reminder) {
       context.go(resolution.route);
     }
   });
+}
+
+String _localizedAttentionError(AppLocalizations l, String? message) {
+  if (message == null || message == AppErrorMessages.unknown) {
+    return l.notificationStreamError;
+  }
+  return localizeErrorMessage(l, message);
 }

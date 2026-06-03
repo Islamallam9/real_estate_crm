@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
@@ -369,6 +370,18 @@ class FirestoreNotificationsRemoteDataSource
       }
     }
 
+    void addAttentionError(String source, Object error) {
+      _debugAttentionError(
+        source: source,
+        role: role,
+        managerTeamId: managerTeamId,
+        error: error,
+      );
+      if (!controller.isClosed) {
+        controller.addError(NotificationException(_mapFirestoreError(error)));
+      }
+    }
+
     void refreshAppointmentReminders() {
       try {
         latestAppointmentReminders = _appointmentRemindersFromDocs(
@@ -377,9 +390,7 @@ class FirestoreNotificationsRemoteDataSource
         );
         emitCombined();
       } catch (error) {
-        if (!controller.isClosed) {
-          controller.addError(NotificationException(_mapFirestoreError(error)));
-        }
+        addAttentionError('appointments', error);
       }
     }
 
@@ -391,17 +402,19 @@ class FirestoreNotificationsRemoteDataSource
       limit: limit,
     ).snapshots().listen(
       (snapshot) {
-        latestLeadReminders = _leadRemindersFromSnapshot(
-          snapshot,
-          companyId: companyId,
-          role: role,
-        );
-        emitCombined();
+        try {
+          latestLeadReminders = _leadRemindersFromSnapshot(
+            snapshot,
+            companyId: companyId,
+            role: role,
+          );
+          emitCombined();
+        } catch (error) {
+          addAttentionError('leads', error);
+        }
       },
       onError: (Object error) {
-        if (!controller.isClosed) {
-          controller.addError(NotificationException(_mapFirestoreError(error)));
-        }
+        addAttentionError('leads', error);
       },
     );
 
@@ -413,16 +426,18 @@ class FirestoreNotificationsRemoteDataSource
       limit: limit,
     ).snapshots().listen(
       (snapshot) {
-        latestTaskReminders = _taskRemindersFromSnapshot(
-          snapshot,
-          companyId: companyId,
-        );
-        emitCombined();
+        try {
+          latestTaskReminders = _taskRemindersFromSnapshot(
+            snapshot,
+            companyId: companyId,
+          );
+          emitCombined();
+        } catch (error) {
+          addAttentionError('tasks', error);
+        }
       },
       onError: (Object error) {
-        if (!controller.isClosed) {
-          controller.addError(NotificationException(_mapFirestoreError(error)));
-        }
+        addAttentionError('tasks', error);
       },
     );
 
@@ -438,9 +453,7 @@ class FirestoreNotificationsRemoteDataSource
         refreshAppointmentReminders();
       },
       onError: (Object error) {
-        if (!controller.isClosed) {
-          controller.addError(NotificationException(_mapFirestoreError(error)));
-        }
+        addAttentionError('appointments', error);
       },
     );
 
@@ -962,4 +975,75 @@ String _mapFirestoreError(Object error) {
     }
   }
   return AppErrorMessages.unknown;
+}
+
+void _debugAttentionError({
+  required String source,
+  required UserRole role,
+  required String? managerTeamId,
+  required Object error,
+}) {
+  if (!kDebugMode) {
+    return;
+  }
+  final message = _attentionErrorMessage(error);
+  final indexLink = _firstFirestoreIndexLink(message);
+  final firebaseCode = error is FirebaseException ? error.code : '';
+  final firebaseCodePart =
+      firebaseCode.isEmpty ? '' : 'firebaseCode=$firebaseCode ';
+  debugPrint(
+    'MasarDiagnostics: feature=notifications '
+    'operation=watchAttentionReminders '
+    'source=$source '
+    'roleScope=${_attentionRoleScopeLabel(role, managerTeamId)} '
+    'errorType=${error.runtimeType} '
+    '$firebaseCodePart'
+    'containsIndexLink=${indexLink != null} '
+    'message=${_sanitizeDiagnosticText(message)}',
+  );
+  if (indexLink != null) {
+    debugPrint(
+      'MasarDiagnostics: feature=notifications '
+      'operation=watchAttentionReminders '
+      'source=$source '
+      'indexLink=$indexLink',
+    );
+  }
+}
+
+String _attentionErrorMessage(Object error) {
+  if (error is FirebaseException) {
+    return error.message ?? error.code;
+  }
+  if (error is NotificationException) {
+    return error.message;
+  }
+  return error.toString();
+}
+
+String _attentionRoleScopeLabel(UserRole role, String? managerTeamId) {
+  if (role == UserRole.manager) {
+    return (managerTeamId ?? '').trim().isEmpty
+        ? 'manager:self-managed'
+        : 'manager:team-scoped';
+  }
+  if (role == UserRole.salesAgent || role == UserRole.marketing) {
+    return '${role.name}:assigned-only';
+  }
+  return '${role.name}:company-scoped';
+}
+
+String? _firstFirestoreIndexLink(String message) {
+  final match = RegExp(
+    r'https:\/\/console\.firebase\.google\.com\/[^\s\)]*indexes[^\s\)]*',
+  ).firstMatch(message);
+  return match?.group(0);
+}
+
+String _sanitizeDiagnosticText(String value) {
+  final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.length <= 700) {
+    return compact;
+  }
+  return '${compact.substring(0, 700)}...';
 }
