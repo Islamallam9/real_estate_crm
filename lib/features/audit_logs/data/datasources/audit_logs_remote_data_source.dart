@@ -130,17 +130,25 @@ class FirestoreAuditLogsRemoteDataSource
       );
     }
 
-    return _applyAuditQueryFilters(
+    final queryLimit = _auditQueryLimit(limit);
+    return _applyAuditDateWindow(
           _auditLogsCollection(companyId),
-          module: module,
-          action: action,
-          actorId: actorId,
           startAt: startAt,
           endAt: endAt,
         )
-        .limit(limit)
+        .limit(queryLimit)
         .snapshots()
-        .map((snapshot) => _mapAuditLogSnapshot(snapshot, companyId, limit));
+        .map(
+          (snapshot) => _filterAuditLogs(
+            _mapAuditLogSnapshot(snapshot, companyId, queryLimit),
+            module: module,
+            action: action,
+            actorId: actorId,
+            startAt: startAt,
+            endAt: endAt,
+            limit: limit,
+          ),
+        );
   }
 
   Stream<List<AuditLogModel>> _watchManagerScopedAuditLogs({
@@ -155,24 +163,16 @@ class FirestoreAuditLogsRemoteDataSource
     required int limit,
   }) {
     final collection = _auditLogsCollection(companyId);
-    // Keep manager reads scoped in Firestore and order before limiting so the
-    // dashboard rail does not show stale activity just because the unordered
-    // scoped query returned an older slice first. Optional filters still run
-    // locally inside this safe manager/team scope.
+    // Keep manager reads scoped in Firestore, but avoid composite-index-heavy
+    // order/filter combinations. The result is over-fetched, merged, filtered,
+    // and sorted locally inside this safe manager/team scope.
+    final queryLimit = _auditQueryLimit(limit);
     final queries = <Query<Map<String, dynamic>>>[
-      collection
-          .where('managerId', isEqualTo: managerId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit * 3),
+      collection.where('managerId', isEqualTo: managerId).limit(queryLimit),
     ];
 
     if (teamId.isNotEmpty) {
-      queries.add(
-        collection
-            .where('teamId', isEqualTo: teamId)
-            .orderBy('createdAt', descending: true)
-            .limit(limit * 3),
-      );
+      queries.add(collection.where('teamId', isEqualTo: teamId).limit(queryLimit));
     }
 
     final controller = StreamController<List<AuditLogModel>>();
@@ -199,7 +199,7 @@ class FirestoreAuditLogsRemoteDataSource
       final index = i;
       final subscription = queries[index].snapshots().listen(
         (snapshot) {
-          final mapped = _mapAuditLogSnapshot(snapshot, companyId, limit * 3);
+          final mapped = _mapAuditLogSnapshot(snapshot, companyId, queryLimit);
           latest[index] = _filterAuditLogs(
             mapped,
             module: module,
@@ -230,24 +230,11 @@ class FirestoreAuditLogsRemoteDataSource
     return controller.stream;
   }
 
-  Query<Map<String, dynamic>> _applyAuditQueryFilters(
+  Query<Map<String, dynamic>> _applyAuditDateWindow(
     Query<Map<String, dynamic>> query, {
-    AuditLogModule? module,
-    AuditLogAction? action,
-    String? actorId,
     DateTime? startAt,
     DateTime? endAt,
   }) {
-    final cleanActorId = actorId?.trim() ?? '';
-    if (module != null) {
-      query = query.where('module', isEqualTo: auditLogModuleToValue(module));
-    }
-    if (action != null) {
-      query = query.where('action', isEqualTo: auditLogActionToValue(action));
-    }
-    if (cleanActorId.isNotEmpty) {
-      query = query.where('actorId', isEqualTo: cleanActorId);
-    }
     if (startAt != null) {
       query = query.where(
         'createdAt',
@@ -258,6 +245,16 @@ class FirestoreAuditLogsRemoteDataSource
       query = query.where('createdAt', isLessThan: Timestamp.fromDate(endAt));
     }
     return query.orderBy('createdAt', descending: true);
+  }
+
+
+  int _auditQueryLimit(int limit) {
+    final normalizedLimit = limit <= 0 ? 20 : limit;
+    final requested = normalizedLimit * 5;
+    if (requested < normalizedLimit) {
+      return normalizedLimit;
+    }
+    return requested > 500 ? 500 : requested;
   }
 
   List<AuditLogModel> _filterAuditLogs(

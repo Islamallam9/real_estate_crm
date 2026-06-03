@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../../../core/constants/role_constants.dart';
 import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -82,6 +82,7 @@ class LeadsListPage extends StatelessWidget {
               canCreate: PermissionService.can(profile.role, AppPermission.createLead),
               canEdit: PermissionService.can(profile.role, AppPermission.editLead),
               canArchive: PermissionService.can(profile.role, AppPermission.archiveLead),
+              canAssign: PermissionService.can(profile.role, AppPermission.assignLead),
               roleName: profile.role.name,
               initialFilters: initialFilters,
             ),
@@ -102,6 +103,7 @@ class _LeadsListContent extends StatefulWidget {
     required this.canCreate,
     required this.canEdit,
     required this.canArchive,
+    required this.canAssign,
     required this.roleName,
     required this.initialFilters,
   });
@@ -113,6 +115,7 @@ class _LeadsListContent extends StatefulWidget {
   final bool canCreate;
   final bool canEdit;
   final bool canArchive;
+  final bool canAssign;
   final String roleName;
   final Map<String, String> initialFilters;
 
@@ -303,6 +306,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   users: users,
                   roleName: widget.roleName,
                   canEdit: widget.canEdit,
+                  canAssign: widget.canAssign,
                   uid: widget.uid,
                   actorName: widget.actorName,
                   isArchivedView: state.archiveFilter == ArchiveFilter.archived,
@@ -1033,6 +1037,7 @@ class _LeadsBody extends StatelessWidget {
     required this.users,
     required this.roleName,
     required this.canEdit,
+    required this.canAssign,
     required this.uid,
     required this.actorName,
     required this.isArchivedView,
@@ -1046,6 +1051,7 @@ class _LeadsBody extends StatelessWidget {
   final List<UserProfile> users;
   final String roleName;
   final bool canEdit;
+  final bool canAssign;
   final String uid;
   final String actorName;
   final bool isArchivedView;
@@ -1098,6 +1104,13 @@ class _LeadsBody extends StatelessWidget {
                 _LeadCard(
                   lead: state.filteredLeads[index],
                   users: users,
+                  companyId: companyId,
+                  roleName: roleName,
+                  currentUserId: uid,
+                  currentTeamId: teamId ?? '',
+                  actorName: actorName,
+                  canAssign: canAssign,
+                  isSaving: state.status == LeadsStatus.saving,
                   isArchivedView: isArchivedView,
                 ),
                 if (index != state.filteredLeads.length - 1)
@@ -1112,6 +1125,9 @@ class _LeadsBody extends StatelessWidget {
           showAssignee: roleName == 'admin' || roleName == 'manager',
           companyId: companyId,
           canEdit: canEdit,
+          canAssign: canAssign,
+          roleName: roleName,
+          currentTeamId: teamId ?? '',
           uid: uid,
           actorName: actorName,
           isRefreshing: state.status == LeadsStatus.loading,
@@ -1130,6 +1146,9 @@ class _LeadsWebWorkspace extends StatefulWidget {
     required this.showAssignee,
     required this.companyId,
     required this.canEdit,
+    required this.canAssign,
+    required this.roleName,
+    required this.currentTeamId,
     required this.uid,
     required this.actorName,
     required this.isRefreshing,
@@ -1142,6 +1161,9 @@ class _LeadsWebWorkspace extends StatefulWidget {
   final bool showAssignee;
   final String companyId;
   final bool canEdit;
+  final bool canAssign;
+  final String roleName;
+  final String currentTeamId;
   final String uid;
   final String actorName;
   final bool isRefreshing;
@@ -1188,6 +1210,14 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                           leads: widget.leads,
                           users: widget.users,
                           showAssignee: widget.showAssignee,
+                          companyId: widget.companyId,
+                          roleName: widget.roleName,
+                          currentUserId: widget.uid,
+                          currentTeamId: widget.currentTeamId,
+                          actorName: widget.actorName,
+                          canAssign: widget.canAssign,
+                          isSaving: widget.isSaving,
+                          isArchivedView: widget.isArchivedView,
                           selectedLeadId: selectedLead?.id,
                           onLeadSelected: (lead) {
                             setState(() => _selectedLeadId = lead.id);
@@ -1199,6 +1229,9 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
                     showAssignee: widget.showAssignee,
                     companyId: widget.companyId,
                     canEdit: widget.canEdit,
+                    canAssign: widget.canAssign,
+                    roleName: widget.roleName,
+                    currentTeamId: widget.currentTeamId,
                     uid: widget.uid,
                     actorName: widget.actorName,
                     isSaving: widget.isSaving,
@@ -1423,6 +1456,14 @@ class _LeadsWebTable extends StatelessWidget {
     required this.leads,
     required this.users,
     required this.showAssignee,
+    required this.companyId,
+    required this.roleName,
+    required this.currentUserId,
+    required this.currentTeamId,
+    required this.actorName,
+    required this.canAssign,
+    required this.isSaving,
+    required this.isArchivedView,
     required this.selectedLeadId,
     required this.onLeadSelected,
   });
@@ -1430,6 +1471,14 @@ class _LeadsWebTable extends StatelessWidget {
   final List<Lead> leads;
   final List<UserProfile> users;
   final bool showAssignee;
+  final String companyId;
+  final String roleName;
+  final String currentUserId;
+  final String currentTeamId;
+  final String actorName;
+  final bool canAssign;
+  final bool isSaving;
+  final bool isArchivedView;
   final String? selectedLeadId;
   final ValueChanged<Lead> onLeadSelected;
 
@@ -1472,6 +1521,7 @@ class _LeadsWebTable extends StatelessWidget {
                 if (showAssignee)
                   DataColumn(label: _TableText(l.assignedToLabel, maxWidth: 120)),
                 DataColumn(label: _TableText(l.nextFollowUp, maxWidth: 128)),
+                DataColumn(label: _TableText(l.actions, maxWidth: 92)),
               ],
               rows: leads.map((lead) {
                 final selected = lead.id == selectedLeadId;
@@ -1525,6 +1575,20 @@ class _LeadsWebTable extends StatelessWidget {
                       _FollowUpCell(lead: lead),
                       onTap: () => onLeadSelected(lead),
                     ),
+                    DataCell(
+                      _LeadAssignActionButton(
+                        lead: lead,
+                        users: users,
+                        companyId: companyId,
+                        roleName: roleName,
+                        currentUserId: currentUserId,
+                        currentTeamId: currentTeamId,
+                        actorName: actorName,
+                        canAssign: canAssign,
+                        isArchivedView: isArchivedView,
+                        isSaving: isSaving,
+                      ),
+                    ),
                   ],
                 );
               }).toList(),
@@ -1555,6 +1619,9 @@ class _LeadPreviewPanel extends StatelessWidget {
     required this.showAssignee,
     required this.companyId,
     required this.canEdit,
+    required this.canAssign,
+    required this.roleName,
+    required this.currentTeamId,
     required this.uid,
     required this.actorName,
     required this.isSaving,
@@ -1566,6 +1633,9 @@ class _LeadPreviewPanel extends StatelessWidget {
   final bool showAssignee;
   final String companyId;
   final bool canEdit;
+  final bool canAssign;
+  final String roleName;
+  final String currentTeamId;
   final String uid;
   final String actorName;
   final bool isSaving;
@@ -1697,6 +1767,24 @@ class _LeadPreviewPanel extends StatelessWidget {
                       ? null
                       : () => _scheduleFollowUp(context, selectedLead),
                 ),
+                if (canAssign)
+                  _PreviewActionIcon(
+                    tooltip: l.assignedToLabel,
+                    icon: Icons.person_add_alt_outlined,
+                    isLoading: isSaving,
+                    onPressed: isSaving
+                        ? null
+                        : () => _showAssignLeadSheet(
+                              context,
+                              lead: selectedLead,
+                              companyId: companyId,
+                              roleName: roleName,
+                              currentUserId: uid,
+                              currentTeamId: currentTeamId,
+                              actorName: actorName,
+                              users: users,
+                            ),
+                  ),
                 _PreviewActionIcon(
                   tooltip: l.editLead,
                   icon: Icons.edit_outlined,
@@ -1845,11 +1933,25 @@ class _LeadCard extends StatelessWidget {
   const _LeadCard({
     required this.lead,
     required this.users,
+    required this.companyId,
+    required this.roleName,
+    required this.currentUserId,
+    required this.currentTeamId,
+    required this.actorName,
+    required this.canAssign,
+    required this.isSaving,
     required this.isArchivedView,
   });
 
   final Lead lead;
   final List<UserProfile> users;
+  final String companyId;
+  final String roleName;
+  final String currentUserId;
+  final String currentTeamId;
+  final String actorName;
+  final bool canAssign;
+  final bool isSaving;
   final bool isArchivedView;
 
   @override
@@ -1943,11 +2045,278 @@ class _LeadCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (canAssign && !isArchivedView) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _LeadAssignActionButton(
+                  lead: lead,
+                  users: users,
+                  companyId: companyId,
+                  roleName: roleName,
+                  currentUserId: currentUserId,
+                  currentTeamId: currentTeamId,
+                  actorName: actorName,
+                  canAssign: canAssign,
+                  isArchivedView: isArchivedView,
+                  isSaving: isSaving,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+
+class _LeadAssignActionButton extends StatelessWidget {
+  const _LeadAssignActionButton({
+    required this.lead,
+    required this.users,
+    required this.companyId,
+    required this.roleName,
+    required this.currentUserId,
+    required this.currentTeamId,
+    required this.actorName,
+    required this.canAssign,
+    required this.isArchivedView,
+    required this.isSaving,
+  });
+
+  final Lead lead;
+  final List<UserProfile> users;
+  final String companyId;
+  final String roleName;
+  final String currentUserId;
+  final String currentTeamId;
+  final String actorName;
+  final bool canAssign;
+  final bool isArchivedView;
+  final bool isSaving;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    if (l == null || !canAssign || isArchivedView) {
+      return const SizedBox.shrink();
+    }
+    final options = _leadAssignableUsersFor(
+      users: users,
+      roleName: roleName,
+      currentUserId: currentUserId,
+      currentTeamId: currentTeamId,
+    );
+    if (options.isEmpty && !_canUnassignLead(roleName)) {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      tooltip: l.assignedToLabel,
+      visualDensity: VisualDensity.compact,
+      onPressed: isSaving
+          ? null
+          : () => _showAssignLeadSheet(
+                context,
+                lead: lead,
+                companyId: companyId,
+                roleName: roleName,
+                currentUserId: currentUserId,
+                currentTeamId: currentTeamId,
+                actorName: actorName,
+                users: users,
+              ),
+      icon: const Icon(Icons.person_add_alt_outlined, size: 18),
+    );
+  }
+}
+
+Future<void> _showAssignLeadSheet(
+  BuildContext context, {
+  required Lead lead,
+  required String companyId,
+  required String roleName,
+  required String currentUserId,
+  required String currentTeamId,
+  required String actorName,
+  required List<UserProfile> users,
+}) async {
+  final l = AppLocalizations.of(context);
+  if (l == null) {
+    return;
+  }
+  final cubit = context.read<LeadsCubit>();
+  final assignableUsers = _leadAssignableUsersFor(
+    users: users,
+    roleName: roleName,
+    currentUserId: currentUserId,
+    currentTeamId: currentTeamId,
+  );
+  final optionIds = <String>[
+    if (_canUnassignLead(roleName)) '',
+    ...assignableUsers.map((user) => user.uid),
+  ];
+  if (optionIds.isEmpty) {
+    return;
+  }
+
+  var selectedUserId = optionIds.contains(lead.assignedTo)
+      ? lead.assignedTo
+      : optionIds.first;
+  var isSubmitting = false;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.leadAssignment,
+                          style: Theme.of(sheetContext).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppDropdown<String>(
+                    label: l.assignedToLabel,
+                    value: selectedUserId,
+                    enabled: !isSubmitting,
+                    items: optionIds,
+                    itemLabelBuilder: (uid) => _leadAssigneeOptionLabel(
+                      l,
+                      uid,
+                      assignableUsers,
+                    ),
+                    onChanged: (uid) {
+                      setSheetState(() => selectedUserId = uid);
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    label: l.assignedToLabel,
+                    isLoading: isSubmitting,
+                    onPressed: () async {
+                      setSheetState(() => isSubmitting = true);
+                      final selectedUser = _leadUserById(
+                        assignableUsers,
+                        selectedUserId,
+                      );
+                      final now = DateTime.now();
+                      await cubit.updateLead(
+                        companyId: companyId,
+                        lead: lead.copyWith(
+                          assignedTo: selectedUserId,
+                          assignedToName: selectedUser?.fullName ?? '',
+                          teamId: selectedUser?.teamId ?? '',
+                          teamName: selectedUser?.teamName ?? '',
+                          managerId: selectedUser?.managerId ?? '',
+                          managerName: selectedUser?.managerName ?? '',
+                          updatedAt: now,
+                          updatedBy: currentUserId,
+                        ),
+                        actorName: actorName,
+                        successAction: LeadsAction.assignLead,
+                      );
+                      final completed = cubit.state.status == LeadsStatus.saved &&
+                          cubit.state.lastAction == LeadsAction.assignLead;
+                      if (completed && sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                        return;
+                      }
+                      if (sheetContext.mounted) {
+                        setSheetState(() => isSubmitting = false);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+List<UserProfile> _leadAssignableUsersFor({
+  required List<UserProfile> users,
+  required String roleName,
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final assignable = AssignmentUserPolicy.assignableUsersFor(
+    AssignableWorkType.lead,
+    users,
+  );
+  if (roleName == UserRole.manager.name) {
+    return assignable.where((user) {
+      final directManager = user.managerId.trim() == currentUserId;
+      final sameTeam = currentTeamId.trim().isNotEmpty &&
+          user.teamId.trim() == currentTeamId.trim();
+      return directManager || sameTeam;
+    }).toList(growable: false);
+  }
+  if (roleName == UserRole.admin.name) {
+    return assignable;
+  }
+  return const <UserProfile>[];
+}
+
+bool _canUnassignLead(String roleName) {
+  return roleName == UserRole.admin.name;
+}
+
+String _leadAssigneeOptionLabel(
+  AppLocalizations localizations,
+  String uid,
+  List<UserProfile> users,
+) {
+  if (uid.trim().isEmpty) {
+    return localizations.unassigned;
+  }
+  final user = _leadUserById(users, uid);
+  if (user == null) {
+    return localizations.assignedUserUnavailable;
+  }
+  if (user.fullName.trim().isNotEmpty) {
+    return user.fullName;
+  }
+  return user.email.trim().isNotEmpty
+      ? user.email
+      : localizations.assignedUserUnavailable;
+}
+
+UserProfile? _leadUserById(List<UserProfile> users, String uid) {
+  for (final user in users) {
+    if (user.uid == uid) {
+      return user;
+    }
+  }
+  return null;
 }
 
 class _LeadMetaChip extends StatelessWidget {
