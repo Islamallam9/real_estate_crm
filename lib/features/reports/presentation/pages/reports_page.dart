@@ -159,6 +159,8 @@ class _ReportsContentState extends State<_ReportsContent> {
   String _assignedTo = '';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  Stream<List<UserProfile>>? _activeUsersStream;
+  String _activeUsersStreamKey = '';
 
   bool get _canFilterAssignee =>
       widget.role == UserRole.admin || widget.role == UserRole.manager;
@@ -166,6 +168,7 @@ class _ReportsContentState extends State<_ReportsContent> {
   @override
   void initState() {
     super.initState();
+    _syncActiveUsersStream();
     _watchAll();
   }
 
@@ -175,6 +178,7 @@ class _ReportsContentState extends State<_ReportsContent> {
     if (oldWidget.companyId != widget.companyId ||
         oldWidget.role != widget.role ||
         oldWidget.currentUserId != widget.currentUserId) {
+      _syncActiveUsersStream();
       _watchAll();
     }
   }
@@ -224,10 +228,23 @@ class _ReportsContentState extends State<_ReportsContent> {
     );
   }
 
+  void _syncActiveUsersStream() {
+    final key = _canFilterAssignee
+        ? '${widget.companyId}:${widget.role.name}:${widget.currentUserId}'
+        : '';
+    if (_activeUsersStreamKey == key) {
+      return;
+    }
+    _activeUsersStreamKey = key;
+    _activeUsersStream = _canFilterAssignee
+        ? _watchActiveUsers(widget.companyId)
+        : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<UserProfile>>(
-      stream: _canFilterAssignee ? _watchActiveUsers(widget.companyId) : null,
+      stream: _activeUsersStream,
       builder: (context, usersSnapshot) {
         final users = usersSnapshot.data ?? const <UserProfile>[];
         return BlocBuilder<LeadsCubit, LeadsState>(

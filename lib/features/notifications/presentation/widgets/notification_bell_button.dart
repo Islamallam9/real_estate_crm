@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -72,18 +74,41 @@ class NotificationBellButton extends StatelessWidget {
               return;
             }
             final cubit = context.read<NotificationsCubit>();
-            cubit.refresh(
+            cubit.refreshShell(
               companyId: profile.companyId,
               currentUserId: authUid,
               role: profile.role,
               managerTeamId: profile.teamId,
               notificationsLimit: notificationDropdownLimit * 2,
             );
-            _showNotificationsPanel(
-              context: context,
-              cubit: cubit,
+            cubit.watchAttentionReminders(
+              consumerKey: _notificationPanelAttentionConsumer,
               companyId: profile.companyId,
               currentUserId: authUid,
+              role: profile.role,
+              managerTeamId: profile.teamId,
+              remindersLimit: 8,
+            );
+            unawaited(
+              _showNotificationsPanel(
+                context: context,
+                cubit: cubit,
+                companyId: profile.companyId,
+                currentUserId: authUid,
+              ).whenComplete(() {
+                cubit.releaseAttentionReminders(
+                  _notificationPanelAttentionConsumer,
+                );
+                if (!context.mounted) {
+                  return;
+                }
+                cubit.watchShell(
+                  companyId: profile.companyId,
+                  currentUserId: authUid,
+                  role: profile.role,
+                  managerTeamId: profile.teamId,
+                );
+              }),
             );
           },
         );
@@ -91,6 +116,8 @@ class NotificationBellButton extends StatelessWidget {
     );
   }
 }
+
+const String _notificationPanelAttentionConsumer = 'notification-bell-panel';
 
 class _BellIconButton extends StatelessWidget {
   const _BellIconButton({

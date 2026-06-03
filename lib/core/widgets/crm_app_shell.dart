@@ -17,7 +17,6 @@ import '../../features/global_search/domain/entities/global_search_result.dart';
 import '../../features/global_search/domain/usecases/search_global_data_usecase.dart';
 import '../../features/global_search/presentation/cubit/global_search_cubit.dart';
 import '../../features/global_search/presentation/cubit/global_search_state.dart';
-import '../../features/notifications/domain/constants/notification_limits.dart';
 import '../../features/notifications/domain/entities/attention_reminder.dart';
 import '../../features/notifications/domain/entities/crm_notification.dart';
 import '../../features/notifications/presentation/cubit/notification_push_token_cubit.dart';
@@ -239,13 +238,11 @@ class _ShellRefreshWrapperState extends State<_ShellRefreshWrapper> {
     final profile = authState.userProfile;
     if (profile != null && authState.user?.uid == profile.uid) {
       try {
-        context.read<NotificationsCubit>().refresh(
+        context.read<NotificationsCubit>().refreshShell(
               companyId: profile.companyId,
               currentUserId: profile.uid,
               role: profile.role,
               managerTeamId: profile.teamId,
-              notificationsLimit: 250,
-              remindersLimit: 60,
             );
       } catch (_) {
         // Some public/platform pages do not provide company notification scope.
@@ -505,7 +502,7 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
   }
 
   void _watchNotifications() {
-    context.read<NotificationsCubit>().watch(
+    context.read<NotificationsCubit>().watchShell(
           companyId: widget.companyId,
           currentUserId: widget.currentUserId,
           role: widget.role,
@@ -528,6 +525,9 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
           ),
           _SmartGuidanceFloatingOverlay(
             companyId: widget.companyId,
+            currentUserId: widget.currentUserId,
+            role: widget.role,
+            managerTeamId: widget.managerTeamId,
           ),
         ],
       ),
@@ -740,9 +740,17 @@ class _NotificationFloatingToastState
 
 
 class _SmartGuidanceFloatingOverlay extends StatefulWidget {
-  const _SmartGuidanceFloatingOverlay({required this.companyId});
+  const _SmartGuidanceFloatingOverlay({
+    required this.companyId,
+    required this.currentUserId,
+    required this.role,
+    required this.managerTeamId,
+  });
 
   final String companyId;
+  final String currentUserId;
+  final UserRole role;
+  final String managerTeamId;
 
   @override
   State<_SmartGuidanceFloatingOverlay> createState() =>
@@ -751,11 +759,13 @@ class _SmartGuidanceFloatingOverlay extends StatefulWidget {
 
 class _SmartGuidanceFloatingOverlayState
     extends State<_SmartGuidanceFloatingOverlay> {
+  static const String _consumerKey = 'smart-guidance-overlay';
   final math.Random _random = math.Random();
   Timer? _showTimer;
   Timer? _hideTimer;
   AttentionReminder? _visibleReminder;
   bool _visible = false;
+  bool _attentionRequested = false;
   int _lastSignatureHash = 0;
   final Set<String> _shownReminderIds = <String>{};
   AttentionReminderType? _lastReminderType;
@@ -770,6 +780,7 @@ class _SmartGuidanceFloatingOverlayState
   void dispose() {
     _showTimer?.cancel();
     _hideTimer?.cancel();
+    _releaseGuidanceAttention();
     super.dispose();
   }
 
@@ -778,7 +789,11 @@ class _SmartGuidanceFloatingOverlayState
     if (signature != _lastSignatureHash) {
       _lastSignatureHash = signature;
       if (!_visible) {
-        _scheduleNext(initial: _lastSignatureHash == 0);
+        if (_attentionRequested) {
+          _scheduleAfter(const Duration(milliseconds: 600));
+        } else {
+          _scheduleNext(initial: _lastSignatureHash == 0);
+        }
       }
     }
   }
@@ -851,7 +866,38 @@ class _SmartGuidanceFloatingOverlayState
     // with a random delay between 15 and 60 minutes, instead of appearing
     // every few seconds/minutes.
     final delay = Duration(minutes: 15 + _random.nextInt(46));
+    _scheduleAfter(delay);
+  }
+
+  void _scheduleAfter(Duration delay) {
+    _showTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
     _showTimer = Timer(delay, _showNextReminder);
+  }
+
+  void _requestGuidanceAttention() {
+    if (_attentionRequested || !mounted) {
+      return;
+    }
+    _attentionRequested = true;
+    context.read<NotificationsCubit>().watchAttentionReminders(
+          consumerKey: _consumerKey,
+          companyId: widget.companyId,
+          currentUserId: widget.currentUserId,
+          role: widget.role,
+          managerTeamId: widget.managerTeamId,
+          remindersLimit: 18,
+        );
+  }
+
+  void _releaseGuidanceAttention() {
+    if (!_attentionRequested || !mounted) {
+      return;
+    }
+    _attentionRequested = false;
+    context.read<NotificationsCubit>().releaseAttentionReminders(_consumerKey);
   }
 
   List<AttentionReminder> _availableReminders() {
@@ -894,8 +940,15 @@ class _SmartGuidanceFloatingOverlayState
     if (!mounted || _visible) {
       return;
     }
-    final reminder = _pickNextReminder(_availableReminders());
+    final reminders = _availableReminders();
+    if (reminders.isEmpty && !_attentionRequested) {
+      _requestGuidanceAttention();
+      _scheduleAfter(const Duration(seconds: 8));
+      return;
+    }
+    final reminder = _pickNextReminder(reminders);
     if (reminder == null) {
+      _releaseGuidanceAttention();
       _scheduleNext(initial: false);
       return;
     }
@@ -903,6 +956,7 @@ class _SmartGuidanceFloatingOverlayState
       _visibleReminder = reminder;
       _visible = true;
     });
+    _releaseGuidanceAttention();
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 10), () {
       if (!mounted) {

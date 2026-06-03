@@ -46,11 +46,36 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   StreamSubscription<List<CrmNotification>>? _notificationsSubscription;
   StreamSubscription<int>? _unreadCountSubscription;
   StreamSubscription<List<AttentionReminder>>? _remindersSubscription;
-  String _watchKey = '';
+  String _sessionKey = '';
+  String _notificationsKey = '';
+  String _unreadCountKey = '';
+  String _remindersKey = '';
+  final Map<String, _AttentionWatchRequest> _attentionRequests =
+      <String, _AttentionWatchRequest>{};
   final Set<String> _locallyReadNotificationIds = <String>{};
   DateTime? _suppressUnreadCountUntil;
 
-  void refresh({
+  void refreshShell({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    int notificationsLimit = notificationDropdownLimit,
+  }) {
+    _notificationsKey = '';
+    _unreadCountKey = '';
+    _locallyReadNotificationIds.clear();
+    _suppressUnreadCountUntil = null;
+    watchShell(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      notificationsLimit: notificationsLimit,
+    );
+  }
+
+  void refreshCenter({
     required String companyId,
     required String currentUserId,
     required UserRole role,
@@ -58,8 +83,18 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     int notificationsLimit = notificationDropdownLimit,
     int remindersLimit = 60,
   }) {
-    _watchKey = '';
-    watch(
+    _notificationsKey = '';
+    _unreadCountKey = '';
+    _remindersKey = '';
+    _locallyReadNotificationIds.clear();
+    _suppressUnreadCountUntil = null;
+    emit(
+      state.copyWith(
+        clearReminderMessage: true,
+        clearedReminderIds: const <String>{},
+      ),
+    );
+    watchCenter(
       companyId: companyId,
       currentUserId: currentUserId,
       role: role,
@@ -69,7 +104,34 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     );
   }
 
-  void watch({
+  void watchShell({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    int notificationsLimit = notificationDropdownLimit,
+  }) {
+    _prepareSession(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+    );
+    _watchNotifications(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      notificationsLimit: notificationsLimit,
+    );
+    _watchUnreadCount(
+      companyId: companyId,
+      currentUserId: currentUserId,
+    );
+    if (_attentionRequests.isEmpty) {
+      _stopAttentionReminders(clearState: true);
+    }
+  }
+
+  void watchCenter({
     required String companyId,
     required String currentUserId,
     required UserRole role,
@@ -77,27 +139,94 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     int notificationsLimit = notificationDropdownLimit,
     int remindersLimit = 60,
   }) {
-    final key =
-        '$companyId:$currentUserId:${role.name}:${managerTeamId ?? ''}:$notificationsLimit:$remindersLimit';
-    if (_watchKey == key) {
+    watchShell(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      notificationsLimit: notificationsLimit,
+    );
+    watchAttentionReminders(
+      consumerKey: 'notification-center',
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      remindersLimit: remindersLimit,
+    );
+  }
+
+  void watchAttentionReminders({
+    required String consumerKey,
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    int remindersLimit = 60,
+  }) {
+    _prepareSession(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+    );
+    _attentionRequests[consumerKey] = _AttentionWatchRequest(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      limit: remindersLimit,
+    );
+    _syncAttentionReminders();
+  }
+
+  void releaseAttentionReminders(String consumerKey) {
+    if (_attentionRequests.remove(consumerKey) == null) {
       return;
     }
-    _watchKey = key;
+    _syncAttentionReminders();
+  }
+
+  void _prepareSession({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+  }) {
+    final key = '$companyId:$currentUserId:${role.name}:${managerTeamId ?? ''}';
+    if (_sessionKey == key) {
+      return;
+    }
+    _sessionKey = key;
+    _notificationsKey = '';
+    _unreadCountKey = '';
+    _remindersKey = '';
+    _attentionRequests.clear();
     _notificationsSubscription?.cancel();
     _unreadCountSubscription?.cancel();
-    _remindersSubscription?.cancel();
+    _stopAttentionReminders(clearState: true);
+    _locallyReadNotificationIds.clear();
+    _suppressUnreadCountUntil = null;
+  }
+
+  void _watchNotifications({
+    required String companyId,
+    required String currentUserId,
+    required int notificationsLimit,
+  }) {
+    final key = '$companyId:$currentUserId:$notificationsLimit';
+    if (_notificationsKey == key) {
+      return;
+    }
+    _notificationsKey = key;
+    _notificationsSubscription?.cancel();
     emit(
       state.copyWith(
         status: NotificationsStatus.loading,
         clearMessage: true,
-        clearReminderMessage: true,
         clearedNotificationIds: const <String>{},
-        clearedReminderIds: const <String>{},
       ),
     );
-    _locallyReadNotificationIds.clear();
-    _suppressUnreadCountUntil = null;
-
     _notificationsSubscription = _watchNotificationsUseCase(
       companyId: companyId,
       recipientUid: currentUserId,
@@ -129,7 +258,18 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         );
       },
     );
+  }
 
+  void _watchUnreadCount({
+    required String companyId,
+    required String currentUserId,
+  }) {
+    final key = '$companyId:$currentUserId';
+    if (_unreadCountKey == key) {
+      return;
+    }
+    _unreadCountKey = key;
+    _unreadCountSubscription?.cancel();
     _unreadCountSubscription = _watchUnreadCountUseCase(
       companyId: companyId,
       recipientUid: currentUserId,
@@ -150,13 +290,30 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         }
       },
     );
+  }
 
+  void _syncAttentionReminders() {
+    if (_attentionRequests.isEmpty) {
+      _stopAttentionReminders(clearState: true);
+      return;
+    }
+    final request = _attentionRequests.values.reduce(
+      (current, next) => next.limit > current.limit ? next : current,
+    );
+    final key =
+        '${request.companyId}:${request.currentUserId}:${request.role.name}:'
+        '${request.managerTeamId ?? ''}:${request.limit}';
+    if (_remindersKey == key) {
+      return;
+    }
+    _remindersKey = key;
+    _remindersSubscription?.cancel();
     _remindersSubscription = _watchAttentionRemindersUseCase(
-      companyId: companyId,
-      currentUserId: currentUserId,
-      role: role,
-      managerTeamId: managerTeamId,
-      limit: remindersLimit,
+      companyId: request.companyId,
+      currentUserId: request.currentUserId,
+      role: request.role,
+      managerTeamId: request.managerTeamId,
+      limit: request.limit,
     ).listen(
       (reminders) {
         if (!isClosed) {
@@ -174,6 +331,21 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         }
       },
     );
+  }
+
+  void _stopAttentionReminders({required bool clearState}) {
+    _remindersKey = '';
+    _remindersSubscription?.cancel();
+    _remindersSubscription = null;
+    if (clearState && !isClosed) {
+      emit(
+        state.copyWith(
+          reminders: const <AttentionReminder>[],
+          clearReminderMessage: true,
+          clearedReminderIds: const <String>{},
+        ),
+      );
+    }
   }
 
   Future<void> markAsRead({
@@ -492,9 +664,26 @@ class NotificationsCubit extends Cubit<NotificationsState> {
 
   @override
   Future<void> close() {
+    _attentionRequests.clear();
     _notificationsSubscription?.cancel();
     _unreadCountSubscription?.cancel();
     _remindersSubscription?.cancel();
     return super.close();
   }
+}
+
+class _AttentionWatchRequest {
+  const _AttentionWatchRequest({
+    required this.companyId,
+    required this.currentUserId,
+    required this.role,
+    required this.managerTeamId,
+    required this.limit,
+  });
+
+  final String companyId;
+  final String currentUserId;
+  final UserRole role;
+  final String? managerTeamId;
+  final int limit;
 }

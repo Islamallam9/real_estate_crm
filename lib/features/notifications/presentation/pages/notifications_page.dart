@@ -25,6 +25,7 @@ import '../cubit/notifications_state.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_cards.dart';
 import '../widgets/notification_push_status_card.dart';
+import '../widgets/notifications_scope.dart';
 
 enum _NotificationFilter {
   all,
@@ -47,7 +48,7 @@ class NotificationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return CrmAppShell(
+    final page = CrmAppShell(
       selectedItem: CrmNavigationItem.dashboard,
       title: l.notifications,
       child: BlocBuilder<AuthBloc, AuthState>(
@@ -84,6 +85,20 @@ class NotificationsPage extends StatelessWidget {
         },
       ),
     );
+    return _hasNotificationsCubit(context)
+        ? page
+        : NotificationsScope(child: page);
+  }
+}
+
+const String _notificationCenterAttentionConsumer = 'notification-center';
+
+bool _hasNotificationsCubit(BuildContext context) {
+  try {
+    context.read<NotificationsCubit>();
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 
@@ -106,10 +121,12 @@ class _NotificationsWorkspace extends StatefulWidget {
 
 class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
   _NotificationFilter _filter = _NotificationFilter.all;
+  late final NotificationsCubit _notificationsCubit;
 
   @override
   void initState() {
     super.initState();
+    _notificationsCubit = context.read<NotificationsCubit>();
     _watch();
   }
 
@@ -125,7 +142,7 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
   }
 
   void _watch() {
-    context.read<NotificationsCubit>().watch(
+    _notificationsCubit.watchCenter(
           companyId: widget.companyId,
           currentUserId: widget.currentUserId,
           role: widget.role,
@@ -135,7 +152,7 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
   }
 
   Future<void> _refresh() async {
-    context.read<NotificationsCubit>().refresh(
+    _notificationsCubit.refreshCenter(
           companyId: widget.companyId,
           currentUserId: widget.currentUserId,
           role: widget.role,
@@ -143,6 +160,20 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
           notificationsLimit: notificationHistoryPageLimit,
         );
     await Future<void>.delayed(const Duration(milliseconds: 650));
+  }
+
+  @override
+  void dispose() {
+    _notificationsCubit.releaseAttentionReminders(
+      _notificationCenterAttentionConsumer,
+    );
+    _notificationsCubit.watchShell(
+      companyId: widget.companyId,
+      currentUserId: widget.currentUserId,
+      role: widget.role,
+      managerTeamId: widget.managerTeamId,
+    );
+    super.dispose();
   }
 
   @override
