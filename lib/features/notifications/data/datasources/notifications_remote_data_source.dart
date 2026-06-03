@@ -585,6 +585,17 @@ class FirestoreNotificationsRemoteDataSource
     String? managerTeamId,
     required int limit,
   }) {
+    final now = DateTime.now();
+    final endOfToday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      23,
+      59,
+      59,
+      999,
+      999,
+    );
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyTasks(companyId),
     );
@@ -594,11 +605,13 @@ class FirestoreNotificationsRemoteDataSource
           ? query.where('teamId', isEqualTo: teamId)
           : query.where('managerId', isEqualTo: currentUserId);
     } else if (role == UserRole.salesAgent || role == UserRole.marketing) {
-      query = query
-          .where('assignedTo', isEqualTo: currentUserId)
-          .where('isActive', isEqualTo: true);
+      query = query.where('assignedTo', isEqualTo: currentUserId);
     }
-    return query.limit(limit * 3);
+    return query
+        .where('isActive', isEqualTo: true)
+        .where('dueDate', isLessThanOrEqualTo: endOfToday)
+        .orderBy('dueDate')
+        .limit(limit * 3);
   }
 
   Query<Map<String, dynamic>> _appointmentReminderQuery({
