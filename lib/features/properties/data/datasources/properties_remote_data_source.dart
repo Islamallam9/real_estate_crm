@@ -201,16 +201,17 @@ class FirestorePropertiesRemoteDataSource
     required String companyId,
     int limit = 30,
   }) {
-    return _propertiesCollection(companyId).limit(limit).snapshots().map((
-        snapshot,
-        ) {
+    return _propertiesCollection(companyId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final properties = snapshot.docs.map((document) {
         final property = PropertyModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, property: property);
         return property;
       }).toList();
 
-      properties.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return properties;
     });
   }
