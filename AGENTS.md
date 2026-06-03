@@ -92,8 +92,10 @@ Do not assume the following are completed unless the user confirms:
 - Firebase Functions/rules/index deploy
 
 Immediate next planned major phase:
-- Production Performance and Firestore Cost Optimization.
-- This must be split into controlled phases to avoid breaking the app.
+- Production Performance and Firestore Cost Optimization is in progress.
+- Several safe query/read optimizations are completed, but the phase is not finished.
+- Continue with release hygiene / dirty worktree cleanup before starting more query changes.
+- Any next optimization must be one module/query path at a time.
 
 Recommended optimization phases:
 1. Performance and Firestore Cost Audit — read-only inspection, no behavior changes.
@@ -103,6 +105,76 @@ Recommended optimization phases:
 5. Slow Network Mutation Reliability.
 6. Index, Aggregation, and Data Retention Cleanup.
 7. Production Profiling and Release Lock.
+
+---
+
+## Latest performance/stability checkpoint — 2026-06-03
+
+Treat the following as completed/tested unless later evidence contradicts it:
+
+- Properties list ordering optimization completed/tested/committed:
+  - `lib/features/properties/data/datasources/properties_remote_data_source.dart`
+  - Firestore now orders Properties by `createdAt` descending before `limit(...)`.
+  - No Firestore rules or Functions changes were needed.
+- Leads list ordering optimization completed/tested/committed:
+  - `lib/features/leads/data/datasources/leads_remote_data_source.dart`
+  - Added Firestore `orderBy('createdAt', descending: true)` before `limit(...)`.
+  - Runtime missing-index error was captured through `MasarFirestoreDiagnostic`.
+  - Confirmed Leads index was created in Firebase Console and added to `firestore.indexes.json`.
+- Firestore index source-control cleanup completed:
+  - `firestore.indexes.json` now includes the confirmed enabled indexes for:
+    - existing notifications index,
+    - existing Leads collection-group index,
+    - Leads collection indexes for assigned/admin/manager scoped ordering,
+    - Tasks collection indexes for bounded task attention reminders.
+  - No unconfirmed `teamId` task index was added.
+- Manager Client details update permission bug fixed/tested/deployed:
+  - Root causes included Manager details updates sharing strict full-client update rules and legacy Client docs missing stored `id` fields.
+  - Final Firestore rules fix uses a separate top-level Manager details-only branch: `managerCanUpdateClientDetails(companyId)`.
+  - Manager remains team/client scoped.
+  - Manager normal edit can change only normal details plus `updatedAt`/`updatedBy`.
+  - Assignment/team/archive/system fields remain protected.
+- Manager appointment create/update/reassign bug fixed/tested/deployed:
+  - Root cause was `saveAppointmentRecord` callable authorization, not Firestore rules/indexes.
+  - Function now allows Manager assignment only to self, direct managed users, or users with non-empty matching `teamId`.
+  - Flutter appointment form/create/edit guards were aligned with the callable policy.
+  - `functions:saveAppointmentRecord` was deployed.
+- Appointment post-save UX bug fixed/tested:
+  - Successful appointment update no longer also shows a generic error snackbar.
+- Appointments main page date-window optimization completed/tested/committed:
+  - `lib/features/appointments/presentation/pages/appointments_page.dart`
+  - Main Appointments stream now uses a rolling `scheduledAt` window, while Dashboard and notification appointment reminders were left untouched.
+- Notification attention/FCM status stability fix completed/tested:
+  - Generic attention errors were improved with debug-only diagnostics.
+  - FCM push-token state now enters connected/registered after successful token save.
+  - Appointment attention bounded-query optimization was rolled back/postponed because it produced an error without a captured confirmed index path at the time.
+- Bounded Tasks attention reminder query completed/tested/committed:
+  - `lib/features/notifications/data/datasources/notifications_remote_data_source.dart`
+  - Task attention reminders now query with server-side `isActive == true`, `dueDate <= endOfToday`, `orderBy('dueDate')`, and existing role scope.
+  - Existing local completed/cancelled/status filtering remains.
+  - Runtime missing-index errors were handled by creating confirmed Firebase Console indexes, then adding them to `firestore.indexes.json`.
+
+Current optimization status:
+
+- Completed safe wins:
+  - Properties ordered query.
+  - Leads ordered query with confirmed indexes.
+  - Appointments main page bounded date window.
+  - Task attention bounded query with confirmed indexes.
+- Postponed / not completed:
+  - Clients ordering optimization. Do not continue without automated data readiness checks or a very narrow, index-backed plan.
+  - Appointment attention bounded query. It was rolled back; retry only with diagnostics and exact runtime index links.
+  - Dashboard stream optimization. It is high risk because dashboard metrics depend on broad module streams and semantics.
+  - Main Tasks page due-date query optimization. Audit first; do not change broadly.
+
+Important current discipline:
+
+- Commit/query/index work in small checkpoints.
+- Do not retry broad `orderBy(...)` rollouts across modules.
+- If a Firestore query fails with missing index, capture the exact runtime Firebase index link and add only confirmed indexes to `firestore.indexes.json`.
+- If a role-scoped query fails but no index link is visible, add temporary debug-only diagnostics first; do not guess.
+- Treat CanvasKit `_handledContextLostEvent` hot-restart noise separately from Firestore/query correctness unless proven otherwise.
+- Do not mix performance optimization with permission bug fixes in the same task unless the user explicitly asks.
 
 ---
 
