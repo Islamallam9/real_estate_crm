@@ -1440,10 +1440,13 @@ class DashboardPerformanceChartCard extends StatefulWidget {
 
 enum _PerformanceSeriesFilter { all, leads, appointments, followUps, deals, properties }
 
+enum _PerformanceTrendMode { total, daily }
+
 class _DashboardPerformanceChartCardState
     extends State<DashboardPerformanceChartCard> {
   int _selectedRange = 1;
   _PerformanceSeriesFilter _selectedFilter = _PerformanceSeriesFilter.all;
+  _PerformanceTrendMode _selectedMode = _PerformanceTrendMode.total;
 
   @override
   Widget build(BuildContext context) {
@@ -1453,13 +1456,16 @@ class _DashboardPerformanceChartCardState
     final series = widget.analytics.performanceSeries
         .where(_matchesPerformanceFilter)
         .where((item) => item.type != DashboardPerformanceSeriesType.pipelineValue)
-        .map((item) => DashboardChartSeries(
-              type: item.type,
-              points: item.points.length > rangeDays
-                  ? item.points.sublist(item.points.length - rangeDays)
-                  : item.points,
-            ))
-        .where((item) => item.points.any((point) => point.value > 0))
+        .map((item) {
+          final points = item.points.length > rangeDays
+              ? item.points.sublist(item.points.length - rangeDays)
+              : item.points;
+          return DashboardChartSeries(
+            type: item.type,
+            points: _pointsForTrendMode(item.type, points),
+          );
+        })
+        .where((item) => item.points.isNotEmpty)
         .toList();
 
     return _DashboardCard(
@@ -1472,8 +1478,10 @@ class _DashboardPerformanceChartCardState
             trailing: mobile ? null : _PerformanceControls(
               selectedRange: _selectedRange,
               selectedFilter: _selectedFilter,
+              selectedMode: _selectedMode,
               onRangeChanged: (value) => setState(() => _selectedRange = value),
               onFilterChanged: (value) => setState(() => _selectedFilter = value),
+              onModeChanged: (value) => setState(() => _selectedMode = value),
             ),
           ),
           if (mobile) ...[
@@ -1481,11 +1489,23 @@ class _DashboardPerformanceChartCardState
             _PerformanceControls(
               selectedRange: _selectedRange,
               selectedFilter: _selectedFilter,
+              selectedMode: _selectedMode,
               onRangeChanged: (value) => setState(() => _selectedRange = value),
               onFilterChanged: (value) => setState(() => _selectedFilter = value),
+              onModeChanged: (value) => setState(() => _selectedMode = value),
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
+          Text(
+            _selectedMode == _PerformanceTrendMode.total
+                ? l.dashboardPerformanceTotalTrendNote
+                : l.dashboardPerformanceDailyActivityNote,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           if (series.isEmpty)
             SizedBox(
               height: mobile ? 106 : 218,
@@ -1504,6 +1524,54 @@ class _DashboardPerformanceChartCardState
     );
   }
 
+  List<DashboardTrendPoint> _pointsForTrendMode(
+    DashboardPerformanceSeriesType type,
+    List<DashboardTrendPoint> points,
+  ) {
+    if (_selectedMode == _PerformanceTrendMode.daily || points.isEmpty) {
+      return points;
+    }
+
+    final currentTotal = _currentTotalForSeries(type);
+    final visibleTotal = points.fold<int>(0, (sum, point) => sum + point.value);
+    var runningTotal = math.max(currentTotal - visibleTotal, 0);
+    return [
+      for (final point in points)
+        DashboardTrendPoint(
+          date: point.date,
+          value: runningTotal += point.value,
+        ),
+    ];
+  }
+
+  int _currentTotalForSeries(DashboardPerformanceSeriesType type) {
+    int valueFor(DashboardKpiType metricType) {
+      for (final metric in widget.analytics.metrics) {
+        if (metric.type == metricType) {
+          return metric.value.round().clamp(0, 1 << 30).toInt();
+        }
+      }
+      return 0;
+    }
+
+    return switch (type) {
+      DashboardPerformanceSeriesType.leads =>
+        valueFor(DashboardKpiType.activeLeads),
+      DashboardPerformanceSeriesType.appointments =>
+        valueFor(DashboardKpiType.appointmentsToday) +
+            valueFor(DashboardKpiType.missedAppointments),
+      DashboardPerformanceSeriesType.followUps =>
+        valueFor(DashboardKpiType.dueTodayFollowUps) +
+            valueFor(DashboardKpiType.overdueFollowUps),
+      DashboardPerformanceSeriesType.deals =>
+        valueFor(DashboardKpiType.pipelineDeals) +
+            valueFor(DashboardKpiType.wonDealsThisMonth),
+      DashboardPerformanceSeriesType.properties =>
+        valueFor(DashboardKpiType.activeProperties),
+      DashboardPerformanceSeriesType.pipelineValue => 0,
+    };
+  }
+
   bool _matchesPerformanceFilter(DashboardChartSeries item) {
     return switch (_selectedFilter) {
       _PerformanceSeriesFilter.all => true,
@@ -1520,14 +1588,18 @@ class _PerformanceControls extends StatelessWidget {
   const _PerformanceControls({
     required this.selectedRange,
     required this.selectedFilter,
+    required this.selectedMode,
     required this.onRangeChanged,
     required this.onFilterChanged,
+    required this.onModeChanged,
   });
 
   final int selectedRange;
   final _PerformanceSeriesFilter selectedFilter;
+  final _PerformanceTrendMode selectedMode;
   final ValueChanged<int> onRangeChanged;
   final ValueChanged<_PerformanceSeriesFilter> onFilterChanged;
+  final ValueChanged<_PerformanceTrendMode> onModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1554,6 +1626,24 @@ class _PerformanceControls extends StatelessWidget {
               MasarSwitchTabItem(
                 label: l.last30Days,
                 icon: Icons.show_chart_rounded,
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          width: compact ? 154.0 : 174.0,
+          child: MasarSwitchTabBar(
+            compact: true,
+            selectedIndex: selectedMode.index,
+            onChanged: (value) => onModeChanged(_PerformanceTrendMode.values[value]),
+            tabs: [
+              MasarSwitchTabItem(
+                label: l.dashboardPerformanceTotalTrend,
+                icon: Icons.stacked_line_chart_rounded,
+              ),
+              MasarSwitchTabItem(
+                label: l.dashboardPerformanceDailyTrend,
+                icon: Icons.bar_chart_rounded,
               ),
             ],
           ),
@@ -5423,48 +5513,80 @@ class _CardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitleText = subtitle?.trim() ?? '';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.visible,
-                softWrap: true,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      height: 1.15,
-                    ),
-              ),
-              if (subtitleText.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(
-                  subtitleText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                        fontWeight: FontWeight.w400,
-                        height: 1.28,
-                      ),
-                ),
-              ],
-            ],
+
+    Widget titleBlock() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.visible,
+            softWrap: true,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.18,
+            ),
           ),
-        ),
-        if (trailing != null) ...[
-          const SizedBox(width: AppSpacing.sm),
-          trailing!,
+          if (subtitleText.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              subtitleText,
+              maxLines: 3,
+              overflow: TextOverflow.visible,
+              softWrap: true,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+                fontWeight: FontWeight.w500,
+                height: 1.25,
+              ),
+            ),
+          ],
         ],
-      ],
+      );
+    }
+
+    final trailingWidget = trailing;
+    if (trailingWidget == null) {
+      return titleBlock();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleBlock(),
+              const SizedBox(height: AppSpacing.xs),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: trailingWidget,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: titleBlock()),
+            const SizedBox(width: AppSpacing.sm),
+            Flexible(
+              fit: FlexFit.loose,
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: trailingWidget,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
-
 class _AnimatedSection extends StatelessWidget {
   const _AnimatedSection({
     required this.index,
@@ -5976,6 +6098,10 @@ class _RailItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _urgencyColor(context, item.urgency);
     final route = platformPreview ? null : _todayRoute(item);
+    final l = AppLocalizations.of(context)!;
+    final reason = _todayReasonLabel(l, item);
+    final recordType = _todayModuleLabel(l, item.module);
+    final dueLabel = _timeLabel(context, item.dueAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Material(
@@ -5985,56 +6111,111 @@ class _RailItem extends StatelessWidget {
           onTap: route == null ? null : () => context.go(route),
           borderRadius: AppRadius.large,
           child: Container(
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.borderColor(context)),
+              border: Border.all(color: color.withValues(alpha: 0.34)),
               borderRadius: AppRadius.large,
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _timeLabel(context, item.dueAt),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.textSecondaryColor(context),
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      Text(
-                        item.title,
-                        maxLines: 1,
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        reason,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
+                              color: color,
+                              fontWeight: FontWeight.w700,
                             ),
                       ),
-                      Text(
-                        item.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.textMutedColor(context),
-                              fontWeight: FontWeight.w500,
-                            ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    AppStatusBadge(
+                      label: recordType,
+                      tone: _todayModuleTone(item),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                _InitialsAvatar(name: item.subtitle, size: 26),
+                const SizedBox(height: 7),
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: 3,
+                  children: [
+                    _RailMetaPill(
+                      icon: Icons.schedule_rounded,
+                      label: dueLabel,
+                    ),
+                    _RailMetaPill(
+                      icon: Icons.person_outline_rounded,
+                      label: _fallback(item.subtitle, l.notAvailable),
+                    ),
+                    if (item.dueAt != null)
+                      _RailMetaPill(
+                        icon: Icons.timer_outlined,
+                        label: _ageLabel(context, item.dueAt),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RailMetaPill extends StatelessWidget {
+  const _RailMetaPill({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: AppColors.textMutedColor(context)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -6204,7 +6385,6 @@ LineChartData _performanceChartData(
       getDrawingHorizontalLine: (_) => FlLine(
         color: AppColors.borderColor(context),
         strokeWidth: 1,
-        dashArray: [5, 5],
       ),
     ),
     titlesData: FlTitlesData(
@@ -6278,15 +6458,11 @@ LineChartData _performanceChartData(
             for (var index = 0; index < item.points.length; index++)
               FlSpot(index.toDouble(), item.points[index].value.toDouble()),
           ],
-          isCurved: true,
+          isCurved: false,
           color: DashboardChartPalette.seriesColor(context, item.type),
           barWidth: 2.8,
-          dotData: const FlDotData(show: false),
-          belowBarData: BarAreaData(
-            show: true,
-            color: DashboardChartPalette.seriesColor(context, item.type)
-                .withValues(alpha: 0.06),
-          ),
+          dotData: const FlDotData(show: true),
+          belowBarData: BarAreaData(show: false),
         ),
     ],
   );
@@ -6511,7 +6687,7 @@ String _performanceFilterLabel(
   final l = AppLocalizations.of(context)!;
   return switch (filter) {
     _PerformanceSeriesFilter.all => l.all,
-    _PerformanceSeriesFilter.leads => l.dashboardSeriesLeads,
+    _PerformanceSeriesFilter.leads => l.newLeads,
     _PerformanceSeriesFilter.appointments => l.dashboardSeriesAppointments,
     _PerformanceSeriesFilter.followUps => l.followUps,
     _PerformanceSeriesFilter.deals => l.dashboardSeriesDeals,
@@ -6525,7 +6701,7 @@ String _seriesLabel(
 ) {
   final l = AppLocalizations.of(context)!;
   return switch (type) {
-    DashboardPerformanceSeriesType.leads => l.dashboardSeriesLeads,
+    DashboardPerformanceSeriesType.leads => l.newLeads,
     DashboardPerformanceSeriesType.appointments => l.dashboardSeriesAppointments,
     DashboardPerformanceSeriesType.followUps => l.followUps,
     DashboardPerformanceSeriesType.deals => l.dashboardSeriesDeals,
@@ -6605,6 +6781,44 @@ String? _opportunityRoute(DashboardOpportunityItem item) {
     DashboardOpportunityType.lead => RouteNames.leadDetails(item.recordId),
     DashboardOpportunityType.deal => RouteNames.dealDetails(item.recordId),
     DashboardOpportunityType.property => RouteNames.propertyDetails(item.recordId),
+  };
+}
+
+String _todayReasonLabel(AppLocalizations l, DashboardTodayItem item) {
+  return switch (item.module) {
+    DashboardTodayModule.appointment => switch (item.urgency) {
+        DashboardTodayUrgency.overdue => l.salesCommandReasonAppointmentMissed,
+        DashboardTodayUrgency.dueToday => l.salesCommandReasonAppointmentDueNow,
+        DashboardTodayUrgency.normal => l.salesCommandReasonAppointmentUpcoming,
+      },
+    DashboardTodayModule.followUp => switch (item.urgency) {
+        DashboardTodayUrgency.overdue => l.salesCommandReasonOverdueFollowUp,
+        DashboardTodayUrgency.dueToday => l.salesCommandReasonDueTodayFollowUp,
+        DashboardTodayUrgency.normal => l.followUps,
+      },
+    DashboardTodayModule.task => switch (item.urgency) {
+        DashboardTodayUrgency.overdue => l.salesCommandReasonOverdueTask,
+        DashboardTodayUrgency.dueToday => l.salesCommandReasonDueTodayTask,
+        DashboardTodayUrgency.normal => l.tasks,
+      },
+    DashboardTodayModule.deal => l.salesCommandReasonDealAtRisk,
+  };
+}
+
+String _todayModuleLabel(AppLocalizations l, DashboardTodayModule module) {
+  return switch (module) {
+    DashboardTodayModule.appointment => l.appointments,
+    DashboardTodayModule.followUp => l.followUps,
+    DashboardTodayModule.task => l.tasks,
+    DashboardTodayModule.deal => l.deals,
+  };
+}
+
+AppStatusTone _todayModuleTone(DashboardTodayItem item) {
+  return switch (item.urgency) {
+    DashboardTodayUrgency.overdue => AppStatusTone.error,
+    DashboardTodayUrgency.dueToday => AppStatusTone.warning,
+    DashboardTodayUrgency.normal => AppStatusTone.info,
   };
 }
 

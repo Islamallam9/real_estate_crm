@@ -7,6 +7,7 @@ import '../../domain/entities/company_data_health_report.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/entities/platform_login_activity.dart';
 import '../../domain/entities/platform_payment_history.dart';
+import '../../domain/entities/release_intelligence.dart';
 
 enum PlatformStatus { initial, loading, ready, saving, failure }
 
@@ -40,6 +41,11 @@ class PlatformState extends Equatable {
     this.dataHealthReport,
     this.androidReleasePolicy,
     this.androidVersionAdoption,
+    this.releaseIntelligenceSummary,
+    this.releaseAdoptionRows = const [],
+    this.releaseDeviceRows = const [],
+    this.releaseVersionEvents = const [],
+    this.releaseCompanyId,
     this.dataHealthLoading = false,
     this.activeDataHealthActionId,
     this.message,
@@ -62,6 +68,11 @@ class PlatformState extends Equatable {
   final CompanyDataHealthReport? dataHealthReport;
   final AndroidReleasePolicy? androidReleasePolicy;
   final AndroidVersionAdoptionSummary? androidVersionAdoption;
+  final ReleaseIntelligenceSummary? releaseIntelligenceSummary;
+  final List<VersionAdoptionRow> releaseAdoptionRows;
+  final List<PlatformDeviceInstallRow> releaseDeviceRows;
+  final List<DeviceVersionEventRow> releaseVersionEvents;
+  final String? releaseCompanyId;
   final bool dataHealthLoading;
   final String? activeDataHealthActionId;
   final String? message;
@@ -122,6 +133,11 @@ class PlatformState extends Equatable {
     CompanyDataHealthReport? dataHealthReport,
     AndroidReleasePolicy? androidReleasePolicy,
     AndroidVersionAdoptionSummary? androidVersionAdoption,
+    ReleaseIntelligenceSummary? releaseIntelligenceSummary,
+    List<VersionAdoptionRow>? releaseAdoptionRows,
+    List<PlatformDeviceInstallRow>? releaseDeviceRows,
+    List<DeviceVersionEventRow>? releaseVersionEvents,
+    String? releaseCompanyId,
     bool? dataHealthLoading,
     String? activeDataHealthActionId,
     String? message,
@@ -132,6 +148,7 @@ class PlatformState extends Equatable {
     bool clearActiveStorageAction = false,
     bool clearDataHealthReport = false,
     bool clearActiveDataHealthAction = false,
+    bool clearReleaseCompanyId = false,
   }) {
     return PlatformState(
       status: status ?? this.status,
@@ -159,6 +176,14 @@ class PlatformState extends Equatable {
       androidReleasePolicy: androidReleasePolicy ?? this.androidReleasePolicy,
       androidVersionAdoption:
           androidVersionAdoption ?? this.androidVersionAdoption,
+      releaseIntelligenceSummary:
+          releaseIntelligenceSummary ?? this.releaseIntelligenceSummary,
+      releaseAdoptionRows: releaseAdoptionRows ?? this.releaseAdoptionRows,
+      releaseDeviceRows: releaseDeviceRows ?? this.releaseDeviceRows,
+      releaseVersionEvents: releaseVersionEvents ?? this.releaseVersionEvents,
+      releaseCompanyId: clearReleaseCompanyId
+          ? null
+          : releaseCompanyId ?? this.releaseCompanyId,
       dataHealthLoading: dataHealthLoading ?? this.dataHealthLoading,
       activeDataHealthActionId: clearActiveDataHealthAction
           ? null
@@ -184,6 +209,11 @@ class PlatformState extends Equatable {
     dataHealthReport,
     androidReleasePolicy,
     androidVersionAdoption,
+    releaseIntelligenceSummary,
+    releaseAdoptionRows,
+    releaseDeviceRows,
+    releaseVersionEvents,
+    releaseCompanyId,
     dataHealthLoading,
     activeDataHealthActionId,
     message,

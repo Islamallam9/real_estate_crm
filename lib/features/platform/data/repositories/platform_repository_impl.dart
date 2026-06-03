@@ -7,6 +7,7 @@ import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/entities/platform_login_activity.dart';
 import '../../domain/entities/platform_payment_history.dart';
+import '../../domain/entities/release_intelligence.dart';
 import '../../domain/repositories/platform_repository.dart';
 import '../datasources/platform_remote_data_source.dart';
 
@@ -273,8 +274,10 @@ class PlatformRepositoryImpl implements PlatformRepository {
   }
 
   @override
-  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption() {
-    return _remoteDataSource.getAndroidVersionAdoption();
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption({
+    String? companyId,
+  }) {
+    return _remoteDataSource.getAndroidVersionAdoption(companyId: companyId);
   }
 
   @override
@@ -299,6 +302,83 @@ class PlatformRepositoryImpl implements PlatformRepository {
       titleAr: titleAr,
       bodyEn: bodyEn,
       bodyAr: bodyAr,
+    );
+  }
+
+  @override
+  Future<ReleaseIntelligenceSummary> getReleaseIntelligenceSummary({
+    int activeWithinDays = 30,
+  }) {
+    return _remoteDataSource.getReleaseIntelligenceSummary(
+      activeWithinDays: activeWithinDays,
+    );
+  }
+
+  @override
+  Future<List<VersionAdoptionRow>> getPlatformVersionAdoption({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    bool includeInactive = false,
+  }) {
+    return _remoteDataSource.getPlatformVersionAdoption(
+      platform: platform,
+      companyId: companyId,
+      activeWithinDays: activeWithinDays,
+      includeInactive: includeInactive,
+    );
+  }
+
+  @override
+  Future<List<PlatformDeviceInstallRow>> getPlatformDeviceList({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    int limit = 120,
+  }) {
+    return _remoteDataSource.getPlatformDeviceList(
+      platform: platform,
+      companyId: companyId,
+      activeWithinDays: activeWithinDays,
+      limit: limit,
+    );
+  }
+
+  @override
+  Future<List<DeviceVersionEventRow>> getPlatformVersionHistory({
+    String platform = 'all',
+    String? companyId,
+    int limit = 120,
+  }) {
+    return _remoteDataSource.getPlatformVersionHistory(
+      platform: platform,
+      companyId: companyId,
+      limit: limit,
+    );
+  }
+
+  @override
+  Future<void> createPlatformReleaseRecord({
+    required String platform,
+    required String appVersion,
+    required int buildNumber,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required bool enabled,
+    required bool releaseReady,
+    required String status,
+  }) {
+    return _remoteDataSource.createPlatformReleaseRecord(
+      platform: platform,
+      appVersion: appVersion,
+      buildNumber: buildNumber,
+      minimumSupportedBuildNumber: minimumSupportedBuildNumber,
+      latestBuildNumber: latestBuildNumber,
+      updateUrl: updateUrl,
+      enabled: enabled,
+      releaseReady: releaseReady,
+      status: status,
     );
   }
 

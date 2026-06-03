@@ -5068,6 +5068,165 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAndroidVersionData => 'لا توجد بيانات إصدارات أندرويد حتى الآن.';
 
   @override
+  String get releaseCenter => 'مركز الإصدارات';
+
+  @override
+  String get releaseOverview => 'نظرة عامة على الإصدارات';
+
+  @override
+  String get releases => 'الإصدارات';
+
+  @override
+  String get versionAdoption => 'اعتماد الإصدارات';
+
+  @override
+  String get devices => 'الأجهزة';
+
+  @override
+  String get versionHistory => 'سجل الإصدارات';
+
+  @override
+  String get health => 'الصحة';
+
+  @override
+  String get latestWebVersion => 'أحدث إصدار ويب';
+
+  @override
+  String get latestAndroidVersion => 'أحدث إصدار أندرويد';
+
+  @override
+  String get latestActiveWeb => 'أحدث إصدار ويب نشط';
+
+  @override
+  String get latestActiveAndroid => 'أحدث إصدار أندرويد نشط';
+
+  @override
+  String get latestReleasedWeb => 'أحدث إصدار ويب منشور';
+
+  @override
+  String get latestReleasedAndroid => 'أحدث إصدار أندرويد منشور';
+
+  @override
+  String get webUsersDevices => 'مستخدمو وأجهزة الويب';
+
+  @override
+  String get androidUsersDevices => 'مستخدمو وأجهزة أندرويد';
+
+  @override
+  String get oldBuilds => 'الإصدارات القديمة';
+
+  @override
+  String get belowMinimumBuild => 'أقل من الحد الأدنى للإصدار';
+
+  @override
+  String get pushHealth => 'حالة الإشعارات';
+
+  @override
+  String get currentAdoptionHistoryHint =>
+      'الاعتماد الحالي يعرض الأجهزة النشطة فقط. سجل الإصدارات يعرض الإصدارات السابقة.';
+
+  @override
+  String get noAdoptionDataYet => 'لا توجد بيانات اعتماد إصدارات بعد';
+
+  @override
+  String get noReleaseRecordsYet => 'لا توجد سجلات إصدارات بعد';
+
+  @override
+  String get noDeviceDataYet => 'لا توجد بيانات أجهزة بعد';
+
+  @override
+  String get noVersionHistoryYet => 'لا يوجد سجل إصدارات بعد';
+
+  @override
+  String get noHealthDataYet => 'لا توجد بيانات صحة بعد';
+
+  @override
+  String get web => 'ويب';
+
+  @override
+  String get androidPlatform => 'أندرويد';
+
+  @override
+  String get latest => 'الأحدث';
+
+  @override
+  String get oldBuild => 'إصدار قديم';
+
+  @override
+  String get connected => 'متصل';
+
+  @override
+  String get blocked => 'محظور';
+
+  @override
+  String get missing => 'مفقود';
+
+  @override
+  String get failed => 'فشل';
+
+  @override
+  String get invalid => 'غير صالح';
+
+  @override
+  String get lastUpdated => 'آخر تحديث';
+
+  @override
+  String get unknown => 'غير معروف';
+
+  @override
+  String get notReported => 'غير متوفر';
+
+  @override
+  String get invalidOrFailed => 'غير صالح أو فشل';
+
+  @override
+  String get deviceBrowser => 'الجهاز/المتصفح';
+
+  @override
+  String get createdBy => 'أنشأه';
+
+  @override
+  String get createAction => 'إنشاء';
+
+  @override
+  String get releaseCenterAllCompaniesHint => 'يعرض مركز الإصدارات كل الشركات.';
+
+  @override
+  String get releaseCenterSelectedCompanyHint =>
+      'مركز الإصدارات مفلتر على الشركة المحددة.';
+
+  @override
+  String get releaseRecordsStartAfterRegistryEnabled =>
+      'لا توجد سجلات إصدارات بعد. تبدأ سجلات الإصدارات بعد تفعيل سجل الإصدارات أو بعد إنشاء سجل من سياسة أندرويد الحالية.';
+
+  @override
+  String get createReleaseRecordFromAndroidPolicy =>
+      'إنشاء سجل إصدار من سياسة أندرويد الحالية';
+
+  @override
+  String get createReleaseRecordFromAndroidPolicyConfirm =>
+      'سيتم إنشاء سجل إصدار من سياسة تحديث أندرويد الإجباري الحالية. لن يتم تغيير السياسة أو تنفيذ أي نشر.';
+
+  @override
+  String get releaseRecordCreated => 'تم إنشاء سجل الإصدار.';
+
+  @override
+  String get versionHistoryStartsAfterBuildChange =>
+      'يبدأ سجل الإصدارات عندما يتغير رقم بناء جهاز بعد v2.31.0+102.';
+
+  @override
+  String get draft => 'مسودة';
+
+  @override
+  String get released => 'تم الإصدار';
+
+  @override
+  String get disabled => 'معطل';
+
+  @override
+  String get rolledBack => 'تم التراجع';
+
+  @override
   String get notNow => 'ليس الآن';
 
   @override
@@ -5098,4 +5257,18 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get notificationPermissionConfigurationIssueBody =>
       'مفتاح Web Push غير موجود في هذا البناء. أعد بناء التطبيق باستخدام مفتاح Firebase VAPID لتفعيل إشعارات المتصفح.';
+
+  @override
+  String get dashboardPerformanceDailyActivityNote =>
+      'يعرض النشاط اليومي، لذلك تظهر الأيام التي لا تحتوي على سجلات جديدة كقيمة 0.';
+
+  @override
+  String get dashboardPerformanceTotalTrend => 'الإجمالي';
+
+  @override
+  String get dashboardPerformanceDailyTrend => 'اليومي';
+
+  @override
+  String get dashboardPerformanceTotalTrendNote =>
+      'يعرض الإجمالي المتراكم خلال الفترة المحددة، لذلك لا يهبط الخط إلى 0 في الأيام الهادئة.';
 }

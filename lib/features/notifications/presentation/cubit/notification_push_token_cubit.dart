@@ -17,6 +17,9 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
   final NotificationPushTokenRepository _repository;
   StreamSubscription<String>? _refreshSubscription;
 
+  static const _tokenReadTimeout = Duration(seconds: 20);
+  static const _tokenRegisterTimeout = Duration(seconds: 25);
+
   Future<void> syncCompany({
     required String companyId,
     required String uid,
@@ -172,7 +175,7 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
       emit(state.copyWith(status: NotificationPushTokenStatus.idle));
       return;
     }
-    if (state.isSyncing && !force) {
+    if (state.isSyncing) {
       _debugStatus('sync-already-running');
       return;
     }
@@ -204,7 +207,9 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
     // "enabled" when the browser is actually blocking notifications.
     if (!requestPermission && localRegistrationHint) {
       try {
-        final token = await _repository.currentToken(requestPermission: false);
+        final token = await _repository
+            .currentToken(requestPermission: false)
+            .timeout(_tokenReadTimeout);
         if (token == null || token.trim().isEmpty) {
           await prefs.setBool(_registrationHintKey(scopedState), false);
           emit(scopedState.copyWith(
@@ -217,7 +222,7 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
           _debugStatus('token-sync-local-hint-invalid', companyId: companyId, uid: uid, role: role);
           return;
         }
-        await register(token);
+        await register(token).timeout(_tokenRegisterTimeout);
         final activeToken = await _activeTokenAfterRegistration(token);
         await prefs.setBool(_registrationHintKey(scopedState), true);
         final registeredState = scopedState.copyWith(
@@ -263,9 +268,9 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
     emit(baseState);
 
     try {
-      final token = await _repository.currentToken(
-        requestPermission: requestPermission,
-      );
+      final token = await _repository
+          .currentToken(requestPermission: requestPermission)
+          .timeout(_tokenReadTimeout);
       if (token == null || token.trim().isEmpty) {
         _debugStatus(requestPermission ? 'permission-or-token-not-available' : 'permission-required');
         emit(baseState.copyWith(
@@ -277,7 +282,7 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
         return;
       }
 
-      await register(token);
+      await register(token).timeout(_tokenRegisterTimeout);
       final activeToken = await _activeTokenAfterRegistration(token);
       await prefs.setBool(_registrationHintKey(baseState), true);
       await prefs.remove(_promptDismissedKey(baseState));
@@ -318,7 +323,9 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
 
   Future<String> _activeTokenAfterRegistration(String fallbackToken) async {
     try {
-      final latestToken = await _repository.currentToken(requestPermission: false);
+      final latestToken = await _repository
+          .currentToken(requestPermission: false)
+          .timeout(_tokenReadTimeout);
       if (latestToken != null && latestToken.trim().isNotEmpty) {
         return latestToken;
       }
@@ -337,7 +344,7 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
         _repository.watchTokenRefreshes().listen((newToken) async {
       if (newToken.trim().isEmpty) return;
       try {
-        await register(newToken);
+        await register(newToken).timeout(_tokenRegisterTimeout);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_registrationHintKey(baseState), true);
         _debugStatus('refreshed-token-save-success');

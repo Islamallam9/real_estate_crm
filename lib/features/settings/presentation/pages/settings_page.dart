@@ -41,18 +41,20 @@ class SettingsPage extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 760),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: const [
-              _AppearanceSection(),
-              SizedBox(height: AppSpacing.md),
-              _LanguageSection(),
-              SizedBox(height: AppSpacing.md),
-              _AccountSection(),
-              SizedBox(height: AppSpacing.md),
-              _SecuritySection(),
-              SizedBox(height: AppSpacing.md),
-              _NotificationSettingsSection(),
-              SizedBox(height: AppSpacing.md),
-              _AboutSection(),
+            children: [
+              const _AppearanceSection(),
+              const SizedBox(height: AppSpacing.md),
+              const _LanguageSection(),
+              const SizedBox(height: AppSpacing.md),
+              const _AccountSection(),
+              if (authState.isPlatformAdmin && authState.userProfile == null) ...[
+                const SizedBox(height: AppSpacing.md),
+                const _SecuritySection(),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              const _NotificationSettingsSection(),
+              const SizedBox(height: AppSpacing.md),
+              const _AboutSection(),
             ],
           ),
         ),
@@ -224,53 +226,19 @@ class _SecuritySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return _SettingsSection(
-      title: l.security,
-      child: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, authState) {
-          final profile = authState.userProfile;
-          if (profile == null) {
-            final user = authState.user;
-            if (authState.isPlatformAdmin && user != null) {
-              return _PlatformOwnerSecurityDetails(uid: user.uid);
-            }
-            return Text(
-              l.missingCompanyProfile,
-              style: TextStyle(color: AppColors.textSecondaryColor(context)),
-            );
-          }
-
-          return Column(
-            children: [
-              _SettingsDetail(
-                label: l.lastLogin,
-                value: _lastLoginValue(context, profile.lastLoginAt),
-              ),
-              if (authState.isPlatformAdmin)
-                _SettingsDetail(
-                  label: l.ipAddress,
-                  value: _safeValue(l, profile.lastLoginIp),
-                ),
-              _SettingsDetail(
-                label: l.device,
-                value: _safeValue(l, profile.lastLoginDeviceType),
-              ),
-              _SettingsDetail(
-                label: l.browser,
-                value: _safeValue(l, profile.lastLoginBrowser),
-              ),
-              _SettingsDetail(
-                label: l.platform,
-                value: _safeValue(l, profile.lastLoginPlatform),
-              ),
-              _SettingsDetail(
-                label: l.timezone,
-                value: _safeValue(l, profile.lastLoginTimezone),
-              ),
-            ],
-          );
-        },
-      ),
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final user = authState.user;
+        final isPlatformOwner =
+            authState.isPlatformAdmin && authState.userProfile == null;
+        if (!isPlatformOwner || user == null) {
+          return const SizedBox.shrink();
+        }
+        return _SettingsSection(
+          title: l.security,
+          child: _PlatformOwnerSecurityDetails(uid: user.uid),
+        );
+      },
     );
   }
 }

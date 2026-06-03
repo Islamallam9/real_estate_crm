@@ -9,10 +9,10 @@ abstract final class DashboardChartPalette {
     DashboardPerformanceSeriesType type,
   ) {
     return switch (type) {
-      DashboardPerformanceSeriesType.leads => AppColors.infoColor(context),
-      DashboardPerformanceSeriesType.appointments => AppColors.successColor(context),
-      DashboardPerformanceSeriesType.followUps => AppColors.warningColor(context),
-      DashboardPerformanceSeriesType.deals => const Color(0xFF8B5CF6),
+      DashboardPerformanceSeriesType.leads => AppColors.successColor(context),
+      DashboardPerformanceSeriesType.appointments => AppColors.primaryColor(context),
+      DashboardPerformanceSeriesType.followUps => AppColors.errorColor(context),
+      DashboardPerformanceSeriesType.deals => AppColors.infoColor(context),
       DashboardPerformanceSeriesType.pipelineValue => const Color(0xFF0EA5E9),
       DashboardPerformanceSeriesType.properties => const Color(0xFF9333EA),
     };

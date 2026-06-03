@@ -42,7 +42,7 @@ exports.getAndroidReleasePolicy = onCall(async (request) => {
 });
 
 exports.updateAndroidReleasePolicy = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
+  const actorUid = await requireActivePlatformAdmin(request);
 
   const data = request.data || {};
   const minimumSupportedBuildNumber = parseBuildNumber(
@@ -61,7 +61,7 @@ exports.updateAndroidReleasePolicy = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'An update URL is required before marking the release as ready.');
   }
 
-  await db.doc('platform_config/android_release_policy').set({
+  const policyPayload = {
     enabled: data.enabled === true,
     releaseReady: data.releaseReady === true,
     minimumSupportedBuildNumber,
@@ -72,74 +72,382 @@ exports.updateAndroidReleasePolicy = onCall(async (request) => {
     bodyEn: sanitizeShortString(data.bodyEn, 500),
     bodyAr: sanitizeShortString(data.bodyAr, 500),
     updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: request.auth.uid,
-  }, { merge: true });
+    updatedBy: actorUid,
+  };
+
+  await db.doc('platform_config/android_release_policy').set(policyPayload, { merge: true });
+
+  await upsertPlatformReleaseRecord({
+    actorUid,
+    platform: 'android',
+    appVersion: sanitizeShortString(data.appVersion, 40),
+    buildNumber: latestBuildNumber,
+    channel: sanitizeReleaseChannel(data.channel),
+    releaseType: sanitizeReleaseType(data.releaseType),
+    status: data.enabled === false ? 'disabled' : (data.releaseReady === true ? 'ready' : 'draft'),
+    releaseReady: data.releaseReady === true,
+    enabled: data.enabled === true,
+    minimumSupportedBuildNumber,
+    latestBuildNumber,
+    updateUrl,
+    titleEn: policyPayload.titleEn,
+    titleAr: policyPayload.titleAr,
+    notesEn: sanitizeShortString(data.notesEn || data.bodyEn, 1000),
+    notesAr: sanitizeShortString(data.notesAr || data.bodyAr, 1000),
+    apkFileName: releaseApkFileName(updateUrl),
+    metadata: {
+      source: 'updateAndroidReleasePolicy',
+      policyPath: 'platform_config/android_release_policy',
+    },
+  });
 
   return { ok: true };
+});
+
+exports.registerDeviceInstall = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+
+  const data = request.data || {};
+  const uid = request.auth.uid;
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+
+  const installId = sanitizeInstallId(requiredString(data.installId, 'installId'));
+  const platform = sanitizeClientPlatform(data.platform);
+  const appVersion = sanitizeShortString(data.appVersion, 40);
+  const buildNumber = parseBuildNumber(data.buildNumber);
+  if (!appVersion || buildNumber <= 0) {
+    throw new HttpsError('invalid-argument', 'A valid app version and build number are required.');
+  }
+
+  const [companySnapshot, companyUserSnapshot] = await Promise.all([
+    db.doc(`companies/${companyId}`).get(),
+    db.doc(`companies/${companyId}/users/${uid}`).get(),
+  ]);
+  if (!companySnapshot.exists) {
+    throw new HttpsError('not-found', 'Company was not found.');
+  }
+  const company = companySnapshot.data() || {};
+  if (company.isActive !== true || company.status === 'inactive') {
+    throw new HttpsError('failed-precondition', 'Company is inactive.');
+  }
+  if (!companyUserSnapshot.exists) {
+    throw new HttpsError('permission-denied', 'Company user was not found.');
+  }
+  const companyUser = companyUserSnapshot.data() || {};
+  if (companyUser.companyId !== companyId || companyUser.isActive !== true) {
+    throw new HttpsError('permission-denied', 'Company user is inactive.');
+  }
+
+  const installRef = db.doc(`companies/${companyId}/device_installs/${installId}`);
+  const existingSnapshot = await installRef.get();
+  const existing = existingSnapshot.exists ? existingSnapshot.data() || {} : {};
+  const previousAppVersion = optionalString(existing.appVersion);
+  const previousBuildNumber = parseBuildNumber(existing.buildNumber);
+  const versionChanged = existingSnapshot.exists &&
+    (previousAppVersion !== appVersion || previousBuildNumber !== buildNumber);
+  const tokenHash = sanitizeHashPrefix(data.tokenHash);
+  const now = FieldValue.serverTimestamp();
+  const payload = {
+    installId,
+    uid,
+    companyId,
+    companyName: sanitizePlainString(optionalString(company.displayName) || optionalString(company.name), 180),
+    role: sanitizePlainString(optionalString(companyUser.role), 40),
+    fullName: sanitizePlainString(optionalString(companyUser.fullName), 160),
+    email: sanitizePlainString(optionalString(companyUser.email), 180),
+    platform,
+    appVersion,
+    buildNumber,
+    previousAppVersion: versionChanged ? previousAppVersion : optionalString(existing.previousAppVersion),
+    previousBuildNumber: versionChanged ? previousBuildNumber : parseBuildNumber(existing.previousBuildNumber),
+    deviceIdHash: installStableHash(installId),
+    tokenHash,
+    tokenHashPrefix: tokenHash ? tokenHash.slice(0, 12) : '',
+    webOrigin: sanitizeShortString(data.webOrigin, 240),
+    webHref: sanitizeShortString(data.webHref, 500),
+    browser: sanitizeShortString(data.browser, 120),
+    os: sanitizeShortString(data.os, 120),
+    deviceModel: sanitizeShortString(data.deviceModel, 160),
+    locale: sanitizeNotificationTokenLocale(data.locale),
+    timezone: sanitizeShortString(data.timezone, 80),
+    notificationPermission: sanitizeNotificationPermission(data.notificationPermission),
+    notificationTokenStatus: sanitizeNotificationTokenStatus(data.notificationTokenStatus),
+    isActive: true,
+    updatedAt: now,
+    lastSeenAt: now,
+    lastSessionAt: now,
+    deactivatedAt: null,
+    deactivatedReason: '',
+  };
+  if (!existingSnapshot.exists) {
+    payload.createdAt = now;
+    payload.firstSeenAt = now;
+  }
+  if (versionChanged) {
+    payload.lastVersionChangeAt = now;
+  }
+
+  const batch = db.batch();
+  batch.set(installRef, payload, { merge: true });
+  if (versionChanged) {
+    const eventRef = db.collection(`companies/${companyId}/device_version_events`).doc();
+    batch.set(eventRef, {
+      eventId: eventRef.id,
+      uid,
+      companyId,
+      companyName: payload.companyName,
+      role: payload.role,
+      platform,
+      installId,
+      deviceIdHash: payload.deviceIdHash,
+      tokenHash,
+      tokenHashPrefix: payload.tokenHashPrefix,
+      webOrigin: payload.webOrigin,
+      oldVersion: previousAppVersion,
+      oldBuildNumber: previousBuildNumber,
+      newVersion: appVersion,
+      newBuildNumber: buildNumber,
+      source: sanitizeVersionEventSource(data.source),
+      createdAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { ok: true, installId, versionChanged };
+});
+
+exports.recordAppSessionHeartbeat = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'Sign in is required.');
+  }
+  const data = request.data || {};
+  const uid = request.auth.uid;
+  const companyId = requiredString(data.companyId, 'companyId');
+  validateCompanyId(companyId);
+  const installId = sanitizeInstallId(requiredString(data.installId, 'installId'));
+  const userSnapshot = await db.doc(`companies/${companyId}/users/${uid}`).get();
+  if (!userSnapshot.exists || userSnapshot.get('isActive') !== true) {
+    throw new HttpsError('permission-denied', 'Company user was not found.');
+  }
+  await db.doc(`companies/${companyId}/device_installs/${installId}`).set({
+    uid,
+    companyId,
+    installId,
+    platform: sanitizeClientPlatform(data.platform),
+    appVersion: sanitizeShortString(data.appVersion, 40),
+    buildNumber: parseBuildNumber(data.buildNumber),
+    lastSeenAt: FieldValue.serverTimestamp(),
+    lastSessionAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    isActive: true,
+  }, { merge: true });
+  return { ok: true };
+});
+
+exports.getReleaseIntelligenceSummary = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const activeWithinDays = clampInt(parseBuildNumber((request.data || {}).activeWithinDays), 1, 120, 30);
+  const [releases, adoption, devices] = await Promise.all([
+    loadPlatformReleases(80),
+    buildVersionAdoption({ platform: 'all', companyId: '', activeWithinDays, includeInactive: false }),
+    loadDeviceRows({ platform: 'all', companyId: '', activeWithinDays, limit: 5000, includeInactive: false }),
+  ]);
+  const latestWebRelease = latestReleaseForPlatform(releases, 'web');
+  const latestAndroidRelease = latestReleaseForPlatform(releases, 'android');
+  const latestWebBuild = Math.max(parseBuildNumber(latestWebRelease && latestWebRelease.latestBuildNumber), parseBuildNumber(latestWebRelease && latestWebRelease.buildNumber));
+  const latestAndroidBuild = Math.max(parseBuildNumber(latestAndroidRelease && latestAndroidRelease.latestBuildNumber), parseBuildNumber(latestAndroidRelease && latestAndroidRelease.buildNumber));
+  const minimumWebBuild = parseBuildNumber(latestWebRelease && latestWebRelease.minimumSupportedBuildNumber);
+  const minimumAndroidBuild = parseBuildNumber(latestAndroidRelease && latestAndroidRelease.minimumSupportedBuildNumber);
+  const userKeys = new Set();
+  const webUserKeys = new Set();
+  const androidUserKeys = new Set();
+  let webDevices = 0;
+  let androidDevices = 0;
+  let oldDevices = 0;
+  let belowMinimumDevices = 0;
+  let pushConnected = 0;
+  let pushBlocked = 0;
+  let pushMissing = 0;
+  let pushInvalidFailed = 0;
+  let pushUnknown = 0;
+  devices.forEach((row) => {
+    const userKey = `${row.companyId}:${row.uid}`;
+    if (row.uid) userKeys.add(userKey);
+    const rowBuild = parseBuildNumber(row.buildNumber);
+    const latestBuild = row.platform === 'web' ? latestWebBuild : latestAndroidBuild;
+    const minimumBuild = row.platform === 'web' ? minimumWebBuild : minimumAndroidBuild;
+    if (row.platform === 'web') {
+      webDevices += 1;
+      if (row.uid) webUserKeys.add(userKey);
+    }
+    if (row.platform === 'android') {
+      androidDevices += 1;
+      if (row.uid) androidUserKeys.add(userKey);
+    }
+    if (latestBuild > 0 && rowBuild > 0 && rowBuild < latestBuild) oldDevices += 1;
+    if (minimumBuild > 0 && rowBuild > 0 && rowBuild < minimumBuild) belowMinimumDevices += 1;
+    const tokenStatus = optionalString(row.notificationTokenStatus).toLowerCase();
+    if (tokenStatus === 'active' || tokenStatus === 'connected') {
+      pushConnected += 1;
+    } else if (row.notificationPermission === 'denied' || tokenStatus === 'blocked') {
+      pushBlocked += 1;
+    } else if (tokenStatus === 'missing') {
+      pushMissing += 1;
+    } else if (tokenStatus === 'invalid' || tokenStatus === 'failed') {
+      pushInvalidFailed += 1;
+    } else {
+      pushUnknown += 1;
+    }
+  });
+  return {
+    latestWebRelease,
+    latestAndroidRelease,
+    activeUsers: userKeys.size,
+    activeDevices: devices.length,
+    activeWebUsers: webUserKeys.size,
+    activeWebDevices: webDevices,
+    activeAndroidUsers: androidUserKeys.size,
+    activeAndroidDevices: androidDevices,
+    usersBelowLatestBuild: adoption.usersBelowLatest,
+    devicesBelowLatestBuild: oldDevices,
+    usersBelowMinimumBuild: adoption.usersBelowMinimum,
+    devicesBelowMinimumBuild: belowMinimumDevices,
+    pushHealth: {
+      connected: pushConnected,
+      blocked: pushBlocked,
+      missing: pushMissing,
+      invalidFailed: pushInvalidFailed,
+      unknown: pushUnknown,
+    },
+    adoptionRows: adoption.rows,
+    recentVersionChanges: await loadVersionEvents({ companyId: '', platform: 'all', limit: 8 }),
+    releases,
+    lastUpdated: new Date().toISOString(),
+  };
+});
+
+exports.getPlatformVersionAdoption = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  return buildVersionAdoption({
+    platform: sanitizeOptionalPlatformFilter(data.platform),
+    companyId: optionalString(data.companyId),
+    activeWithinDays: clampInt(parseBuildNumber(data.activeWithinDays), 1, 120, 30),
+    includeInactive: data.includeInactive === true,
+  });
+});
+
+exports.getPlatformDeviceList = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const rows = await loadDeviceRows({
+    platform: sanitizeOptionalPlatformFilter(data.platform),
+    companyId: optionalString(data.companyId),
+    activeWithinDays: clampInt(parseBuildNumber(data.activeWithinDays), 1, 120, 30),
+    limit: clampInt(parseBuildNumber(data.limit), 20, 300, 120),
+    includeInactive: data.includeInactive === true,
+  });
+  const version = optionalString(data.version).toLowerCase();
+  const role = optionalString(data.role).toLowerCase();
+  const notificationStatus = optionalString(data.notificationStatus).toLowerCase();
+  const buildNumber = parseBuildNumber(data.buildNumber);
+  const filtered = rows.filter((row) => {
+    if (version && optionalString(row.appVersion).toLowerCase() !== version) return false;
+    if (buildNumber > 0 && parseBuildNumber(row.buildNumber) !== buildNumber) return false;
+    if (role && optionalString(row.role).toLowerCase() !== role) return false;
+    if (notificationStatus && optionalString(row.notificationTokenStatus).toLowerCase() !== notificationStatus) return false;
+    return true;
+  });
+  return { rows: filtered, hasMore: rows.length > filtered.length, lastUpdated: new Date().toISOString() };
+});
+
+exports.createPlatformReleaseRecord = onCall(async (request) => {
+  const actorUid = await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  const platform = sanitizeClientPlatform(data.platform);
+  const buildNumber = parseBuildNumber(data.buildNumber);
+  if (buildNumber <= 0) {
+    throw new HttpsError('invalid-argument', 'Build number must be a positive whole number.');
+  }
+  const record = await upsertPlatformReleaseRecord({
+    actorUid,
+    platform,
+    appVersion: sanitizeShortString(data.appVersion, 40),
+    buildNumber,
+    channel: sanitizeReleaseChannel(data.channel),
+    releaseType: sanitizeReleaseType(data.releaseType),
+    status: sanitizeReleaseStatus(data.status),
+    releaseReady: data.releaseReady === true,
+    enabled: data.enabled !== false,
+    minimumSupportedBuildNumber: parseBuildNumber(data.minimumSupportedBuildNumber),
+    latestBuildNumber: parseBuildNumber(data.latestBuildNumber) || buildNumber,
+    updateUrl: optionalString(data.updateUrl),
+    apkFileName: sanitizeShortString(data.apkFileName, 180),
+    notesEn: sanitizeShortString(data.notesEn, 1000),
+    notesAr: sanitizeShortString(data.notesAr, 1000),
+    metadata: { source: 'createPlatformReleaseRecord' },
+  });
+  return { ok: true, release: record };
+});
+
+exports.getPlatformVersionHistory = onCall(async (request) => {
+  await requireActivePlatformAdmin(request);
+  const data = request.data || {};
+  return {
+    rows: await loadVersionEvents({
+      companyId: optionalString(data.companyId),
+      platform: sanitizeOptionalPlatformFilter(data.platform),
+      limit: clampInt(parseBuildNumber(data.limit), 20, 300, 120),
+    }),
+  };
 });
 
 
 exports.getAndroidVersionAdoption = onCall(async (request) => {
   await requireActivePlatformAdmin(request);
 
+  const data = request.data || {};
+  const requestedCompanyId = optionalString(data.companyId);
+
   try {
-    const snapshot = await db
-      .collectionGroup('notification_tokens')
-      .where('platform', '==', 'android')
-      .where('isActive', '==', true)
-      .limit(1000)
-      .get();
-
-    const groups = new Map();
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data() || {};
-      const buildNumber = parseBuildNumber(data.buildNumber);
-      const appVersion = sanitizePlainString(optionalString(data.appVersion), 80) || 'unknown';
-      const key = `${appVersion}|${buildNumber}`;
-      const current = groups.get(key) || {
-        appVersion,
-        buildNumber,
-        userIds: new Set(),
-        companyIds: new Set(),
-        activeDevices: 0,
-        latestSeenMillis: 0,
-      };
-      current.activeDevices += 1;
-      const uid = optionalString(data.uid);
-      const companyId = optionalString(data.companyId);
-      if (uid) {
-        current.userIds.add(uid);
-      }
-      if (companyId) {
-        current.companyIds.add(companyId);
-      }
-      const seenAt = data.lastSeenAt;
-      if (seenAt && typeof seenAt.toMillis === 'function') {
-        current.latestSeenMillis = Math.max(current.latestSeenMillis, seenAt.toMillis());
-      }
-      groups.set(key, current);
+    const adoption = await buildVersionAdoption({
+      platform: 'android',
+      companyId: requestedCompanyId,
+      activeWithinDays: clampInt(parseBuildNumber(data.activeWithinDays), 1, 120, 30),
+      includeInactive: data.includeInactive === true,
     });
-
-    const rows = Array.from(groups.values())
-      .sort((a, b) => b.buildNumber - a.buildNumber)
-      .map((group) => ({
-        appVersion: group.appVersion === 'unknown' ? '' : group.appVersion,
-        buildNumber: group.buildNumber,
-        activeUsers: group.userIds.size,
-        activeDevices: group.activeDevices,
-        activeCompanies: group.companyIds.size,
-        latestSeenAt: group.latestSeenMillis > 0
-          ? new Date(group.latestSeenMillis).toISOString()
-          : null,
-      }));
-
-    return { rows };
+    const rows = adoption.rows.map((row) => ({
+      ...row,
+      userCount: row.activeUsers,
+      deviceCount: row.activeDevices,
+      companyCount: row.activeCompanies,
+    }));
+    return {
+      rows,
+      versions: rows,
+      totalActiveUsers: adoption.totalActiveUsers,
+      totalActiveDevices: adoption.totalActiveDevices,
+      companyId: requestedCompanyId,
+      scannedCompanyCount: 0,
+    };
   } catch (error) {
     console.error('getAndroidVersionAdoption failed; returning empty optional dashboard.', {
       code: error && error.code ? error.code : '',
       message: error && error.message ? error.message : String(error),
+      companyId: requestedCompanyId,
     });
-    return { rows: [] };
+    return {
+      rows: [],
+      versions: [],
+      totalActiveUsers: 0,
+      totalActiveDevices: 0,
+      companyId: requestedCompanyId,
+      errorCode: error && error.code ? String(error.code) : '',
+      errorMessage: error && error.message ? String(error.message) : String(error),
+    };
   }
 });
 
@@ -183,6 +491,384 @@ function androidReleasePolicyResponse({ currentBuildNumber, policy, serverNow })
     bodyEn: sanitizeShortString(policy.bodyEn, 500),
     bodyAr: sanitizeShortString(policy.bodyAr, 500),
   };
+}
+
+async function upsertPlatformReleaseRecord({
+  actorUid,
+  platform,
+  appVersion,
+  buildNumber,
+  channel,
+  releaseType,
+  status,
+  releaseReady,
+  enabled,
+  minimumSupportedBuildNumber,
+  latestBuildNumber,
+  updateUrl,
+  apkFileName,
+  titleEn,
+  titleAr,
+  notesEn,
+  notesAr,
+  metadata,
+}) {
+  const actor = await platformActorSummary(actorUid).catch(() => ({ fullName: '', email: '' }));
+  const version = sanitizeShortString(appVersion, 40) || '';
+  const releaseId = `${platform}_${version || 'unknown'}_${buildNumber || latestBuildNumber || 0}_${channel}`;
+  const ref = db.collection('platform_releases').doc(releaseId);
+  const snapshot = await ref.get();
+  const now = FieldValue.serverTimestamp();
+  const payload = {
+    id: releaseId,
+    platform,
+    appVersion: version,
+    buildNumber: parseBuildNumber(buildNumber),
+    channel,
+    releaseType,
+    status,
+    releaseReady: releaseReady === true,
+    enabled: enabled === true,
+    minimumSupportedBuildNumber: parseBuildNumber(minimumSupportedBuildNumber),
+    latestBuildNumber: parseBuildNumber(latestBuildNumber),
+    updateUrl: optionalString(updateUrl),
+    apkFileName: sanitizeShortString(apkFileName, 180),
+    titleEn: sanitizeShortString(titleEn, 120),
+    titleAr: sanitizeShortString(titleAr, 120),
+    notesEn: sanitizeShortString(notesEn, 1000),
+    notesAr: sanitizeShortString(notesAr, 1000),
+    createdBy: snapshot.exists ? optionalString(snapshot.get('createdBy')) || actorUid : actorUid,
+    createdByName: snapshot.exists
+      ? optionalString(snapshot.get('createdByName')) || optionalString(actor.fullName) || optionalString(actor.email)
+      : optionalString(actor.fullName) || optionalString(actor.email),
+    updatedBy: actorUid,
+    updatedByName: optionalString(actor.fullName) || optionalString(actor.email),
+    updatedAt: now,
+    metadata: metadata || {},
+  };
+  if (!snapshot.exists) {
+    payload.createdAt = now;
+  }
+  if (status === 'released' || releaseReady === true) {
+    payload.releasedAt = snapshot.exists && snapshot.get('releasedAt')
+      ? snapshot.get('releasedAt')
+      : now;
+  }
+  if (status === 'disabled' || status === 'rolledBack') {
+    payload.disabledAt = now;
+  }
+  await ref.set(payload, { merge: true });
+  return { ...payload, id: releaseId, updatedAt: new Date().toISOString() };
+}
+
+async function loadPlatformReleases(limit) {
+  const snapshot = await db.collection('platform_releases')
+    .orderBy('updatedAt', 'desc')
+    .limit(limit)
+    .get()
+    .catch(async () => db.collection('platform_releases').limit(limit).get());
+  return snapshot.docs.map((doc) => releaseRecordFromDoc(doc));
+}
+
+function releaseRecordFromDoc(doc) {
+  const data = doc.data() || {};
+  return {
+    id: optionalString(data.id) || doc.id,
+    platform: optionalString(data.platform),
+    appVersion: optionalString(data.appVersion),
+    buildNumber: parseBuildNumber(data.buildNumber),
+    channel: optionalString(data.channel),
+    releaseType: optionalString(data.releaseType),
+    status: optionalString(data.status),
+    releaseReady: data.releaseReady === true,
+    enabled: data.enabled === true,
+    minimumSupportedBuildNumber: parseBuildNumber(data.minimumSupportedBuildNumber),
+    latestBuildNumber: parseBuildNumber(data.latestBuildNumber),
+    updateUrl: optionalString(data.updateUrl),
+    apkFileName: optionalString(data.apkFileName),
+    notesEn: optionalString(data.notesEn),
+    notesAr: optionalString(data.notesAr),
+    createdByName: optionalString(data.createdByName),
+    createdAt: timestampToIsoString(data.createdAt),
+    updatedAt: timestampToIsoString(data.updatedAt),
+    releasedAt: timestampToIsoString(data.releasedAt),
+    disabledAt: timestampToIsoString(data.disabledAt),
+  };
+}
+
+function latestReleaseForPlatform(releases, platform) {
+  return releases
+    .filter((release) => release.platform === platform && release.enabled !== false)
+    .sort((a, b) => {
+      const buildDiff = parseBuildNumber(b.latestBuildNumber || b.buildNumber) -
+        parseBuildNumber(a.latestBuildNumber || a.buildNumber);
+      if (buildDiff !== 0) return buildDiff;
+      return optionalString(b.updatedAt).localeCompare(optionalString(a.updatedAt));
+    })[0] || null;
+}
+
+async function buildVersionAdoption({ platform, companyId, activeWithinDays, includeInactive }) {
+  const rows = await loadDeviceRows({
+    platform,
+    companyId,
+    activeWithinDays,
+    limit: 5000,
+    includeInactive,
+  });
+  const releases = await loadPlatformReleases(80);
+  const latestByPlatform = {
+    web: latestReleaseForPlatform(releases, 'web'),
+    android: latestReleaseForPlatform(releases, 'android'),
+  };
+  const groups = new Map();
+  const usersBelowLatestSet = new Set();
+  const usersBelowMinimumSet = new Set();
+  let devicesBelowLatest = 0;
+  let devicesBelowMinimum = 0;
+  rows.forEach((row) => {
+    const key = `${row.platform}|${row.appVersion || 'unknown'}|${parseBuildNumber(row.buildNumber)}`;
+    const group = groups.get(key) || {
+      platform: row.platform,
+      appVersion: row.appVersion || '',
+      buildNumber: parseBuildNumber(row.buildNumber),
+      userIds: new Set(),
+      companyIds: new Set(),
+      activeDevices: 0,
+      latestSeenMillis: 0,
+    };
+    group.activeDevices += 1;
+    if (row.uid) group.userIds.add(`${row.companyId}:${row.uid}`);
+    if (row.companyId) group.companyIds.add(row.companyId);
+    const seenMillis = Date.parse(optionalString(row.lastSeenAt));
+    if (!Number.isNaN(seenMillis)) {
+      group.latestSeenMillis = Math.max(group.latestSeenMillis, seenMillis);
+    }
+    groups.set(key, group);
+
+    const latest = latestByPlatform[row.platform] || null;
+    const latestBuild = parseBuildNumber(latest && (latest.latestBuildNumber || latest.buildNumber));
+    const minimumBuild = parseBuildNumber(latest && latest.minimumSupportedBuildNumber);
+    const currentBuild = parseBuildNumber(row.buildNumber);
+    const userKey = `${row.companyId}:${row.uid}`;
+    if (latestBuild > 0 && currentBuild > 0 && currentBuild < latestBuild) {
+      devicesBelowLatest += 1;
+      if (row.uid) usersBelowLatestSet.add(userKey);
+    }
+    if (minimumBuild > 0 && currentBuild > 0 && currentBuild < minimumBuild) {
+      devicesBelowMinimum += 1;
+      if (row.uid) usersBelowMinimumSet.add(userKey);
+    }
+  });
+  const adoptionRows = Array.from(groups.values())
+    .sort((a, b) => {
+      if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
+      return b.buildNumber - a.buildNumber;
+    })
+    .map((group) => {
+      const latest = latestByPlatform[group.platform] || null;
+      const latestBuild = parseBuildNumber(latest && (latest.latestBuildNumber || latest.buildNumber));
+      const minimumBuild = parseBuildNumber(latest && latest.minimumSupportedBuildNumber);
+      const belowMinimum = minimumBuild > 0 && group.buildNumber > 0 && group.buildNumber < minimumBuild;
+      const old = latestBuild > 0 && group.buildNumber > 0 && group.buildNumber < latestBuild;
+      return {
+        platform: group.platform,
+        appVersion: group.appVersion === 'unknown' ? '' : group.appVersion,
+        buildNumber: group.buildNumber,
+        activeUsers: group.userIds.size,
+        activeDevices: group.activeDevices,
+        activeCompanies: group.companyIds.size,
+        latestSeenAt: group.latestSeenMillis > 0 ? new Date(group.latestSeenMillis).toISOString() : null,
+        status: belowMinimum ? 'belowMinimum' : (old ? 'old' : 'latest'),
+        usersBelowMinimum: belowMinimum ? group.userIds.size : 0,
+        devicesBelowMinimum: belowMinimum ? group.activeDevices : 0,
+      };
+    });
+  return {
+    rows: adoptionRows,
+    versions: adoptionRows,
+    totalActiveUsers: new Set(rows.map((row) => `${row.companyId}:${row.uid}`).filter((value) => !value.endsWith(':'))).size,
+    totalActiveDevices: rows.length,
+    usersBelowLatest: usersBelowLatestSet.size,
+    devicesBelowLatest,
+    usersBelowMinimum: usersBelowMinimumSet.size,
+    devicesBelowMinimum,
+    activeWithinDays,
+    companyId,
+    platform,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+async function loadDeviceRows({ platform, companyId, activeWithinDays, limit, includeInactive }) {
+  const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - activeWithinDays * 24 * 60 * 60 * 1000);
+  let query = companyId
+    ? db.collection(`companies/${companyId}/device_installs`)
+    : db.collectionGroup('device_installs');
+  if (platform === 'web' || platform === 'android') {
+    query = query.where('platform', '==', platform);
+  }
+  const snapshot = await query.limit(limit).get().catch(async () => {
+    let fallback = companyId
+      ? db.collection(`companies/${companyId}/notification_tokens`)
+      : db.collectionGroup('notification_tokens');
+    if (platform === 'web' || platform === 'android') {
+      fallback = fallback.where('platform', '==', platform);
+    }
+    return fallback.limit(limit).get();
+  });
+  return snapshot.docs
+    .map((doc) => deviceRowFromDoc(doc))
+    .filter((row) => {
+      if (!includeInactive && row.isActive !== true) return false;
+      if (!includeInactive) {
+        const seenMillis = Date.parse(optionalString(row.lastSeenAt));
+        if (Number.isNaN(seenMillis) || seenMillis < cutoff.toMillis()) return false;
+      }
+      if (companyId && row.companyId !== companyId) return false;
+      if ((platform === 'web' || platform === 'android') && row.platform !== platform) return false;
+      return true;
+    })
+    .sort((a, b) => optionalString(b.lastSeenAt).localeCompare(optionalString(a.lastSeenAt)))
+    .slice(0, limit);
+}
+
+function deviceRowFromDoc(doc) {
+  const data = doc.data() || {};
+  return {
+    installId: optionalString(data.installId) || doc.id,
+    uid: optionalString(data.uid),
+    companyId: optionalString(data.companyId),
+    companyName: optionalString(data.companyName),
+    fullName: optionalString(data.fullName),
+    email: optionalString(data.email),
+    role: optionalString(data.role),
+    platform: optionalString(data.platform),
+    appVersion: optionalString(data.appVersion),
+    buildNumber: parseBuildNumber(data.buildNumber),
+    lastSeenAt: timestampToIsoString(data.lastSeenAt || data.updatedAt || data.createdAt),
+    notificationPermission: optionalString(data.notificationPermission) || 'unknown',
+    notificationTokenStatus: optionalString(data.notificationTokenStatus) || (data.tokenHash || data.token ? 'active' : 'missing'),
+    browser: optionalString(data.browser),
+    os: optionalString(data.os),
+    deviceModel: optionalString(data.deviceModel),
+    tokenHashPrefix: optionalString(data.tokenHashPrefix) || optionalString(data.tokenHash).slice(0, 12),
+    webOrigin: optionalString(data.webOrigin),
+    isActive: data.isActive === true,
+  };
+}
+
+async function loadVersionEvents({ companyId, platform, limit }) {
+  let query = companyId
+    ? db.collection(`companies/${companyId}/device_version_events`)
+    : db.collectionGroup('device_version_events');
+  if (platform === 'web' || platform === 'android') {
+    query = query.where('platform', '==', platform);
+  }
+  const snapshot = await query.orderBy('createdAt', 'desc').limit(limit).get()
+    .catch(async () => query.limit(limit).get());
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() || {};
+    return {
+      eventId: optionalString(data.eventId) || doc.id,
+      uid: optionalString(data.uid),
+      companyId: optionalString(data.companyId),
+      companyName: optionalString(data.companyName),
+      role: optionalString(data.role),
+      platform: optionalString(data.platform),
+      installId: optionalString(data.installId),
+      userName: optionalString(data.fullName) || optionalString(data.userName),
+      oldVersion: optionalString(data.oldVersion),
+      oldBuildNumber: parseBuildNumber(data.oldBuildNumber),
+      newVersion: optionalString(data.newVersion),
+      newBuildNumber: parseBuildNumber(data.newBuildNumber),
+      source: optionalString(data.source),
+      createdAt: timestampToIsoString(data.createdAt),
+    };
+  });
+}
+
+function sanitizeClientPlatform(value) {
+  const platform = optionalString(value).toLowerCase();
+  if (platform === 'web' || platform === 'android') return platform;
+  throw new HttpsError('invalid-argument', 'Platform must be web or android.');
+}
+
+function sanitizeOptionalPlatformFilter(value) {
+  const platform = optionalString(value).toLowerCase();
+  if (platform === 'web' || platform === 'android') return platform;
+  return 'all';
+}
+
+function sanitizeInstallId(value) {
+  const clean = optionalString(value).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 120);
+  if (clean.length < 12) {
+    throw new HttpsError('invalid-argument', 'Install ID is invalid.');
+  }
+  return clean;
+}
+
+function sanitizeHashPrefix(value) {
+  return optionalString(value).replace(/[^a-fA-F0-9]/g, '').slice(0, 128);
+}
+
+function installStableHash(value) {
+  return crypto.createHash('sha256').update(optionalString(value)).digest('hex');
+}
+
+function sanitizeNotificationPermission(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (['granted', 'denied', 'default', 'notsupported', 'unsupported', 'unknown'].includes(clean)) {
+    return clean === 'unsupported' || clean === 'notsupported' ? 'notSupported' : clean;
+  }
+  return 'unknown';
+}
+
+function sanitizeNotificationTokenStatus(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (['active', 'missing', 'invalid', 'blocked', 'failed', 'unknown'].includes(clean)) return clean;
+  return 'unknown';
+}
+
+function sanitizeVersionEventSource(value) {
+  const clean = optionalString(value);
+  if (['appStart', 'login', 'resume', 'tokenRegister', 'forcedUpdateCheck', 'heartbeat'].includes(clean)) return clean;
+  return 'appStart';
+}
+
+function sanitizeReleaseChannel(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (['production', 'staging', 'internal'].includes(clean)) return clean;
+  return 'production';
+}
+
+function sanitizeReleaseType(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (['hotfix', 'patch', 'minor', 'major'].includes(clean)) return clean;
+  return 'patch';
+}
+
+function sanitizeReleaseStatus(value) {
+  const clean = optionalString(value).toLowerCase();
+  if (['draft', 'ready', 'released', 'disabled', 'rolledback'].includes(clean)) {
+    return clean === 'rolledback' ? 'rolledBack' : clean;
+  }
+  return 'draft';
+}
+
+function releaseApkFileName(updateUrl) {
+  try {
+    const parsed = new URL(optionalString(updateUrl));
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    return sanitizeShortString(parts[parts.length - 1] || '', 180);
+  } catch (_) {
+    return '';
+  }
+}
+
+function clampInt(value, min, max, fallback) {
+  const parsed = Number.isInteger(value) ? value : parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.max(min, Math.min(max, parsed));
 }
 
 function parseBuildNumber(value) {
@@ -5145,44 +5831,6 @@ exports.registerCompanyNotificationToken = onCall(
       };
     }
 
-    const webProbe = await probeWebNotificationToken({
-      token,
-      platform,
-      scope: 'company',
-      companyId,
-      uid,
-      tokenHash,
-      webOrigin: sanitizeShortString(data.webOrigin, 240),
-    });
-    if (!webProbe.ok) {
-      await tokenRef.set({
-        tokenHash,
-        token: '',
-        scope: 'company',
-        companyId,
-        uid,
-        platform,
-        isActive: false,
-        deactivatedReason: 'fcm-invalid-token',
-        deactivatedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        validationStatus: 'failed',
-        validationErrorCode: sanitizePushText(webProbe.code, 80),
-        validationErrorMessage: sanitizeLogText(webProbe.message, 180),
-        webOrigin: sanitizeShortString(data.webOrigin, 240),
-        webHref: sanitizeShortString(data.webHref, 500),
-      }, { merge: true });
-      return {
-        registered: false,
-        refreshRequired: isInvalidMessagingTokenErrorCode(webProbe.code),
-        reason: 'web-token-probe-failed',
-        errorCode: sanitizePushText(webProbe.code, 80),
-        scope: 'company',
-        companyId,
-        tokenHash,
-      };
-    }
-
     await bestEffortDeactivateNotificationTokenEverywhere({
       tokenHash,
       keepPath: tokenRef.path,
@@ -5208,6 +5856,7 @@ exports.registerCompanyNotificationToken = onCall(
       managerName: sanitizePlainString(optionalString(companyUser.managerName), 160),
       locale,
       platform,
+      installId: sanitizeShortString(data.installId, 140),
       appVersion: sanitizeShortString(data.appVersion, 40),
       buildNumber: sanitizeShortString(data.buildNumber, 20),
       timezone: sanitizeShortString(data.timezone, 80),
@@ -5229,6 +5878,24 @@ exports.registerCompanyNotificationToken = onCall(
       currentTokenHash: tokenHash,
       webOrigin: sanitizeShortString(data.webOrigin, 240),
     });
+
+    const installId = sanitizeShortString(data.installId, 140);
+    if (installId) {
+      await db.doc(`companies/${companyId}/device_installs/${installId}`).set({
+        installId,
+        uid,
+        companyId,
+        platform,
+        tokenHash,
+        tokenHashPrefix: tokenHash.slice(0, 12),
+        notificationTokenStatus: 'active',
+        notificationPermission: 'granted',
+        lastTokenRefreshAt: now,
+        lastSeenAt: now,
+        updatedAt: now,
+        isActive: true,
+      }, { merge: true }).catch(() => undefined);
+    }
 
     return { registered: true, scope: 'company', companyId, tokenHash };
   },
@@ -5268,43 +5935,6 @@ exports.registerPlatformNotificationToken = onCall(
       };
     }
 
-    const webProbe = await probeWebNotificationToken({
-      token,
-      platform,
-      scope: 'platformOwner',
-      companyId: '',
-      uid,
-      tokenHash,
-      webOrigin: sanitizeShortString(data.webOrigin, 240),
-    });
-    if (!webProbe.ok) {
-      await tokenRef.set({
-        tokenHash,
-        token: '',
-        scope: 'platformOwner',
-        companyId: '',
-        uid,
-        platform,
-        isActive: false,
-        deactivatedReason: 'fcm-invalid-token',
-        deactivatedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        validationStatus: 'failed',
-        validationErrorCode: sanitizePushText(webProbe.code, 80),
-        validationErrorMessage: sanitizeLogText(webProbe.message, 180),
-        webOrigin: sanitizeShortString(data.webOrigin, 240),
-        webHref: sanitizeShortString(data.webHref, 500),
-      }, { merge: true });
-      return {
-        registered: false,
-        refreshRequired: isInvalidMessagingTokenErrorCode(webProbe.code),
-        reason: 'web-token-probe-failed',
-        errorCode: sanitizePushText(webProbe.code, 80),
-        scope: 'platformOwner',
-        tokenHash,
-      };
-    }
-
     await bestEffortDeactivateNotificationTokenEverywhere({
       tokenHash,
       keepPath: tokenRef.path,
@@ -5326,6 +5956,7 @@ exports.registerPlatformNotificationToken = onCall(
       role: 'platformOwner',
       locale,
       platform,
+      installId: sanitizeShortString(data.installId, 140),
       appVersion: sanitizeShortString(data.appVersion, 40),
       buildNumber: sanitizeShortString(data.buildNumber, 20),
       timezone: sanitizeShortString(data.timezone, 80),
@@ -5343,54 +5974,6 @@ exports.registerPlatformNotificationToken = onCall(
     return { registered: true, scope: 'platformOwner', tokenHash };
   },
 );
-
-
-async function probeWebNotificationToken({
-  token,
-  platform,
-  scope,
-  companyId,
-  uid,
-  tokenHash,
-  webOrigin,
-}) {
-  if (optionalString(platform) !== 'web') {
-    return { ok: true, code: '', message: '' };
-  }
-  try {
-    await messaging.send({
-      token,
-      data: {
-        type: 'MASAR_FCM_TOKEN_PROBE',
-        scope: optionalString(scope),
-        companyId: optionalString(companyId),
-        uid: optionalString(uid),
-        tokenHash: optionalString(tokenHash),
-        webOrigin: sanitizeShortString(webOrigin, 240),
-      },
-      webpush: {
-        headers: {
-          TTL: '0',
-          Urgency: 'very-low',
-        },
-      },
-    }, true);
-    return { ok: true, code: '', message: '' };
-  } catch (error) {
-    const code = optionalString(error && error.code);
-    const message = sanitizeLogText(optionalString(error && error.message), 240);
-    console.error('notification_web_token_probe_failed', {
-      scope: optionalString(scope),
-      companyId: optionalString(companyId),
-      uid: optionalString(uid),
-      tokenHash: optionalString(tokenHash),
-      webOrigin: sanitizeShortString(webOrigin, 240),
-      code,
-      message,
-    });
-    return { ok: false, code, message };
-  }
-}
 
 
 async function bestEffortDeactivateSiblingCompanyNotificationTokens({
@@ -11127,18 +11710,14 @@ function webPushLink(route, tokenData) {
   return `https://masarcrm.web.app${hashRoute}`;
 }
 
-
-function isInvalidMessagingTokenErrorCode(code) {
+function isInvalidMessagingTokenError(error) {
+  const code = optionalString(error && error.code);
   return [
     'messaging/invalid-argument',
     'messaging/invalid-registration-token',
     'messaging/registration-token-not-registered',
     'messaging/third-party-auth-error',
-  ].includes(optionalString(code));
-}
-
-function isInvalidMessagingTokenError(error) {
-  return isInvalidMessagingTokenErrorCode(error && error.code);
+  ].includes(code);
 }
 
 async function deactivateInvalidPushTokens(tokenRefs) {

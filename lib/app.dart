@@ -24,6 +24,7 @@ import 'features/auth/domain/usecases/send_password_reset_email_usecase.dart';
 import 'features/auth/domain/usecases/sign_in_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/device_lifecycle/presentation/widgets/device_lifecycle_scope.dart';
 import 'features/notifications/presentation/widgets/notification_push_token_scope.dart';
 import 'features/platform_observability/data/datasources/platform_observability_remote_data_source.dart';
 import 'features/platform_observability/data/repositories/platform_observability_repository_impl.dart';
@@ -124,8 +125,9 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
         builder: (context, locale) {
           return BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
-              return NotificationPushTokenScope(
-                child: MaterialApp.router(
+              return DeviceLifecycleScope(
+                child: NotificationPushTokenScope(
+                  child: MaterialApp.router(
                   scaffoldMessengerKey: AppFeedback.scaffoldMessengerKey,
                 locale: locale,
                 onGenerateTitle: (context) =>
@@ -162,6 +164,7 @@ class _RealEstateCrmAppState extends State<RealEstateCrmApp> {
                       },
                     );
                   },
+                  ),
                 ),
               );
             },

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -84,16 +85,20 @@ class FirebaseNotificationPushTokenRemoteDataSource
       final token = await _messaging.getToken(
         vapidKey: kIsWeb ? _webVapidKey : null,
       );
-      _debugTokenStatus(
-        token == null || token.trim().isEmpty ? 'token-empty' : 'token-obtained',
-      );
+      if (token == null || token.trim().isEmpty) {
+        _debugTokenStatus('token-empty');
+        throw const NotificationException('notification-token-unavailable');
+      }
+      _debugTokenStatus('token-obtained');
       return token;
+    } on NotificationException {
+      rethrow;
     } on FirebaseException catch (error) {
       _debugTokenStatus('firebase-error-${error.code}');
       throw NotificationException(_mapFirebaseError(error));
     } catch (_) {
       _debugTokenStatus('token-error');
-      return null;
+      throw const NotificationException('notification-token-unavailable');
     }
   }
 
@@ -114,7 +119,7 @@ class FirebaseNotificationPushTokenRemoteDataSource
       'token': token,
       'locale': locale,
       'role': role,
-      ..._clientMetadata(),
+      ...await _clientMetadata(),
     };
     final result = await _callTokenFunction(
       'registerCompanyNotificationToken',
@@ -133,7 +138,7 @@ class FirebaseNotificationPushTokenRemoteDataSource
         <String, dynamic>{
           ...payload,
           'token': refreshedToken,
-          ..._clientMetadata(),
+          ...await _clientMetadata(),
         },
       );
       _ensureTokenRegistrationAccepted(refreshedResult);
@@ -158,7 +163,7 @@ class FirebaseNotificationPushTokenRemoteDataSource
     final payload = <String, dynamic>{
       'token': token,
       'locale': locale,
-      ..._clientMetadata(),
+      ...await _clientMetadata(),
     };
     final result = await _callTokenFunction(
       'registerPlatformNotificationToken',
@@ -177,7 +182,7 @@ class FirebaseNotificationPushTokenRemoteDataSource
         <String, dynamic>{
           ...payload,
           'token': refreshedToken,
-          ..._clientMetadata(),
+          ...await _clientMetadata(),
         },
       );
       _ensureTokenRegistrationAccepted(refreshedResult);
@@ -286,9 +291,10 @@ class FirebaseNotificationPushTokenRemoteDataSource
     }
   }
 
-  Map<String, dynamic> _clientMetadata() {
+  Future<Map<String, dynamic>> _clientMetadata() async {
     final device = platformDeviceMetadata();
     return <String, dynamic>{
+      'installId': await _installId(),
       'platform': _platformName(),
       'appVersion': AppConstants.appVersion,
       'buildNumber': AppConstants.appBuildNumber,
@@ -297,6 +303,20 @@ class FirebaseNotificationPushTokenRemoteDataSource
         'userAgent': device['userAgent'],
       ..._webLocationMetadata(),
     };
+  }
+
+  Future<String> _installId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'masar_device_install_id_v1:${_platformIdentity()}';
+    final existing = prefs.getString(key);
+    if (existing != null && existing.length >= 20) {
+      return existing;
+    }
+    final random = Random.secure();
+    final bytes = List<int>.generate(24, (_) => random.nextInt(256));
+    final id = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    await prefs.setString(key, id);
+    return id;
   }
 
   Map<String, dynamic> _webLocationMetadata() {
@@ -363,6 +383,19 @@ class FirebaseNotificationPushTokenRemoteDataSource
       return 'android';
     }
     return defaultTargetPlatform.name;
+  }
+
+  String _platformIdentity() {
+    if (!kIsWeb) {
+      return _platformName();
+    }
+    try {
+      final origin = Uri.base.origin.trim();
+      if (origin.isNotEmpty) {
+        return 'web:$origin';
+      }
+    } catch (_) {}
+    return 'web';
   }
 
   void _debugTokenStatus(String status) {

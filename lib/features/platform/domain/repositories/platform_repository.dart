@@ -7,6 +7,7 @@ import '../entities/password_reset_link_result.dart';
 import '../entities/platform_company_user.dart';
 import '../entities/platform_login_activity.dart';
 import '../entities/platform_payment_history.dart';
+import '../entities/release_intelligence.dart';
 
 abstract interface class PlatformRepository {
   Stream<List<CompanyMetadata>> watchCompanies();
@@ -130,7 +131,9 @@ abstract interface class PlatformRepository {
 
   Future<AndroidReleasePolicy> getAndroidReleasePolicy();
 
-  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption();
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption({
+    String? companyId,
+  });
 
   Future<void> updateAndroidReleasePolicy({
     required bool enabled,
@@ -142,5 +145,41 @@ abstract interface class PlatformRepository {
     required String titleAr,
     required String bodyEn,
     required String bodyAr,
+  });
+
+  Future<ReleaseIntelligenceSummary> getReleaseIntelligenceSummary({
+    int activeWithinDays = 30,
+  });
+
+  Future<List<VersionAdoptionRow>> getPlatformVersionAdoption({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    bool includeInactive = false,
+  });
+
+  Future<List<PlatformDeviceInstallRow>> getPlatformDeviceList({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    int limit = 120,
+  });
+
+  Future<List<DeviceVersionEventRow>> getPlatformVersionHistory({
+    String platform = 'all',
+    String? companyId,
+    int limit = 120,
+  });
+
+  Future<void> createPlatformReleaseRecord({
+    required String platform,
+    required String appVersion,
+    required int buildNumber,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required bool enabled,
+    required bool releaseReady,
+    required String status,
   });
 }

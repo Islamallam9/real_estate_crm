@@ -12,6 +12,7 @@ import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/entities/password_reset_link_result.dart';
 import '../../domain/entities/platform_company_user.dart';
 import '../../domain/entities/platform_login_activity.dart';
+import '../../domain/entities/release_intelligence.dart';
 import '../models/company_data_health_report_model.dart';
 import '../models/platform_company_user_model.dart';
 import '../models/platform_login_activity_model.dart';
@@ -139,7 +140,9 @@ abstract interface class PlatformRemoteDataSource {
 
   Future<AndroidReleasePolicy> getAndroidReleasePolicy();
 
-  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption();
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption({
+    String? companyId,
+  });
 
   Future<void> updateAndroidReleasePolicy({
     required bool enabled,
@@ -151,6 +154,42 @@ abstract interface class PlatformRemoteDataSource {
     required String titleAr,
     required String bodyEn,
     required String bodyAr,
+  });
+
+  Future<ReleaseIntelligenceSummary> getReleaseIntelligenceSummary({
+    int activeWithinDays = 30,
+  });
+
+  Future<List<VersionAdoptionRow>> getPlatformVersionAdoption({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    bool includeInactive = false,
+  });
+
+  Future<List<PlatformDeviceInstallRow>> getPlatformDeviceList({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    int limit = 120,
+  });
+
+  Future<List<DeviceVersionEventRow>> getPlatformVersionHistory({
+    String platform = 'all',
+    String? companyId,
+    int limit = 120,
+  });
+
+  Future<void> createPlatformReleaseRecord({
+    required String platform,
+    required String appVersion,
+    required int buildNumber,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required bool enabled,
+    required bool releaseReady,
+    required String status,
   });
 }
 
@@ -472,9 +511,14 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
   }
 
   @override
-  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption() async {
+  Future<AndroidVersionAdoptionSummary> getAndroidVersionAdoption({
+    String? companyId,
+  }) async {
+    final normalizedCompanyId = companyId?.trim();
     final data = await _callMap('getAndroidVersionAdoption', {
       'platform': 'android',
+      if (normalizedCompanyId != null && normalizedCompanyId.isNotEmpty)
+        'companyId': normalizedCompanyId,
     });
     return _androidVersionAdoptionFromMap(data);
   }
@@ -501,6 +545,92 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
       'titleAr': titleAr,
       'bodyEn': bodyEn,
       'bodyAr': bodyAr,
+    });
+  }
+
+  @override
+  Future<ReleaseIntelligenceSummary> getReleaseIntelligenceSummary({
+    int activeWithinDays = 30,
+  }) async {
+    final data = await _callMap('getReleaseIntelligenceSummary', {
+      'activeWithinDays': activeWithinDays,
+    });
+    return _releaseIntelligenceSummaryFromMap(data);
+  }
+
+  @override
+  Future<List<VersionAdoptionRow>> getPlatformVersionAdoption({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    bool includeInactive = false,
+  }) async {
+    final data = await _callMap('getPlatformVersionAdoption', {
+      'platform': platform,
+      if (companyId != null && companyId.trim().isNotEmpty)
+        'companyId': companyId.trim(),
+      'activeWithinDays': activeWithinDays,
+      'includeInactive': includeInactive,
+    });
+    return _adoptionRows(data['rows']);
+  }
+
+  @override
+  Future<List<PlatformDeviceInstallRow>> getPlatformDeviceList({
+    String platform = 'all',
+    String? companyId,
+    int activeWithinDays = 30,
+    int limit = 120,
+  }) async {
+    final data = await _callMap('getPlatformDeviceList', {
+      'platform': platform,
+      if (companyId != null && companyId.trim().isNotEmpty)
+        'companyId': companyId.trim(),
+      'activeWithinDays': activeWithinDays,
+      'limit': limit,
+    });
+    return _deviceRows(data['rows']);
+  }
+
+  @override
+  Future<List<DeviceVersionEventRow>> getPlatformVersionHistory({
+    String platform = 'all',
+    String? companyId,
+    int limit = 120,
+  }) async {
+    final data = await _callMap('getPlatformVersionHistory', {
+      'platform': platform,
+      if (companyId != null && companyId.trim().isNotEmpty)
+        'companyId': companyId.trim(),
+      'limit': limit,
+    });
+    return _versionEventRows(data['rows']);
+  }
+
+  @override
+  Future<void> createPlatformReleaseRecord({
+    required String platform,
+    required String appVersion,
+    required int buildNumber,
+    required int minimumSupportedBuildNumber,
+    required int latestBuildNumber,
+    required String updateUrl,
+    required bool enabled,
+    required bool releaseReady,
+    required String status,
+  }) async {
+    await _call('createPlatformReleaseRecord', {
+      'platform': platform,
+      'appVersion': appVersion,
+      'buildNumber': buildNumber,
+      'minimumSupportedBuildNumber': minimumSupportedBuildNumber,
+      'latestBuildNumber': latestBuildNumber,
+      'updateUrl': updateUrl,
+      'enabled': enabled,
+      'releaseReady': releaseReady,
+      'status': status,
+      'channel': 'production',
+      'releaseType': 'patch',
     });
   }
 
@@ -589,23 +719,192 @@ int _legacyTrialDays(int value, String unit) {
 AndroidVersionAdoptionSummary _androidVersionAdoptionFromMap(
   Map<String, dynamic> data,
 ) {
-  final rawVersions = data['versions'];
+  // The Cloud Function has returned this optional dashboard payload in more
+  // than one shape while the release-management screen evolved. Keep the
+  // parser tolerant so valid Android token data never appears empty just
+  // because the backend used `rows/active*` instead of `versions/*Count`.
+  final rawVersions = data['versions'] ?? data['rows'];
   final versions = rawVersions is List
       ? rawVersions
           .whereType<Map>()
-          .map((item) => AndroidVersionAdoption(
-                appVersion: (item['appVersion'] as String? ?? '').trim(),
-                buildNumber: _intValue(item['buildNumber']),
-                userCount: _intValue(item['userCount']),
-                deviceCount: _intValue(item['deviceCount']),
-                companyCount: _intValue(item['companyCount']),
-                latestSeenAt: _dateValue(item['latestSeenAt']),
-              ))
+          .map((item) {
+            final userCount = _intValue(
+              item['userCount'] ?? item['activeUsers'] ?? item['totalActiveUsers'],
+            );
+            final deviceCount = _intValue(
+              item['deviceCount'] ??
+                  item['activeDevices'] ??
+                  item['totalActiveDevices'],
+            );
+            final companyCount = _intValue(
+              item['companyCount'] ??
+                  item['activeCompanies'] ??
+                  item['totalActiveCompanies'],
+            );
+            return AndroidVersionAdoption(
+              appVersion: (item['appVersion'] as String? ?? '').trim(),
+              buildNumber: _intValue(item['buildNumber']),
+              userCount: userCount,
+              deviceCount: deviceCount,
+              companyCount: companyCount,
+              latestSeenAt: _dateValue(item['latestSeenAt']),
+            );
+          })
           .toList()
       : const <AndroidVersionAdoption>[];
+
+  final computedUsers = versions.fold<int>(
+    0,
+    (total, version) => total + version.userCount,
+  );
+  final computedDevices = versions.fold<int>(
+    0,
+    (total, version) => total + version.deviceCount,
+  );
+  final parsedUsers = _intValue(data['totalActiveUsers'] ?? data['activeUsers']);
+  final parsedDevices = _intValue(
+    data['totalActiveDevices'] ?? data['activeDevices'],
+  );
+
   return AndroidVersionAdoptionSummary(
     versions: versions,
-    totalActiveUsers: _intValue(data['totalActiveUsers']),
-    totalActiveDevices: _intValue(data['totalActiveDevices']),
+    totalActiveUsers: parsedUsers == 0 ? computedUsers : parsedUsers,
+    totalActiveDevices: parsedDevices == 0 ? computedDevices : parsedDevices,
   );
+}
+
+ReleaseIntelligenceSummary _releaseIntelligenceSummaryFromMap(
+  Map<String, dynamic> data,
+) {
+  final push = data['pushHealth'] is Map
+      ? Map<String, dynamic>.from(data['pushHealth'] as Map)
+      : const <String, dynamic>{};
+  return ReleaseIntelligenceSummary(
+    activeUsers: _intValue(data['activeUsers']),
+    activeDevices: _intValue(data['activeDevices']),
+    activeWebUsers: _intValue(data['activeWebUsers']),
+    activeWebDevices: _intValue(data['activeWebDevices']),
+    activeAndroidUsers: _intValue(data['activeAndroidUsers']),
+    activeAndroidDevices: _intValue(data['activeAndroidDevices']),
+    usersBelowLatestBuild: _intValue(data['usersBelowLatestBuild']),
+    devicesBelowLatestBuild: _intValue(data['devicesBelowLatestBuild']),
+    usersBelowMinimumBuild: _intValue(data['usersBelowMinimumBuild']),
+    devicesBelowMinimumBuild: _intValue(data['devicesBelowMinimumBuild']),
+    pushConnected: _intValue(push['connected']),
+    pushBlocked: _intValue(push['blocked']),
+    pushMissing: _intValue(push['missing']),
+    pushInvalidFailed: _intValue(push['invalidFailed']),
+    pushUnknown: _intValue(push['unknown']),
+    latestWebRelease: _releaseRecordOrNull(data['latestWebRelease']),
+    latestAndroidRelease: _releaseRecordOrNull(data['latestAndroidRelease']),
+    releases: _releaseRows(data['releases']),
+    adoptionRows: _adoptionRows(data['adoptionRows']),
+    recentVersionChanges: _versionEventRows(data['recentVersionChanges']),
+    lastUpdated: _dateValue(data['lastUpdated']),
+  );
+}
+
+PlatformReleaseRecord? _releaseRecordOrNull(Object? value) {
+  if (value is! Map) return null;
+  return _releaseRecord(Map<String, dynamic>.from(value));
+}
+
+List<PlatformReleaseRecord> _releaseRows(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((item) => _releaseRecord(Map<String, dynamic>.from(item)))
+      .toList();
+}
+
+PlatformReleaseRecord _releaseRecord(Map<String, dynamic> data) {
+  return PlatformReleaseRecord(
+    id: data['id'] as String? ?? '',
+    platform: data['platform'] as String? ?? '',
+    appVersion: data['appVersion'] as String? ?? '',
+    buildNumber: _intValue(data['buildNumber']),
+    channel: data['channel'] as String? ?? '',
+    releaseType: data['releaseType'] as String? ?? '',
+    status: data['status'] as String? ?? '',
+    releaseReady: data['releaseReady'] == true,
+    enabled: data['enabled'] == true,
+    minimumSupportedBuildNumber: _intValue(data['minimumSupportedBuildNumber']),
+    latestBuildNumber: _intValue(data['latestBuildNumber']),
+    updateUrl: data['updateUrl'] as String? ?? '',
+    apkFileName: data['apkFileName'] as String? ?? '',
+    notesEn: data['notesEn'] as String? ?? '',
+    notesAr: data['notesAr'] as String? ?? '',
+    createdByName: data['createdByName'] as String? ?? '',
+    createdAt: _dateValue(data['createdAt']),
+    updatedAt: _dateValue(data['updatedAt']),
+    releasedAt: _dateValue(data['releasedAt']),
+    disabledAt: _dateValue(data['disabledAt']),
+  );
+}
+
+List<VersionAdoptionRow> _adoptionRows(Object? value) {
+  if (value is! List) return const [];
+  return value.whereType<Map>().map((item) {
+    final data = Map<String, dynamic>.from(item);
+    return VersionAdoptionRow(
+      platform: data['platform'] as String? ?? '',
+      appVersion: data['appVersion'] as String? ?? '',
+      buildNumber: _intValue(data['buildNumber']),
+      activeUsers: _intValue(data['activeUsers']),
+      activeDevices: _intValue(data['activeDevices']),
+      activeCompanies: _intValue(data['activeCompanies']),
+      status: data['status'] as String? ?? '',
+      latestSeenAt: _dateValue(data['latestSeenAt']),
+    );
+  }).toList();
+}
+
+List<PlatformDeviceInstallRow> _deviceRows(Object? value) {
+  if (value is! List) return const [];
+  return value.whereType<Map>().map((item) {
+    final data = Map<String, dynamic>.from(item);
+    return PlatformDeviceInstallRow(
+      installId: data['installId'] as String? ?? '',
+      uid: data['uid'] as String? ?? '',
+      companyId: data['companyId'] as String? ?? '',
+      companyName: data['companyName'] as String? ?? '',
+      fullName: data['fullName'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      role: data['role'] as String? ?? '',
+      platform: data['platform'] as String? ?? '',
+      appVersion: data['appVersion'] as String? ?? '',
+      buildNumber: _intValue(data['buildNumber']),
+      notificationPermission: data['notificationPermission'] as String? ?? '',
+      notificationTokenStatus:
+          data['notificationTokenStatus'] as String? ?? '',
+      browser: data['browser'] as String? ?? '',
+      os: data['os'] as String? ?? '',
+      deviceModel: data['deviceModel'] as String? ?? '',
+      tokenHashPrefix: data['tokenHashPrefix'] as String? ?? '',
+      lastSeenAt: _dateValue(data['lastSeenAt']),
+    );
+  }).toList();
+}
+
+List<DeviceVersionEventRow> _versionEventRows(Object? value) {
+  if (value is! List) return const [];
+  return value.whereType<Map>().map((item) {
+    final data = Map<String, dynamic>.from(item);
+    return DeviceVersionEventRow(
+      eventId: data['eventId'] as String? ?? '',
+      uid: data['uid'] as String? ?? '',
+      companyId: data['companyId'] as String? ?? '',
+      companyName: data['companyName'] as String? ?? '',
+      role: data['role'] as String? ?? '',
+      platform: data['platform'] as String? ?? '',
+      installId: data['installId'] as String? ?? '',
+      userName: data['userName'] as String? ?? '',
+      oldVersion: data['oldVersion'] as String? ?? '',
+      oldBuildNumber: _intValue(data['oldBuildNumber']),
+      newVersion: data['newVersion'] as String? ?? '',
+      newBuildNumber: _intValue(data['newBuildNumber']),
+      source: data['source'] as String? ?? '',
+      createdAt: _dateValue(data['createdAt']),
+    );
+  }).toList();
 }

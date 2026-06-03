@@ -6386,7 +6386,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationPermissionUnavailableBody.
   ///
   /// In en, this message translates to:
-  /// **'Notifications are not enabled yet. Allow them from the browser or device prompt, then try again.'**
+  /// **'Browser permission is allowed, but this device is not connected yet. Retry to reconnect notifications.'**
   String get notificationPermissionUnavailableBody;
 
   /// No description provided for @notificationPermissionSyncFailedBody.
@@ -9425,6 +9425,312 @@ abstract class AppLocalizations {
   /// **'No Android version data yet.'**
   String get noAndroidVersionData;
 
+  /// No description provided for @releaseCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Center'**
+  String get releaseCenter;
+
+  /// No description provided for @releaseOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Release overview'**
+  String get releaseOverview;
+
+  /// No description provided for @releases.
+  ///
+  /// In en, this message translates to:
+  /// **'Releases'**
+  String get releases;
+
+  /// No description provided for @versionAdoption.
+  ///
+  /// In en, this message translates to:
+  /// **'Version adoption'**
+  String get versionAdoption;
+
+  /// No description provided for @devices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get devices;
+
+  /// No description provided for @versionHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Version history'**
+  String get versionHistory;
+
+  /// No description provided for @health.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get health;
+
+  /// No description provided for @latestWebVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest Web version'**
+  String get latestWebVersion;
+
+  /// No description provided for @latestAndroidVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest Android version'**
+  String get latestAndroidVersion;
+
+  /// No description provided for @latestActiveWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest active Web'**
+  String get latestActiveWeb;
+
+  /// No description provided for @latestActiveAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest active Android'**
+  String get latestActiveAndroid;
+
+  /// No description provided for @latestReleasedWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest released Web'**
+  String get latestReleasedWeb;
+
+  /// No description provided for @latestReleasedAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest released Android'**
+  String get latestReleasedAndroid;
+
+  /// No description provided for @webUsersDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Web users/devices'**
+  String get webUsersDevices;
+
+  /// No description provided for @androidUsersDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Android users/devices'**
+  String get androidUsersDevices;
+
+  /// No description provided for @oldBuilds.
+  ///
+  /// In en, this message translates to:
+  /// **'Old builds'**
+  String get oldBuilds;
+
+  /// No description provided for @belowMinimumBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Below minimum build'**
+  String get belowMinimumBuild;
+
+  /// No description provided for @pushHealth.
+  ///
+  /// In en, this message translates to:
+  /// **'Push health'**
+  String get pushHealth;
+
+  /// No description provided for @currentAdoptionHistoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Current adoption shows active devices only. Version history shows previous builds.'**
+  String get currentAdoptionHistoryHint;
+
+  /// No description provided for @noAdoptionDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No adoption data yet'**
+  String get noAdoptionDataYet;
+
+  /// No description provided for @noReleaseRecordsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No release records yet'**
+  String get noReleaseRecordsYet;
+
+  /// No description provided for @noDeviceDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No device data yet'**
+  String get noDeviceDataYet;
+
+  /// No description provided for @noVersionHistoryYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No version history yet'**
+  String get noVersionHistoryYet;
+
+  /// No description provided for @noHealthDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No health data yet'**
+  String get noHealthDataYet;
+
+  /// No description provided for @web.
+  ///
+  /// In en, this message translates to:
+  /// **'Web'**
+  String get web;
+
+  /// No description provided for @androidPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Android'**
+  String get androidPlatform;
+
+  /// No description provided for @latest.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get latest;
+
+  /// No description provided for @oldBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Old build'**
+  String get oldBuild;
+
+  /// No description provided for @connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get connected;
+
+  /// No description provided for @blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked'**
+  String get blocked;
+
+  /// No description provided for @missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing'**
+  String get missing;
+
+  /// No description provided for @failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get failed;
+
+  /// No description provided for @invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid'**
+  String get invalid;
+
+  /// No description provided for @lastUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated'**
+  String get lastUpdated;
+
+  /// No description provided for @unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknown;
+
+  /// No description provided for @notReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Not reported'**
+  String get notReported;
+
+  /// No description provided for @invalidOrFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid / failed'**
+  String get invalidOrFailed;
+
+  /// No description provided for @deviceBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Device/browser'**
+  String get deviceBrowser;
+
+  /// No description provided for @createdBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Created by'**
+  String get createdBy;
+
+  /// No description provided for @createAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get createAction;
+
+  /// No description provided for @releaseCenterAllCompaniesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Center is showing all companies.'**
+  String get releaseCenterAllCompaniesHint;
+
+  /// No description provided for @releaseCenterSelectedCompanyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Center is filtered to the selected company.'**
+  String get releaseCenterSelectedCompanyHint;
+
+  /// No description provided for @releaseRecordsStartAfterRegistryEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'No release records yet. Release records start after the release registry is enabled, or after you create a record from the current Android policy.'**
+  String get releaseRecordsStartAfterRegistryEnabled;
+
+  /// No description provided for @createReleaseRecordFromAndroidPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Create release record from current Android policy'**
+  String get createReleaseRecordFromAndroidPolicy;
+
+  /// No description provided for @createReleaseRecordFromAndroidPolicyConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This will create a release registry record from the current Android forced-update policy. It will not change the policy or deploy anything.'**
+  String get createReleaseRecordFromAndroidPolicyConfirm;
+
+  /// No description provided for @releaseRecordCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Release record created.'**
+  String get releaseRecordCreated;
+
+  /// No description provided for @versionHistoryStartsAfterBuildChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Version history starts when a device changes build after v2.31.0+102.'**
+  String get versionHistoryStartsAfterBuildChange;
+
+  /// No description provided for @draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get draft;
+
+  /// No description provided for @released.
+  ///
+  /// In en, this message translates to:
+  /// **'Released'**
+  String get released;
+
+  /// No description provided for @disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get disabled;
+
+  /// No description provided for @rolledBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolled back'**
+  String get rolledBack;
+
   /// No description provided for @notNow.
   ///
   /// In en, this message translates to:
@@ -9478,6 +9784,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.'**
   String get notificationPermissionConfigurationIssueBody;
+
+  /// No description provided for @dashboardPerformanceDailyActivityNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows daily activity, so days without new records appear as 0.'**
+  String get dashboardPerformanceDailyActivityNote;
+
+  /// No description provided for @dashboardPerformanceTotalTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get dashboardPerformanceTotalTrend;
+
+  /// No description provided for @dashboardPerformanceDailyTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get dashboardPerformanceDailyTrend;
+
+  /// No description provided for @dashboardPerformanceTotalTrendNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.'**
+  String get dashboardPerformanceTotalTrendNote;
 }
 
 class _AppLocalizationsDelegate

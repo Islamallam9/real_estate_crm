@@ -285,7 +285,8 @@ class _NotificationPushStatusCardBody extends StatelessWidget {
     if (state.hasConfigurationError) {
       return l.notificationPermissionConfigurationIssueTitle;
     }
-    if (state.status == NotificationPushTokenStatus.failed) {
+    if (state.status == NotificationPushTokenStatus.failed ||
+        state.status == NotificationPushTokenStatus.unavailable) {
       return l.notificationPermissionNotConnectedTitle;
     }
     if (state.status == NotificationPushTokenStatus.denied) {

@@ -45,12 +45,9 @@ class NotificationPushTokenState extends Equatable {
   bool get hasSession => uid.trim().isNotEmpty && scope != NotificationPushTokenScopeKind.none;
 
   bool get isRegistered =>
-      (token.trim().isNotEmpty && status == NotificationPushTokenStatus.registered) ||
-      (localRegistrationHint &&
-          status != NotificationPushTokenStatus.failed &&
-          status != NotificationPushTokenStatus.denied &&
-          status != NotificationPushTokenStatus.unavailable &&
-          !hasConfigurationError);
+      token.trim().isNotEmpty &&
+      status == NotificationPushTokenStatus.registered &&
+      !hasConfigurationError;
 
   bool get isPromptSnoozed {
     final until = promptDismissedUntil;
@@ -67,12 +64,11 @@ class NotificationPushTokenState extends Equatable {
       status != NotificationPushTokenStatus.syncing;
 
   bool get canShowPromptBanner =>
-      needsUserAction &&
+      hasSession &&
+      status == NotificationPushTokenStatus.permissionRequired &&
+      !isRegistered &&
       !isPromptSnoozed &&
-      !hasConfigurationError &&
-      !(localRegistrationHint &&
-          status != NotificationPushTokenStatus.failed &&
-          status != NotificationPushTokenStatus.denied);
+      !hasConfigurationError;
 
   bool get canShowManualControl => hasSession;
 

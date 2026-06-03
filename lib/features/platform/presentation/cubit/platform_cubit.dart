@@ -2,16 +2,23 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../app_update/domain/entities/android_release_policy.dart';
 import '../../domain/entities/android_version_adoption.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
+import '../../domain/usecases/create_platform_release_record_usecase.dart';
 import '../../domain/usecases/create_company_with_admin_usecase.dart';
 import '../../domain/usecases/export_company_data_usecase.dart';
 import '../../domain/usecases/extend_company_payment_due_date_usecase.dart';
 import '../../domain/usecases/get_android_release_policy_usecase.dart';
 import '../../domain/usecases/get_android_version_adoption_usecase.dart';
+import '../../domain/entities/release_intelligence.dart';
+import '../../domain/usecases/get_platform_device_list_usecase.dart';
+import '../../domain/usecases/get_platform_version_adoption_usecase.dart';
+import '../../domain/usecases/get_platform_version_history_usecase.dart';
+import '../../domain/usecases/get_release_intelligence_summary_usecase.dart';
 import '../../domain/usecases/get_company_data_health_report_usecase.dart';
 import '../../domain/usecases/generate_company_user_password_reset_link_usecase.dart';
 import '../../domain/usecases/mark_company_payment_paid_usecase.dart';
@@ -60,6 +67,13 @@ class PlatformCubit extends Cubit<PlatformState> {
     required GetAndroidReleasePolicyUseCase getAndroidReleasePolicyUseCase,
     required GetAndroidVersionAdoptionUseCase
         getAndroidVersionAdoptionUseCase,
+    required GetReleaseIntelligenceSummaryUseCase
+        getReleaseIntelligenceSummaryUseCase,
+    required GetPlatformVersionAdoptionUseCase
+        getPlatformVersionAdoptionUseCase,
+    required GetPlatformDeviceListUseCase getPlatformDeviceListUseCase,
+    required GetPlatformVersionHistoryUseCase getPlatformVersionHistoryUseCase,
+    required CreatePlatformReleaseRecordUseCase createPlatformReleaseRecordUseCase,
   }) : _watchCompaniesUseCase = watchCompaniesUseCase,
        _watchCompanyUsersUseCase = watchCompanyUsersUseCase,
        _watchPaymentHistoryUseCase = watchPaymentHistoryUseCase,
@@ -86,6 +100,12 @@ class PlatformCubit extends Cubit<PlatformState> {
        _updateAndroidReleasePolicyUseCase = updateAndroidReleasePolicyUseCase,
        _getAndroidReleasePolicyUseCase = getAndroidReleasePolicyUseCase,
        _getAndroidVersionAdoptionUseCase = getAndroidVersionAdoptionUseCase,
+       _getReleaseIntelligenceSummaryUseCase =
+           getReleaseIntelligenceSummaryUseCase,
+       _getPlatformVersionAdoptionUseCase = getPlatformVersionAdoptionUseCase,
+       _getPlatformDeviceListUseCase = getPlatformDeviceListUseCase,
+       _getPlatformVersionHistoryUseCase = getPlatformVersionHistoryUseCase,
+       _createPlatformReleaseRecordUseCase = createPlatformReleaseRecordUseCase,
        super(const PlatformState.initial());
 
   final WatchPlatformCompaniesUseCase _watchCompaniesUseCase;
@@ -113,6 +133,12 @@ class PlatformCubit extends Cubit<PlatformState> {
   final UpdateAndroidReleasePolicyUseCase _updateAndroidReleasePolicyUseCase;
   final GetAndroidReleasePolicyUseCase _getAndroidReleasePolicyUseCase;
   final GetAndroidVersionAdoptionUseCase _getAndroidVersionAdoptionUseCase;
+  final GetReleaseIntelligenceSummaryUseCase
+      _getReleaseIntelligenceSummaryUseCase;
+  final GetPlatformVersionAdoptionUseCase _getPlatformVersionAdoptionUseCase;
+  final GetPlatformDeviceListUseCase _getPlatformDeviceListUseCase;
+  final GetPlatformVersionHistoryUseCase _getPlatformVersionHistoryUseCase;
+  final CreatePlatformReleaseRecordUseCase _createPlatformReleaseRecordUseCase;
 
   StreamSubscription? _companiesSubscription;
   StreamSubscription? _companyUsersSubscription;
@@ -170,6 +196,9 @@ class PlatformCubit extends Cubit<PlatformState> {
     watchCompanyUsers(companyId);
     watchPaymentHistory(companyId);
     watchLoginActivity(companyId);
+    if (state.androidReleasePolicy != null) {
+      unawaited(loadReleaseCenter());
+    }
   }
 
   void updateSearchQuery(String query) {
@@ -480,7 +509,9 @@ class PlatformCubit extends Cubit<PlatformState> {
     }
   }
 
-  Future<void> loadAndroidReleasePolicy() async {
+  Future<void> loadAndroidReleasePolicy() => loadReleaseCenter();
+
+  Future<void> loadReleaseCenter() async {
     emit(
       state.copyWith(
         activeSettingsActionId: 'androidRelease:load',
@@ -488,9 +519,14 @@ class PlatformCubit extends Cubit<PlatformState> {
       ),
     );
     try {
+      final companyId = state.releaseCompanyId;
       final results = await Future.wait([
         _getAndroidReleasePolicyUseCase(),
         _getAndroidVersionAdoptionUseCase(),
+        _getReleaseIntelligenceSummaryUseCase(),
+        _getPlatformVersionAdoptionUseCase(companyId: companyId),
+        _getPlatformDeviceListUseCase(companyId: companyId),
+        _getPlatformVersionHistoryUseCase(companyId: companyId),
       ]);
       emit(
         state.copyWith(
@@ -498,6 +534,11 @@ class PlatformCubit extends Cubit<PlatformState> {
           androidReleasePolicy: results[0] as AndroidReleasePolicy,
           androidVersionAdoption:
               results[1] as AndroidVersionAdoptionSummary,
+          releaseIntelligenceSummary:
+              results[2] as ReleaseIntelligenceSummary,
+          releaseAdoptionRows: results[3] as List<VersionAdoptionRow>,
+          releaseDeviceRows: results[4] as List<PlatformDeviceInstallRow>,
+          releaseVersionEvents: results[5] as List<DeviceVersionEventRow>,
           clearActiveSettingsAction: true,
           clearMessage: true,
         ),
@@ -510,6 +551,63 @@ class PlatformCubit extends Cubit<PlatformState> {
           clearActiveSettingsAction: true,
         ),
       );
+    }
+  }
+
+  Future<void> updateReleaseCompanyFilter(String? companyId) async {
+    emit(
+      state.copyWith(
+        releaseCompanyId:
+            companyId == null || companyId.trim().isEmpty ? null : companyId,
+        clearReleaseCompanyId: companyId == null || companyId.trim().isEmpty,
+        clearMessage: true,
+      ),
+    );
+    await loadReleaseCenter();
+  }
+
+  Future<bool> createReleaseRecordFromAndroidPolicy() async {
+    final policy = state.androidReleasePolicy;
+    if (policy == null) {
+      return false;
+    }
+    emit(
+      state.copyWith(
+        status: PlatformStatus.saving,
+        activeSettingsActionId: 'releaseRecord:androidPolicy',
+        clearMessage: true,
+      ),
+    );
+    try {
+      await _createPlatformReleaseRecordUseCase(
+        platform: 'android',
+        appVersion: AppConstants.appVersion,
+        buildNumber: policy.latestBuildNumber,
+        minimumSupportedBuildNumber: policy.minimumSupportedBuildNumber,
+        latestBuildNumber: policy.latestBuildNumber,
+        updateUrl: policy.updateUrl,
+        enabled: policy.enabled,
+        releaseReady: policy.releaseReady,
+        status: policy.releaseReady ? 'ready' : 'draft',
+      );
+      emit(
+        state.copyWith(
+          status: PlatformStatus.ready,
+          clearActiveSettingsAction: true,
+          clearMessage: true,
+        ),
+      );
+      await loadReleaseCenter();
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: PlatformStatus.failure,
+          message: _cleanError(error),
+          clearActiveSettingsAction: true,
+        ),
+      );
+      return false;
     }
   }
 
@@ -546,6 +644,10 @@ class PlatformCubit extends Cubit<PlatformState> {
       final results = await Future.wait([
         _getAndroidReleasePolicyUseCase(),
         _getAndroidVersionAdoptionUseCase(),
+        _getReleaseIntelligenceSummaryUseCase(),
+        _getPlatformVersionAdoptionUseCase(companyId: state.releaseCompanyId),
+        _getPlatformDeviceListUseCase(companyId: state.releaseCompanyId),
+        _getPlatformVersionHistoryUseCase(companyId: state.releaseCompanyId),
       ]);
       emit(
         state.copyWith(
@@ -553,6 +655,11 @@ class PlatformCubit extends Cubit<PlatformState> {
           androidReleasePolicy: results[0] as AndroidReleasePolicy,
           androidVersionAdoption:
               results[1] as AndroidVersionAdoptionSummary,
+          releaseIntelligenceSummary:
+              results[2] as ReleaseIntelligenceSummary,
+          releaseAdoptionRows: results[3] as List<VersionAdoptionRow>,
+          releaseDeviceRows: results[4] as List<PlatformDeviceInstallRow>,
+          releaseVersionEvents: results[5] as List<DeviceVersionEventRow>,
           clearMessage: true,
           clearActiveSettingsAction: true,
         ),

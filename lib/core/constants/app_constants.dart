@@ -1,5 +1,5 @@
 abstract final class AppConstants {
-  static const appVersion = '2.30.2';
-  static const appBuildNumber = '99';
+  static const appVersion = '2.31.3';
+  static const appBuildNumber = '105';
   static const publicWebBaseUrl = 'https://masarcrm.web.app';
 }

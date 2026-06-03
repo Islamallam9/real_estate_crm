@@ -3454,7 +3454,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationPermissionUnavailableBody =>
-      'Notifications are not enabled yet. Allow them from the browser or device prompt, then try again.';
+      'Browser permission is allowed, but this device is not connected yet. Retry to reconnect notifications.';
 
   @override
   String get notificationPermissionSyncFailedBody =>
@@ -5100,6 +5100,166 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAndroidVersionData => 'No Android version data yet.';
 
   @override
+  String get releaseCenter => 'Release Center';
+
+  @override
+  String get releaseOverview => 'Release overview';
+
+  @override
+  String get releases => 'Releases';
+
+  @override
+  String get versionAdoption => 'Version adoption';
+
+  @override
+  String get devices => 'Devices';
+
+  @override
+  String get versionHistory => 'Version history';
+
+  @override
+  String get health => 'Health';
+
+  @override
+  String get latestWebVersion => 'Latest Web version';
+
+  @override
+  String get latestAndroidVersion => 'Latest Android version';
+
+  @override
+  String get latestActiveWeb => 'Latest active Web';
+
+  @override
+  String get latestActiveAndroid => 'Latest active Android';
+
+  @override
+  String get latestReleasedWeb => 'Latest released Web';
+
+  @override
+  String get latestReleasedAndroid => 'Latest released Android';
+
+  @override
+  String get webUsersDevices => 'Web users/devices';
+
+  @override
+  String get androidUsersDevices => 'Android users/devices';
+
+  @override
+  String get oldBuilds => 'Old builds';
+
+  @override
+  String get belowMinimumBuild => 'Below minimum build';
+
+  @override
+  String get pushHealth => 'Push health';
+
+  @override
+  String get currentAdoptionHistoryHint =>
+      'Current adoption shows active devices only. Version history shows previous builds.';
+
+  @override
+  String get noAdoptionDataYet => 'No adoption data yet';
+
+  @override
+  String get noReleaseRecordsYet => 'No release records yet';
+
+  @override
+  String get noDeviceDataYet => 'No device data yet';
+
+  @override
+  String get noVersionHistoryYet => 'No version history yet';
+
+  @override
+  String get noHealthDataYet => 'No health data yet';
+
+  @override
+  String get web => 'Web';
+
+  @override
+  String get androidPlatform => 'Android';
+
+  @override
+  String get latest => 'Latest';
+
+  @override
+  String get oldBuild => 'Old build';
+
+  @override
+  String get connected => 'Connected';
+
+  @override
+  String get blocked => 'Blocked';
+
+  @override
+  String get missing => 'Missing';
+
+  @override
+  String get failed => 'Failed';
+
+  @override
+  String get invalid => 'Invalid';
+
+  @override
+  String get lastUpdated => 'Last updated';
+
+  @override
+  String get unknown => 'Unknown';
+
+  @override
+  String get notReported => 'Not reported';
+
+  @override
+  String get invalidOrFailed => 'Invalid / failed';
+
+  @override
+  String get deviceBrowser => 'Device/browser';
+
+  @override
+  String get createdBy => 'Created by';
+
+  @override
+  String get createAction => 'Create';
+
+  @override
+  String get releaseCenterAllCompaniesHint =>
+      'Release Center is showing all companies.';
+
+  @override
+  String get releaseCenterSelectedCompanyHint =>
+      'Release Center is filtered to the selected company.';
+
+  @override
+  String get releaseRecordsStartAfterRegistryEnabled =>
+      'No release records yet. Release records start after the release registry is enabled, or after you create a record from the current Android policy.';
+
+  @override
+  String get createReleaseRecordFromAndroidPolicy =>
+      'Create release record from current Android policy';
+
+  @override
+  String get createReleaseRecordFromAndroidPolicyConfirm =>
+      'This will create a release registry record from the current Android forced-update policy. It will not change the policy or deploy anything.';
+
+  @override
+  String get releaseRecordCreated => 'Release record created.';
+
+  @override
+  String get versionHistoryStartsAfterBuildChange =>
+      'Version history starts when a device changes build after v2.31.0+102.';
+
+  @override
+  String get draft => 'Draft';
+
+  @override
+  String get released => 'Released';
+
+  @override
+  String get disabled => 'Disabled';
+
+  @override
+  String get rolledBack => 'Rolled back';
+
+  @override
   String get notNow => 'Not now';
 
   @override
@@ -5130,4 +5290,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationPermissionConfigurationIssueBody =>
       'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.';
+
+  @override
+  String get dashboardPerformanceDailyActivityNote =>
+      'Shows daily activity, so days without new records appear as 0.';
+
+  @override
+  String get dashboardPerformanceTotalTrend => 'Total';
+
+  @override
+  String get dashboardPerformanceDailyTrend => 'Daily';
+
+  @override
+  String get dashboardPerformanceTotalTrendNote =>
+      'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.';
 }

@@ -6,7 +6,7 @@ class GetAndroidVersionAdoptionUseCase {
 
   final PlatformRepository _repository;
 
-  Future<AndroidVersionAdoptionSummary> call() {
-    return _repository.getAndroidVersionAdoption();
+  Future<AndroidVersionAdoptionSummary> call({String? companyId}) {
+    return _repository.getAndroidVersionAdoption(companyId: companyId);
   }
 }
