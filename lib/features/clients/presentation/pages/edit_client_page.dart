@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -17,10 +18,7 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../users/data/datasources/user_profile_remote_data_source.dart';
-import '../../../users/data/repositories/user_profile_repository_impl.dart';
-import '../../../users/domain/entities/user_profile.dart';
-import '../../../users/domain/usecases/watch_active_users_usecase.dart';
+import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/client_form.dart';
@@ -153,65 +151,45 @@ class _EditClientViewState extends State<_EditClientView> {
                 if (role == UserRole.salesAgent && client.assignedTo != uid) {
                   return AppErrorView(message: l.permissionDenied);
                 }
+                final managerTeamId = session?.profile.teamId ?? '';
+                if (role == UserRole.manager &&
+                    !_clientInManagerScope(
+                      client,
+                      currentUserId: uid,
+                      currentTeamId: managerTeamId,
+                    )) {
+                  return AppErrorView(message: l.permissionDenied);
+                }
 
                 final isSaving = _isSubmitting || state.status == ClientsStatus.saving;
-                final canEditAssignment =
-                    role == UserRole.admin || role == UserRole.manager;
-                final form = canEditAssignment
-                    ? StreamBuilder<List<UserProfile>>(
-                        stream: _watchActiveUsers(companyId),
-                        builder: (context, usersSnapshot) {
-                          if (usersSnapshot.hasError) {
-                            return AppErrorView(
-                              message: localizeThrownErrorMessage(
-                                l,
-                                usersSnapshot.error,
-                              ),
-                            );
-                          }
-                          final users = usersSnapshot.data ?? const [];
-                          return ClientForm(
-                            companyId: companyId,
-                            actorUid: uid,
-                            client: client,
-                            users: users,
-                            canEditAssignment: true,
-                            isSaving: isSaving,
-                            submitLabel: l.updateClient,
-                            onSubmit: (updatedClient) {
-                              if (_isSubmitting) {
-                                return;
-                              }
-                              if (role == UserRole.manager &&
-                                  updatedClient.managerId.trim() != uid) {
-                                AppFeedback.warning(
-                                  context,
-                                  l.canOnlyAssignRecordsToYourTeam,
-                                );
-                                return;
-                              }
-                              setState(() => _isSubmitting = true);
-                              context.read<ClientsCubit>().updateClient(
-                                companyId: companyId,
-                                client: updatedClient,
-                              );
-                            },
-                          );
-                        },
-                      )
-                    : ClientForm(
-                        companyId: companyId,
-                        actorUid: uid,
-                        client: client,
-                        isSaving: isSaving,
-                        submitLabel: l.updateClient,
-                        onSubmit: (updatedClient) {
-                          context.read<ClientsCubit>().updateClient(
-                            companyId: companyId,
-                            client: updatedClient,
-                          );
-                        },
-                      );
+                final form = ClientForm(
+                  companyId: companyId,
+                  actorUid: uid,
+                  client: client,
+                  isSaving: isSaving,
+                  submitLabel: l.updateClient,
+                  onSubmit: (updatedClient) {
+                    if (_isSubmitting) {
+                      return;
+                    }
+                    final scopeLabel = _safeEditScopeLabel(
+                      client,
+                      currentUserId: uid,
+                      currentTeamId: managerTeamId,
+                    );
+                    debugPrint(
+                      'MasarDebug feature=clients operation=updateClient '
+                      'role=${RoleConstants.toValue(role!)} '
+                      'scope=$scopeLabel '
+                      'fields=detailsOnly',
+                    );
+                    setState(() => _isSubmitting = true);
+                    context.read<ClientsCubit>().updateClient(
+                      companyId: companyId,
+                      client: updatedClient,
+                    );
+                  },
+                );
                 return ListView(
                       primary: true,
                       physics: const ClampingScrollPhysics(),
@@ -250,11 +228,34 @@ class _EditClientViewState extends State<_EditClientView> {
   }
 }
 
-Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
-  final repository = UserProfileRepositoryImpl(
-    remoteDataSource: FirestoreUserProfileRemoteDataSource(),
-  );
-  return WatchActiveUsersUseCase(repository)(companyId: companyId);
+bool _clientInManagerScope(
+  Client client, {
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final normalizedTeamId = currentTeamId.trim();
+  return client.assignedTo.trim() == currentUserId ||
+      client.managerId.trim() == currentUserId ||
+      (normalizedTeamId.isNotEmpty &&
+          client.teamId.trim() == normalizedTeamId);
+}
+
+String _safeEditScopeLabel(
+  Client client, {
+  required String currentUserId,
+  required String currentTeamId,
+}) {
+  final normalizedTeamId = currentTeamId.trim();
+  if (client.assignedTo.trim() == currentUserId) {
+    return 'self-assigned';
+  }
+  if (client.managerId.trim() == currentUserId) {
+    return 'manager';
+  }
+  if (normalizedTeamId.isNotEmpty && client.teamId.trim() == normalizedTeamId) {
+    return 'team';
+  }
+  return 'out-of-scope';
 }
 
 String localizationsErrorFallback(

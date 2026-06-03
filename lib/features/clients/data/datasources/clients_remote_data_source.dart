@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
@@ -136,6 +137,14 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
 
       final existingClient = ClientModel.fromFirestore(snapshot);
       _ensureSameCompany(companyId: companyId, client: existingClient);
+      if (kDebugMode) {
+        debugPrint(
+          'MasarDebug feature=clients operation=updateClient '
+          'scope=${_safeClientScopeLabel(existingClient)} '
+          'fields=fullName,phone,email,budgetMin,budgetMax,'
+          'preferredLocation,preferredPropertyType,notes,updatedAt,updatedBy',
+        );
+      }
       await document.update({
         'fullName': client.fullName,
         'phone': client.phone,
@@ -145,13 +154,6 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
         'preferredLocation': client.preferredLocation,
         'preferredPropertyType': client.preferredPropertyType,
         'notes': client.notes,
-        'assignedTo': client.assignedTo,
-        'assignedToName': client.assignedToName,
-        'assignedToEmail': client.assignedToEmail,
-        'teamId': client.teamId,
-        'teamName': client.teamName,
-        'managerId': client.managerId,
-        'managerName': client.managerName,
         'updatedAt': Timestamp.now(),
         'updatedBy': client.updatedBy,
       });
@@ -162,6 +164,13 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
     } on ClientException {
       rethrow;
     } on FirebaseException catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'MasarDebug feature=clients operation=updateClient '
+          'firebaseException code=${error.code} '
+          'message=${error.message ?? ''}',
+        );
+      }
       throw ClientException(_mapFirestoreError(error));
     } catch (_) {
       throw const ClientException(AppErrorMessages.unknown);
@@ -369,4 +378,23 @@ String _mapFirestoreError(FirebaseException error) {
     default:
       return AppErrorMessages.unknown;
   }
+}
+
+String _safeClientScopeLabel(ClientModel client) {
+  final hasAssignedUser = client.assignedTo.trim().isNotEmpty;
+  final hasManager = client.managerId.trim().isNotEmpty;
+  final hasTeam = client.teamId.trim().isNotEmpty;
+  if (hasAssignedUser && hasManager && hasTeam) {
+    return 'assigned-manager-team';
+  }
+  if (hasTeam) {
+    return 'team';
+  }
+  if (hasManager) {
+    return 'manager';
+  }
+  if (hasAssignedUser) {
+    return 'assigned';
+  }
+  return 'unscoped';
 }
