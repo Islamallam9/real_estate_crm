@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
@@ -339,7 +340,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
-    return query.limit(limit).snapshots().map((snapshot) {
+    return query
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final leads = snapshot.docs
           .map((document) {
             final lead = LeadModel.fromFirestore(document);
@@ -361,6 +366,13 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       return leads;
     }).handleError((Object error) {
       if (error is FirebaseException) {
+        _logWatchLeadsFailure(
+          error: error,
+          archiveFilter: archiveFilter,
+          assignedTo: assignedTo,
+          managerId: managerId,
+          teamId: teamId,
+        );
         throw LeadException(_mapFirestoreError(error));
       }
       throw const LeadException(AppErrorMessages.unknown);
@@ -370,6 +382,64 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
   CollectionReference<Map<String, dynamic>> _leadsCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyLeads(companyId));
   }
+}
+
+void _logWatchLeadsFailure({
+  required FirebaseException error,
+  required ArchiveFilter archiveFilter,
+  required String? assignedTo,
+  required String? managerId,
+  required String? teamId,
+}) {
+  if (!kDebugMode) {
+    return;
+  }
+
+  final message = error.message ?? '';
+  final lowerMessage = message.toLowerCase();
+  final containsIndexLink =
+      lowerMessage.contains('indexes?create_composite=') ||
+      lowerMessage.contains('create_composite') ||
+      lowerMessage.contains('requires an index') ||
+      lowerMessage.contains('create it here');
+  debugPrint(
+    'MasarFirestoreDiagnostic '
+    'feature=leads '
+    'operation=watchLeads/list_stream '
+    'code=${error.code} '
+    'message="${_sanitizeDiagnosticText(message)}" '
+    'containsIndexLink=$containsIndexLink '
+    'scope=${_watchLeadsScopeLabel(
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+    )} '
+    'archiveFilter=${archiveFilter.name}',
+  );
+}
+
+String _watchLeadsScopeLabel({
+  required String? assignedTo,
+  required String? managerId,
+  required String? teamId,
+}) {
+  if (teamId != null && teamId.trim().isNotEmpty) {
+    return 'team';
+  }
+  if (managerId != null && managerId.trim().isNotEmpty) {
+    return 'manager';
+  }
+  if (assignedTo != null && assignedTo.trim().isNotEmpty) {
+    return 'assigned';
+  }
+  return 'company';
+}
+
+String _sanitizeDiagnosticText(String value) {
+  return value
+      .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 
