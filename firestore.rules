@@ -588,6 +588,99 @@ service cloud.firestore {
         && request.resource.data.updatedBy is string;
     }
 
+    function clientDetailsUpdateFields() {
+      return [
+        'fullName',
+        'phone',
+        'email',
+        'budgetMin',
+        'budgetMax',
+        'preferredLocation',
+        'preferredPropertyType',
+        'notes',
+        'updatedAt',
+        'updatedBy'
+      ];
+    }
+
+    function clientProtectedDetailsFields() {
+      return [
+        'id',
+        'companyId',
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
+        'isActive',
+        'isArchived',
+        'archivedAt',
+        'archivedBy',
+        'archivedByName',
+        'archiveReason',
+        'restoredAt',
+        'restoredBy',
+        'restoredByName',
+        'createdAt',
+        'createdBy'
+      ];
+    }
+
+    function clientProtectedDetailsFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(clientProtectedDetailsFields());
+    }
+
+    function clientDocumentIdUnchangedOrLegacyMissing() {
+      return !('id' in resource.data.keys())
+        || request.resource.data.id == resource.data.id;
+    }
+
+    function validClientDetailsUpdate(companyId) {
+      return isActiveCompanyUser(companyId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(clientDetailsUpdateFields())
+        && clientProtectedDetailsFieldsUnchanged()
+        && clientDocumentIdUnchangedOrLegacyMissing()
+        && request.resource.data.companyId == companyId
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.fullName is string
+        && request.resource.data.phone is string
+        && request.resource.data.email is string
+        && isNumberOrNull(request.resource.data.budgetMin)
+        && isNumberOrNull(request.resource.data.budgetMax)
+        && request.resource.data.preferredLocation is string
+        && request.resource.data.preferredPropertyType is string
+        && request.resource.data.notes is string
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validClientFullUpdate(companyId, clientId) {
+      return archiveFieldsUnchanged()
+        && validClientData(companyId, clientId)
+        && validBaseUpdate(companyId)
+        && assignmentFieldsUnchangedOrValid(
+          companyId,
+          request.resource.data,
+          ['salesAgent']
+        );
+    }
+
+    function managerCanUpdateClientDetails(companyId) {
+      return isManager(companyId)
+        && managerScopedRecord(companyId, resource.data)
+        && managerScopedRecord(companyId, request.resource.data)
+        && validClientDetailsUpdate(companyId);
+    }
+
+    function managerCanUpdateClientFull(companyId, clientId) {
+      return managerScopedRecord(companyId, resource.data)
+        && validClientFullUpdate(companyId, clientId);
+    }
+
     function canReadClient(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
@@ -1638,15 +1731,12 @@ service cloud.firestore {
           && (request.resource.data.isArchived == null
             || request.resource.data.isArchived == false);
         allow update: if (isAdmin(companyId)
-            || managerScopedRecord(companyId, resource.data))
-          && archiveFieldsUnchanged()
-          && validClientData(companyId, clientId)
-          && validBaseUpdate(companyId)
-          && assignmentFieldsUnchangedOrValid(
-            companyId,
-            request.resource.data,
-            ['salesAgent']
-          );
+            && (
+              validClientFullUpdate(companyId, clientId)
+              || validClientDetailsUpdate(companyId)
+            ))
+          || managerCanUpdateClientDetails(companyId)
+          || managerCanUpdateClientFull(companyId, clientId);
         allow delete: if false;
       }
 
