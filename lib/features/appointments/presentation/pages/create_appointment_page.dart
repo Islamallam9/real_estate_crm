@@ -140,11 +140,16 @@ class _CreateAppointmentView extends StatelessWidget {
                                     isSaving: isSaving,
                                     submitLabel: l.saveAppointment,
                                     onSubmit: (appointment) {
+                                      final managerTeamId =
+                                          userProfile.teamId.trim();
                                       if (role == UserRole.manager &&
                                           appointment.assignedTo.trim() !=
                                               user.uid &&
                                           appointment.managerId.trim() !=
-                                              user.uid) {
+                                              user.uid &&
+                                          (managerTeamId.isEmpty ||
+                                              appointment.teamId.trim() !=
+                                                  managerTeamId)) {
                                         AppFeedback.warning(
                                           context,
                                           l.canOnlyAssignRecordsToYourTeam,

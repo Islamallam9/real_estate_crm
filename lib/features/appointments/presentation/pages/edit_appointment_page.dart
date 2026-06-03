@@ -147,9 +147,12 @@ class _EditAppointmentViewState extends State<_EditAppointmentView> {
                     appointment.assignedTo != uid) {
                   return AppErrorView(message: l.permissionDenied);
                 }
+                final managerTeamId = session?.profile.teamId.trim() ?? '';
                 if (role == UserRole.manager &&
+                    appointment.assignedTo != uid &&
                     appointment.managerId != uid &&
-                    appointment.teamId != session?.profile.teamId) {
+                    (managerTeamId.isEmpty ||
+                        appointment.teamId != managerTeamId)) {
                   return AppErrorView(message: l.permissionDenied);
                 }
 
@@ -289,7 +292,12 @@ class _AppointmentEditorForm extends StatelessWidget {
         if (isSaving) {
           return;
         }
-        if (role == UserRole.manager && updatedAppointment.managerId != uid) {
+        final managerTeamId = teamId.trim();
+        if (role == UserRole.manager &&
+            updatedAppointment.assignedTo != uid &&
+            updatedAppointment.managerId != uid &&
+            (managerTeamId.isEmpty ||
+                updatedAppointment.teamId != managerTeamId)) {
           AppFeedback.warning(context, l.canOnlyAssignRecordsToYourTeam);
           return;
         }

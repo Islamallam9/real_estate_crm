@@ -158,11 +158,14 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
   }
 
   void _watchAppointments() {
+    final dateWindow = _appointmentsRollingDateWindow();
     context.read<AppointmentsCubit>().watchAppointments(
           companyId: widget.companyId,
           assignedTo: widget.assignedTo,
           managerId: widget.managerId,
           teamId: widget.teamId,
+          rangeStart: dateWindow.start,
+          rangeEnd: dateWindow.end,
         );
     _applyInitialFiltersIfNeeded();
   }
@@ -215,6 +218,13 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
           listener: (context, state) {
             if (state.status == AppointmentsStatus.failure &&
                 (state.message?.isNotEmpty ?? false)) {
+              if (_isNonBlockingAppointmentsWatchFailure(state)) {
+                debugPrint(
+                  'MasarAppointments: non-blocking watch failure suppressed: '
+                  '${state.message}',
+                );
+                return;
+              }
               AppFeedback.error(
                 context,
                 localizeErrorMessage(l, state.message),
@@ -1136,12 +1146,17 @@ class _AppointmentsBody extends StatelessWidget {
         state.appointments.isEmpty) {
       return AppErrorView(
         message: localizeErrorMessage(l, state.message),
-        onRetry: () => context.read<AppointmentsCubit>().watchAppointments(
-              companyId: companyId,
-              assignedTo: assignedTo,
-              managerId: managerId,
-              teamId: teamId,
-            ),
+        onRetry: () {
+          final dateWindow = _appointmentsRollingDateWindow();
+          context.read<AppointmentsCubit>().watchAppointments(
+                companyId: companyId,
+                assignedTo: assignedTo,
+                managerId: managerId,
+                teamId: teamId,
+                rangeStart: dateWindow.start,
+                rangeEnd: dateWindow.end,
+              );
+        },
       );
     }
     if (state.appointments.isEmpty) {
@@ -3385,10 +3400,37 @@ DateTime _dateOnly(DateTime value) {
   return DateTime(local.year, local.month, local.day);
 }
 
+_AppointmentDateWindow _appointmentsRollingDateWindow() {
+  final today = _dateOnly(DateTime.now());
+  return _AppointmentDateWindow(
+    start: today.subtract(const Duration(days: 60)),
+    end: today.add(const Duration(days: 121)),
+  );
+}
+
+class _AppointmentDateWindow {
+  const _AppointmentDateWindow({
+    required this.start,
+    required this.end,
+  });
+
+  final DateTime start;
+  final DateTime end;
+}
+
 bool _sameDay(DateTime a, DateTime b) {
   return _dateOnly(a) == _dateOnly(b);
 }
 
+bool _isNonBlockingAppointmentsWatchFailure(AppointmentsState state) {
+  final hasVisibleAppointments =
+      state.appointments.isNotEmpty || state.filteredAppointments.isNotEmpty;
+  if (!hasVisibleAppointments) {
+    return false;
+  }
+  return state.message == AppErrorMessages.unknown ||
+      state.message == AppErrorMessages.cancelled;
+}
 
 String _dateTimeLabel(AppLocalizations l, DateTime? value) {
   if (value == null) {

@@ -229,7 +229,12 @@ class _AppointmentFormState extends State<AppointmentForm> {
               AppDropdown<_AppointmentAssigneeOption>(
                 label: l.assignedUser,
                 value: _AppointmentAssigneeOption.fromValue(_assignedTo),
-                items: _appointmentAssigneeOptions(widget.users),
+                items: _appointmentAssigneeOptions(
+                  widget.users,
+                  actorUid: widget.actorUid,
+                  managerId: widget.relatedRecordsManagerId,
+                  teamId: widget.relatedRecordsTeamId,
+                ),
                 itemLabelBuilder: (option) => option.isUnassigned
                     ? l.unassigned
                     : _assigneeLabel(l, widget.users, option.value),
@@ -818,15 +823,31 @@ class _AppointmentAssigneeOption {
 }
 
 List<_AppointmentAssigneeOption> _appointmentAssigneeOptions(
-  List<UserProfile> users,
-) {
+  List<UserProfile> users, {
+  String actorUid = '',
+  String? managerId,
+  String? teamId,
+}) {
+  final actorId = actorUid.trim();
+  final managerScopeId = managerId?.trim() ?? '';
+  final managerTeamId = teamId?.trim() ?? '';
+  final isManagerScoped = actorId.isNotEmpty &&
+      managerScopeId.isNotEmpty &&
+      actorId == managerScopeId;
   final assignableUsers = AssignmentUserPolicy.assignableUsersFor(
     AssignableWorkType.appointment,
     users,
   );
+  final scopedUsers = isManagerScoped
+      ? assignableUsers.where((user) {
+          return user.uid == actorId ||
+              user.managerId == actorId ||
+              (managerTeamId.isNotEmpty && user.teamId == managerTeamId);
+        }).toList()
+      : assignableUsers;
   return [
     const _AppointmentAssigneeOption.unassigned(),
-    for (final user in assignableUsers)
+    for (final user in scopedUsers)
       _AppointmentAssigneeOption.value(user.uid),
   ];
 }
