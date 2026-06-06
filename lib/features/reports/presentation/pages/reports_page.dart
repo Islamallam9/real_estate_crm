@@ -641,7 +641,7 @@ class _ReportsView extends StatelessWidget {
 }
 
 
-class _ReportsActiveUsersScope extends StatelessWidget {
+class _ReportsActiveUsersScope extends StatefulWidget {
   const _ReportsActiveUsersScope({
     required this.enabled,
     required this.stream,
@@ -653,15 +653,36 @@ class _ReportsActiveUsersScope extends StatelessWidget {
   final Widget Function(List<UserProfile> users) builder;
 
   @override
+  State<_ReportsActiveUsersScope> createState() =>
+      _ReportsActiveUsersScopeState();
+}
+
+class _ReportsActiveUsersScopeState extends State<_ReportsActiveUsersScope> {
+  List<UserProfile> _lastUsers = const <UserProfile>[];
+
+  @override
+  void didUpdateWidget(covariant _ReportsActiveUsersScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stream != widget.stream) {
+      _lastUsers = const <UserProfile>[];
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!enabled || stream == null) {
-      return builder(const <UserProfile>[]);
+    if (!widget.enabled || widget.stream == null) {
+      return widget.builder(_lastUsers);
     }
 
     return StreamBuilder<List<UserProfile>>(
-      stream: stream,
+      stream: widget.stream,
+      initialData: _lastUsers,
       builder: (context, usersSnapshot) {
-        return builder(usersSnapshot.data ?? const <UserProfile>[]);
+        final users = usersSnapshot.data ?? _lastUsers;
+        if (usersSnapshot.hasData) {
+          _lastUsers = users;
+        }
+        return widget.builder(users);
       },
     );
   }
