@@ -66,6 +66,10 @@ class FirestoreNotificationsRemoteDataSource
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
+  final Map<String, DateTime> _lastTimingRefreshAt = <String, DateTime>{};
+  final Set<String> _timingRefreshInFlightKeys = <String>{};
+
+  static const Duration _timingRefreshThrottle = Duration(minutes: 2);
 
   @override
   Stream<List<CrmNotificationModel>> watchNotifications({
@@ -205,8 +209,6 @@ class FirestoreNotificationsRemoteDataSource
     final controller = StreamController<int>();
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? unreadSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacySub;
-    Timer? timingRefreshTimer;
-    var timingRefreshInFlight = false;
     Set<String> unreadIds = <String>{};
     Set<String> legacyUnreadIds = <String>{};
 
@@ -215,24 +217,6 @@ class FirestoreNotificationsRemoteDataSource
         return;
       }
       controller.add({...unreadIds, ...legacyUnreadIds}.length);
-    }
-
-    Future<void> refreshTimingNotifications() async {
-      if (timingRefreshInFlight || controller.isClosed) {
-        return;
-      }
-      timingRefreshInFlight = true;
-      try {
-        await _refreshAppointmentTimingNotifications(companyId: companyId);
-        await _refreshActionableReminderNotifications(companyId: companyId);
-      } on FirebaseFunctionsException {
-        // Best-effort safety net. Keep the bell usable if a callable has not
-        // been deployed yet or the network is temporarily unavailable.
-      } catch (_) {
-        // Keep notification streams usable even if timing refresh fails.
-      } finally {
-        timingRefreshInFlight = false;
-      }
     }
 
     unreadSub = _notificationsCollection(companyId)
@@ -298,14 +282,14 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
-    unawaited(refreshTimingNotifications());
-    timingRefreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => unawaited(refreshTimingNotifications()),
+    unawaited(
+      _refreshTimingNotifications(
+        companyId: companyId,
+        includeActionableReminders: true,
+      ),
     );
 
     controller.onCancel = () async {
-      timingRefreshTimer?.cancel();
       await unreadSub?.cancel();
       await legacySub?.cancel();
     };
@@ -335,28 +319,6 @@ class FirestoreNotificationsRemoteDataSource
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? tasksSub;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? appointmentsSub;
     Timer? appointmentTicker;
-    var timingRefreshInFlight = false;
-
-    Future<void> refreshTimingNotifications() async {
-      if (timingRefreshInFlight || controller.isClosed) {
-        return;
-      }
-      timingRefreshInFlight = true;
-      try {
-        await _refreshAppointmentTimingNotifications(companyId: companyId);
-        // Do not create persistent notification documents for general
-        // follow-up/task/deal suggestions. The live Attention section already
-        // shows them without inflating the bell count or unread list.
-      } on FirebaseFunctionsException {
-        // Timing refresh is a best-effort safety net. The scheduled backend
-        // function remains the source of truth, so do not break the
-        // notification UI if the callable is not deployed yet or is delayed.
-      } catch (_) {
-        // Keep notification streams usable even if the timing refresh fails.
-      } finally {
-        timingRefreshInFlight = false;
-      }
-    }
 
     void emitCombined() {
       final reminders = [
@@ -457,12 +419,12 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
-    unawaited(refreshTimingNotifications());
+    unawaited(_refreshTimingNotifications(companyId: companyId));
 
     appointmentTicker = Timer.periodic(
       const Duration(minutes: 1),
       (_) {
-        unawaited(refreshTimingNotifications());
+        unawaited(_refreshTimingNotifications(companyId: companyId));
         refreshAppointmentReminders();
       },
     );
@@ -819,6 +781,64 @@ class FirestoreNotificationsRemoteDataSource
       );
     }
     return reminders;
+  }
+
+  Future<void> _refreshTimingNotifications({
+    required String companyId,
+    bool includeActionableReminders = false,
+    bool force = false,
+  }) async {
+    await _runThrottledTimingRefresh(
+      key: '$companyId:appointments',
+      force: force,
+      refresh: () => _refreshAppointmentTimingNotifications(companyId: companyId),
+    );
+    if (includeActionableReminders) {
+      await _runThrottledTimingRefresh(
+        key: '$companyId:actionable',
+        force: force,
+        refresh: () =>
+            _refreshActionableReminderNotifications(companyId: companyId),
+      );
+    }
+  }
+
+  Future<void> _runThrottledTimingRefresh({
+    required String key,
+    required Future<void> Function() refresh,
+    bool force = false,
+  }) async {
+    final now = DateTime.now();
+    final lastRefresh = _lastTimingRefreshAt[key];
+    if (!force &&
+        lastRefresh != null &&
+        now.difference(lastRefresh) < _timingRefreshThrottle) {
+      return;
+    }
+    if (_timingRefreshInFlightKeys.contains(key)) {
+      return;
+    }
+    _timingRefreshInFlightKeys.add(key);
+    try {
+      await refresh();
+      _lastTimingRefreshAt[key] = DateTime.now();
+    } on FirebaseFunctionsException catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'MasarDiagnostics feature=notifications '
+          'operation=refreshTimingNotifications code=${error.code}',
+        );
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'MasarDiagnostics feature=notifications '
+          'operation=refreshTimingNotifications error=${error.runtimeType}',
+        );
+      }
+    } finally {
+      _timingRefreshInFlightKeys.remove(key);
+    }
   }
 
   Future<void> _refreshAppointmentTimingNotifications({
