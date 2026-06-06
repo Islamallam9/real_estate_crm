@@ -12,6 +12,14 @@ class DealRepositoryImpl implements DealRepository {
   final DealsRemoteDataSource _remoteDataSource;
 
   @override
+  Stream<Deal?> watchDeal({
+    required String companyId,
+    required String dealId,
+  }) {
+    return _remoteDataSource.watchDeal(companyId: companyId, dealId: dealId);
+  }
+
+  @override
   Stream<List<Deal>> watchDeals({
     required String companyId,
     required UserRole role,

@@ -59,13 +59,17 @@ class _PropertyDetailsView extends StatefulWidget {
 class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
   String? _watchKey;
 
-  void _watchPropertiesWhenReady(ProtectedCompanySession session) {
-    final key = session.scopeKey('property-details-watch');
+  void _watchPropertyWhenReady(ProtectedCompanySession session) {
+    final key =
+        '${session.scopeKey('property-details-watch')}:${widget.propertyId}';
     if (_watchKey == key) {
       return;
     }
     _watchKey = key;
-    context.read<PropertiesCubit>().watchProperties(companyId: session.companyId);
+    context.read<PropertiesCubit>().watchProperty(
+      companyId: session.companyId,
+      propertyId: widget.propertyId,
+    );
   }
 
   @override
@@ -90,7 +94,7 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
     final uid = session?.uid ?? '';
     final companyId = session?.companyId ?? '';
     if (session != null) {
-      _watchPropertiesWhenReady(session);
+      _watchPropertyWhenReady(session);
     }
 
     return CrmAppShell(
@@ -114,8 +118,9 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
             return AppErrorView(
               message: l.propertyNotFoundMessage,
               onRetry: () {
-                context.read<PropertiesCubit>().watchProperties(
+                context.read<PropertiesCubit>().watchProperty(
                   companyId: companyId,
+                  propertyId: widget.propertyId,
                 );
               },
             );

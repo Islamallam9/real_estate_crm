@@ -29,6 +29,11 @@ abstract interface class PropertiesRemoteDataSource {
     required String updatedBy,
   });
 
+  Stream<PropertyModel?> watchProperty({
+    required String companyId,
+    required String propertyId,
+  });
+
   Stream<List<PropertyModel>> watchProperties({
     required String companyId,
     int limit = 50,
@@ -194,6 +199,28 @@ class FirestorePropertiesRemoteDataSource
         'Unable to deactivate property. Please try again.',
       );
     }
+  }
+
+  @override
+  Stream<PropertyModel?> watchProperty({
+    required String companyId,
+    required String propertyId,
+  }) {
+    return _propertiesCollection(companyId).doc(propertyId).snapshots().map((
+      snapshot,
+    ) {
+      if (!snapshot.exists) {
+        return null;
+      }
+      final property = PropertyModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, property: property);
+      return property;
+    }).handleError((Object error) {
+      if (error is FirebaseException) {
+        throw PropertyException(_mapFirebaseError(error));
+      }
+      throw const PropertyException(AppErrorMessages.unknown);
+    });
   }
 
   @override

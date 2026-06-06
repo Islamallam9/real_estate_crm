@@ -57,13 +57,16 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
   bool _isSubmitting = false;
   String? _watchKey;
 
-  void _watchPropertiesWhenReady(ProtectedCompanySession session) {
-    final key = session.scopeKey('edit-property-watch');
+  void _watchPropertyWhenReady(ProtectedCompanySession session) {
+    final key = '${session.scopeKey('edit-property-watch')}:${widget.propertyId}';
     if (_watchKey == key) {
       return;
     }
     _watchKey = key;
-    context.read<PropertiesCubit>().watchProperties(companyId: session.companyId);
+    context.read<PropertiesCubit>().watchProperty(
+      companyId: session.companyId,
+      propertyId: widget.propertyId,
+    );
   }
 
   @override
@@ -86,7 +89,7 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
     final companyId = session?.companyId ?? '';
     final uid = session?.uid ?? '';
     if (session != null && canEdit) {
-      _watchPropertiesWhenReady(session);
+      _watchPropertyWhenReady(session);
     }
 
     return CrmAppShell(
@@ -134,8 +137,9 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                       l.unableToLoadPropertyForEdit,
                     ),
                     onRetry: () {
-                      context.read<PropertiesCubit>().watchProperties(
+                      context.read<PropertiesCubit>().watchProperty(
                         companyId: companyId,
+                        propertyId: widget.propertyId,
                       );
                     },
                   );

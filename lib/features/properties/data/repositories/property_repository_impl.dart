@@ -54,6 +54,17 @@ class PropertyRepositoryImpl implements PropertyRepository {
   }
 
   @override
+  Stream<Property?> watchProperty({
+    required String companyId,
+    required String propertyId,
+  }) {
+    return _remoteDataSource.watchProperty(
+      companyId: companyId,
+      propertyId: propertyId,
+    );
+  }
+
+  @override
   Stream<List<Property>> watchProperties({
     required String companyId,
     int limit = 30,

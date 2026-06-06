@@ -24,6 +24,11 @@ abstract interface class DealsRemoteDataSource {
     int limit = 40,
   });
 
+  Stream<DealModel?> watchDeal({
+    required String companyId,
+    required String dealId,
+  });
+
   Future<DealModel> createDeal({
     required String companyId,
     required DealModel deal,
@@ -65,6 +70,26 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
+
+  @override
+  Stream<DealModel?> watchDeal({
+    required String companyId,
+    required String dealId,
+  }) {
+    return _dealsCollection(companyId).doc(dealId).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return null;
+      }
+      final deal = DealModel.fromFirestore(snapshot);
+      _ensureSameCompany(companyId: companyId, deal: deal);
+      return deal;
+    }).handleError((Object error) {
+      if (error is FirebaseException) {
+        throw DealException(_mapFirestoreError(error));
+      }
+      throw const DealException(AppErrorMessages.unknown);
+    });
+  }
 
   @override
   Stream<List<DealModel>> watchDeals({

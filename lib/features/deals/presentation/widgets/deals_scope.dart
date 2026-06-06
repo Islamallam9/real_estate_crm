@@ -11,6 +11,7 @@ import '../../domain/usecases/create_deal_usecase.dart';
 import '../../domain/usecases/restore_deal_usecase.dart';
 import '../../domain/usecases/update_deal_stage_usecase.dart';
 import '../../domain/usecases/update_deal_usecase.dart';
+import '../../domain/usecases/watch_deal_usecase.dart';
 import '../../domain/usecases/watch_deals_usecase.dart';
 import '../cubit/deals_cubit.dart';
 
@@ -30,6 +31,7 @@ class DealsScope extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => DealsCubit(
+        watchDealUseCase: WatchDealUseCase(repository),
         watchDealsUseCase: WatchDealsUseCase(repository),
         createDealUseCase: CreateDealUseCase(repository),
         updateDealUseCase: UpdateDealUseCase(repository),

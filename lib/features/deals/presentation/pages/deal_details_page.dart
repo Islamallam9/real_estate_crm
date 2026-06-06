@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/auth/protected_company_session.dart';
-import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -81,20 +80,14 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
     if (!PermissionService.can(role, AppPermission.viewDeals)) {
       return;
     }
-    final archiveFilter = role == UserRole.admin || role == UserRole.manager
-        ? ArchiveFilter.all
-        : ArchiveFilter.active;
-    final key = '${session.scopeKey('deal-details-watch')}:${archiveFilter.name}';
+    final key = '${session.scopeKey('deal-details-watch')}:${widget.dealId}';
     if (_watchKey == key) {
       return;
     }
     _watchKey = key;
-    context.read<DealsCubit>().watchDeals(
+    context.read<DealsCubit>().watchDeal(
       companyId: session.companyId,
-      role: role,
-      currentUserId: session.uid,
-      teamId: session.profile.teamId,
-      archiveFilter: archiveFilter,
+      dealId: widget.dealId,
     );
   }
 

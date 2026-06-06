@@ -21,6 +21,11 @@ abstract interface class PropertyRepository {
     required String updatedBy,
   });
 
+  Stream<Property?> watchProperty({
+    required String companyId,
+    required String propertyId,
+  });
+
   Stream<List<Property>> watchProperties({
     required String companyId,
     int limit = 50,

@@ -13,30 +13,34 @@ import '../../domain/errors/property_exception.dart';
 import '../../domain/usecases/create_property_usecase.dart';
 import '../../domain/usecases/deactivate_property_usecase.dart';
 import '../../domain/usecases/update_property_usecase.dart';
+import '../../domain/usecases/watch_property_usecase.dart';
 import '../../domain/usecases/watch_properties_usecase.dart';
 import 'properties_state.dart';
 
 class PropertiesCubit extends Cubit<PropertiesState> {
   PropertiesCubit({
+    required WatchPropertyUseCase watchPropertyUseCase,
     required WatchPropertiesUseCase watchPropertiesUseCase,
     required CreatePropertyUseCase createPropertyUseCase,
     required UpdatePropertyUseCase updatePropertyUseCase,
     required DeactivatePropertyUseCase deactivatePropertyUseCase,
     required CreateAuditLogUseCase createAuditLogUseCase,
-  }) : _watchPropertiesUseCase = watchPropertiesUseCase,
+  }) : _watchPropertyUseCase = watchPropertyUseCase,
+        _watchPropertiesUseCase = watchPropertiesUseCase,
         _createPropertyUseCase = createPropertyUseCase,
         _updatePropertyUseCase = updatePropertyUseCase,
         _deactivatePropertyUseCase = deactivatePropertyUseCase,
         _createAuditLogUseCase = createAuditLogUseCase,
         super(const PropertiesState.initial());
 
+  final WatchPropertyUseCase _watchPropertyUseCase;
   final WatchPropertiesUseCase _watchPropertiesUseCase;
   final CreatePropertyUseCase _createPropertyUseCase;
   final UpdatePropertyUseCase _updatePropertyUseCase;
   final DeactivatePropertyUseCase _deactivatePropertyUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
 
-  StreamSubscription<List<Property>>? _propertiesSubscription;
+  StreamSubscription<dynamic>? _propertiesSubscription;
   final InitialLoadTimeout _propertiesInitialLoadTimeout =
   InitialLoadTimeout();
   static const Duration _defaultFirebaseTimeout = Duration(seconds: 15);
@@ -107,6 +111,72 @@ class PropertiesCubit extends Cubit<PropertiesState> {
               listingTypeFilter: state.listingTypeFilter,
               statusFilter: state.statusFilter,
             ),
+            clearMessage: true,
+          ),
+        );
+      },
+      onError: (error) {
+        if (isClosed) {
+          return;
+        }
+        _propertiesInitialLoadTimeout.complete();
+        emit(
+          state.copyWith(
+            status: PropertiesStatus.failure,
+            message: _propertyErrorMessage(
+              error,
+              AppErrorMessages.connectionTimeout,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void watchProperty({
+    required String companyId,
+    required String propertyId,
+  }) {
+    emit(
+      state.copyWith(
+        status: PropertiesStatus.loading,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    _propertiesSubscription?.cancel();
+    _propertiesInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != PropertiesStatus.loading ||
+          state.properties.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: PropertiesStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
+    _propertiesSubscription = _watchPropertyUseCase(
+      companyId: companyId,
+      propertyId: propertyId,
+    ).listen(
+      (property) {
+        if (isClosed) {
+          return;
+        }
+        _propertiesInitialLoadTimeout.complete();
+        final properties = property == null
+            ? const <Property>[]
+            : <Property>[property];
+        emit(
+          state.copyWith(
+            status: property == null
+                ? PropertiesStatus.empty
+                : PropertiesStatus.loaded,
+            properties: properties,
+            filteredProperties: properties,
             clearMessage: true,
           ),
         );

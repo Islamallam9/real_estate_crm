@@ -3,6 +3,11 @@ import '../../../../core/constants/role_constants.dart';
 import '../entities/deal.dart';
 
 abstract interface class DealRepository {
+  Stream<Deal?> watchDeal({
+    required String companyId,
+    required String dealId,
+  });
+
   Stream<List<Deal>> watchDeals({
     required String companyId,
     required UserRole role,

@@ -17,11 +17,13 @@ import '../../domain/usecases/create_deal_usecase.dart';
 import '../../domain/usecases/restore_deal_usecase.dart';
 import '../../domain/usecases/update_deal_stage_usecase.dart';
 import '../../domain/usecases/update_deal_usecase.dart';
+import '../../domain/usecases/watch_deal_usecase.dart';
 import '../../domain/usecases/watch_deals_usecase.dart';
 import 'deals_state.dart';
 
 class DealsCubit extends Cubit<DealsState> {
   DealsCubit({
+    required WatchDealUseCase watchDealUseCase,
     required WatchDealsUseCase watchDealsUseCase,
     required CreateDealUseCase createDealUseCase,
     required UpdateDealUseCase updateDealUseCase,
@@ -29,7 +31,8 @@ class DealsCubit extends Cubit<DealsState> {
     required ArchiveDealUseCase archiveDealUseCase,
     required RestoreDealUseCase restoreDealUseCase,
     required CreateAuditLogUseCase createAuditLogUseCase,
-  }) : _watchDealsUseCase = watchDealsUseCase,
+  }) : _watchDealUseCase = watchDealUseCase,
+       _watchDealsUseCase = watchDealsUseCase,
        _createDealUseCase = createDealUseCase,
        _updateDealUseCase = updateDealUseCase,
        _updateDealStageUseCase = updateDealStageUseCase,
@@ -38,6 +41,7 @@ class DealsCubit extends Cubit<DealsState> {
        _createAuditLogUseCase = createAuditLogUseCase,
        super(const DealsState.initial());
 
+  final WatchDealUseCase _watchDealUseCase;
   final WatchDealsUseCase _watchDealsUseCase;
   final CreateDealUseCase _createDealUseCase;
   final UpdateDealUseCase _updateDealUseCase;
@@ -46,8 +50,67 @@ class DealsCubit extends Cubit<DealsState> {
   final RestoreDealUseCase _restoreDealUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
 
-  StreamSubscription<List<Deal>>? _dealsSubscription;
+  StreamSubscription<dynamic>? _dealsSubscription;
   final InitialLoadTimeout _dealsInitialLoadTimeout = InitialLoadTimeout();
+
+  void watchDeal({
+    required String companyId,
+    required String dealId,
+  }) {
+    emit(
+      state.copyWith(
+        status: DealsStatus.loading,
+        clearMessage: true,
+        clearLastAction: true,
+      ),
+    );
+    _dealsSubscription?.cancel();
+    _dealsInitialLoadTimeout.start(() {
+      if (isClosed ||
+          state.status != DealsStatus.loading ||
+          state.deals.isNotEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          status: DealsStatus.failure,
+          message: AppErrorMessages.connectionTimeout,
+        ),
+      );
+    });
+    _dealsSubscription = _watchDealUseCase(
+      companyId: companyId,
+      dealId: dealId,
+    ).listen(
+      (deal) {
+        if (isClosed) {
+          return;
+        }
+        _dealsInitialLoadTimeout.complete();
+        final deals = deal == null ? const <Deal>[] : <Deal>[deal];
+        emit(
+          state.copyWith(
+            status: deal == null ? DealsStatus.empty : DealsStatus.loaded,
+            deals: deals,
+            filteredDeals: deals,
+            clearMessage: true,
+          ),
+        );
+      },
+      onError: (error) {
+        if (isClosed) {
+          return;
+        }
+        _dealsInitialLoadTimeout.complete();
+        emit(
+          state.copyWith(
+            status: DealsStatus.failure,
+            message: _dealErrorMessage(error),
+          ),
+        );
+      },
+    );
+  }
 
   void watchDeals({
     required String companyId,

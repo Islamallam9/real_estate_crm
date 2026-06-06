@@ -68,11 +68,9 @@ class _EditDealViewState extends State<_EditDealView> {
       return;
     }
     _watchKey = key;
-    context.read<DealsCubit>().watchDeals(
+    context.read<DealsCubit>().watchDeal(
       companyId: session.companyId,
-      role: role,
-      currentUserId: session.uid,
-      teamId: session.profile.teamId,
+      dealId: widget.dealId,
     );
   }
 
