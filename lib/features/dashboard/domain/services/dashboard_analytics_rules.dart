@@ -32,8 +32,7 @@ class DashboardAnalyticsRules {
       return date != null && _dateOnly(date) == input.today;
     }).toList();
     final overdueFollowUps = input.leads.where((lead) {
-      final date = lead.nextFollowUpAt;
-      return date != null && _dateOnly(date).isBefore(input.today);
+      return DashboardTruthRules.isOverdueFollowUpLead(lead, input.today);
     }).toList();
     final overdueTasks = input.tasks.where((task) {
       return DashboardTruthRules.isOverdueTask(task, input.today);
