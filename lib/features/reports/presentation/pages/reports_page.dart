@@ -27,10 +27,6 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../clients/domain/entities/client.dart';
-import '../../../clients/presentation/cubit/clients_cubit.dart';
-import '../../../clients/presentation/cubit/clients_state.dart';
-import '../../../clients/presentation/widgets/clients_scope.dart';
 import '../../../deals/domain/entities/deal.dart';
 import '../../../deals/presentation/cubit/deals_cubit.dart';
 import '../../../deals/presentation/cubit/deals_state.dart';
@@ -106,21 +102,18 @@ class ReportsPage extends StatelessWidget {
             key: ValueKey('reports-leads-scope:$scopeKey'),
             child: PropertiesScope(
               key: ValueKey('reports-properties-scope:$scopeKey'),
-              child: ClientsScope(
-                key: ValueKey('reports-clients-scope:$scopeKey'),
-                child: TasksScope(
-                  key: ValueKey('reports-tasks-scope:$scopeKey'),
-                  child: DealsScope(
-                    key: ValueKey('reports-deals-scope:$scopeKey'),
-                    child: _ReportsContent(
-                      key: ValueKey('reports-content:$scopeKey'),
-                      companyId: companyId,
-                      companyName: companyName,
-                      profile: profile,
-                      role: role,
-                      currentUserId: uid,
-                      exportsEnabled: exportsEnabled,
-                    ),
+              child: TasksScope(
+                key: ValueKey('reports-tasks-scope:$scopeKey'),
+                child: DealsScope(
+                  key: ValueKey('reports-deals-scope:$scopeKey'),
+                  child: _ReportsContent(
+                    key: ValueKey('reports-content:$scopeKey'),
+                    companyId: companyId,
+                    companyName: companyName,
+                    profile: profile,
+                    role: role,
+                    currentUserId: uid,
+                    exportsEnabled: exportsEnabled,
                   ),
                 ),
               ),
@@ -208,12 +201,6 @@ class _ReportsContentState extends State<_ReportsContent> {
       teamId: managerTeamId,
     );
     context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
-    context.read<ClientsCubit>().watchClients(
-      companyId: widget.companyId,
-      assignedTo: assignedTo,
-      managerId: managerId,
-      teamId: managerTeamId,
-    );
     context.read<TasksCubit>().watchTasks(
       companyId: widget.companyId,
       assignedTo: assignedTo,
@@ -237,113 +224,95 @@ class _ReportsContentState extends State<_ReportsContent> {
     }
     _activeUsersStreamKey = key;
     _activeUsersStream = _canFilterAssignee
-        ? _watchActiveUsers(widget.companyId)
+        ? _watchActiveUsers(widget.companyId).asBroadcastStream()
         : null;
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<UserProfile>>(
-      stream: _activeUsersStream,
-      builder: (context, usersSnapshot) {
-        final users = usersSnapshot.data ?? const <UserProfile>[];
-        return BlocBuilder<LeadsCubit, LeadsState>(
-          builder: (context, leadsState) {
-            return BlocBuilder<PropertiesCubit, PropertiesState>(
-              builder: (context, propertiesState) {
-                return BlocBuilder<ClientsCubit, ClientsState>(
-                  builder: (context, clientsState) {
-                    return BlocBuilder<TasksCubit, TasksState>(
-                      builder: (context, tasksState) {
-                        return BlocBuilder<DealsCubit, DealsState>(
-                          builder: (context, dealsState) {
-                            final isLoading =
-                                leadsState.status == LeadsStatus.loading &&
-                                    leadsState.leads.isEmpty ||
-                                    propertiesState.status ==
-                                        PropertiesStatus.loading &&
-                                        propertiesState.properties.isEmpty ||
-                                    clientsState.status ==
-                                        ClientsStatus.loading &&
-                                        clientsState.clients.isEmpty ||
-                                    tasksState.status == TasksStatus.loading &&
-                                        tasksState.tasks.isEmpty ||
-                                    dealsState.status == DealsStatus.loading &&
-                                        dealsState.deals.isEmpty;
-                            final hasFailure =
-                                leadsState.status == LeadsStatus.failure &&
-                                    leadsState.leads.isEmpty ||
-                                    propertiesState.status ==
-                                        PropertiesStatus.failure &&
-                                        propertiesState.properties.isEmpty ||
-                                    clientsState.status ==
-                                        ClientsStatus.failure &&
-                                        clientsState.clients.isEmpty ||
-                                    tasksState.status == TasksStatus.failure &&
-                                        tasksState.tasks.isEmpty ||
-                                    dealsState.status == DealsStatus.failure &&
-                                        dealsState.deals.isEmpty;
-                            final message = leadsState.message ??
-                                propertiesState.message ??
-                                clientsState.message ??
-                                tasksState.message ??
-                                dealsState.message;
+    return BlocBuilder<LeadsCubit, LeadsState>(
+      builder: (context, leadsState) {
+        return BlocBuilder<PropertiesCubit, PropertiesState>(
+          builder: (context, propertiesState) {
+            return BlocBuilder<TasksCubit, TasksState>(
+              builder: (context, tasksState) {
+                return BlocBuilder<DealsCubit, DealsState>(
+                  builder: (context, dealsState) {
+                    final isLoading =
+                        leadsState.status == LeadsStatus.loading &&
+                            leadsState.leads.isEmpty ||
+                            propertiesState.status ==
+                                PropertiesStatus.loading &&
+                                propertiesState.properties.isEmpty ||
+                            tasksState.status == TasksStatus.loading &&
+                                tasksState.tasks.isEmpty ||
+                            dealsState.status == DealsStatus.loading &&
+                                dealsState.deals.isEmpty;
+                    final hasFailure =
+                        leadsState.status == LeadsStatus.failure &&
+                            leadsState.leads.isEmpty ||
+                            propertiesState.status ==
+                                PropertiesStatus.failure &&
+                                propertiesState.properties.isEmpty ||
+                            tasksState.status == TasksStatus.failure &&
+                                tasksState.tasks.isEmpty ||
+                            dealsState.status == DealsStatus.failure &&
+                                dealsState.deals.isEmpty;
+                    final message = leadsState.message ??
+                        propertiesState.message ??
+                        tasksState.message ??
+                        dealsState.message;
 
-                            if (isLoading) {
-                              return const AppLoading();
-                            }
-                            if (hasFailure) {
-                              final l = AppLocalizations.of(context)!;
-                              return AppErrorView(
-                                message: message == null
-                                    ? l.unableToLoadReports
-                                    : localizeErrorMessage(l, message),
-                                onRetry: _watchAll,
-                              );
-                            }
+                    if (isLoading) {
+                      return const AppLoading();
+                    }
+                    if (hasFailure) {
+                      final l = AppLocalizations.of(context)!;
+                      return AppErrorView(
+                        message: message == null
+                            ? l.unableToLoadReports
+                            : localizeErrorMessage(l, message),
+                        onRetry: _watchAll,
+                      );
+                    }
 
-                            final data = _ReportsData(
-                              leads: leadsState.leads,
-                              properties: propertiesState.properties,
-                              clients: clientsState.clients,
-                              tasks: tasksState.tasks,
-                              deals: dealsState.deals,
-                              period: _period,
-                              assignedTo: _assignedTo,
-                              searchQuery: _searchQuery,
-                            );
+                    final data = _ReportsData(
+                      leads: leadsState.leads,
+                      properties: propertiesState.properties,
+                      tasks: tasksState.tasks,
+                      deals: dealsState.deals,
+                      period: _period,
+                      assignedTo: _assignedTo,
+                      searchQuery: _searchQuery,
+                    );
 
-                            return _ReportsView(
-                              data: data,
-                              users: users,
-                              canFilterAssignee: _canFilterAssignee,
-                              profile: widget.profile,
-                              companyName: widget.companyName,
-                              period: _period,
-                              assignedTo: _assignedTo,
-                              searchController: _searchController,
-                              searchQuery: _searchQuery,
-                              exportsEnabled: widget.exportsEnabled,
-                              onPeriodChanged: (period) {
-                                setState(() => _period = period);
-                              },
-                              onAssignedToChanged: (value) {
-                                setState(() => _assignedTo = value);
-                              },
-                              onSearchChanged: (value) {
-                                setState(() => _searchQuery = value);
-                              },
-                              onClearFilters: () {
-                                setState(() {
-                                  _period = _ReportPeriod.allTime;
-                                  _assignedTo = '';
-                                  _searchQuery = '';
-                                  _searchController.clear();
-                                });
-                              },
-                            );
-                          },
-                        );
+                    return _ReportsView(
+                      data: data,
+                      activeUsersStream: _activeUsersStream,
+                      canFilterAssignee: _canFilterAssignee,
+                      profile: widget.profile,
+                      companyName: widget.companyName,
+                      period: _period,
+                      assignedTo: _assignedTo,
+                      searchController: _searchController,
+                      searchQuery: _searchQuery,
+                      exportsEnabled: widget.exportsEnabled,
+                      onPeriodChanged: (period) {
+                        setState(() => _period = period);
+                      },
+                      onAssignedToChanged: (value) {
+                        setState(() => _assignedTo = value);
+                      },
+                      onSearchChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                      onClearFilters: () {
+                        setState(() {
+                          _period = _ReportPeriod.allTime;
+                          _assignedTo = '';
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
                       },
                     );
                   },
@@ -360,7 +329,7 @@ class _ReportsContentState extends State<_ReportsContent> {
 class _ReportsView extends StatelessWidget {
   const _ReportsView({
     required this.data,
-    required this.users,
+    required this.activeUsersStream,
     required this.canFilterAssignee,
     required this.profile,
     required this.companyName,
@@ -380,7 +349,7 @@ class _ReportsView extends StatelessWidget {
   final bool exportsEnabled;
   final ValueChanged<String> onSearchChanged;
   final _ReportsData data;
-  final List<UserProfile> users;
+  final Stream<List<UserProfile>>? activeUsersStream;
   final bool canFilterAssignee;
   final UserProfile profile;
   final String companyName;
@@ -401,7 +370,7 @@ class _ReportsView extends StatelessWidget {
     if (isMobile) {
       return _MobileReportsView(
         data: data,
-        users: users,
+        activeUsersStream: activeUsersStream,
         canFilterAssignee: canFilterAssignee,
         profile: profile,
         companyName: companyName,
@@ -427,7 +396,12 @@ class _ReportsView extends StatelessWidget {
             animation: controller,
             builder: (context, _) {
               final index = controller.index.clamp(0, 1);
-              return SingleChildScrollView(
+              final isExportTab = index == 1;
+              return _ReportsActiveUsersScope(
+                enabled: canFilterAssignee && !isExportTab,
+                stream: activeUsersStream,
+                builder: (users) {
+                  return SingleChildScrollView(
                 physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
@@ -435,7 +409,7 @@ class _ReportsView extends StatelessWidget {
                   children: [
                     _ReportsSearchFilterRow(
                       users: users,
-                      canFilterAssignee: canFilterAssignee,
+                      canFilterAssignee: canFilterAssignee && !isExportTab,
                       period: period,
                       assignedTo: assignedTo,
                       hasFilters: hasFilters,
@@ -656,6 +630,8 @@ class _ReportsView extends StatelessWidget {
                   ],
                 ),
               );
+                },
+              );
             },
           );
         },
@@ -665,10 +641,37 @@ class _ReportsView extends StatelessWidget {
 }
 
 
+class _ReportsActiveUsersScope extends StatelessWidget {
+  const _ReportsActiveUsersScope({
+    required this.enabled,
+    required this.stream,
+    required this.builder,
+  });
+
+  final bool enabled;
+  final Stream<List<UserProfile>>? stream;
+  final Widget Function(List<UserProfile> users) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled || stream == null) {
+      return builder(const <UserProfile>[]);
+    }
+
+    return StreamBuilder<List<UserProfile>>(
+      stream: stream,
+      builder: (context, usersSnapshot) {
+        return builder(usersSnapshot.data ?? const <UserProfile>[]);
+      },
+    );
+  }
+}
+
+
 class _MobileReportsView extends StatelessWidget {
   const _MobileReportsView({
     required this.data,
-    required this.users,
+    required this.activeUsersStream,
     required this.canFilterAssignee,
     required this.profile,
     required this.companyName,
@@ -685,7 +688,7 @@ class _MobileReportsView extends StatelessWidget {
   });
 
   final _ReportsData data;
-  final List<UserProfile> users;
+  final Stream<List<UserProfile>>? activeUsersStream;
   final bool canFilterAssignee;
   final UserProfile profile;
   final String companyName;
@@ -703,7 +706,8 @@ class _MobileReportsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final tabs = <_MobileReportTab>[
+    List<_MobileReportTab> buildTabs(List<UserProfile> users) {
+      return <_MobileReportTab>[
       _MobileReportTab(
         label: l.crmOverview,
         icon: Icons.dashboard_outlined,
@@ -913,18 +917,27 @@ class _MobileReportsView extends StatelessWidget {
           ],
         ),
       ),
-    ];
+      ];
+    }
+
+    final initialTabs = buildTabs(const <UserProfile>[]);
 
     return DefaultTabController(
-      length: tabs.length,
+      length: initialTabs.length,
       child: Builder(
         builder: (context) {
           final controller = DefaultTabController.of(context);
           return AnimatedBuilder(
             animation: controller,
             builder: (context, _) {
-              final index = controller.index.clamp(0, tabs.length - 1);
-              return SingleChildScrollView(
+              final index = controller.index.clamp(0, initialTabs.length - 1);
+              final isExportTab = index == initialTabs.length - 1;
+              return _ReportsActiveUsersScope(
+                enabled: canFilterAssignee && !isExportTab,
+                stream: activeUsersStream,
+                builder: (users) {
+                  final tabs = buildTabs(users);
+                  return SingleChildScrollView(
                 physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
@@ -934,7 +947,7 @@ class _MobileReportsView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     _ReportsSearchFilterRow(
                       users: users,
-                      canFilterAssignee: canFilterAssignee,
+                      canFilterAssignee: canFilterAssignee && !isExportTab,
                       period: period,
                       assignedTo: assignedTo,
                       hasFilters: hasFilters,
@@ -952,6 +965,8 @@ class _MobileReportsView extends StatelessWidget {
                     const SizedBox(height: 96),
                   ],
                 ),
+              );
+                },
               );
             },
           );
@@ -2547,7 +2562,6 @@ class _ReportsData {
   _ReportsData({
     required List<Lead> leads,
     required List<Property> properties,
-    required List<Client> clients,
     required List<CrmTask> tasks,
     required List<Deal> deals,
     required this.period,
@@ -2617,26 +2631,6 @@ class _ReportsData {
             task.priority.name,
           ],
         ),
-        clients = _filterBySearch<Client>(
-          _filterByDateAndAssignee<Client>(
-            clients,
-            period,
-            assignedTo,
-                (client) => client.createdAt ?? client.updatedAt,
-                (client) => client.assignedTo,
-          ),
-          searchQuery,
-              (client) => [
-            client.fullName,
-            client.phone,
-            client.email,
-            client.preferredLocation,
-            client.preferredPropertyType,
-            client.assignedToName,
-            client.assignedToEmail,
-            client.notes,
-          ],
-        ),
         deals = _filterBySearch<Deal>(
           _filterByDateAndAssignee<Deal>(
             deals,
@@ -2666,7 +2660,6 @@ class _ReportsData {
   final List<Lead> leads;
   final String searchQuery;
   final List<Property> properties;
-  final List<Client> clients;
   final List<CrmTask> tasks;
   final List<Deal> deals;
   final _ReportPeriod period;
@@ -2675,7 +2668,6 @@ class _ReportsData {
   bool get hasAnyData =>
       leads.isNotEmpty ||
           properties.isNotEmpty ||
-          clients.isNotEmpty ||
           tasks.isNotEmpty ||
           deals.isNotEmpty;
 
