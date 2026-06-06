@@ -154,6 +154,7 @@ class _ReportsContentState extends State<_ReportsContent> {
   final TextEditingController _searchController = TextEditingController();
   Stream<List<UserProfile>>? _activeUsersStream;
   String _activeUsersStreamKey = '';
+  bool _overviewStreamsStarted = false;
 
   bool get _canFilterAssignee =>
       widget.role == UserRole.admin || widget.role == UserRole.manager;
@@ -162,7 +163,6 @@ class _ReportsContentState extends State<_ReportsContent> {
   void initState() {
     super.initState();
     _syncActiveUsersStream();
-    _watchAll();
   }
 
   @override
@@ -171,8 +171,8 @@ class _ReportsContentState extends State<_ReportsContent> {
     if (oldWidget.companyId != widget.companyId ||
         oldWidget.role != widget.role ||
         oldWidget.currentUserId != widget.currentUserId) {
+      _overviewStreamsStarted = false;
       _syncActiveUsersStream();
-      _watchAll();
     }
   }
 
@@ -213,6 +213,14 @@ class _ReportsContentState extends State<_ReportsContent> {
       currentUserId: widget.currentUserId,
       teamId: managerTeamId,
     );
+  }
+
+  void _ensureOverviewStreamsStarted() {
+    if (_overviewStreamsStarted || !mounted) {
+      return;
+    }
+    setState(() => _overviewStreamsStarted = true);
+    _watchAll();
   }
 
   void _syncActiveUsersStream() {
@@ -290,6 +298,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                       data: data,
                       activeUsersStream: _activeUsersStream,
                       canFilterAssignee: _canFilterAssignee,
+                      overviewStreamsStarted: _overviewStreamsStarted,
                       profile: widget.profile,
                       companyName: widget.companyName,
                       period: _period,
@@ -306,6 +315,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                       onSearchChanged: (value) {
                         setState(() => _searchQuery = value);
                       },
+                      onOverviewActive: _ensureOverviewStreamsStarted,
                       onClearFilters: () {
                         setState(() {
                           _period = _ReportPeriod.allTime;
@@ -331,6 +341,7 @@ class _ReportsView extends StatelessWidget {
     required this.data,
     required this.activeUsersStream,
     required this.canFilterAssignee,
+    required this.overviewStreamsStarted,
     required this.profile,
     required this.companyName,
     required this.period,
@@ -342,15 +353,18 @@ class _ReportsView extends StatelessWidget {
     required this.searchQuery,
     required this.exportsEnabled,
     required this.onSearchChanged,
+    required this.onOverviewActive,
   });
 
   final TextEditingController searchController;
   final String searchQuery;
   final bool exportsEnabled;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onOverviewActive;
   final _ReportsData data;
   final Stream<List<UserProfile>>? activeUsersStream;
   final bool canFilterAssignee;
+  final bool overviewStreamsStarted;
   final UserProfile profile;
   final String companyName;
   final _ReportPeriod period;
@@ -372,6 +386,7 @@ class _ReportsView extends StatelessWidget {
         data: data,
         activeUsersStream: activeUsersStream,
         canFilterAssignee: canFilterAssignee,
+        overviewStreamsStarted: overviewStreamsStarted,
         profile: profile,
         companyName: companyName,
         period: period,
@@ -383,6 +398,7 @@ class _ReportsView extends StatelessWidget {
         onSearchChanged: onSearchChanged,
         onPeriodChanged: onPeriodChanged,
         onAssignedToChanged: onAssignedToChanged,
+        onOverviewActive: onOverviewActive,
         onClearFilters: onClearFilters,
       );
     }
@@ -397,6 +413,11 @@ class _ReportsView extends StatelessWidget {
             builder: (context, _) {
               final index = controller.index.clamp(0, 1);
               final isExportTab = index == 1;
+              if (!isExportTab && !overviewStreamsStarted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  onOverviewActive();
+                });
+              }
               return _ReportsActiveUsersScope(
                 enabled: canFilterAssignee && !isExportTab,
                 stream: activeUsersStream,
@@ -694,6 +715,7 @@ class _MobileReportsView extends StatelessWidget {
     required this.data,
     required this.activeUsersStream,
     required this.canFilterAssignee,
+    required this.overviewStreamsStarted,
     required this.profile,
     required this.companyName,
     required this.period,
@@ -705,12 +727,14 @@ class _MobileReportsView extends StatelessWidget {
     required this.onSearchChanged,
     required this.onPeriodChanged,
     required this.onAssignedToChanged,
+    required this.onOverviewActive,
     required this.onClearFilters,
   });
 
   final _ReportsData data;
   final Stream<List<UserProfile>>? activeUsersStream;
   final bool canFilterAssignee;
+  final bool overviewStreamsStarted;
   final UserProfile profile;
   final String companyName;
   final _ReportPeriod period;
@@ -720,6 +744,7 @@ class _MobileReportsView extends StatelessWidget {
   final String searchQuery;
   final bool exportsEnabled;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onOverviewActive;
   final ValueChanged<_ReportPeriod> onPeriodChanged;
   final ValueChanged<String> onAssignedToChanged;
   final VoidCallback onClearFilters;
@@ -953,6 +978,11 @@ class _MobileReportsView extends StatelessWidget {
             builder: (context, _) {
               final index = controller.index.clamp(0, initialTabs.length - 1);
               final isExportTab = index == initialTabs.length - 1;
+              if (!isExportTab && !overviewStreamsStarted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  onOverviewActive();
+                });
+              }
               return _ReportsActiveUsersScope(
                 enabled: canFilterAssignee && !isExportTab,
                 stream: activeUsersStream,
