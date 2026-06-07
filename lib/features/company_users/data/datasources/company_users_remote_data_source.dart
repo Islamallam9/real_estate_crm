@@ -3,7 +3,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../domain/entities/company_user_login_activity.dart';
 import '../../domain/entities/company_crm_user.dart';
+import '../models/company_user_login_activity_model.dart';
 
 class CreatedCompanyUserResult {
   const CreatedCompanyUserResult({
@@ -19,6 +21,12 @@ class CreatedCompanyUserResult {
 
 abstract interface class CompanyUsersRemoteDataSource {
   Stream<List<CompanyCrmUser>> watchUsers({required String companyId});
+
+  Stream<List<CompanyUserLoginActivity>> watchUserLoginActivity({
+    required String companyId,
+    required String uid,
+    int limit = 25,
+  });
 
   Future<CreatedCompanyUserResult> addUser({
     required String companyId,
@@ -81,6 +89,39 @@ class FirebaseCompanyUsersRemoteDataSource
           mustChangePassword: data['mustChangePassword'] as bool? ?? false,
         );
       }).toList();
+    });
+  }
+
+  @override
+  Stream<List<CompanyUserLoginActivity>> watchUserLoginActivity({
+    required String companyId,
+    required String uid,
+    int limit = 25,
+  }) {
+    final cleanCompanyId = companyId.trim();
+    final cleanUid = uid.trim();
+    if (cleanCompanyId.isEmpty || cleanUid.isEmpty) {
+      return Stream<List<CompanyUserLoginActivity>>.value(
+        const <CompanyUserLoginActivity>[],
+      );
+    }
+
+    final requestedLimit = limit <= 0 ? 25 : limit;
+    final readLimit = (requestedLimit * 12).clamp(50, 300).toInt();
+    return _firestore
+        .collection('companies')
+        .doc(cleanCompanyId)
+        .collection('login_activity')
+        .orderBy('createdAt', descending: true)
+        .limit(readLimit)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map(CompanyUserLoginActivityModel.fromFirestore)
+          .where((item) =>
+              item.companyId == cleanCompanyId && item.uid == cleanUid)
+          .take(requestedLimit)
+          .toList(growable: false);
     });
   }
 

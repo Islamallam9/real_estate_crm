@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart' as intl;
 
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -22,7 +23,10 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/company_users_remote_data_source.dart';
+import '../../domain/entities/company_user_login_activity.dart';
 import '../../domain/entities/company_crm_user.dart';
+import '../cubit/company_user_login_activity_cubit.dart';
+import '../cubit/company_user_login_activity_state.dart';
 import '../cubit/company_users_cubit.dart';
 import '../cubit/company_users_state.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
@@ -423,6 +427,15 @@ class _UserRow extends StatelessWidget {
             title: Text(l.generateSetupLink),
           ),
         ),
+        PopupMenuItem(
+          value: _CompanyUserAction.loginActivity,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.manage_history_outlined),
+            title: Text(l.loginActivity),
+          ),
+        ),
         if (user.role != 'admin' && user.uid != currentUserId)
           PopupMenuItem(
             value: user.isActive
@@ -484,7 +497,12 @@ class _UserRow extends StatelessWidget {
 }
 
 
-enum _CompanyUserAction { generateSetupLink, activate, deactivate }
+enum _CompanyUserAction {
+  generateSetupLink,
+  loginActivity,
+  activate,
+  deactivate,
+}
 
 Future<void> _handleUserAction(
   BuildContext context, {
@@ -497,6 +515,13 @@ Future<void> _handleUserAction(
   switch (action) {
     case _CompanyUserAction.generateSetupLink:
       await _showGenerateSetupLinkDialog(
+        context,
+        companyId: companyId,
+        user: user,
+      );
+      return;
+    case _CompanyUserAction.loginActivity:
+      await _showUserLoginActivityDialog(
         context,
         companyId: companyId,
         user: user,
@@ -563,6 +588,287 @@ Future<void> _confirmAndSetUserActiveStatus(
   if (context.mounted && success) {
     AppFeedback.success(context, l.settingsSaved);
   }
+}
+
+Future<void> _showUserLoginActivityDialog(
+  BuildContext context, {
+  required String companyId,
+  required CompanyCrmUser user,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => BlocProvider(
+      create: (_) => CompanyUserLoginActivityCubit(
+        remoteDataSource: FirebaseCompanyUsersRemoteDataSource(),
+      )..watch(companyId: companyId, uid: user.uid),
+      child: _UserLoginActivityDialog(user: user),
+    ),
+  );
+}
+
+class _UserLoginActivityDialog extends StatelessWidget {
+  const _UserLoginActivityDialog({required this.user});
+
+  final CompanyCrmUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.62;
+    return AlertDialog(
+      title: Text(l.recentLoginActivity),
+      content: SizedBox(
+        width: 560,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _LoginActivityUserHeader(user: user),
+            const SizedBox(height: AppSpacing.md),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: BlocBuilder<CompanyUserLoginActivityCubit,
+                  CompanyUserLoginActivityState>(
+                builder: (context, state) {
+                  if (state.status == CompanyUserLoginActivityStatus.loading ||
+                      state.status == CompanyUserLoginActivityStatus.initial) {
+                    return const SizedBox(
+                      height: 160,
+                      child: Center(child: MasarLogoLoader(size: 38)),
+                    );
+                  }
+
+                  if (state.status == CompanyUserLoginActivityStatus.failure) {
+                    return AppEmptyState(
+                      icon: Icons.manage_history_outlined,
+                      title: l.somethingWentWrong,
+                      message: _companyUserErrorMessage(l, state.message),
+                    );
+                  }
+
+                  if (state.activities.isEmpty) {
+                    return AppEmptyState(
+                      icon: Icons.manage_history_outlined,
+                      title: l.noLoginActivityYet,
+                      message: l.noData,
+                    );
+                  }
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: state.activities.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.xs),
+                    itemBuilder: (context, index) {
+                      return _LoginActivityCard(
+                        activity: state.activities[index],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.close),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoginActivityUserHeader extends StatelessWidget {
+  const _LoginActivityUserHeader({required this.user});
+
+  final CompanyCrmUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.appBackground(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Row(
+        children: [
+          MasarUserAvatar(
+            name: user.fullName,
+            photoUrl: user.photoUrl,
+            cacheKey: user.photoStoragePath.trim().isNotEmpty
+                ? user.photoStoragePath
+                : (user.updatedAt?.millisecondsSinceEpoch.toString() ?? ''),
+            radius: 18,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                Text(
+                  _isolate(user.email),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondaryColor(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          AppStatusBadge(
+            label: _roleLabel(l, user.role),
+            tone: AppStatusTone.info,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginActivityCard extends StatelessWidget {
+  const _LoginActivityCard({required this.activity});
+
+  final CompanyUserLoginActivity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.login_outlined,
+                size: 18,
+                color: AppColors.primaryColor(context),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  _loginActivityDateLabel(context, activity.createdAt),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          _LoginActivityInfoLine(
+            label: l.device,
+            value: _loginActivityDeviceLabel(l, activity),
+          ),
+          if (activity.browser.trim().isNotEmpty)
+            _LoginActivityInfoLine(
+              label: l.browser,
+              value: _isolate(activity.browser),
+            ),
+          if (activity.platform.trim().isNotEmpty)
+            _LoginActivityInfoLine(
+              label: l.platform,
+              value: _isolate(activity.platform),
+            ),
+          if (activity.ipAddress.trim().isNotEmpty)
+            _LoginActivityInfoLine(
+              label: l.ipAddress,
+              value: _isolate(activity.ipAddress),
+            ),
+          if (activity.timezone.trim().isNotEmpty)
+            _LoginActivityInfoLine(
+              label: l.timezone,
+              value: _isolate(activity.timezone),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginActivityInfoLine extends StatelessWidget {
+  const _LoginActivityInfoLine({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textSecondaryColor(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _loginActivityDateLabel(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return AppLocalizations.of(context)!.notAvailable;
+  }
+  final localeName = Localizations.localeOf(context).toString();
+  return intl.DateFormat.yMMMd(localeName).add_jm().format(value.toLocal());
+}
+
+String _loginActivityDeviceLabel(
+  AppLocalizations l,
+  CompanyUserLoginActivity activity,
+) {
+  final deviceType = activity.deviceType.trim();
+  if (deviceType.isNotEmpty) {
+    return _isolate(deviceType);
+  }
+  final platform = activity.platform.trim();
+  if (platform.isNotEmpty) {
+    return _isolate(platform);
+  }
+  return l.notAvailable;
 }
 
 Future<CreatedCompanyUserResult?> _showAddUserDialog(BuildContext context, String companyId) {
