@@ -242,6 +242,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   _DashboardWatchScopeKey? _watchScopeKey;
   Timer? _clockTicker;
   Stream<List<UserProfile>>? _activeUsersStream;
+  bool _activeUsersRequested = false;
+  bool _auditLogsRequested = false;
 
   @override
   void initState() {
@@ -274,16 +276,30 @@ class _DashboardContentState extends State<_DashboardContent> {
     );
     if (watchScopeKey == null) {
       _watchScopeKey = null;
+      _activeUsersRequested = false;
+      _auditLogsRequested = false;
+      _activeUsersStream = null;
       return;
     }
-    if (!force && _watchScopeKey == watchScopeKey) {
+    final scopeChanged = _watchScopeKey != watchScopeKey;
+    if (!force && !scopeChanged) {
       return;
     }
 
+    if (scopeChanged) {
+      _activeUsersRequested = false;
+      _auditLogsRequested = false;
+      _activeUsersStream = null;
+    }
     _watchScopeKey = watchScopeKey;
     if (widget.platformPreview) {
-      _activeUsersStream = Stream<List<UserProfile>>.value(const <UserProfile>[]);
       _watchPlatformPreviewData();
+      if (_activeUsersRequested) {
+        _activeUsersStream = Stream<List<UserProfile>>.value(const <UserProfile>[]);
+      }
+      if (_auditLogsRequested) {
+        _watchDashboardAuditLogs(watchScopeKey);
+      }
       return;
     }
 
@@ -291,7 +307,9 @@ class _DashboardContentState extends State<_DashboardContent> {
     final uid = watchScopeKey.uid;
     final managerTeamId =
         watchScopeKey.managerTeamId.isEmpty ? null : watchScopeKey.managerTeamId;
-    _activeUsersStream = _watchDashboardActiveUsers(widget.companyId);
+    if (_activeUsersRequested && _canRequestDashboardActiveUsers(watchScopeKey)) {
+      _activeUsersStream = _watchDashboardActiveUsers(widget.companyId);
+    }
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
 
@@ -340,17 +358,66 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (watchScopeKey.canViewAuditLogs) {
-      context.read<AuditLogsCubit>().watchAuditLogs(
-        companyId: widget.companyId,
-        managerId: role == UserRole.manager ? uid : null,
-        teamId: managerTeamId,
-      );
+    if (_auditLogsRequested && watchScopeKey.canViewAuditLogs) {
+      _watchDashboardAuditLogs(watchScopeKey);
     }
   }
 
   void _retry() {
     _watchScopedDashboardData(force: true);
+  }
+
+  void _requestDashboardActiveUsers() {
+    final watchScopeKey = _watchScopeKey ??
+        _dashboardWatchScopeKey(
+          companyId: widget.companyId,
+          authState: widget.authState,
+          platformPreview: widget.platformPreview,
+        );
+    if (watchScopeKey == null ||
+        _activeUsersRequested ||
+        !_canRequestDashboardActiveUsers(watchScopeKey)) {
+      return;
+    }
+
+    _activeUsersRequested = true;
+    final stream = watchScopeKey.platformPreview
+        ? Stream<List<UserProfile>>.value(const <UserProfile>[])
+        : _watchDashboardActiveUsers(widget.companyId);
+    if (!mounted) {
+      _activeUsersStream = stream;
+      return;
+    }
+    setState(() {
+      _activeUsersStream = stream;
+    });
+  }
+
+  void _requestRecentActivity() {
+    final watchScopeKey = _watchScopeKey ??
+        _dashboardWatchScopeKey(
+          companyId: widget.companyId,
+          authState: widget.authState,
+          platformPreview: widget.platformPreview,
+        );
+    if (watchScopeKey == null ||
+        _auditLogsRequested ||
+        !watchScopeKey.canViewAuditLogs) {
+      return;
+    }
+
+    _auditLogsRequested = true;
+    _watchDashboardAuditLogs(watchScopeKey);
+  }
+
+  void _watchDashboardAuditLogs(_DashboardWatchScopeKey watchScopeKey) {
+    context.read<AuditLogsCubit>().watchAuditLogs(
+      companyId: widget.companyId,
+      managerId: watchScopeKey.role == UserRole.manager ? watchScopeKey.uid : null,
+      teamId: watchScopeKey.managerTeamId.isEmpty
+          ? null
+          : watchScopeKey.managerTeamId,
+    );
   }
 
   void _watchPlatformPreviewData() {
@@ -363,7 +430,6 @@ class _DashboardContentState extends State<_DashboardContent> {
       role: UserRole.admin,
       currentUserId: widget.authState.user?.uid ?? '',
     );
-    context.read<AuditLogsCubit>().watchAuditLogs(companyId: widget.companyId);
   }
 
   @override
@@ -464,6 +530,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                               hasInitialFailure: hasInitialFailure,
                               failureMessage: failureMessage,
                               onRetry: _retry,
+                              onActiveUsersNeeded: _requestDashboardActiveUsers,
+                              onRecentActivityNeeded: _requestRecentActivity,
                             );
                           },
                         );
@@ -1080,6 +1148,8 @@ class _DashboardView extends StatefulWidget {
     required this.hasInitialFailure,
     required this.failureMessage,
     required this.onRetry,
+    required this.onActiveUsersNeeded,
+    required this.onRecentActivityNeeded,
   });
 
   final _DashboardData data;
@@ -1090,6 +1160,8 @@ class _DashboardView extends StatefulWidget {
   final bool hasInitialFailure;
   final String? failureMessage;
   final VoidCallback onRetry;
+  final VoidCallback onActiveUsersNeeded;
+  final VoidCallback onRecentActivityNeeded;
 
   @override
   State<_DashboardView> createState() => _DashboardViewState();
@@ -1198,6 +1270,8 @@ class _DashboardViewState extends State<_DashboardView> {
                     authState: authState,
                     platformPreview: platformPreview,
                     previewCompanyName: previewCompanyName,
+                    onActiveUsersNeeded: widget.onActiveUsersNeeded,
+                    onRecentActivityNeeded: widget.onRecentActivityNeeded,
                   ),
                 ],
               ),
@@ -6208,6 +6282,16 @@ bool _canViewRecentActivity(
 
   final role = authState.protectedCompanySession?.profile.role;
   return role == UserRole.admin || role == UserRole.manager;
+}
+
+bool _canRequestDashboardActiveUsers(_DashboardWatchScopeKey watchScopeKey) {
+  if (watchScopeKey.platformPreview) {
+    return true;
+  }
+  return watchScopeKey.role == UserRole.admin ||
+      watchScopeKey.role == UserRole.manager ||
+      watchScopeKey.role == UserRole.salesAgent ||
+      watchScopeKey.role == UserRole.marketing;
 }
 
 bool _canViewAppointments(

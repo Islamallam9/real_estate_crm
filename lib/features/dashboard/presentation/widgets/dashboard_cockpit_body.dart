@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
@@ -53,6 +54,8 @@ class DashboardCockpitBody extends StatelessWidget {
     required this.commandSummary,
     required this.authState,
     required this.platformPreview,
+    required this.onActiveUsersNeeded,
+    required this.onRecentActivityNeeded,
     this.previewCompanyName,
   });
 
@@ -60,6 +63,8 @@ class DashboardCockpitBody extends StatelessWidget {
   final SalesCommandSummary commandSummary;
   final AuthState authState;
   final bool platformPreview;
+  final VoidCallback onActiveUsersNeeded;
+  final VoidCallback onRecentActivityNeeded;
   final String? previewCompanyName;
 
   Widget _withGuidanceOverlay({required Widget child}) {
@@ -80,6 +85,7 @@ class DashboardCockpitBody extends StatelessWidget {
               commandSummary: commandSummary,
               authState: authState,
               platformPreview: platformPreview,
+              onRecentActivityNeeded: onRecentActivityNeeded,
             ),
           );
         }
@@ -123,6 +129,7 @@ class DashboardCockpitBody extends StatelessWidget {
                 authState: authState,
                 commandSummary: commandSummary,
                 platformPreview: platformPreview,
+                onActiveUsersNeeded: onActiveUsersNeeded,
               ),
             ),
             const SizedBox(height: _kCockpitGap),
@@ -141,6 +148,7 @@ class DashboardCockpitBody extends StatelessWidget {
                   analytics: analytics,
                   authState: authState,
                   platformPreview: platformPreview,
+                  onRecentActivityNeeded: onRecentActivityNeeded,
                 ),
               ),
             ],
@@ -165,6 +173,7 @@ class DashboardCockpitBody extends StatelessWidget {
                     analytics: analytics,
                     authState: authState,
                     platformPreview: platformPreview,
+                    onRecentActivityNeeded: onRecentActivityNeeded,
                   ),
                 ),
               ),
@@ -504,12 +513,14 @@ class DashboardMobileTabs extends StatelessWidget {
     required this.commandSummary,
     required this.authState,
     required this.platformPreview,
+    required this.onRecentActivityNeeded,
   });
 
   final DashboardAnalytics analytics;
   final SalesCommandSummary commandSummary;
   final AuthState authState;
   final bool platformPreview;
+  final VoidCallback onRecentActivityNeeded;
 
   @override
   Widget build(BuildContext context) {
@@ -541,6 +552,7 @@ class DashboardMobileTabs extends StatelessWidget {
               analytics: analytics,
               authState: authState,
               platformPreview: platformPreview,
+              onRecentActivityNeeded: onRecentActivityNeeded,
             ),
           ],
         ),
@@ -853,12 +865,14 @@ class _SecondaryAnalyticsGrid extends StatelessWidget {
     required this.authState,
     required this.commandSummary,
     required this.platformPreview,
+    required this.onActiveUsersNeeded,
   });
 
   final DashboardAnalytics analytics;
   final AuthState authState;
   final SalesCommandSummary commandSummary;
   final bool platformPreview;
+  final VoidCallback onActiveUsersNeeded;
 
   @override
   Widget build(BuildContext context) {
@@ -874,7 +888,11 @@ class _SecondaryAnalyticsGrid extends StatelessWidget {
                 platformPreview: platformPreview,
               ),
               const SizedBox(height: _kCockpitGap),
-              DashboardTeamPerformanceCard(analytics: analytics),
+              _DashboardLowerStreamTrigger(
+                id: 'dashboard-team-performance-compact-${_dashboardLowerScopeId(authState, platformPreview)}',
+                onVisible: onActiveUsersNeeded,
+                child: DashboardTeamPerformanceCard(analytics: analytics),
+              ),
             ],
           );
         }
@@ -898,7 +916,11 @@ class _SecondaryAnalyticsGrid extends StatelessWidget {
             const SizedBox(width: _kCockpitGap),
             Expanded(
               flex: 7,
-              child: DashboardTeamPerformanceCard(analytics: analytics),
+              child: _DashboardLowerStreamTrigger(
+                id: 'dashboard-team-performance-${_dashboardLowerScopeId(authState, platformPreview)}',
+                onVisible: onActiveUsersNeeded,
+                child: DashboardTeamPerformanceCard(analytics: analytics),
+              ),
             ),
           ],
         );
@@ -4630,11 +4652,13 @@ class DashboardTodayRail extends StatefulWidget {
     required this.analytics,
     required this.authState,
     required this.platformPreview,
+    required this.onRecentActivityNeeded,
   });
 
   final DashboardAnalytics analytics;
   final AuthState authState;
   final bool platformPreview;
+  final VoidCallback onRecentActivityNeeded;
 
   @override
   State<DashboardTodayRail> createState() => _DashboardTodayRailState();
@@ -4744,6 +4768,7 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
           DashboardRecentActivityRailCard(
             authState: widget.authState,
             platformPreview: widget.platformPreview,
+            onRecentActivityNeeded: widget.onRecentActivityNeeded,
           ),
           if (MediaQuery.sizeOf(context).width >= 760) ...[
             const SizedBox(height: 10),
@@ -4768,10 +4793,12 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
     super.key,
     required this.authState,
     required this.platformPreview,
+    required this.onRecentActivityNeeded,
   });
 
   final AuthState authState;
   final bool platformPreview;
+  final VoidCallback onRecentActivityNeeded;
 
   @override
   Widget build(BuildContext context) {
@@ -4782,7 +4809,10 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
     }
 
     final l = AppLocalizations.of(context)!;
-    return Container(
+    return _DashboardLowerStreamTrigger(
+      id: 'dashboard-recent-activity-${_dashboardLowerScopeId(authState, platformPreview)}',
+      onVisible: onRecentActivityNeeded,
+      child: Container(
       padding: const EdgeInsetsDirectional.fromSTEB(10, 9, 10, 9),
       decoration: BoxDecoration(
         color: AppColors.inputSurface(context).withValues(alpha: 0.78),
@@ -4800,7 +4830,9 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
           const SizedBox(height: 7),
           BlocBuilder<AuditLogsCubit, AuditLogsState>(
             builder: (context, state) {
-              if (state.status == AuditLogsStatus.loading && state.logs.isEmpty) {
+              if ((state.status == AuditLogsStatus.initial ||
+                      state.status == AuditLogsStatus.loading) &&
+                  state.logs.isEmpty) {
                 return const SizedBox(
                   height: 42,
                   child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
@@ -4824,6 +4856,7 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
             },
           ),
         ],
+      ),
       ),
     );
   }
@@ -5230,6 +5263,65 @@ class _AnimatedSection extends StatelessWidget {
         .fadeIn(duration: 560.ms, curve: Curves.easeOutCubic)
         .slideY(begin: 0.04, end: 0);
   }
+}
+
+class _DashboardLowerStreamTrigger extends StatefulWidget {
+  const _DashboardLowerStreamTrigger({
+    required this.id,
+    required this.onVisible,
+    required this.child,
+  });
+
+  final String id;
+  final VoidCallback onVisible;
+  final Widget child;
+
+  @override
+  State<_DashboardLowerStreamTrigger> createState() =>
+      _DashboardLowerStreamTriggerState();
+}
+
+class _DashboardLowerStreamTriggerState
+    extends State<_DashboardLowerStreamTrigger> {
+  bool _isVisible = false;
+
+  @override
+  void didUpdateWidget(covariant _DashboardLowerStreamTrigger oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isVisible && oldWidget.id != widget.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.onVisible();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return VisibilityDetector(
+      key: ValueKey(widget.id),
+      onVisibilityChanged: (info) {
+        final visible = info.visibleFraction > 0.01;
+        _isVisible = visible;
+        if (visible) {
+          widget.onVisible();
+        }
+      },
+      child: widget.child,
+    );
+  }
+}
+
+String _dashboardLowerScopeId(AuthState authState, bool platformPreview) {
+  final session = authState.protectedCompanySession;
+  return [
+    platformPreview ? 'preview' : 'company',
+    session?.companyId ?? '',
+    session?.uid ?? authState.user?.uid ?? '',
+    session?.profile.role.name ?? 'platform',
+    session?.profile.teamId ?? '',
+  ].join(':');
 }
 
 class _SoftIcon extends StatelessWidget {
