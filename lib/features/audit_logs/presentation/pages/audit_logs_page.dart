@@ -33,6 +33,78 @@ import '../widgets/audit_logs_scope.dart';
 
 enum _AuditDateRangePreset { today, last7Days, last30Days, custom }
 
+const List<_AuditModuleFilterOption> _auditModuleFilterOptions =
+    <_AuditModuleFilterOption>[
+  _AuditModuleFilterOption.all(),
+  _AuditModuleFilterOption(AuditLogModule.leads),
+  _AuditModuleFilterOption(AuditLogModule.clients),
+  _AuditModuleFilterOption(AuditLogModule.properties),
+  _AuditModuleFilterOption(AuditLogModule.tasks),
+  _AuditModuleFilterOption(AuditLogModule.deals),
+  _AuditModuleFilterOption(AuditLogModule.appointments),
+  _AuditModuleFilterOption(AuditLogModule.users),
+  _AuditModuleFilterOption(AuditLogModule.teams),
+  _AuditModuleFilterOption(AuditLogModule.reports),
+  _AuditModuleFilterOption(AuditLogModule.exports),
+  _AuditModuleFilterOption(AuditLogModule.auditLogs),
+  _AuditModuleFilterOption(AuditLogModule.other),
+];
+
+const List<_AuditActionFilterOption> _auditActionFilterOptions =
+    <_AuditActionFilterOption>[
+  _AuditActionFilterOption.all(),
+  _AuditActionFilterOption(AuditLogAction.create),
+  _AuditActionFilterOption(AuditLogAction.update),
+  _AuditActionFilterOption(AuditLogAction.assign),
+  _AuditActionFilterOption(AuditLogAction.statusChange),
+  _AuditActionFilterOption(AuditLogAction.stageChange),
+  _AuditActionFilterOption(AuditLogAction.archive),
+  _AuditActionFilterOption(AuditLogAction.deactivate),
+  _AuditActionFilterOption(AuditLogAction.complete),
+  _AuditActionFilterOption(AuditLogAction.cancel),
+  _AuditActionFilterOption(AuditLogAction.exported),
+  _AuditActionFilterOption(AuditLogAction.exportGenerated),
+];
+
+class _AuditModuleFilterOption {
+  const _AuditModuleFilterOption(this.module);
+  const _AuditModuleFilterOption.all() : module = null;
+
+  final AuditLogModule? module;
+  bool get isAll => module == null;
+}
+
+class _AuditActionFilterOption {
+  const _AuditActionFilterOption(this.action);
+  const _AuditActionFilterOption.all() : action = null;
+
+  final AuditLogAction? action;
+  bool get isAll => action == null;
+}
+
+class _AuditFilterSelection {
+  const _AuditFilterSelection({
+    required this.dateRange,
+    required this.customRange,
+    required this.module,
+    required this.action,
+    required this.actorId,
+  });
+
+  const _AuditFilterSelection.defaults()
+      : dateRange = _AuditDateRangePreset.last7Days,
+        customRange = null,
+        module = null,
+        action = null,
+        actorId = '';
+
+  final _AuditDateRangePreset dateRange;
+  final DateTimeRange? customRange;
+  final AuditLogModule? module;
+  final AuditLogAction? action;
+  final String actorId;
+}
+
 class AuditLogsPage extends StatelessWidget {
   const AuditLogsPage({super.key, this.initialFocusAuditId = ''});
 
@@ -118,6 +190,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
   List<UserProfile> _filterUsers = const <UserProfile>[];
   int _initialWatchGeneration = 0;
   bool _showBackToTop = false;
+  Timer? _searchFetchTimer;
 
   @override
   void initState() {
@@ -143,6 +216,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
   @override
   void dispose() {
     _initialWatchGeneration++;
+    _searchFetchTimer?.cancel();
     unawaited(_usersSubscription?.cancel());
     _scrollController.removeListener(_handleScrollPosition);
     _scrollController.dispose();
@@ -215,17 +289,15 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
         if (!mounted || _usersStreamKey != key) {
           return;
         }
-        setState(() => _filterUsers = users);
+        _filterUsers = users;
         _filterUsersNotifier.value = users;
       },
       onError: (_, __) {
         if (!mounted || _usersStreamKey != key) {
           return;
         }
-        setState(() {
-          _usersSubscription = null;
-          _filterUsers = const <UserProfile>[];
-        });
+        _usersSubscription = null;
+        _filterUsers = const <UserProfile>[];
         _filterUsersNotifier.value = const <UserProfile>[];
       },
       onDone: () {
@@ -241,6 +313,9 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     if (!mounted || widget.companyId.trim().isEmpty) {
       return;
     }
+    final isManager = widget.profile.role == UserRole.manager;
+    final hasSearchFilter = _search.trim().isNotEmpty;
+    final searchAffectsFetchLimit = _adminSearchAffectsFetchLimit;
     final window = _dateWindow();
     final key = [
       widget.companyId,
@@ -253,6 +328,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
       _module?.name ?? '',
       _action?.name ?? '',
       _actorId,
+      searchAffectsFetchLimit && hasSearchFilter ? 'search' : '',
     ].join('|');
     if (_watchKey == key) {
       return;
@@ -260,19 +336,23 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     _watchKey = key;
     context.read<AuditLogsCubit>().watchAuditLogs(
           companyId: widget.companyId,
-          managerId: widget.profile.role == UserRole.manager
-              ? widget.profile.uid
-              : null,
-          teamId: widget.profile.role == UserRole.manager
-              ? widget.profile.teamId
-              : null,
+          managerId: isManager ? widget.profile.uid : null,
+          teamId: isManager ? widget.profile.teamId : null,
           module: _module,
           action: _action,
           actorId: _actorId,
+          hasSearchFilter: hasSearchFilter,
           startAt: window?.start,
           endAt: window?.end,
           limit: _limit,
         );
+  }
+
+  bool get _adminSearchAffectsFetchLimit {
+    return widget.profile.role == UserRole.admin &&
+        _module == null &&
+        _action == null &&
+        _actorId.trim().isEmpty;
   }
 
   _AuditDateWindow? _dateWindow() {
@@ -329,26 +409,48 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     }).toList(growable: false);
   }
 
-  void _setFilters({
-    _AuditDateRangePreset? dateRange,
-    AuditLogModule? module,
-    AuditLogAction? action,
-    String? actorId,
-    bool clearModule = false,
-    bool clearAction = false,
-  }) {
+  void _handleSearchChanged(String value) {
+    final hadSearchFilter = _search.trim().isNotEmpty;
+    final hasSearchFilter = value.trim().isNotEmpty;
+    final shouldRefreshFetchLimit =
+        _adminSearchAffectsFetchLimit && hadSearchFilter != hasSearchFilter;
+    setState(() => _search = value);
+    if (shouldRefreshFetchLimit) {
+      _searchFetchTimer?.cancel();
+      _searchFetchTimer = Timer(const Duration(milliseconds: 250), () {
+        if (mounted) {
+          _watchLogs();
+        }
+      });
+    }
+  }
+
+  void _clearSearch() {
+    final hadSearchFilter = _search.trim().isNotEmpty;
+    final shouldRefreshFetchLimit =
+        _adminSearchAffectsFetchLimit && hadSearchFilter;
+    _searchFetchTimer?.cancel();
+    _searchController.clear();
+    setState(() => _search = '');
+    if (shouldRefreshFetchLimit) {
+      _watchLogs();
+    }
+  }
+
+  void _applyFilterSelection(_AuditFilterSelection selection) {
+    _searchFetchTimer?.cancel();
     setState(() {
-      if (dateRange != null) {
-        _dateRange = dateRange;
-      }
-      _module = clearModule ? null : module ?? _module;
-      _action = clearAction ? null : action ?? _action;
-      _actorId = actorId ?? _actorId;
+      _dateRange = selection.dateRange;
+      _customRange = selection.customRange;
+      _module = selection.module;
+      _action = selection.action;
+      _actorId = selection.actorId;
     });
     _watchLogs();
   }
 
   void _clearFilters() {
+    _searchFetchTimer?.cancel();
     setState(() {
       _dateRange = _AuditDateRangePreset.last7Days;
       _customRange = null;
@@ -384,9 +486,9 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     });
   }
 
-  Future<void> _pickCustomRange() async {
+  Future<DateTimeRange?> _pickCustomRange(DateTimeRange? initialRange) async {
     final now = DateTime.now();
-    final initial = _customRange ??
+    final initial = initialRange ??
         DateTimeRange(
           start: now.subtract(const Duration(days: 6)),
           end: now,
@@ -397,41 +499,34 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
       lastDate: DateTime(now.year + 1),
       initialDateRange: initial,
     );
-    if (!mounted || selected == null) {
-      return;
+    if (!mounted) {
+      return null;
     }
-    setState(() {
-      _dateRange = _AuditDateRangePreset.custom;
-      _customRange = selected;
-    });
-    _watchLogs();
+    return selected;
   }
 
-  Future<void> _openFilters(List<AuditLog> logs) {
+  Future<void> _openFilters(List<AuditLog> logs) async {
     final isAdmin = widget.profile.role == UserRole.admin;
     if (isAdmin) {
       _startFilterUsersWatch();
     }
     final baseUsers = isAdmin ? _filterUsers : <UserProfile>[widget.profile];
-    return _showAuditFiltersSheet(
+    final selection = await _showAuditFiltersSheet(
       context,
       dateRange: _dateRange,
-      customRangeLabel: _customRangeLabel(context),
+      customRange: _customRange,
       module: _module,
       action: _action,
       actorId: _actorId,
       users: _mergeUsersWithLogActors(baseUsers, logs),
       usersListenable: isAdmin ? _filterUsersNotifier : null,
       logs: logs,
-      onDateRangeChanged: (value) => _setFilters(dateRange: value),
       onPickCustomRange: _pickCustomRange,
-      onModuleChanged: (value) =>
-          _setFilters(module: value, clearModule: value == null),
-      onActionChanged: (value) =>
-          _setFilters(action: value, clearAction: value == null),
-      onActorChanged: (value) => _setFilters(actorId: value ?? ''),
-      onClearFilters: _clearFilters,
     );
+    if (!mounted || selection == null) {
+      return;
+    }
+    _applyFilterSelection(selection);
   }
 
   @override
@@ -474,12 +569,8 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
                   searchController: _searchController,
                   search: _search,
                   onOpenFilters: () => _openFilters(state.logs),
-                  onSearchChanged: (value) =>
-                      setState(() => _search = value),
-                  onClearSearch: () {
-                    _searchController.clear();
-                    setState(() => _search = '');
-                  },
+                  onSearchChanged: _handleSearchChanged,
+                  onClearSearch: _clearSearch,
                   onClearFilters: _clearFilters,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -544,10 +635,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     if (range == null) {
       return AppLocalizations.of(context)!.customRange;
     }
-    final formatter = DateFormat.yMMMd(
-      AppLocalizations.of(context)!.localeName,
-    );
-    return '${formatter.format(range.start)} - ${formatter.format(range.end)}';
+    return _customRangeText(AppLocalizations.of(context)!, range);
   }
 }
 
@@ -805,200 +893,201 @@ class _AuditFilters extends StatelessWidget {
   }
 }
 
-Future<void> _showAuditFiltersSheet(
+Future<_AuditFilterSelection?> _showAuditFiltersSheet(
   BuildContext context, {
   required _AuditDateRangePreset dateRange,
-  required String customRangeLabel,
+  required DateTimeRange? customRange,
   required AuditLogModule? module,
   required AuditLogAction? action,
   required String actorId,
   required List<UserProfile> users,
   ValueListenable<List<UserProfile>>? usersListenable,
   required List<AuditLog> logs,
-  required ValueChanged<_AuditDateRangePreset> onDateRangeChanged,
-  required VoidCallback onPickCustomRange,
-  required ValueChanged<AuditLogModule?> onModuleChanged,
-  required ValueChanged<AuditLogAction?> onActionChanged,
-  required ValueChanged<String?> onActorChanged,
-  required VoidCallback onClearFilters,
+  required Future<DateTimeRange?> Function(DateTimeRange? initialRange)
+      onPickCustomRange,
 }) async {
   final l = AppLocalizations.of(context)!;
-  final modules = <AuditLogModule?>[
-    null,
-    AuditLogModule.leads,
-    AuditLogModule.clients,
-    AuditLogModule.properties,
-    AuditLogModule.tasks,
-    AuditLogModule.deals,
-    AuditLogModule.appointments,
-    AuditLogModule.users,
-    AuditLogModule.teams,
-    AuditLogModule.reports,
-    AuditLogModule.exports,
-    AuditLogModule.auditLogs,
-    AuditLogModule.other,
-  ];
-  final actions = <AuditLogAction?>[
-    null,
-    AuditLogAction.create,
-    AuditLogAction.update,
-    AuditLogAction.assign,
-    AuditLogAction.statusChange,
-    AuditLogAction.stageChange,
-    AuditLogAction.archive,
-    AuditLogAction.deactivate,
-    AuditLogAction.complete,
-    AuditLogAction.cancel,
-    AuditLogAction.exported,
-    AuditLogAction.exportGenerated,
-  ];
+  var selectedDateRange = dateRange;
+  var selectedCustomRange = customRange;
+  var selectedModule = module;
+  var selectedAction = action;
+  var selectedActorId = actorId;
 
-  await showModalBottomSheet<void>(
+  return showModalBottomSheet<_AuditFilterSelection>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (sheetContext) {
       Widget buildSheet(List<UserProfile> sheetUsers) {
-        final actorIds =
-            <String>{'', ...sheetUsers.map((user) => user.uid)}.toList();
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md + MediaQuery.paddingOf(sheetContext).bottom,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+        final usersById = <String, UserProfile>{
+          for (final user in sheetUsers) user.uid: user,
+        };
+        final actorIds = <String>{'', ...usersById.keys}.toList();
+
+        String actorLabel(String value) {
+          if (value.isEmpty) {
+            return l.allUsers;
+          }
+          final user = usersById[value];
+          if (user == null) {
+            return value;
+          }
+          return _displayUser(user, l);
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final customLabel = selectedCustomRange == null
+                ? l.customRange
+                : _customRangeText(l, selectedCustomRange!);
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md + MediaQuery.paddingOf(sheetContext).bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Text(
-                        l.filters,
-                        style:
-                            Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l.filters,
+                            style: Theme.of(sheetContext)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.md,
+                      runSpacing: AppSpacing.md,
+                      children: [
+                        SizedBox(
+                          width: 220,
+                          child: AppDropdown<_AuditDateRangePreset>(
+                            label: l.dateRange,
+                            value: selectedDateRange,
+                            items: _AuditDateRangePreset.values,
+                            itemLabelBuilder: (value) =>
+                                value == _AuditDateRangePreset.custom
+                                    ? customLabel
+                                    : _dateRangeOptionLabel(l, value),
+                            onChanged: (value) async {
+                              if (value == _AuditDateRangePreset.custom) {
+                                final picked =
+                                    await onPickCustomRange(selectedCustomRange);
+                                if (picked == null) {
+                                  return;
+                                }
+                                setSheetState(() {
+                                  selectedDateRange =
+                                      _AuditDateRangePreset.custom;
+                                  selectedCustomRange = picked;
+                                });
+                                return;
+                              }
+                              setSheetState(() {
+                                selectedDateRange = value;
+                                selectedCustomRange = null;
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 220,
+                          child: AppDropdown<_AuditModuleFilterOption>(
+                            label: l.module,
+                            value: _moduleFilterOption(selectedModule),
+                            items: _auditModuleFilterOptions,
+                            itemLabelBuilder: (option) => option.isAll
+                                ? l.allModules
+                                : _moduleLabel(l, option.module!),
+                            onChanged: (option) =>
+                                setSheetState(() => selectedModule = option.module),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 220,
+                          child: AppDropdown<_AuditActionFilterOption>(
+                            label: l.action,
+                            value: _actionFilterOption(selectedAction),
+                            items: _auditActionFilterOptions,
+                            itemLabelBuilder: (option) => option.isAll
+                                ? l.allActions
+                                : _actionLabel(l, option.action!),
+                            onChanged: (option) =>
+                                setSheetState(() => selectedAction = option.action),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 260,
+                          child: AppDropdown<String>(
+                            label: l.actor,
+                            value: actorIds.contains(selectedActorId)
+                                ? selectedActorId
+                                : '',
+                            items: actorIds,
+                            itemLabelBuilder: actorLabel,
+                            onChanged: (value) =>
+                                setSheetState(() => selectedActorId = value),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            label: l.clearFilters,
+                            variant: AppButtonVariant.secondary,
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop(
+                                const _AuditFilterSelection.defaults(),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: AppButton(
+                            label: l.applyFilters,
+                            icon: Icons.check,
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop(
+                                _AuditFilterSelection(
+                                  dateRange: selectedDateRange,
+                                  customRange: selectedDateRange ==
+                                          _AuditDateRangePreset.custom
+                                      ? selectedCustomRange
+                                      : null,
+                                  module: selectedModule,
+                                  action: selectedAction,
+                                  actorId: selectedActorId,
                                 ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.md,
-                  runSpacing: AppSpacing.md,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: AppDropdown<_AuditDateRangePreset>(
-                        label: l.dateRange,
-                        value: dateRange,
-                        items: _AuditDateRangePreset.values,
-                        itemLabelBuilder: (value) =>
-                            value == _AuditDateRangePreset.custom
-                                ? customRangeLabel
-                                : _dateRangeOptionLabel(l, value),
-                        onChanged: (value) {
-                          if (value == _AuditDateRangePreset.custom) {
-                            Navigator.of(sheetContext).pop();
-                            onPickCustomRange();
-                          } else {
-                            onDateRangeChanged(value);
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      width: 220,
-                      child: AppDropdown<AuditLogModule?>(
-                        label: l.module,
-                        value: module,
-                        items: modules,
-                        itemLabelBuilder: (value) => value == null
-                            ? l.allModules
-                            : _moduleLabel(l, value),
-                        onChanged: onModuleChanged,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 220,
-                      child: AppDropdown<AuditLogAction?>(
-                        label: l.action,
-                        value: action,
-                        items: actions,
-                        itemLabelBuilder: (value) => value == null
-                            ? l.allActions
-                            : _actionLabel(l, value),
-                        onChanged: onActionChanged,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 260,
-                      child: AppDropdown<String>(
-                        label: l.actor,
-                        value: actorIds.contains(actorId) ? actorId : '',
-                        items: actorIds,
-                        itemLabelBuilder: (value) {
-                          if (value.isEmpty) {
-                            return l.allUsers;
-                          }
-                          final user = sheetUsers.firstWhere(
-                            (item) => item.uid == value,
-                            orElse: () => UserProfile(
-                              uid: value,
-                              companyId: '',
-                              fullName: value,
-                              email: '',
-                              phone: '',
-                              role: UserRole.viewer,
-                              isActive: true,
-                              createdAt:
-                                  DateTime.fromMillisecondsSinceEpoch(0),
-                              updatedAt:
-                                  DateTime.fromMillisecondsSinceEpoch(0),
-                              createdBy: '',
-                            ),
-                          );
-                          return _displayUser(user, l);
-                        },
-                        onChanged: onActorChanged,
-                      ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        label: l.clearFilters,
-                        variant: AppButtonVariant.secondary,
-                        onPressed: () {
-                          onClearFilters();
-                          Navigator.of(sheetContext).pop();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: AppButton(
-                        label: l.applyFilters,
-                        icon: Icons.check,
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       }
 
@@ -1823,6 +1912,29 @@ String _dateRangeOptionLabel(AppLocalizations l, _AuditDateRangePreset value) {
     _AuditDateRangePreset.last30Days => l.last30Days,
     _AuditDateRangePreset.custom => l.customRange,
   };
+}
+
+_AuditModuleFilterOption _moduleFilterOption(AuditLogModule? module) {
+  for (final option in _auditModuleFilterOptions) {
+    if (option.module == module) {
+      return option;
+    }
+  }
+  return _auditModuleFilterOptions.first;
+}
+
+_AuditActionFilterOption _actionFilterOption(AuditLogAction? action) {
+  for (final option in _auditActionFilterOptions) {
+    if (option.action == action) {
+      return option;
+    }
+  }
+  return _auditActionFilterOptions.first;
+}
+
+String _customRangeText(AppLocalizations l, DateTimeRange range) {
+  final formatter = DateFormat.yMMMd(l.localeName);
+  return '${formatter.format(range.start)} - ${formatter.format(range.end)}';
 }
 
 String _exportTypeLabel(AppLocalizations l, Object? value) {

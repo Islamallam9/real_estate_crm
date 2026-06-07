@@ -20,9 +20,10 @@ abstract interface class AuditLogsRemoteDataSource {
     AuditLogModule? module,
     AuditLogAction? action,
     String? actorId,
+    bool hasSearchFilter = false,
     DateTime? startAt,
     DateTime? endAt,
-    int limit,
+    int limit = 20,
   });
 }
 
@@ -30,6 +31,10 @@ class FirestoreAuditLogsRemoteDataSource
     implements AuditLogsRemoteDataSource {
   FirestoreAuditLogsRemoteDataSource({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  static const int _defaultFetchBuffer = 20;
+  static const int _overfetchMultiplier = 5;
+  static const int _maxFetchLimit = 500;
 
   final FirebaseFirestore _firestore;
 
@@ -109,6 +114,7 @@ class FirestoreAuditLogsRemoteDataSource
     AuditLogModule? module,
     AuditLogAction? action,
     String? actorId,
+    bool hasSearchFilter = false,
     DateTime? startAt,
     DateTime? endAt,
     int limit = 20,
@@ -130,7 +136,15 @@ class FirestoreAuditLogsRemoteDataSource
       );
     }
 
-    final queryLimit = _auditQueryLimit(limit);
+    final queryLimit = _auditQueryLimit(
+      limit,
+      hasLocalFilters: _hasLocalAuditFilters(
+        module: module,
+        action: action,
+        actorId: actorId,
+        hasSearchFilter: hasSearchFilter,
+      ),
+    );
     return _applyAuditDateWindow(
           _auditLogsCollection(companyId),
           startAt: startAt,
@@ -147,6 +161,7 @@ class FirestoreAuditLogsRemoteDataSource
             startAt: startAt,
             endAt: endAt,
             limit: limit,
+            hideManagerRestrictedLogs: false,
           ),
         );
   }
@@ -166,7 +181,7 @@ class FirestoreAuditLogsRemoteDataSource
     // Keep manager reads scoped in Firestore, but avoid composite-index-heavy
     // order/filter combinations. The result is over-fetched, merged, filtered,
     // and sorted locally inside this safe manager/team scope.
-    final queryLimit = _auditQueryLimit(limit);
+    final queryLimit = _auditOverfetchQueryLimit(limit);
     final queries = <Query<Map<String, dynamic>>>[
       collection.where('managerId', isEqualTo: managerId).limit(queryLimit),
     ];
@@ -208,6 +223,7 @@ class FirestoreAuditLogsRemoteDataSource
             startAt: startAt,
             endAt: endAt,
             limit: limit * 2,
+            hideManagerRestrictedLogs: true,
           );
           emitMerged();
         },
@@ -248,13 +264,37 @@ class FirestoreAuditLogsRemoteDataSource
   }
 
 
-  int _auditQueryLimit(int limit) {
+  bool _hasLocalAuditFilters({
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    required bool hasSearchFilter,
+  }) {
+    return module != null ||
+        action != null ||
+        (actorId?.trim().isNotEmpty ?? false) ||
+        hasSearchFilter;
+  }
+
+  int _auditQueryLimit(int limit, {required bool hasLocalFilters}) {
+    if (hasLocalFilters) {
+      return _auditOverfetchQueryLimit(limit);
+    }
     final normalizedLimit = limit <= 0 ? 20 : limit;
-    final requested = normalizedLimit * 5;
+    final requested = normalizedLimit + _defaultFetchBuffer;
     if (requested < normalizedLimit) {
       return normalizedLimit;
     }
-    return requested > 500 ? 500 : requested;
+    return requested > _maxFetchLimit ? _maxFetchLimit : requested;
+  }
+
+  int _auditOverfetchQueryLimit(int limit) {
+    final normalizedLimit = limit <= 0 ? 20 : limit;
+    final requested = normalizedLimit * _overfetchMultiplier;
+    if (requested < normalizedLimit) {
+      return normalizedLimit;
+    }
+    return requested > _maxFetchLimit ? _maxFetchLimit : requested;
   }
 
   List<AuditLogModel> _filterAuditLogs(
@@ -265,13 +305,14 @@ class FirestoreAuditLogsRemoteDataSource
     DateTime? startAt,
     DateTime? endAt,
     required int limit,
+    required bool hideManagerRestrictedLogs,
   }) {
     final cleanActorId = actorId?.trim() ?? '';
     final filtered = logs.where((log) {
-      if (_managerShouldHideAuditLog(log)) {
+      if (hideManagerRestrictedLogs && _managerShouldHideAuditLog(log)) {
         return false;
       }
-      if (module != null && log.module != module) {
+      if (module != null && !_matchesAuditModuleFilter(log, module)) {
         return false;
       }
       if (action != null && log.action != action) {
@@ -292,12 +333,25 @@ class FirestoreAuditLogsRemoteDataSource
     return List<AuditLogModel>.unmodifiable(filtered.take(limit));
   }
 
+  bool _matchesAuditModuleFilter(AuditLogModel log, AuditLogModule module) {
+    if (module == AuditLogModule.exports) {
+      return log.module == AuditLogModule.exports || _isExportAuditLog(log);
+    }
+    return log.module == module;
+  }
+
+  bool _isExportAuditLog(AuditLogModel log) {
+    return log.action == AuditLogAction.exported ||
+        log.action == AuditLogAction.exportGenerated ||
+        log.metadata.containsKey('exportType') ||
+        log.metadata.containsKey('exportScope');
+  }
+
   bool _managerShouldHideAuditLog(AuditLogModel log) {
     if (log.module == AuditLogModule.exports ||
         log.module == AuditLogModule.reports ||
         log.module == AuditLogModule.auditLogs ||
-        log.action == AuditLogAction.exported ||
-        log.action == AuditLogAction.exportGenerated) {
+        _isExportAuditLog(log)) {
       return true;
     }
     return log.metadata.containsKey('exportType') ||

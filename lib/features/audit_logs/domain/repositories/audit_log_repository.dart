@@ -13,8 +13,9 @@ abstract interface class AuditLogRepository {
     AuditLogModule? module,
     AuditLogAction? action,
     String? actorId,
+    bool hasSearchFilter = false,
     DateTime? startAt,
     DateTime? endAt,
-    int limit,
+    int limit = 20,
   });
 }
