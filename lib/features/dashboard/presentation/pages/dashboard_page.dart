@@ -239,7 +239,7 @@ class _DashboardContent extends StatefulWidget {
 }
 
 class _DashboardContentState extends State<_DashboardContent> {
-  String? _watchKey;
+  _DashboardWatchScopeKey? _watchScopeKey;
   Timer? _clockTicker;
   Stream<List<UserProfile>>? _activeUsersStream;
 
@@ -257,17 +257,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void didUpdateWidget(covariant _DashboardContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldRole = oldWidget.authState.protectedCompanySession?.profile.role;
-    final newRole = widget.authState.protectedCompanySession?.profile.role;
-    final oldUid = oldWidget.authState.user?.uid ?? '';
-    final newUid = widget.authState.user?.uid ?? '';
-    if (oldWidget.companyId != widget.companyId ||
-        oldWidget.platformPreview != widget.platformPreview ||
-        oldRole != newRole ||
-        oldUid != newUid) {
-      _watchKey = null;
-      _watchScopedDashboardData();
-    }
+    _watchScopedDashboardData();
   }
 
   @override
@@ -276,33 +266,36 @@ class _DashboardContentState extends State<_DashboardContent> {
     super.dispose();
   }
 
-  void _watchScopedDashboardData() {
+  void _watchScopedDashboardData({bool force = false}) {
+    final watchScopeKey = _dashboardWatchScopeKey(
+      companyId: widget.companyId,
+      authState: widget.authState,
+      platformPreview: widget.platformPreview,
+    );
+    if (watchScopeKey == null) {
+      _watchScopeKey = null;
+      return;
+    }
+    if (!force && _watchScopeKey == watchScopeKey) {
+      return;
+    }
+
+    _watchScopeKey = watchScopeKey;
     if (widget.platformPreview) {
       _activeUsersStream = Stream<List<UserProfile>>.value(const <UserProfile>[]);
       _watchPlatformPreviewData();
       return;
     }
 
-    final session = widget.authState.protectedCompanySession;
-    final role = session?.profile.role;
-    final uid = session?.uid ?? '';
-    if (role == null || uid.isEmpty) {
-      return;
-    }
-    final managerTeamId = role == UserRole.manager
-        ? session?.profile.teamId.trim()
-        : null;
-    final key = '${widget.companyId}:${role.name}:$uid:${managerTeamId ?? ''}';
-    if (_watchKey == key) {
-      return;
-    }
-    _watchKey = key;
+    final role = watchScopeKey.role;
+    final uid = watchScopeKey.uid;
+    final managerTeamId =
+        watchScopeKey.managerTeamId.isEmpty ? null : watchScopeKey.managerTeamId;
     _activeUsersStream = _watchDashboardActiveUsers(widget.companyId);
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
 
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
-        PermissionService.can(role, AppPermission.viewLeads)) {
+    if (watchScopeKey.canViewLeads) {
       context.read<LeadsCubit>().watchLeads(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -310,15 +303,12 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (widget.authState.companyMetadata
-            .isFeatureEnabled(CompanyFeature.properties) &&
-        PermissionService.can(role, AppPermission.viewProperties)) {
+    if (watchScopeKey.canViewProperties) {
       context.read<PropertiesCubit>().watchProperties(
         companyId: widget.companyId,
       );
     }
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
-        PermissionService.can(role, AppPermission.viewClients)) {
+    if (watchScopeKey.canViewClients) {
       context.read<ClientsCubit>().watchClients(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -326,8 +316,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
-        PermissionService.can(role, AppPermission.viewTasks)) {
+    if (watchScopeKey.canViewTasks) {
       context.read<TasksCubit>().watchTasks(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -335,9 +324,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (widget.authState.companyMetadata
-            .isFeatureEnabled(CompanyFeature.appointments) &&
-        PermissionService.can(role, AppPermission.viewAppointments)) {
+    if (watchScopeKey.canViewAppointments) {
       context.read<AppointmentsCubit>().watchAppointments(
         companyId: widget.companyId,
         assignedTo: assignedTo,
@@ -345,8 +332,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
-        PermissionService.can(role, AppPermission.viewDeals)) {
+    if (watchScopeKey.canViewDeals) {
       context.read<DealsCubit>().watchDeals(
         companyId: widget.companyId,
         role: role,
@@ -354,8 +340,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         teamId: managerTeamId,
       );
     }
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
-        _canViewRecentActivity(widget.authState)) {
+    if (watchScopeKey.canViewAuditLogs) {
       context.read<AuditLogsCubit>().watchAuditLogs(
         companyId: widget.companyId,
         managerId: role == UserRole.manager ? uid : null,
@@ -365,88 +350,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   void _retry() {
-    if (widget.platformPreview) {
-      _watchPlatformPreviewData();
-      return;
-    }
-
-    final session = widget.authState.protectedCompanySession;
-    final role = session?.profile.role;
-    final uid = session?.uid ?? '';
-    final assignedTo = _assignedOnlyScope(role) ? uid : null;
-    final managerId = role == UserRole.manager ? uid : null;
-    final managerTeamId = role == UserRole.manager
-        ? session?.profile.teamId.trim()
-        : null;
-
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.leads) &&
-        PermissionService.can(role, AppPermission.viewLeads)) {
-      context.read<LeadsCubit>().watchLeads(
-        companyId: widget.companyId,
-        assignedTo: assignedTo,
-        managerId: managerId,
-        teamId: managerTeamId,
-      );
-    }
-    if (role != null &&
-        widget.authState.companyMetadata
-            .isFeatureEnabled(CompanyFeature.properties) &&
-        PermissionService.can(role, AppPermission.viewProperties)) {
-      context.read<PropertiesCubit>().watchProperties(
-        companyId: widget.companyId,
-      );
-    }
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.clients) &&
-        PermissionService.can(role, AppPermission.viewClients)) {
-      context.read<ClientsCubit>().watchClients(
-        companyId: widget.companyId,
-        assignedTo: assignedTo,
-        managerId: managerId,
-        teamId: managerTeamId,
-      );
-    }
-    if (role != null &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.tasks) &&
-        PermissionService.can(role, AppPermission.viewTasks)) {
-      context.read<TasksCubit>().watchTasks(
-        companyId: widget.companyId,
-        assignedTo: assignedTo,
-        managerId: managerId,
-        teamId: managerTeamId,
-      );
-    }
-    if (role != null &&
-        widget.authState.companyMetadata
-            .isFeatureEnabled(CompanyFeature.appointments) &&
-        PermissionService.can(role, AppPermission.viewAppointments)) {
-      context.read<AppointmentsCubit>().watchAppointments(
-        companyId: widget.companyId,
-        assignedTo: assignedTo,
-        managerId: managerId,
-        teamId: managerTeamId,
-      );
-    }
-    if (role != null &&
-        uid.isNotEmpty &&
-        widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.deals) &&
-        PermissionService.can(role, AppPermission.viewDeals)) {
-      context.read<DealsCubit>().watchDeals(
-        companyId: widget.companyId,
-        role: role,
-        currentUserId: uid,
-        teamId: managerTeamId,
-      );
-    }
-    if (widget.authState.companyMetadata.isFeatureEnabled(CompanyFeature.auditLogs) &&
-        _canViewRecentActivity(widget.authState)) {
-      context.read<AuditLogsCubit>().watchAuditLogs(
-        companyId: widget.companyId,
-        managerId: role == UserRole.manager ? uid : null,
-        teamId: managerTeamId,
-      );
-    }
+    _watchScopedDashboardData(force: true);
   }
 
   void _watchPlatformPreviewData() {
@@ -1047,7 +951,126 @@ class _RecentActivityTile extends StatelessWidget {
   }
 }
 
-class _DashboardView extends StatelessWidget {
+_DashboardWatchScopeKey? _dashboardWatchScopeKey({
+  required String companyId,
+  required AuthState authState,
+  required bool platformPreview,
+}) {
+  if (platformPreview) {
+    return _DashboardWatchScopeKey(
+      companyId: companyId,
+      platformPreview: true,
+      role: UserRole.admin,
+      uid: authState.user?.uid ?? '',
+      managerTeamId: '',
+      canViewLeads: true,
+      canViewProperties: true,
+      canViewClients: true,
+      canViewTasks: true,
+      canViewAppointments: false,
+      canViewDeals: true,
+      canViewAuditLogs: true,
+    );
+  }
+
+  final session = authState.protectedCompanySession;
+  final role = session?.profile.role;
+  final uid = session?.uid ?? '';
+  if (role == null || uid.isEmpty) {
+    return null;
+  }
+
+  final features = authState.companyMetadata;
+  final managerTeamId = role == UserRole.manager
+      ? session?.profile.teamId.trim() ?? ''
+      : '';
+  return _DashboardWatchScopeKey(
+    companyId: companyId,
+    platformPreview: false,
+    role: role,
+    uid: uid,
+    managerTeamId: managerTeamId,
+    canViewLeads: features.isFeatureEnabled(CompanyFeature.leads) &&
+        PermissionService.can(role, AppPermission.viewLeads),
+    canViewProperties: features.isFeatureEnabled(CompanyFeature.properties) &&
+        PermissionService.can(role, AppPermission.viewProperties),
+    canViewClients: features.isFeatureEnabled(CompanyFeature.clients) &&
+        PermissionService.can(role, AppPermission.viewClients),
+    canViewTasks: features.isFeatureEnabled(CompanyFeature.tasks) &&
+        PermissionService.can(role, AppPermission.viewTasks),
+    canViewAppointments: _canViewAppointments(authState),
+    canViewDeals: features.isFeatureEnabled(CompanyFeature.deals) &&
+        PermissionService.can(role, AppPermission.viewDeals),
+    canViewAuditLogs: features.isFeatureEnabled(CompanyFeature.auditLogs) &&
+        _canViewRecentActivity(authState),
+  );
+}
+
+class _DashboardWatchScopeKey {
+  const _DashboardWatchScopeKey({
+    required this.companyId,
+    required this.platformPreview,
+    required this.role,
+    required this.uid,
+    required this.managerTeamId,
+    required this.canViewLeads,
+    required this.canViewProperties,
+    required this.canViewClients,
+    required this.canViewTasks,
+    required this.canViewAppointments,
+    required this.canViewDeals,
+    required this.canViewAuditLogs,
+  });
+
+  final String companyId;
+  final bool platformPreview;
+  final UserRole role;
+  final String uid;
+  final String managerTeamId;
+  final bool canViewLeads;
+  final bool canViewProperties;
+  final bool canViewClients;
+  final bool canViewTasks;
+  final bool canViewAppointments;
+  final bool canViewDeals;
+  final bool canViewAuditLogs;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _DashboardWatchScopeKey &&
+            companyId == other.companyId &&
+            platformPreview == other.platformPreview &&
+            role == other.role &&
+            uid == other.uid &&
+            managerTeamId == other.managerTeamId &&
+            canViewLeads == other.canViewLeads &&
+            canViewProperties == other.canViewProperties &&
+            canViewClients == other.canViewClients &&
+            canViewTasks == other.canViewTasks &&
+            canViewAppointments == other.canViewAppointments &&
+            canViewDeals == other.canViewDeals &&
+            canViewAuditLogs == other.canViewAuditLogs;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        companyId,
+        platformPreview,
+        role,
+        uid,
+        managerTeamId,
+        canViewLeads,
+        canViewProperties,
+        canViewClients,
+        canViewTasks,
+        canViewAppointments,
+        canViewDeals,
+        canViewAuditLogs,
+      );
+}
+
+class _DashboardView extends StatefulWidget {
   const _DashboardView({
     required this.data,
     required this.authState,
@@ -1068,23 +1091,35 @@ class _DashboardView extends StatelessWidget {
   final String? failureMessage;
   final VoidCallback onRetry;
 
+  @override
+  State<_DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends State<_DashboardView> {
+  _DashboardAnalyticsCache? _analyticsCache;
+  _SalesCommandCache? _salesCommandCache;
+
   Future<void> _handleRefresh() async {
-    onRetry();
+    widget.onRetry();
     await Future<void>.delayed(const Duration(milliseconds: 650));
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final data = widget.data;
+    final authState = widget.authState;
+    final platformPreview = widget.platformPreview;
+    final previewCompanyName = widget.previewCompanyName;
 
-    if (isLoading) {
+    if (widget.isLoading) {
       return const AppLoading();
     }
 
-    if (hasInitialFailure) {
+    if (widget.hasInitialFailure) {
       return AppErrorView(
-        message: localizeErrorMessage(l, failureMessage),
-        onRetry: onRetry,
+        message: localizeErrorMessage(l, widget.failureMessage),
+        onRetry: widget.onRetry,
       );
     }
 
@@ -1105,68 +1140,14 @@ class _DashboardView extends StatelessWidget {
         final role = platformPreview
             ? UserRole.admin
             : authState.protectedCompanySession?.profile.role;
-        final analytics = const BuildDashboardAnalyticsUseCase()(
-          DashboardAnalyticsInput(
-            role: role ?? UserRole.viewer,
-            now: DateTime.now(),
-            leads: leadsEnabled &&
-                    (platformPreview ||
-                        (role != null &&
-                            PermissionService.can(role, AppPermission.viewLeads)))
-                ? data.leads
-                : const <Lead>[],
-            properties: propertiesEnabled &&
-                    (platformPreview ||
-                        (role != null &&
-                            PermissionService.can(
-                              role,
-                              AppPermission.viewProperties,
-                            )))
-                ? data.properties
-                : const <Property>[],
-            tasks: tasksEnabled &&
-                    (platformPreview ||
-                        (role != null &&
-                            PermissionService.can(role, AppPermission.viewTasks)))
-                ? data.tasks
-                : const <CrmTask>[],
-            appointments:
-                appointmentsEnabled ? data.appointments : const <Appointment>[],
-            deals: dealsEnabled &&
-                    (platformPreview ||
-                        (role != null &&
-                            PermissionService.can(role, AppPermission.viewDeals)))
-                ? data.deals
-                : const <Deal>[],
-            activeUsers: data.activeUsers,
-            includeLeads: leadsEnabled &&
-                (platformPreview ||
-                    (role != null &&
-                        PermissionService.can(role, AppPermission.viewLeads))),
-            includeProperties: propertiesEnabled &&
-                (platformPreview ||
-                    (role != null &&
-                        PermissionService.can(
-                          role,
-                          AppPermission.viewProperties,
-                        ))),
-            includeTasks: tasksEnabled &&
-                (platformPreview ||
-                    (role != null &&
-                        PermissionService.can(role, AppPermission.viewTasks))),
-            includeAppointments: appointmentsEnabled,
-            includeDeals: dealsEnabled &&
-                (platformPreview ||
-                    (role != null &&
-                        PermissionService.can(role, AppPermission.viewDeals))),
-            canViewUnassignedLeads: platformPreview || role == UserRole.admin,
-          ),
-        );
-
         final includeLeads = leadsEnabled &&
             (platformPreview ||
                 (role != null &&
                     PermissionService.can(role, AppPermission.viewLeads)));
+        final includeProperties = propertiesEnabled &&
+            (platformPreview ||
+                (role != null &&
+                    PermissionService.can(role, AppPermission.viewProperties)));
         final includeTasks = tasksEnabled &&
             (platformPreview ||
                 (role != null &&
@@ -1175,21 +1156,21 @@ class _DashboardView extends StatelessWidget {
             (platformPreview ||
                 (role != null &&
                     PermissionService.can(role, AppPermission.viewDeals)));
-        final commandSummary = const BuildSalesCommandCenterUseCase()(
+        final canViewUnassignedLeads = platformPreview || role == UserRole.admin;
+        final now = DateTime.now();
+        final derived = _resolveDerivedDashboardData(
           role: role ?? UserRole.viewer,
-          now: DateTime.now(),
-          leads: includeLeads ? data.leads : const <Lead>[],
-          tasks: includeTasks ? data.tasks : const <CrmTask>[],
-          deals: includeDeals ? data.deals : const <Deal>[],
-          appointments: appointmentsEnabled
-              ? data.appointments
-              : const <Appointment>[],
+          now: now,
+          data: data,
           includeLeads: includeLeads,
+          includeProperties: includeProperties,
           includeTasks: includeTasks,
-          includeDeals: includeDeals,
           includeAppointments: appointmentsEnabled,
-          canViewUnassignedLeads: platformPreview || role == UserRole.admin,
+          includeDeals: includeDeals,
+          canViewUnassignedLeads: canViewUnassignedLeads,
         );
+        final analytics = derived.analytics;
+        final commandSummary = derived.commandSummary;
 
         final mobile = MediaQuery.sizeOf(context).width < 760;
         final quickAddActions = mobile && !platformPreview
@@ -1228,6 +1209,158 @@ class _DashboardView extends StatelessWidget {
         },
       ),
     );
+  }
+
+  _DashboardDerivedData _resolveDerivedDashboardData({
+    required UserRole role,
+    required DateTime now,
+    required _DashboardData data,
+    required bool includeLeads,
+    required bool includeProperties,
+    required bool includeTasks,
+    required bool includeAppointments,
+    required bool includeDeals,
+    required bool canViewUnassignedLeads,
+  }) {
+    final minuteBucket = _dashboardMinuteBucket(now);
+    final analytics = _resolveDashboardAnalytics(
+      role: role,
+      now: now,
+      minuteBucket: minuteBucket,
+      data: data,
+      includeLeads: includeLeads,
+      includeProperties: includeProperties,
+      includeTasks: includeTasks,
+      includeAppointments: includeAppointments,
+      includeDeals: includeDeals,
+      canViewUnassignedLeads: canViewUnassignedLeads,
+    );
+    final commandSummary = _resolveSalesCommandSummary(
+      role: role,
+      now: now,
+      minuteBucket: minuteBucket,
+      data: data,
+      includeLeads: includeLeads,
+      includeTasks: includeTasks,
+      includeAppointments: includeAppointments,
+      includeDeals: includeDeals,
+      canViewUnassignedLeads: canViewUnassignedLeads,
+    );
+    return _DashboardDerivedData(
+      analytics: analytics,
+      commandSummary: commandSummary,
+    );
+  }
+
+  DashboardAnalytics _resolveDashboardAnalytics({
+    required UserRole role,
+    required DateTime now,
+    required DateTime minuteBucket,
+    required _DashboardData data,
+    required bool includeLeads,
+    required bool includeProperties,
+    required bool includeTasks,
+    required bool includeAppointments,
+    required bool includeDeals,
+    required bool canViewUnassignedLeads,
+  }) {
+    final key = _DashboardAnalyticsKey(
+      role: role,
+      minuteBucket: minuteBucket,
+      leads: includeLeads ? data.leads : const <Lead>[],
+      properties: includeProperties ? data.properties : const <Property>[],
+      tasks: includeTasks ? data.tasks : const <CrmTask>[],
+      appointments:
+          includeAppointments ? data.appointments : const <Appointment>[],
+      deals: includeDeals ? data.deals : const <Deal>[],
+      activeUsers: data.activeUsers,
+      includeLeads: includeLeads,
+      includeProperties: includeProperties,
+      includeTasks: includeTasks,
+      includeAppointments: includeAppointments,
+      includeDeals: includeDeals,
+      canViewUnassignedLeads: canViewUnassignedLeads,
+    );
+
+    final cached = _analyticsCache;
+    if (cached != null && cached.key == key) {
+      return cached.analytics;
+    }
+
+    final analytics = const BuildDashboardAnalyticsUseCase()(
+      DashboardAnalyticsInput(
+        role: role,
+        now: now,
+        leads: key.leads,
+        properties: key.properties,
+        tasks: key.tasks,
+        appointments: key.appointments,
+        deals: key.deals,
+        activeUsers: key.activeUsers,
+        includeLeads: includeLeads,
+        includeProperties: includeProperties,
+        includeTasks: includeTasks,
+        includeAppointments: includeAppointments,
+        includeDeals: includeDeals,
+        canViewUnassignedLeads: canViewUnassignedLeads,
+      ),
+    );
+    _analyticsCache = _DashboardAnalyticsCache(
+      key: key,
+      analytics: analytics,
+    );
+    return analytics;
+  }
+
+  SalesCommandSummary _resolveSalesCommandSummary({
+    required UserRole role,
+    required DateTime now,
+    required DateTime minuteBucket,
+    required _DashboardData data,
+    required bool includeLeads,
+    required bool includeTasks,
+    required bool includeAppointments,
+    required bool includeDeals,
+    required bool canViewUnassignedLeads,
+  }) {
+    final key = _SalesCommandKey(
+      role: role,
+      minuteBucket: minuteBucket,
+      leads: includeLeads ? data.leads : const <Lead>[],
+      tasks: includeTasks ? data.tasks : const <CrmTask>[],
+      appointments:
+          includeAppointments ? data.appointments : const <Appointment>[],
+      deals: includeDeals ? data.deals : const <Deal>[],
+      includeLeads: includeLeads,
+      includeTasks: includeTasks,
+      includeAppointments: includeAppointments,
+      includeDeals: includeDeals,
+      canViewUnassignedLeads: canViewUnassignedLeads,
+    );
+
+    final cached = _salesCommandCache;
+    if (cached != null && cached.key == key) {
+      return cached.commandSummary;
+    }
+
+    final commandSummary = const BuildSalesCommandCenterUseCase()(
+      role: role,
+      now: now,
+      leads: key.leads,
+      tasks: key.tasks,
+      deals: key.deals,
+      appointments: key.appointments,
+      includeLeads: includeLeads,
+      includeTasks: includeTasks,
+      includeDeals: includeDeals,
+      includeAppointments: includeAppointments,
+      canViewUnassignedLeads: canViewUnassignedLeads,
+    );
+    _salesCommandCache = _SalesCommandCache(
+      key: key,
+      commandSummary: commandSummary,
+    );
+    return commandSummary;
   }
 
   List<_QuickAddAction> _quickAddActions(
@@ -1277,6 +1410,172 @@ class _DashboardView extends StatelessWidget {
         ),
     ];
   }
+}
+
+class _DashboardAnalyticsCache {
+  const _DashboardAnalyticsCache({
+    required this.key,
+    required this.analytics,
+  });
+
+  final _DashboardAnalyticsKey key;
+  final DashboardAnalytics analytics;
+}
+
+class _SalesCommandCache {
+  const _SalesCommandCache({
+    required this.key,
+    required this.commandSummary,
+  });
+
+  final _SalesCommandKey key;
+  final SalesCommandSummary commandSummary;
+}
+
+class _DashboardDerivedData {
+  const _DashboardDerivedData({
+    required this.analytics,
+    required this.commandSummary,
+  });
+
+  final DashboardAnalytics analytics;
+  final SalesCommandSummary commandSummary;
+}
+
+class _DashboardAnalyticsKey {
+  const _DashboardAnalyticsKey({
+    required this.role,
+    required this.minuteBucket,
+    required this.leads,
+    required this.properties,
+    required this.tasks,
+    required this.appointments,
+    required this.deals,
+    required this.activeUsers,
+    required this.includeLeads,
+    required this.includeProperties,
+    required this.includeTasks,
+    required this.includeAppointments,
+    required this.includeDeals,
+    required this.canViewUnassignedLeads,
+  });
+
+  final UserRole role;
+  final DateTime minuteBucket;
+  final List<Lead> leads;
+  final List<Property> properties;
+  final List<CrmTask> tasks;
+  final List<Appointment> appointments;
+  final List<Deal> deals;
+  final List<UserProfile> activeUsers;
+  final bool includeLeads;
+  final bool includeProperties;
+  final bool includeTasks;
+  final bool includeAppointments;
+  final bool includeDeals;
+  final bool canViewUnassignedLeads;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _DashboardAnalyticsKey &&
+            role == other.role &&
+            minuteBucket == other.minuteBucket &&
+            identical(leads, other.leads) &&
+            identical(properties, other.properties) &&
+            identical(tasks, other.tasks) &&
+            identical(appointments, other.appointments) &&
+            identical(deals, other.deals) &&
+            identical(activeUsers, other.activeUsers) &&
+            includeLeads == other.includeLeads &&
+            includeProperties == other.includeProperties &&
+            includeTasks == other.includeTasks &&
+            includeAppointments == other.includeAppointments &&
+            includeDeals == other.includeDeals &&
+            canViewUnassignedLeads == other.canViewUnassignedLeads;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        role,
+        minuteBucket,
+        identityHashCode(leads),
+        identityHashCode(properties),
+        identityHashCode(tasks),
+        identityHashCode(appointments),
+        identityHashCode(deals),
+        identityHashCode(activeUsers),
+        includeLeads,
+        includeProperties,
+        includeTasks,
+        includeAppointments,
+        includeDeals,
+        canViewUnassignedLeads,
+      );
+}
+
+class _SalesCommandKey {
+  const _SalesCommandKey({
+    required this.role,
+    required this.minuteBucket,
+    required this.leads,
+    required this.tasks,
+    required this.appointments,
+    required this.deals,
+    required this.includeLeads,
+    required this.includeTasks,
+    required this.includeAppointments,
+    required this.includeDeals,
+    required this.canViewUnassignedLeads,
+  });
+
+  final UserRole role;
+  final DateTime minuteBucket;
+  final List<Lead> leads;
+  final List<CrmTask> tasks;
+  final List<Appointment> appointments;
+  final List<Deal> deals;
+  final bool includeLeads;
+  final bool includeTasks;
+  final bool includeAppointments;
+  final bool includeDeals;
+  final bool canViewUnassignedLeads;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _SalesCommandKey &&
+            role == other.role &&
+            minuteBucket == other.minuteBucket &&
+            identical(leads, other.leads) &&
+            identical(tasks, other.tasks) &&
+            identical(appointments, other.appointments) &&
+            identical(deals, other.deals) &&
+            includeLeads == other.includeLeads &&
+            includeTasks == other.includeTasks &&
+            includeAppointments == other.includeAppointments &&
+            includeDeals == other.includeDeals &&
+            canViewUnassignedLeads == other.canViewUnassignedLeads;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        role,
+        minuteBucket,
+        identityHashCode(leads),
+        identityHashCode(tasks),
+        identityHashCode(appointments),
+        identityHashCode(deals),
+        includeLeads,
+        includeTasks,
+        includeAppointments,
+        includeDeals,
+        canViewUnassignedLeads,
+      );
+}
+
+DateTime _dashboardMinuteBucket(DateTime value) {
+  return DateTime(value.year, value.month, value.day, value.hour, value.minute);
 }
 
 
