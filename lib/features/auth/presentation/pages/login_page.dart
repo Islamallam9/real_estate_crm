@@ -185,7 +185,7 @@ class _LoginSupportContactSection extends StatelessWidget {
   const _LoginSupportContactSection();
 
   static const String _supportEmail = 'islamallam9@outlook.com';
-  static const String _whatsAppPhone = '201208090241';
+  static const String _whatsAppPhone = '201092585742';
 
   @override
   Widget build(BuildContext context) {
