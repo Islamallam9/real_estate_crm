@@ -103,24 +103,7 @@ class _EditAppointmentViewState extends State<_EditAppointmentView> {
       title: l.editAppointment,
       child: !canEditRole || companyId.isEmpty || uid.isEmpty
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<AppointmentsCubit, AppointmentsState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == AppointmentsStatus.saved ||
-                      current.status == AppointmentsStatus.failure),
-              listener: (context, state) {
-                if (state.status == AppointmentsStatus.failure) {
-                  setState(() => _isSubmitting = false);
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-                setState(() => _isSubmitting = false);
-                AppFeedback.success(context, l.appointmentUpdated);
-                context.go(RouteNames.appointments);
-              },
+          : BlocBuilder<AppointmentsCubit, AppointmentsState>(
               builder: (context, state) {
                 if (state.status == AppointmentsStatus.initial ||
                     (state.status == AppointmentsStatus.loading &&
@@ -288,7 +271,7 @@ class _AppointmentEditorForm extends StatelessWidget {
       relatedRecordsTeamId: role == UserRole.manager ? teamId : null,
       isSaving: isSaving,
       submitLabel: l.updateAppointment,
-      onSubmit: (updatedAppointment) {
+      onSubmit: (updatedAppointment) async {
         if (isSaving) {
           return;
         }
@@ -302,14 +285,28 @@ class _AppointmentEditorForm extends StatelessWidget {
           return;
         }
         onSubmittingChanged(true);
-        context.read<AppointmentsCubit>().saveAppointment(
-              companyId: companyId,
-              operation: 'update',
-              appointment: updatedAppointment,
-              action: updatedAppointment.scheduledAt != appointment.scheduledAt
-                  ? AppointmentAction.reschedule
-                  : AppointmentAction.update,
-            );
+        final cubit = context.read<AppointmentsCubit>();
+        final success = await cubit.saveAppointment(
+          companyId: companyId,
+          operation: 'update',
+          appointment: updatedAppointment,
+          action: updatedAppointment.scheduledAt != appointment.scheduledAt
+              ? AppointmentAction.reschedule
+              : AppointmentAction.update,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        onSubmittingChanged(false);
+        if (success) {
+          AppFeedback.success(context, l.appointmentUpdated);
+          context.go(RouteNames.appointments);
+          return;
+        }
+        AppFeedback.error(
+          context,
+          localizeErrorMessage(l, cubit.state.message),
+        );
       },
     );
   }

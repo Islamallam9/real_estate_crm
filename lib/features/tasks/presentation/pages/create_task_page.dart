@@ -33,10 +33,17 @@ class CreateTaskPage extends StatelessWidget {
   }
 }
 
-class _CreateTaskView extends StatelessWidget {
+class _CreateTaskView extends StatefulWidget {
   const _CreateTaskView({required this.initialValues});
 
   final Map<String, String> initialValues;
+
+  @override
+  State<_CreateTaskView> createState() => _CreateTaskViewState();
+}
+
+class _CreateTaskViewState extends State<_CreateTaskView> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,28 +68,10 @@ class _CreateTaskView extends StatelessWidget {
       title: l.createTask,
       child: !canCreate
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<TasksCubit, TasksState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == TasksStatus.saved ||
-                      current.status == TasksStatus.failure),
-              listener: (context, state) {
-                if (state.status == TasksStatus.failure) {
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-
-                AppFeedback.success(
-                  context,
-                  l.taskCreatedSuccessfully,
-                );
-                context.go(RouteNames.tasks);
-              },
+          : BlocBuilder<TasksCubit, TasksState>(
               builder: (context, state) {
-                final isSaving = state.status == TasksStatus.saving;
+                final isSaving =
+                    _isSubmitting || state.status == TasksStatus.saving;
                 return ListView(
                   primary: true,
                   physics: const ClampingScrollPhysics(),
@@ -150,23 +139,26 @@ class _CreateTaskView extends StatelessWidget {
                                   assignedTo: _initialAssignee(
                                     role: role,
                                     currentUserId: user.uid,
-                                    initialValues: initialValues,
+                                    initialValues: widget.initialValues,
                                   ),
                                   initialRelatedType:
-                                      _initialRelatedType(initialValues),
+                                      _initialRelatedType(widget.initialValues),
                                   initialRelatedId:
-                                      initialValues['relatedId'] ?? '',
+                                      widget.initialValues['relatedId'] ?? '',
                                   initialRelatedTitle:
-                                      initialValues['relatedTitle'] ?? '',
+                                      widget.initialValues['relatedTitle'] ?? '',
                                   initialRelatedSubtitle:
-                                      initialValues['relatedSubtitle'] ?? '',
+                                      widget.initialValues['relatedSubtitle'] ?? '',
                                   initialTitle: _initialTitle(
                                     l,
-                                    initialValues['relatedTitle'],
+                                    widget.initialValues['relatedTitle'],
                                   ),
                                   isSaving: isSaving,
                                   submitLabel: l.createTask,
-                                  onSubmit: (task) {
+                                  onSubmit: (task) async {
+                                    if (_isSubmitting) {
+                                      return;
+                                    }
                                     if (role == UserRole.manager &&
                                         task.assignedTo.trim().isEmpty) {
                                       AppFeedback.warning(
@@ -190,9 +182,27 @@ class _CreateTaskView extends StatelessWidget {
                                         return;
                                       }
                                     }
-                                    context.read<TasksCubit>().createTask(
+                                    setState(() => _isSubmitting = true);
+                                    final cubit = context.read<TasksCubit>();
+                                    final success = await cubit.createTask(
                                       companyId: userProfile.companyId,
                                       task: task,
+                                    );
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() => _isSubmitting = false);
+                                    if (success) {
+                                      AppFeedback.success(
+                                        context,
+                                        l.taskCreatedSuccessfully,
+                                      );
+                                      context.go(RouteNames.tasks);
+                                      return;
+                                    }
+                                    AppFeedback.error(
+                                      context,
+                                      localizeErrorMessage(l, cubit.state.message),
                                     );
                                   },
                                 );

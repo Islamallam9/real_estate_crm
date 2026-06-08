@@ -104,24 +104,7 @@ class _EditDealViewState extends State<_EditDealView> {
           ? AppErrorView(message: l.missingCompanyProfile)
           : !canEdit
               ? AppErrorView(message: l.permissionDenied)
-              : BlocConsumer<DealsCubit, DealsState>(
-                  listenWhen: (previous, current) =>
-                      previous.status != current.status &&
-                      (current.status == DealsStatus.saved ||
-                          current.status == DealsStatus.failure),
-                  listener: (context, state) {
-                    if (state.status == DealsStatus.failure) {
-                      setState(() => _isSubmitting = false);
-                      AppFeedback.error(
-                        context,
-                        localizeDealFormError(l, state.message),
-                      );
-                      return;
-                    }
-                    setState(() => _isSubmitting = false);
-                    AppFeedback.success(context, l.dealUpdatedSuccessfully);
-                    context.go(RouteNames.deals);
-                  },
+              : BlocBuilder<DealsCubit, DealsState>(
                   builder: (context, state) {
                     if ((state.status == DealsStatus.initial ||
                             state.status == DealsStatus.loading) &&
@@ -177,7 +160,7 @@ class _EditDealViewState extends State<_EditDealView> {
                                       assignedManagerName: deal.managerName,
                                       isSaving: isSaving,
                                       submitLabel: l.updateDeal,
-                                      onSubmit: (updatedDeal) {
+                                      onSubmit: (updatedDeal) async {
                                         if (_isSubmitting) {
                                           return;
                                         }
@@ -191,9 +174,29 @@ class _EditDealViewState extends State<_EditDealView> {
                                           return;
                                         }
                                         setState(() => _isSubmitting = true);
-                                        context.read<DealsCubit>().updateDeal(
+                                        final cubit = context.read<DealsCubit>();
+                                        final success = await cubit.updateDeal(
                                           companyId: userProfile.companyId,
                                           deal: updatedDeal,
+                                        );
+                                        if (!mounted) {
+                                          return;
+                                        }
+                                        setState(() => _isSubmitting = false);
+                                        if (success) {
+                                          AppFeedback.success(
+                                            context,
+                                            l.dealUpdatedSuccessfully,
+                                          );
+                                          context.go(RouteNames.deals);
+                                          return;
+                                        }
+                                        AppFeedback.error(
+                                          context,
+                                          localizeDealFormError(
+                                            l,
+                                            cubit.state.message,
+                                          ),
                                         );
                                       },
                                     );

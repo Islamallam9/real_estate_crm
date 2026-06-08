@@ -33,10 +33,17 @@ class CreateAppointmentPage extends StatelessWidget {
   }
 }
 
-class _CreateAppointmentView extends StatelessWidget {
+class _CreateAppointmentView extends StatefulWidget {
   const _CreateAppointmentView({required this.initialValues});
 
   final Map<String, String> initialValues;
+
+  @override
+  State<_CreateAppointmentView> createState() => _CreateAppointmentViewState();
+}
+
+class _CreateAppointmentViewState extends State<_CreateAppointmentView> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -58,24 +65,10 @@ class _CreateAppointmentView extends StatelessWidget {
       title: l.newAppointment,
       child: !canCreate
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<AppointmentsCubit, AppointmentsState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == AppointmentsStatus.saved ||
-                      current.status == AppointmentsStatus.failure),
-              listener: (context, state) {
-                if (state.status == AppointmentsStatus.failure) {
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-                AppFeedback.success(context, l.appointmentSaved);
-                context.go(RouteNames.appointments);
-              },
+          : BlocBuilder<AppointmentsCubit, AppointmentsState>(
               builder: (context, state) {
-                final isSaving = state.status == AppointmentsStatus.saving;
+                final isSaving =
+                    _isSubmitting || state.status == AppointmentsStatus.saving;
                 return ListView(
                   primary: true,
                   physics: const ClampingScrollPhysics(),
@@ -117,7 +110,7 @@ class _CreateAppointmentView extends StatelessWidget {
                                     users: users,
                                     canEditAssignment: true,
                                     assignedTo:
-                                        initialValues['assignedTo']?.trim() ??
+                                        widget.initialValues['assignedTo']?.trim() ??
                                             '',
                                     relatedRecordsManagerId:
                                         role == UserRole.manager ? user.uid : null,
@@ -126,20 +119,23 @@ class _CreateAppointmentView extends StatelessWidget {
                                             ? userProfile.teamId
                                             : null,
                                     initialRelatedType:
-                                        _initialRelatedType(initialValues),
+                                        _initialRelatedType(widget.initialValues),
                                     initialRelatedId:
-                                        initialValues['relatedId'] ?? '',
+                                        widget.initialValues['relatedId'] ?? '',
                                     initialRelatedTitle:
-                                        initialValues['relatedTitle'] ?? '',
+                                        widget.initialValues['relatedTitle'] ?? '',
                                     initialRelatedSubtitle:
-                                        initialValues['relatedSubtitle'] ?? '',
+                                        widget.initialValues['relatedSubtitle'] ?? '',
                                     initialTitle: _initialTitle(
                                       l,
-                                      initialValues['relatedTitle'],
+                                      widget.initialValues['relatedTitle'],
                                     ),
                                     isSaving: isSaving,
                                     submitLabel: l.saveAppointment,
-                                    onSubmit: (appointment) {
+                                    onSubmit: (appointment) async {
+                                      if (_isSubmitting) {
+                                        return;
+                                      }
                                       final managerTeamId =
                                           userProfile.teamId.trim();
                                       if (role == UserRole.manager &&
@@ -156,14 +152,30 @@ class _CreateAppointmentView extends StatelessWidget {
                                         );
                                         return;
                                       }
-                                      context
-                                          .read<AppointmentsCubit>()
-                                          .saveAppointment(
-                                            companyId: userProfile.companyId,
-                                            operation: 'create',
-                                            appointment: appointment,
-                                            action: AppointmentAction.create,
-                                          );
+                                      setState(() => _isSubmitting = true);
+                                      final cubit = context.read<AppointmentsCubit>();
+                                      final success = await cubit.saveAppointment(
+                                        companyId: userProfile.companyId,
+                                        operation: 'create',
+                                        appointment: appointment,
+                                        action: AppointmentAction.create,
+                                      );
+                                      if (!mounted) {
+                                        return;
+                                      }
+                                      setState(() => _isSubmitting = false);
+                                      if (success) {
+                                        AppFeedback.success(
+                                          context,
+                                          l.appointmentSaved,
+                                        );
+                                        context.go(RouteNames.appointments);
+                                        return;
+                                      }
+                                      AppFeedback.error(
+                                        context,
+                                        localizeErrorMessage(l, cubit.state.message),
+                                      );
                                     },
                                   );
                                 },
@@ -180,28 +192,47 @@ class _CreateAppointmentView extends StatelessWidget {
                                         ? user.uid
                                         : null,
                                 initialRelatedType:
-                                    _initialRelatedType(initialValues),
+                                    _initialRelatedType(widget.initialValues),
                                 initialRelatedId:
-                                    initialValues['relatedId'] ?? '',
+                                    widget.initialValues['relatedId'] ?? '',
                                 initialRelatedTitle:
-                                    initialValues['relatedTitle'] ?? '',
+                                    widget.initialValues['relatedTitle'] ?? '',
                                 initialRelatedSubtitle:
-                                    initialValues['relatedSubtitle'] ?? '',
+                                    widget.initialValues['relatedSubtitle'] ?? '',
                                 initialTitle: _initialTitle(
                                   l,
-                                  initialValues['relatedTitle'],
+                                  widget.initialValues['relatedTitle'],
                                 ),
                                 isSaving: isSaving,
                                 submitLabel: l.saveAppointment,
-                                onSubmit: (appointment) {
-                                  context
-                                      .read<AppointmentsCubit>()
-                                      .saveAppointment(
-                                        companyId: userProfile.companyId,
-                                        operation: 'create',
-                                        appointment: appointment,
-                                        action: AppointmentAction.create,
-                                      );
+                                onSubmit: (appointment) async {
+                                  if (_isSubmitting) {
+                                    return;
+                                  }
+                                  setState(() => _isSubmitting = true);
+                                  final cubit = context.read<AppointmentsCubit>();
+                                  final success = await cubit.saveAppointment(
+                                    companyId: userProfile.companyId,
+                                    operation: 'create',
+                                    appointment: appointment,
+                                    action: AppointmentAction.create,
+                                  );
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  setState(() => _isSubmitting = false);
+                                  if (success) {
+                                    AppFeedback.success(
+                                      context,
+                                      l.appointmentSaved,
+                                    );
+                                    context.go(RouteNames.appointments);
+                                    return;
+                                  }
+                                  AppFeedback.error(
+                                    context,
+                                    localizeErrorMessage(l, cubit.state.message),
+                                  );
                                 },
                               ),
                             const SizedBox(height: AppSpacing.md),

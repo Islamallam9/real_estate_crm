@@ -274,7 +274,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     );
   }
 
-  Future<void> createProperty({
+  Future<bool> createProperty({
     required String companyId,
     required Property property,
     List<PropertyImageUpload> newImages = const [],
@@ -325,7 +325,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         );
       }
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -334,19 +334,22 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           lastAction: PropertiesAction.createProperty,
         ),
       );
+      return true;
     } on PropertyException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
           status: PropertiesStatus.failure,
           message: error.message,
+          lastAction: PropertiesAction.createProperty,
         ),
       );
+      return false;
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -358,10 +361,11 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           lastAction: PropertiesAction.createProperty,
         ),
       );
+      return false;
     }
   }
 
-  Future<void> updateProperty({
+  Future<bool> updateProperty({
     required String companyId,
     required Property property,
     List<PropertyImageUpload> newImages = const [],
@@ -427,7 +431,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         );
       }
       if (isClosed) {
-        return;
+        return true;
       }
       final updatedProperties = _replacePropertyInCurrentList(updatedProperty);
       emit(
@@ -445,19 +449,22 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           lastAction: PropertiesAction.updateProperty,
         ),
       );
+      return true;
     } on PropertyException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
           status: PropertiesStatus.failure,
           message: error.message,
+          lastAction: PropertiesAction.updateProperty,
         ),
       );
+      return false;
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -469,6 +476,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           lastAction: PropertiesAction.updateProperty,
         ),
       );
+      return false;
     }
   }
 

@@ -30,8 +30,15 @@ class CreateDealPage extends StatelessWidget {
   }
 }
 
-class _CreateDealView extends StatelessWidget {
+class _CreateDealView extends StatefulWidget {
   const _CreateDealView();
+
+  @override
+  State<_CreateDealView> createState() => _CreateDealViewState();
+}
+
+class _CreateDealViewState extends State<_CreateDealView> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -64,24 +71,9 @@ class _CreateDealView extends StatelessWidget {
       title: l.createDeal,
       child: !canCreate
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<DealsCubit, DealsState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == DealsStatus.saved ||
-                      current.status == DealsStatus.failure),
-              listener: (context, state) {
-                if (state.status == DealsStatus.failure) {
-                  AppFeedback.error(
-                    context,
-                    localizeDealFormError(l, state.message),
-                  );
-                  return;
-                }
-                AppFeedback.success(context, l.dealCreatedSuccessfully);
-                context.go(RouteNames.deals);
-              },
+          : BlocBuilder<DealsCubit, DealsState>(
               builder: (context, state) {
-                final isSaving = state.status == DealsStatus.saving;
+                final isSaving = _isSubmitting || state.status == DealsStatus.saving;
                 return ListView(
                   primary: true,
                   physics: const ClampingScrollPhysics(),
@@ -138,7 +130,10 @@ class _CreateDealView extends StatelessWidget {
                                   assignedManagerName: assignedManagerName,
                                   isSaving: isSaving,
                                   submitLabel: l.createDeal,
-                                  onSubmit: (deal) {
+                                  onSubmit: (deal) async {
+                                    if (_isSubmitting) {
+                                      return;
+                                    }
                                     if (role == UserRole.manager &&
                                         deal.managerId.trim() != user.uid) {
                                       AppFeedback.warning(
@@ -147,9 +142,27 @@ class _CreateDealView extends StatelessWidget {
                                       );
                                       return;
                                     }
-                                    context.read<DealsCubit>().createDeal(
+                                    setState(() => _isSubmitting = true);
+                                    final cubit = context.read<DealsCubit>();
+                                    final success = await cubit.createDeal(
                                       companyId: userProfile.companyId,
                                       deal: deal,
+                                    );
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() => _isSubmitting = false);
+                                    if (success) {
+                                      AppFeedback.success(
+                                        context,
+                                        l.dealCreatedSuccessfully,
+                                      );
+                                      context.go(RouteNames.deals);
+                                      return;
+                                    }
+                                    AppFeedback.error(
+                                      context,
+                                      localizeDealFormError(l, cubit.state.message),
                                     );
                                   },
                                 );

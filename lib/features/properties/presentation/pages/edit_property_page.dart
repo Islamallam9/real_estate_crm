@@ -97,27 +97,7 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
       title: l.editProperty,
       child: !canEdit
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<PropertiesCubit, PropertiesState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == PropertiesStatus.saved ||
-                      current.status == PropertiesStatus.failure),
-              listener: (context, state) {
-                if (state.status == PropertiesStatus.failure) {
-                  setState(() => _isSubmitting = false);
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-                setState(() => _isSubmitting = false);
-                AppFeedback.success(
-                  context,
-                  l.propertyUpdatedSuccessfully,
-                );
-                context.go(RouteNames.properties);
-              },
+          : BlocBuilder<PropertiesCubit, PropertiesState>(
               builder: (context, state) {
                 if (state.status == PropertiesStatus.initial ||
                     (state.status == PropertiesStatus.loading &&
@@ -170,17 +150,34 @@ class _EditPropertyViewState extends State<_EditPropertyView> {
                                     updatedProperty, {
                                     newImages = const [],
                                     removedImageStoragePaths = const [],
-                                  }) {
+                                  }) async {
                                     if (_isSubmitting) {
                                       return;
                                     }
                                     setState(() => _isSubmitting = true);
-                                    context.read<PropertiesCubit>().updateProperty(
+                                    final cubit = context.read<PropertiesCubit>();
+                                    final success = await cubit.updateProperty(
                                       companyId: companyId,
                                       property: updatedProperty,
                                       newImages: newImages,
                                       removedImageStoragePaths:
                                           removedImageStoragePaths,
+                                    );
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() => _isSubmitting = false);
+                                    if (success) {
+                                      AppFeedback.success(
+                                        context,
+                                        l.propertyUpdatedSuccessfully,
+                                      );
+                                      context.go(RouteNames.properties);
+                                      return;
+                                    }
+                                    AppFeedback.error(
+                                      context,
+                                      localizeErrorMessage(l, cubit.state.message),
                                     );
                                   },
                                 ),

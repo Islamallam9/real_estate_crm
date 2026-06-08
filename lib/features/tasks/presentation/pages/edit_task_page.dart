@@ -103,27 +103,7 @@ class _EditTaskViewState extends State<_EditTaskView> {
       title: l.editTask,
       child: !canEditRole || companyId.isEmpty || uid.isEmpty
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<TasksCubit, TasksState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == TasksStatus.saved ||
-                      current.status == TasksStatus.failure),
-              listener: (context, state) {
-                if (state.status == TasksStatus.failure) {
-                  setState(() => _isSubmitting = false);
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-                setState(() => _isSubmitting = false);
-                AppFeedback.success(
-                  context,
-                  l.taskUpdatedSuccessfully,
-                );
-                context.go(RouteNames.tasks);
-              },
+          : BlocBuilder<TasksCubit, TasksState>(
               builder: (context, state) {
                 if (state.status == TasksStatus.initial ||
                     (state.status == TasksStatus.loading &&
@@ -192,7 +172,7 @@ class _EditTaskViewState extends State<_EditTaskView> {
                                 : null,
                             isSaving: isSaving,
                             submitLabel: l.updateTask,
-                            onSubmit: (updatedTask) {
+                            onSubmit: (updatedTask) async {
                               if (_isSubmitting) {
                                 return;
                               }
@@ -212,9 +192,26 @@ class _EditTaskViewState extends State<_EditTaskView> {
                                 }
                               }
                               setState(() => _isSubmitting = true);
-                              context.read<TasksCubit>().updateTask(
+                              final cubit = context.read<TasksCubit>();
+                              final success = await cubit.updateTask(
                                 companyId: companyId,
                                 task: updatedTask,
+                              );
+                              if (!mounted) {
+                                return;
+                              }
+                              setState(() => _isSubmitting = false);
+                              if (success) {
+                                AppFeedback.success(
+                                  context,
+                                  l.taskUpdatedSuccessfully,
+                                );
+                                context.go(RouteNames.tasks);
+                                return;
+                              }
+                              AppFeedback.error(
+                                context,
+                                localizeErrorMessage(l, cubit.state.message),
                               );
                             },
                           );
@@ -237,10 +234,31 @@ class _EditTaskViewState extends State<_EditTaskView> {
                             : null,
                         isSaving: isSaving,
                         submitLabel: l.updateTask,
-                        onSubmit: (updatedTask) {
-                          context.read<TasksCubit>().updateTask(
+                        onSubmit: (updatedTask) async {
+                          if (_isSubmitting) {
+                            return;
+                          }
+                          setState(() => _isSubmitting = true);
+                          final cubit = context.read<TasksCubit>();
+                          final success = await cubit.updateTask(
                             companyId: companyId,
                             task: updatedTask,
+                          );
+                          if (!mounted) {
+                            return;
+                          }
+                          setState(() => _isSubmitting = false);
+                          if (success) {
+                            AppFeedback.success(
+                              context,
+                              l.taskUpdatedSuccessfully,
+                            );
+                            context.go(RouteNames.tasks);
+                            return;
+                          }
+                          AppFeedback.error(
+                            context,
+                            localizeErrorMessage(l, cubit.state.message),
                           );
                         },
                       );

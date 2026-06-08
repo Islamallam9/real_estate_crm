@@ -27,8 +27,15 @@ class CreatePropertyPage extends StatelessWidget {
   }
 }
 
-class _CreatePropertyView extends StatelessWidget {
+class _CreatePropertyView extends StatefulWidget {
   const _CreatePropertyView();
+
+  @override
+  State<_CreatePropertyView> createState() => _CreatePropertyViewState();
+}
+
+class _CreatePropertyViewState extends State<_CreatePropertyView> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -55,28 +62,10 @@ class _CreatePropertyView extends StatelessWidget {
       title: l.createProperty,
       child: !canCreate
           ? AppErrorView(message: l.permissionDenied)
-          : BlocConsumer<PropertiesCubit, PropertiesState>(
-              listenWhen: (previous, current) =>
-                  previous.status != current.status &&
-                  (current.status == PropertiesStatus.saved ||
-                      current.status == PropertiesStatus.failure),
-              listener: (context, state) {
-                if (state.status == PropertiesStatus.failure) {
-                  AppFeedback.error(
-                    context,
-                    localizeErrorMessage(l, state.message),
-                  );
-                  return;
-                }
-
-                AppFeedback.success(
-                  context,
-                  l.propertyCreatedSuccessfully,
-                );
-                context.go(RouteNames.properties);
-              },
+          : BlocBuilder<PropertiesCubit, PropertiesState>(
               builder: (context, state) {
-                final isSaving = state.status == PropertiesStatus.saving;
+                final isSaving =
+                    _isSubmitting || state.status == PropertiesStatus.saving;
                 return ListView(
                   primary: true,
                   physics: const ClampingScrollPhysics(),
@@ -111,11 +100,32 @@ class _CreatePropertyView extends StatelessWidget {
                                 property, {
                                 newImages = const [],
                                 removedImageStoragePaths = const [],
-                              }) {
-                                context.read<PropertiesCubit>().createProperty(
+                              }) async {
+                                if (_isSubmitting) {
+                                  return;
+                                }
+                                setState(() => _isSubmitting = true);
+                                final cubit = context.read<PropertiesCubit>();
+                                final success = await cubit.createProperty(
                                   companyId: companyId,
                                   property: property,
                                   newImages: newImages,
+                                );
+                                if (!mounted) {
+                                  return;
+                                }
+                                setState(() => _isSubmitting = false);
+                                if (success) {
+                                  AppFeedback.success(
+                                    context,
+                                    l.propertyCreatedSuccessfully,
+                                  );
+                                  context.go(RouteNames.properties);
+                                  return;
+                                }
+                                AppFeedback.error(
+                                  context,
+                                  localizeErrorMessage(l, cubit.state.message),
                                 );
                               },
                             ),
