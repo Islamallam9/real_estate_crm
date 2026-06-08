@@ -9785,6 +9785,180 @@ abstract class AppLocalizations {
   /// **'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.'**
   String get notificationPermissionConfigurationIssueBody;
 
+  /// No description provided for @platformActivityDeferredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open activity to load selected-company users and login activity for this owner session.'**
+  String get platformActivityDeferredMessage;
+
+  /// No description provided for @platformWorkspaceSummaryDeferredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the workspace to load selected-company user counts for this owner session.'**
+  String get platformWorkspaceSummaryDeferredMessage;
+
+  /// No description provided for @releaseOverviewGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this page to confirm the latest published Web and Android versions, outdated devices, Android update readiness, and notification health before releasing a new build.'**
+  String get releaseOverviewGuidance;
+
+  /// No description provided for @releaseOverviewMixedScopeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest releases and Android policy are platform-wide; device and history counts follow the selected company filter.'**
+  String get releaseOverviewMixedScopeHint;
+
+  /// No description provided for @releaseRegistryGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'This registry shows prepared and published platform releases. Use it to confirm what was recorded as a release, not to change Android forced-update policy.'**
+  String get releaseRegistryGuidance;
+
+  /// No description provided for @releaseRegistryAndroidPolicyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Android policy details are managed from Android release management.'**
+  String get releaseRegistryAndroidPolicyNote;
+
+  /// No description provided for @releaseAdoptionDevicesGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this tab to see real active devices and users by version. Adoption shows installed usage, not the release registry.'**
+  String get releaseAdoptionDevicesGuidance;
+
+  /// No description provided for @releaseAndroidPolicyGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this tab to manage Android forced-update readiness. Mark a release ready only after the APK is uploaded and the download link is tested.'**
+  String get releaseAndroidPolicyGuidance;
+
+  /// No description provided for @releaseHistoryGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this tab to review previous device version changes and release events for troubleshooting.'**
+  String get releaseHistoryGuidance;
+
+  /// No description provided for @releaseHistoryProfileLimitNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Older events may only contain a technical user reference; a shortened reference appears only for troubleshooting.'**
+  String get releaseHistoryProfileLimitNote;
+
+  /// No description provided for @releaseSectionPlatformWideNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This section is platform-wide and is not limited by the selected company.'**
+  String get releaseSectionPlatformWideNote;
+
+  /// No description provided for @notificationAdoptionSeparateNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification readiness is separate from version adoption.'**
+  String get notificationAdoptionSeparateNote;
+
+  /// No description provided for @androidPolicyBuildComparisonNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Android update decisions compare build numbers, not display version text.'**
+  String get androidPolicyBuildComparisonNote;
+
+  /// No description provided for @suggestedApkUrlNotProof.
+  ///
+  /// In en, this message translates to:
+  /// **'The suggested URL is only a naming helper. Upload the APK and test the download link before marking the release ready.'**
+  String get suggestedApkUrlNotProof;
+
+  /// No description provided for @androidPolicyNotReadyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Release is not ready. Upload and test the APK link before enabling ready state.'**
+  String get androidPolicyNotReadyAction;
+
+  /// No description provided for @androidPolicyReadyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Release is marked ready. Android clients will compare update requirements by build number.'**
+  String get androidPolicyReadyAction;
+
+  /// No description provided for @notificationReadyDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification-ready devices'**
+  String get notificationReadyDevices;
+
+  /// No description provided for @notificationReadyDevicesRatio.
+  ///
+  /// In en, this message translates to:
+  /// **'{ready} / {total}'**
+  String notificationReadyDevicesRatio(int ready, int total);
+
+  /// No description provided for @notificationReadyDevicesSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{ready} of {total} active devices can receive notifications.'**
+  String notificationReadyDevicesSummary(int ready, int total);
+
+  /// No description provided for @notificationBlockedDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification-blocked devices'**
+  String get notificationBlockedDevices;
+
+  /// No description provided for @notificationMissingDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices without notification token'**
+  String get notificationMissingDevices;
+
+  /// No description provided for @notificationInvalidFailedDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid or failed notification devices'**
+  String get notificationInvalidFailedDevices;
+
+  /// No description provided for @devicesBelowLatestBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices below latest build'**
+  String get devicesBelowLatestBuild;
+
+  /// No description provided for @devicesBelowLatestBuildSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{users} users on {devices} devices are below the latest build.'**
+  String devicesBelowLatestBuildSummary(int users, int devices);
+
+  /// No description provided for @requiresReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires review'**
+  String get requiresReview;
+
+  /// No description provided for @unresolvedUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unresolved user'**
+  String get unresolvedUser;
+
+  /// No description provided for @userProfileUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'User profile unavailable'**
+  String get userProfileUnavailable;
+
+  /// No description provided for @releaseEventTechnicalReferenceOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'This release event only stored a technical user reference.'**
+  String get releaseEventTechnicalReferenceOnly;
+
+  /// No description provided for @technicalReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical reference'**
+  String get technicalReference;
+
   /// No description provided for @dashboardPerformanceDailyActivityNote.
   ///
   /// In en, this message translates to:

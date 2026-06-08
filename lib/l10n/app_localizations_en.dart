@@ -5292,6 +5292,117 @@ class AppLocalizationsEn extends AppLocalizations {
       'The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.';
 
   @override
+  String get platformActivityDeferredMessage =>
+      'Open activity to load selected-company users and login activity for this owner session.';
+
+  @override
+  String get platformWorkspaceSummaryDeferredMessage =>
+      'Open the workspace to load selected-company user counts for this owner session.';
+
+  @override
+  String get releaseOverviewGuidance =>
+      'Use this page to confirm the latest published Web and Android versions, outdated devices, Android update readiness, and notification health before releasing a new build.';
+
+  @override
+  String get releaseOverviewMixedScopeHint =>
+      'Latest releases and Android policy are platform-wide; device and history counts follow the selected company filter.';
+
+  @override
+  String get releaseRegistryGuidance =>
+      'This registry shows prepared and published platform releases. Use it to confirm what was recorded as a release, not to change Android forced-update policy.';
+
+  @override
+  String get releaseRegistryAndroidPolicyNote =>
+      'Android policy details are managed from Android release management.';
+
+  @override
+  String get releaseAdoptionDevicesGuidance =>
+      'Use this tab to see real active devices and users by version. Adoption shows installed usage, not the release registry.';
+
+  @override
+  String get releaseAndroidPolicyGuidance =>
+      'Use this tab to manage Android forced-update readiness. Mark a release ready only after the APK is uploaded and the download link is tested.';
+
+  @override
+  String get releaseHistoryGuidance =>
+      'Use this tab to review previous device version changes and release events for troubleshooting.';
+
+  @override
+  String get releaseHistoryProfileLimitNote =>
+      'Older events may only contain a technical user reference; a shortened reference appears only for troubleshooting.';
+
+  @override
+  String get releaseSectionPlatformWideNote =>
+      'This section is platform-wide and is not limited by the selected company.';
+
+  @override
+  String get notificationAdoptionSeparateNote =>
+      'Notification readiness is separate from version adoption.';
+
+  @override
+  String get androidPolicyBuildComparisonNote =>
+      'Android update decisions compare build numbers, not display version text.';
+
+  @override
+  String get suggestedApkUrlNotProof =>
+      'The suggested URL is only a naming helper. Upload the APK and test the download link before marking the release ready.';
+
+  @override
+  String get androidPolicyNotReadyAction =>
+      'Release is not ready. Upload and test the APK link before enabling ready state.';
+
+  @override
+  String get androidPolicyReadyAction =>
+      'Release is marked ready. Android clients will compare update requirements by build number.';
+
+  @override
+  String get notificationReadyDevices => 'Notification-ready devices';
+
+  @override
+  String notificationReadyDevicesRatio(int ready, int total) {
+    return '$ready / $total';
+  }
+
+  @override
+  String notificationReadyDevicesSummary(int ready, int total) {
+    return '$ready of $total active devices can receive notifications.';
+  }
+
+  @override
+  String get notificationBlockedDevices => 'Notification-blocked devices';
+
+  @override
+  String get notificationMissingDevices => 'Devices without notification token';
+
+  @override
+  String get notificationInvalidFailedDevices =>
+      'Invalid or failed notification devices';
+
+  @override
+  String get devicesBelowLatestBuild => 'Devices below latest build';
+
+  @override
+  String devicesBelowLatestBuildSummary(int users, int devices) {
+    return '$users users on $devices devices are below the latest build.';
+  }
+
+  @override
+  String get requiresReview => 'Requires review';
+
+  @override
+  String get unresolvedUser => 'Unresolved user';
+
+  @override
+  String get userProfileUnavailable => 'User profile unavailable';
+
+  @override
+  String get releaseEventTechnicalReferenceOnly =>
+      'This release event only stored a technical user reference.';
+
+  @override
+  String get technicalReference => 'Technical reference';
+
+  @override
   String get dashboardPerformanceDailyActivityNote =>
       'Shows daily activity, so days without new records appear as 0.';
 

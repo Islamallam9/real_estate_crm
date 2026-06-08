@@ -5259,6 +5259,117 @@ class AppLocalizationsAr extends AppLocalizations {
       'مفتاح Web Push غير موجود في هذا البناء. أعد بناء التطبيق باستخدام مفتاح Firebase VAPID لتفعيل إشعارات المتصفح.';
 
   @override
+  String get platformActivityDeferredMessage =>
+      'افتح النشاط لتحميل مستخدمي الشركة المحددة وسجل الدخول لهذه الجلسة فقط.';
+
+  @override
+  String get platformWorkspaceSummaryDeferredMessage =>
+      'افتح مساحة العمل لتحميل أعداد مستخدمي الشركة المحددة لهذه الجلسة فقط.';
+
+  @override
+  String get releaseOverviewGuidance =>
+      'استخدم هذه الصفحة لمراجعة أحدث إصدارات الويب وأندرويد، والأجهزة القديمة، وجاهزية تحديث أندرويد، وصحة الإشعارات قبل نشر إصدار جديد.';
+
+  @override
+  String get releaseOverviewMixedScopeHint =>
+      'أحدث الإصدارات وسياسة أندرويد على مستوى المنصة؛ أما أعداد الأجهزة والسجل فتتبع فلتر الشركة المحددة.';
+
+  @override
+  String get releaseRegistryGuidance =>
+      'يعرض هذا السجل الإصدارات المحضرة والمنشورة على مستوى المنصة. استخدمه لتأكيد ما تم تسجيله كإصدار، وليس لتغيير سياسة التحديث الإجباري لأندرويد.';
+
+  @override
+  String get releaseRegistryAndroidPolicyNote =>
+      'تتم إدارة تفاصيل سياسة أندرويد من إدارة إصدار أندرويد.';
+
+  @override
+  String get releaseAdoptionDevicesGuidance =>
+      'استخدم هذا التبويب لمعرفة الأجهزة والمستخدمين النشطين فعليًا حسب الإصدار. الاعتماد يعرض الاستخدام المثبت، وليس سجل الإصدارات.';
+
+  @override
+  String get releaseAndroidPolicyGuidance =>
+      'استخدم هذا التبويب لإدارة جاهزية التحديث الإجباري لأندرويد. لا تجعل الإصدار جاهزًا إلا بعد رفع ملف APK واختبار رابط التحميل.';
+
+  @override
+  String get releaseHistoryGuidance =>
+      'استخدم هذا التبويب لمراجعة تغييرات إصدارات الأجهزة وأحداث الإصدار السابقة عند استكشاف المشكلات.';
+
+  @override
+  String get releaseHistoryProfileLimitNote =>
+      'قد تحتوي الأحداث القديمة على مرجع مستخدم تقني فقط؛ يظهر المرجع المختصر لأغراض استكشاف المشكلات فقط.';
+
+  @override
+  String get releaseSectionPlatformWideNote =>
+      'هذا القسم على مستوى المنصة ولا يتأثر بالشركة المحددة.';
+
+  @override
+  String get notificationAdoptionSeparateNote =>
+      'جاهزية الإشعارات منفصلة عن اعتماد الإصدارات.';
+
+  @override
+  String get androidPolicyBuildComparisonNote =>
+      'قرارات تحديث أندرويد تعتمد على رقم البناء، وليس نص الإصدار المعروض.';
+
+  @override
+  String get suggestedApkUrlNotProof =>
+      'الرابط المقترح يساعد على التسمية فقط. ارفع ملف APK واختبر رابط التحميل قبل جعل الإصدار جاهزًا.';
+
+  @override
+  String get androidPolicyNotReadyAction =>
+      'الإصدار غير جاهز. ارفع رابط APK واختبره قبل تفعيل حالة الجاهزية.';
+
+  @override
+  String get androidPolicyReadyAction =>
+      'الإصدار محدد كجاهز. سيقارن عملاء أندرويد متطلبات التحديث حسب رقم البناء.';
+
+  @override
+  String get notificationReadyDevices => 'أجهزة جاهزة للإشعارات';
+
+  @override
+  String notificationReadyDevicesRatio(int ready, int total) {
+    return '$ready / $total';
+  }
+
+  @override
+  String notificationReadyDevicesSummary(int ready, int total) {
+    return '$ready من $total أجهزة نشطة يمكنها استقبال الإشعارات.';
+  }
+
+  @override
+  String get notificationBlockedDevices => 'أجهزة حظرت الإشعارات';
+
+  @override
+  String get notificationMissingDevices => 'أجهزة بلا رمز إشعارات';
+
+  @override
+  String get notificationInvalidFailedDevices =>
+      'أجهزة إشعارات غير صالحة أو فشلت';
+
+  @override
+  String get devicesBelowLatestBuild => 'أجهزة أقل من أحدث بناء';
+
+  @override
+  String devicesBelowLatestBuildSummary(int users, int devices) {
+    return '$users مستخدمين على $devices أجهزة أقل من أحدث بناء.';
+  }
+
+  @override
+  String get requiresReview => 'يتطلب مراجعة';
+
+  @override
+  String get unresolvedUser => 'مستخدم غير محدد';
+
+  @override
+  String get userProfileUnavailable => 'بيانات المستخدم غير متاحة';
+
+  @override
+  String get releaseEventTechnicalReferenceOnly =>
+      'هذا الحدث يحتوي على مرجع تقني فقط للمستخدم.';
+
+  @override
+  String get technicalReference => 'مرجع تقني';
+
+  @override
   String get dashboardPerformanceDailyActivityNote =>
       'يعرض النشاط اليومي، لذلك تظهر الأيام التي لا تحتوي على سجلات جديدة كقيمة 0.';
 

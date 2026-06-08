@@ -6,6 +6,9 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../app_update/domain/entities/android_release_policy.dart';
 import '../../domain/entities/android_version_adoption.dart';
+import '../../domain/entities/platform_company_user.dart';
+import '../../domain/entities/platform_login_activity.dart';
+import '../../domain/entities/platform_payment_history.dart';
 import '../../domain/usecases/add_user_to_company_usecase.dart';
 import '../../domain/usecases/backfill_assigned_record_snapshots_usecase.dart';
 import '../../domain/usecases/create_platform_release_record_usecase.dart';
@@ -144,6 +147,12 @@ class PlatformCubit extends Cubit<PlatformState> {
   StreamSubscription? _companyUsersSubscription;
   StreamSubscription? _paymentHistorySubscription;
   StreamSubscription? _loginActivitySubscription;
+  String? _companyUsersSubscriptionCompanyId;
+  String? _paymentHistorySubscriptionCompanyId;
+  String? _loginActivitySubscriptionCompanyId;
+  final Map<String, List<PlatformCompanyUser>> _companyUsersCache = {};
+  final Map<String, List<PlatformPaymentHistory>> _paymentHistoryCache = {};
+  final Map<String, List<PlatformLoginActivity>> _loginActivityCache = {};
 
   void watchCompanies() {
     emit(state.copyWith(status: PlatformStatus.loading, clearMessage: true));
@@ -155,21 +164,38 @@ class PlatformCubit extends Cubit<PlatformState> {
             selectedId != null && companies.any((company) => company.id == selectedId)
             ? selectedId
             : (companies.isEmpty ? null : companies.first.id);
+        final selectedChanged = selectedId != nextSelectedId;
+        if (selectedChanged) {
+          _cancelSelectedCompanyStreams();
+        }
+        final cachedUsers = _companyUsersCache[nextSelectedId];
+        final cachedPayments = _paymentHistoryCache[nextSelectedId];
+        final cachedLogins = _loginActivityCache[nextSelectedId];
 
         emit(
           state.copyWith(
             status: PlatformStatus.ready,
             companies: companies,
             selectedCompanyId: nextSelectedId,
+            clearSelectedCompanyId: nextSelectedId == null,
+            companyUsers: selectedChanged ? cachedUsers ?? const [] : null,
+            paymentHistory: selectedChanged ? cachedPayments ?? const [] : null,
+            loginActivities: selectedChanged ? cachedLogins ?? const [] : null,
+            companyUsersCompanyId:
+                selectedChanged && cachedUsers != null ? nextSelectedId : null,
+            paymentHistoryCompanyId:
+                selectedChanged && cachedPayments != null ? nextSelectedId : null,
+            loginActivitiesCompanyId:
+                selectedChanged && cachedLogins != null ? nextSelectedId : null,
+            clearCompanyUsersCompanyId: selectedChanged && cachedUsers == null,
+            clearPaymentHistoryCompanyId: selectedChanged && cachedPayments == null,
+            clearLoginActivitiesCompanyId: selectedChanged && cachedLogins == null,
+            companyUsersLoading: selectedChanged ? false : null,
+            paymentHistoryLoading: selectedChanged ? false : null,
+            loginActivitiesLoading: selectedChanged ? false : null,
             clearMessage: true,
           ),
         );
-
-        if (nextSelectedId != null) {
-          watchCompanyUsers(nextSelectedId);
-          watchPaymentHistory(nextSelectedId);
-          watchLoginActivity(nextSelectedId);
-        }
       },
       onError: (Object error) {
         emit(
@@ -183,19 +209,32 @@ class PlatformCubit extends Cubit<PlatformState> {
   }
 
   void selectCompany(String companyId) {
+    if (state.selectedCompanyId == companyId) {
+      return;
+    }
+    _cancelSelectedCompanyStreams();
+    final cachedUsers = _companyUsersCache[companyId];
+    final cachedPayments = _paymentHistoryCache[companyId];
+    final cachedLogins = _loginActivityCache[companyId];
     emit(
       state.copyWith(
         selectedCompanyId: companyId,
-        companyUsers: const [],
-        loginActivities: const [],
-        paymentHistory: const [],
+        companyUsers: cachedUsers ?? const [],
+        loginActivities: cachedLogins ?? const [],
+        paymentHistory: cachedPayments ?? const [],
+        companyUsersCompanyId: cachedUsers == null ? null : companyId,
+        loginActivitiesCompanyId: cachedLogins == null ? null : companyId,
+        paymentHistoryCompanyId: cachedPayments == null ? null : companyId,
+        clearCompanyUsersCompanyId: cachedUsers == null,
+        clearLoginActivitiesCompanyId: cachedLogins == null,
+        clearPaymentHistoryCompanyId: cachedPayments == null,
+        companyUsersLoading: false,
+        loginActivitiesLoading: false,
+        paymentHistoryLoading: false,
         clearDataHealthReport: true,
         clearMessage: true,
       ),
     );
-    watchCompanyUsers(companyId);
-    watchPaymentHistory(companyId);
-    watchLoginActivity(companyId);
     if (state.androidReleasePolicy != null) {
       unawaited(loadReleaseCenter());
     }
@@ -210,75 +249,189 @@ class PlatformCubit extends Cubit<PlatformState> {
   }
 
   void watchCompanyUsers(String companyId) {
+    ensureCompanyUsersLoaded(companyId);
+  }
+
+  void ensureCompanyUsersLoaded(String companyId) {
+    if (state.selectedCompanyId != companyId ||
+        _companyUsersSubscriptionCompanyId == companyId) {
+      return;
+    }
     _companyUsersSubscription?.cancel();
+    _companyUsersSubscriptionCompanyId = companyId;
+    final cachedUsers = _companyUsersCache[companyId];
+    emit(
+      state.copyWith(
+        companyUsers: cachedUsers ?? const [],
+        companyUsersCompanyId: cachedUsers == null ? null : companyId,
+        clearCompanyUsersCompanyId: cachedUsers == null,
+        companyUsersLoading: cachedUsers == null,
+        clearMessage: true,
+      ),
+    );
     _companyUsersSubscription = _watchCompanyUsersUseCase(companyId: companyId)
         .listen(
           (users) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.ready,
-                companyUsers: users,
-                clearMessage: true,
-              ),
-            );
+            _companyUsersCache[companyId] = users;
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.ready,
+                  companyUsers: users,
+                  companyUsersCompanyId: companyId,
+                  companyUsersLoading: false,
+                  clearMessage: true,
+                ),
+              );
+            }
           },
           onError: (Object error) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.failure,
-                message: _cleanError(error),
-              ),
-            );
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.failure,
+                  companyUsersLoading: false,
+                  message: _cleanError(error),
+                ),
+              );
+            }
           },
         );
   }
 
   void watchPaymentHistory(String companyId) {
+    ensurePaymentHistoryLoaded(companyId);
+  }
+
+  void ensurePaymentHistoryLoaded(String companyId) {
+    if (state.selectedCompanyId != companyId ||
+        _paymentHistorySubscriptionCompanyId == companyId) {
+      return;
+    }
     _paymentHistorySubscription?.cancel();
+    _paymentHistorySubscriptionCompanyId = companyId;
+    final cachedHistory = _paymentHistoryCache[companyId];
+    emit(
+      state.copyWith(
+        paymentHistory: cachedHistory ?? const [],
+        paymentHistoryCompanyId: cachedHistory == null ? null : companyId,
+        clearPaymentHistoryCompanyId: cachedHistory == null,
+        paymentHistoryLoading: cachedHistory == null,
+        clearMessage: true,
+      ),
+    );
     _paymentHistorySubscription = _watchPaymentHistoryUseCase(companyId: companyId)
         .listen(
           (history) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.ready,
-                paymentHistory: history,
-                clearMessage: true,
-              ),
-            );
+            _paymentHistoryCache[companyId] = history;
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.ready,
+                  paymentHistory: history,
+                  paymentHistoryCompanyId: companyId,
+                  paymentHistoryLoading: false,
+                  clearMessage: true,
+                ),
+              );
+            }
           },
           onError: (Object error) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.failure,
-                message: _cleanError(error),
-              ),
-            );
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.failure,
+                  paymentHistoryLoading: false,
+                  message: _cleanError(error),
+                ),
+              );
+            }
           },
         );
   }
 
   void watchLoginActivity(String companyId) {
+    ensureLoginActivityLoaded(companyId);
+  }
+
+  void ensureLoginActivityLoaded(String companyId) {
+    if (state.selectedCompanyId != companyId ||
+        _loginActivitySubscriptionCompanyId == companyId) {
+      return;
+    }
     _loginActivitySubscription?.cancel();
+    _loginActivitySubscriptionCompanyId = companyId;
+    final cachedActivities = _loginActivityCache[companyId];
+    emit(
+      state.copyWith(
+        loginActivities: cachedActivities ?? const [],
+        loginActivitiesCompanyId: cachedActivities == null ? null : companyId,
+        clearLoginActivitiesCompanyId: cachedActivities == null,
+        loginActivitiesLoading: cachedActivities == null,
+        clearMessage: true,
+      ),
+    );
     _loginActivitySubscription = _watchLoginActivityUseCase(companyId: companyId)
         .listen(
           (activities) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.ready,
-                loginActivities: activities,
-                clearMessage: true,
-              ),
-            );
+            _loginActivityCache[companyId] = activities;
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.ready,
+                  loginActivities: activities,
+                  loginActivitiesCompanyId: companyId,
+                  loginActivitiesLoading: false,
+                  clearMessage: true,
+                ),
+              );
+            }
           },
           onError: (Object error) {
-            emit(
-              state.copyWith(
-                status: PlatformStatus.failure,
-                message: _cleanError(error),
-              ),
-            );
+            if (state.selectedCompanyId == companyId) {
+              emit(
+                state.copyWith(
+                  status: PlatformStatus.failure,
+                  loginActivitiesLoading: false,
+                  message: _cleanError(error),
+                ),
+              );
+            }
           },
         );
+  }
+
+  void clearOwnerSessionCache() {
+    _cancelSelectedCompanyStreams();
+    _companyUsersCache.clear();
+    _paymentHistoryCache.clear();
+    _loginActivityCache.clear();
+    emit(
+      state.copyWith(
+        companyUsers: const [],
+        paymentHistory: const [],
+        loginActivities: const [],
+        companyUsersLoading: false,
+        paymentHistoryLoading: false,
+        loginActivitiesLoading: false,
+        clearCompanyUsersCompanyId: true,
+        clearPaymentHistoryCompanyId: true,
+        clearLoginActivitiesCompanyId: true,
+        clearMessage: true,
+      ),
+    );
+  }
+
+  void _cancelSelectedCompanyStreams() {
+    _companyUsersSubscription?.cancel();
+    _paymentHistorySubscription?.cancel();
+    _loginActivitySubscription?.cancel();
+    _companyUsersSubscription = null;
+    _paymentHistorySubscription = null;
+    _loginActivitySubscription = null;
+    _companyUsersSubscriptionCompanyId = null;
+    _paymentHistorySubscriptionCompanyId = null;
+    _loginActivitySubscriptionCompanyId = null;
   }
 
   Future<bool> createCompanyWithAdmin({
@@ -318,7 +471,7 @@ class PlatformCubit extends Cubit<PlatformState> {
     required String phone,
     required UserRole role,
   }) async {
-    return _save(() {
+    final success = await _save(() {
       return _addUserToCompanyUseCase(
         companyId: companyId,
         fullName: fullName,
@@ -327,6 +480,10 @@ class PlatformCubit extends Cubit<PlatformState> {
         role: role,
       );
     });
+    if (success) {
+      _companyUsersCache.remove(companyId);
+    }
+    return success;
   }
 
   Future<bool> setCompanyActiveStatus({
@@ -383,6 +540,7 @@ class PlatformCubit extends Cubit<PlatformState> {
         uid: uid,
         isActive: isActive,
       );
+      _companyUsersCache.remove(companyId);
       emit(
         state.copyWith(
           status: PlatformStatus.ready,
@@ -422,13 +580,17 @@ class PlatformCubit extends Cubit<PlatformState> {
     required String uid,
     required String newEmail,
   }) async {
-    return _save(() {
+    final success = await _save(() {
       return _setCompanyUserEmailUseCase(
         companyId: companyId,
         uid: uid,
         newEmail: newEmail,
       );
     });
+    if (success) {
+      _companyUsersCache.remove(companyId);
+    }
+    return success;
   }
 
   Future<String?> generateCompanyUserPasswordResetLink({
@@ -871,6 +1033,7 @@ class PlatformCubit extends Cubit<PlatformState> {
     );
     try {
       await action();
+      _paymentHistoryCache.remove(companyId);
       emit(
         state.copyWith(
           status: PlatformStatus.ready,
@@ -931,9 +1094,10 @@ class PlatformCubit extends Cubit<PlatformState> {
   @override
   Future<void> close() {
     _companiesSubscription?.cancel();
-    _companyUsersSubscription?.cancel();
-    _paymentHistorySubscription?.cancel();
-    _loginActivitySubscription?.cancel();
+    _cancelSelectedCompanyStreams();
+    _companyUsersCache.clear();
+    _paymentHistoryCache.clear();
+    _loginActivityCache.clear();
     return super.close();
   }
 }

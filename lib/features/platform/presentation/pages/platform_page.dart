@@ -246,18 +246,31 @@ class PlatformPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return BlocListener<PlatformCubit, PlatformState>(
-      listenWhen: (previous, current) {
-        return previous.status != current.status &&
-            current.status == PlatformStatus.failure &&
-            current.message != null;
-      },
-      listener: (context, state) {
-        if (!context.mounted) {
-          return;
-        }
-        AppFeedback.error(context, _platformErrorMessage(l, state.message));
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AuthBloc, AuthState>(
+          listenWhen: (previous, current) {
+            return previous.user?.uid != current.user?.uid ||
+                current.status == AuthStatus.unauthenticated;
+          },
+          listener: (context, state) {
+            context.read<PlatformCubit>().clearOwnerSessionCache();
+          },
+        ),
+        BlocListener<PlatformCubit, PlatformState>(
+          listenWhen: (previous, current) {
+            return previous.status != current.status &&
+                current.status == PlatformStatus.failure &&
+                current.message != null;
+          },
+          listener: (context, state) {
+            if (!context.mounted) {
+              return;
+            }
+            AppFeedback.error(context, _platformErrorMessage(l, state.message));
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.appBackground(context),
         body: SafeArea(
@@ -2198,6 +2211,9 @@ class _DashboardActivityPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final company = state.selectedCompany;
+    final activityLoaded =
+        state.hasSelectedCompanyUsers && state.hasSelectedLoginActivities;
     final users = state.companyUsers
         .where((user) =>
             user.lastLoginAt != null ||
@@ -2205,37 +2221,53 @@ class _DashboardActivityPanel extends StatelessWidget {
         .toList(growable: false)
       ..sort((a, b) => _latestLoginAt(state, b).compareTo(_latestLoginAt(state, a)));
     final visible = users.take(5).toList(growable: false);
+    final Widget content;
+    if (company == null) {
+      content = AppEmptyState(
+        icon: Icons.apartment_outlined,
+        title: l.noCompanySelected,
+        message: l.noCompanySelectedMessage,
+      );
+    } else if (!activityLoaded) {
+      content = AppEmptyState(
+        icon: Icons.manage_history_outlined,
+        title: l.platformRecentActivity,
+        message: l.platformActivityDeferredMessage,
+      );
+    } else if (visible.isEmpty) {
+      content = AppEmptyState(
+        icon: Icons.manage_history_outlined,
+        title: l.platformNoRecentActivity,
+        message: l.noLoginActivityYet,
+      );
+    } else {
+      content = Column(
+        children: [
+          for (final user in visible) ...[
+            _LoginActivityRow(
+              user: user,
+              activities: _activitiesForUser(state.loginActivities, user.uid),
+              onTap: () => _showLoginActivitySheet(
+                context,
+                user: user,
+                activities: _activitiesForUser(state.loginActivities, user.uid),
+              ),
+            ),
+            if (user != visible.last)
+              const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+      );
+    }
 
     return _Panel(
       title: l.platformRecentActivity,
       action: TextButton.icon(
-        onPressed: visible.isEmpty ? null : onOpenActivity,
+        onPressed: company == null ? null : onOpenActivity,
         icon: const Icon(Icons.history),
         label: Text(l.platformViewAllLogs),
       ),
-      child: visible.isEmpty
-          ? AppEmptyState(
-              icon: Icons.manage_history_outlined,
-              title: l.platformNoRecentActivity,
-              message: l.noLoginActivityYet,
-            )
-          : Column(
-              children: [
-                for (final user in visible) ...[
-                  _LoginActivityRow(
-                    user: user,
-                    activities: _activitiesForUser(state.loginActivities, user.uid),
-                    onTap: () => _showLoginActivitySheet(
-                      context,
-                      user: user,
-                      activities: _activitiesForUser(state.loginActivities, user.uid),
-                    ),
-                  ),
-                  if (user != visible.last)
-                    const SizedBox(height: AppSpacing.xs),
-                ],
-              ],
-            ),
+      child: content,
     );
   }
 }
@@ -2249,6 +2281,16 @@ class _WorkspaceSummaryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final company = state.selectedCompany;
+    if (company != null && !state.hasSelectedCompanyUsers) {
+      return _Panel(
+        title: l.platformWorkspaceSummary,
+        child: AppEmptyState(
+          icon: Icons.people_outline,
+          title: l.platformWorkspaceSummary,
+          message: l.platformWorkspaceSummaryDeferredMessage,
+        ),
+      );
+    }
     final users = state.companyUsers;
     final adminsManagers = users.where((user) {
       return user.role == UserRole.admin || user.role == UserRole.manager;
@@ -2658,6 +2700,48 @@ class _CompanyWorkspacePanelState extends State<_CompanyWorkspacePanel> {
   var _tab = _WorkspaceTab.summary;
 
   @override
+  void initState() {
+    super.initState();
+    _scheduleSelectedTabLoad();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CompanyWorkspacePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.selectedCompanyId != widget.state.selectedCompanyId) {
+      _scheduleSelectedTabLoad();
+    }
+  }
+
+  void _scheduleSelectedTabLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadSelectedTabData();
+    });
+  }
+
+  void _loadSelectedTabData() {
+    final companyId = widget.state.selectedCompany?.id;
+    if (companyId == null) return;
+    final cubit = context.read<PlatformCubit>();
+    switch (_tab) {
+      case _WorkspaceTab.summary:
+      case _WorkspaceTab.users:
+        cubit.ensureCompanyUsersLoaded(companyId);
+        break;
+      case _WorkspaceTab.payments:
+        cubit.ensurePaymentHistoryLoaded(companyId);
+        break;
+      case _WorkspaceTab.features:
+      case _WorkspaceTab.limits:
+      case _WorkspaceTab.settings:
+      case _WorkspaceTab.maintenance:
+      case _WorkspaceTab.preview:
+        break;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final company = widget.state.selectedCompany;
@@ -2679,7 +2763,10 @@ class _CompanyWorkspacePanelState extends State<_CompanyWorkspacePanel> {
         const SizedBox(height: AppSpacing.md),
         _WorkspaceTabs(
           selected: _tab,
-          onSelected: (tab) => setState(() => _tab = tab),
+          onSelected: (tab) {
+            setState(() => _tab = tab);
+            _scheduleSelectedTabLoad();
+          },
         ),
         const SizedBox(height: AppSpacing.md),
         switch (_tab) {
@@ -2811,14 +2898,45 @@ class _WorkspaceTabs extends StatelessWidget {
   }
 }
 
-class _PlatformActivityPanel extends StatelessWidget {
+class _PlatformActivityPanel extends StatefulWidget {
   const _PlatformActivityPanel({required this.state});
 
   final PlatformState state;
 
   @override
+  State<_PlatformActivityPanel> createState() => _PlatformActivityPanelState();
+}
+
+class _PlatformActivityPanelState extends State<_PlatformActivityPanel> {
+  @override
+  void initState() {
+    super.initState();
+    _scheduleActivityLoad();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlatformActivityPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.selectedCompanyId != widget.state.selectedCompanyId) {
+      _scheduleActivityLoad();
+    }
+  }
+
+  void _scheduleActivityLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final companyId = widget.state.selectedCompany?.id;
+      if (companyId == null) return;
+      final cubit = context.read<PlatformCubit>();
+      cubit.ensureCompanyUsersLoaded(companyId);
+      cubit.ensureLoginActivityLoaded(companyId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final state = widget.state;
     final company = state.selectedCompany;
     final users = state.companyUsers.toList(growable: false)
       ..sort((a, b) {
@@ -2838,6 +2956,11 @@ class _PlatformActivityPanel extends StatelessWidget {
               title: l.noCompanySelected,
               message: l.noCompanySelectedMessage,
             )
+          : state.companyUsersLoading ||
+                  state.loginActivitiesLoading ||
+                  !state.hasSelectedCompanyUsers ||
+                  !state.hasSelectedLoginActivities
+              ? const AppLoading()
           : users.isEmpty
               ? AppEmptyState(
                   icon: Icons.manage_history_outlined,
@@ -3210,7 +3333,9 @@ class _CompanyPaymentPanel extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (state.paymentHistory.isEmpty)
+          if (state.paymentHistoryLoading || !state.hasSelectedPaymentHistory)
+            const AppLoading()
+          else if (state.paymentHistory.isEmpty)
             AppEmptyState(
               icon: Icons.receipt_long_outlined,
               title: l.paymentHistory,
@@ -3322,8 +3447,9 @@ class _CompanyUsersPanelState extends State<_CompanyUsersPanel> {
     }
 
     final userLimit = _limitValue(company.limits['users']);
+    final usersLoaded = state.hasSelectedCompanyUsers;
     final userLimitReached =
-        userLimit != null && state.companyUsers.length >= userLimit;
+        usersLoaded && userLimit != null && state.companyUsers.length >= userLimit;
     final filteredUsers = _filteredUsers(state.companyUsers);
 
     return _Panel(
@@ -3332,7 +3458,9 @@ class _CompanyUsersPanelState extends State<_CompanyUsersPanel> {
         label: l.platformSupportAddUser,
         icon: Icons.person_add_alt_1,
         variant: AppButtonVariant.secondary,
-        onPressed: state.status == PlatformStatus.saving || userLimitReached
+        onPressed: state.status == PlatformStatus.saving ||
+                userLimitReached ||
+                !usersLoaded
             ? null
             : () => _showAddUserDialog(context, company.id),
       ),
@@ -3378,7 +3506,9 @@ class _CompanyUsersPanelState extends State<_CompanyUsersPanel> {
                 setState(() => _activeFilter = active),
           ),
           const SizedBox(height: AppSpacing.md),
-          if (state.companyUsers.isEmpty)
+          if (state.companyUsersLoading || !usersLoaded)
+            const AppLoading()
+          else if (state.companyUsers.isEmpty)
             AppEmptyState(
               icon: Icons.people_outline,
               title: l.noCompanyUsers,
@@ -3510,18 +3640,40 @@ class _PlatformReleaseManagementPanelState
     extends State<_PlatformReleaseManagementPanel> {
   var _tabIndex = 0;
 
+  Widget _buildSelectedTab(PlatformState state) {
+    return switch (_tabIndex) {
+      0 => _ReleaseOverviewTab(state: state),
+      1 => _ReleaseRegistryTab(state: state),
+      2 => _ReleaseAdoptionDevicesTab(
+          adoptionRows: state.releaseAdoptionRows,
+          deviceRows: state.releaseDeviceRows,
+        ),
+      3 => _ReleasePolicyTab(state: state),
+      _ => _ReleaseHistoryTab(rows: state.releaseVersionEvents),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final state = widget.state;
+    final adoptionDevicesLabel = '${l.versionAdoption} / ${l.devices}';
     final tabs = [
       MasarSwitchTabItem(label: l.releaseOverview, icon: Icons.insights_outlined),
       MasarSwitchTabItem(label: l.releases, icon: Icons.inventory_2_outlined),
-      MasarSwitchTabItem(label: l.versionAdoption, icon: Icons.analytics_outlined),
-      MasarSwitchTabItem(label: l.devices, icon: Icons.devices_other_outlined),
+      MasarSwitchTabItem(
+        label: adoptionDevicesLabel,
+        icon: Icons.devices_other_outlined,
+      ),
+      MasarSwitchTabItem(
+        label: l.androidReleaseManagement,
+        icon: Icons.admin_panel_settings_outlined,
+      ),
       MasarSwitchTabItem(label: l.versionHistory, icon: Icons.history_rounded),
-      MasarSwitchTabItem(label: l.health, icon: Icons.health_and_safety_outlined),
     ];
+    if (_tabIndex >= tabs.length) {
+      _tabIndex = tabs.length - 1;
+    }
     return _Panel(
       title: l.releaseCenter,
       action: Wrap(
@@ -3551,14 +3703,6 @@ class _PlatformReleaseManagementPanelState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            l.currentAdoptionHistoryHint,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryColor(context),
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.md),
           _ReleaseCompanyFilter(state: state),
           const SizedBox(height: AppSpacing.md),
           MasarSwitchTabBar(
@@ -3568,35 +3712,7 @@ class _PlatformReleaseManagementPanelState
             compact: true,
           ),
           const SizedBox(height: AppSpacing.md),
-          IndexedStack(
-            index: _tabIndex,
-            children: [
-              _ReleaseOverviewTab(state: state),
-              _ReleaseRegistryTab(state: state),
-              _ReleaseAdoptionTab(rows: state.releaseAdoptionRows),
-              _ReleaseDevicesTab(rows: state.releaseDeviceRows),
-              _ReleaseHistoryTab(rows: state.releaseVersionEvents),
-              _ReleaseHealthTab(state: state),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.warningColor(context).withValues(alpha: .10),
-              borderRadius: AppRadius.large,
-              border: Border.all(
-                color: AppColors.warningColor(context).withValues(alpha: .28),
-              ),
-            ),
-            child: Text(
-              l.androidReleasePolicyHint,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.warningColor(context),
-                    fontWeight: FontWeight.w800,
-                  ),
-            )
-          ),
+          _buildSelectedTab(state),
         ],
       ),
     );
@@ -3607,24 +3723,35 @@ class _ReleaseCompanyFilter extends StatelessWidget {
   const _ReleaseCompanyFilter({required this.state});
 
   final PlatformState state;
+  static const _allCompaniesValue = '__all_companies__';
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final dropdown = AppDropdown<String?>(
+        final selectedValue = state.releaseCompanyId?.trim().isNotEmpty == true
+            ? state.releaseCompanyId!.trim()
+            : _allCompaniesValue;
+        final dropdown = AppDropdown<String>(
+          key: ValueKey('releaseCompany:$selectedValue'),
           label: l.company,
-          value: state.releaseCompanyId,
-          items: <String?>[null, ...state.companies.map((company) => company.id)],
+          value: selectedValue,
+          items: <String>[
+            _allCompaniesValue,
+            ...state.companies.map((company) => company.id),
+          ],
           itemLabelBuilder: (value) {
-            if (value == null || value.trim().isEmpty) {
+            if (value == _allCompaniesValue || value.trim().isEmpty) {
               return l.allCompanies;
             }
             final company = _companyById(state.companies, value);
             return company == null ? value : _companyTitle(company);
           },
-          onChanged: context.read<PlatformCubit>().updateReleaseCompanyFilter,
+          onChanged: (value) {
+            final companyId = value == _allCompaniesValue ? null : value;
+            context.read<PlatformCubit>().updateReleaseCompanyFilter(companyId);
+          },
         );
         if (constraints.maxWidth < 560) {
           return dropdown;
@@ -3663,85 +3790,300 @@ class _ReleaseOverviewTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final summary = state.releaseIntelligenceSummary;
-    if (summary == null) {
-      return AppEmptyState(
-        icon: Icons.insights_outlined,
-        title: l.releaseOverview,
-        message: l.noAdoptionDataYet,
+    if (summary == null &&
+        state.releaseAdoptionRows.isEmpty &&
+        state.releaseDeviceRows.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ReleaseGuidancePanel(
+            message: l.releaseOverviewGuidance,
+            notes: [
+              state.releaseCompanyId == null
+                  ? l.releaseCenterAllCompaniesHint
+                  : l.releaseOverviewMixedScopeHint,
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppEmptyState(
+            icon: Icons.insights_outlined,
+            title: l.releaseOverview,
+            message: l.noAdoptionDataYet,
+          ),
+        ],
       );
     }
     final latestActiveWeb = _latestActiveVersion(state.releaseAdoptionRows, 'web');
     final latestActiveAndroid =
         _latestActiveVersion(state.releaseAdoptionRows, 'android');
+    final policy = state.androidReleasePolicy;
     final stats = _releaseDeviceStats(state.releaseDeviceRows);
+    final latestWebBuild = _maxBuild([
+      latestActiveWeb?.buildNumber ?? 0,
+      _releaseBuild(summary?.latestWebRelease),
+    ]);
+    final latestAndroidBuild = _maxBuild([
+      latestActiveAndroid?.buildNumber ?? 0,
+      policy?.latestBuildNumber ?? 0,
+      _releaseBuild(summary?.latestAndroidRelease),
+    ]);
+    final risk = _releaseRiskStats(
+      rows: state.releaseDeviceRows,
+      latestWebBuild: latestWebBuild,
+      latestAndroidBuild: latestAndroidBuild,
+      minimumAndroidBuild: policy?.minimumSupportedBuildNumber ?? 0,
+    );
+    final useSummaryCounts =
+        state.releaseCompanyId == null && state.releaseDeviceRows.isEmpty;
+    final activeUsers = useSummaryCounts
+        ? summary?.activeUsers ?? stats.activeUsers
+        : stats.activeUsers;
+    final activeDevices = useSummaryCounts
+        ? summary?.activeDevices ?? stats.activeDevices
+        : stats.activeDevices;
+    final activeWebUsers = useSummaryCounts
+        ? summary?.activeWebUsers ?? stats.activeWebUsers
+        : stats.activeWebUsers;
+    final activeWebDevices = useSummaryCounts
+        ? summary?.activeWebDevices ?? stats.activeWebDevices
+        : stats.activeWebDevices;
+    final activeAndroidUsers = useSummaryCounts
+        ? summary?.activeAndroidUsers ?? stats.activeAndroidUsers
+        : stats.activeAndroidUsers;
+    final activeAndroidDevices = useSummaryCounts
+        ? summary?.activeAndroidDevices ?? stats.activeAndroidDevices
+        : stats.activeAndroidDevices;
+    final oldUsers = useSummaryCounts
+        ? summary?.usersBelowLatestBuild ?? risk.usersBelowLatest
+        : risk.usersBelowLatest;
+    final oldDevices = useSummaryCounts
+        ? summary?.devicesBelowLatestBuild ?? risk.devicesBelowLatest
+        : risk.devicesBelowLatest;
+    final belowMinimumUsers = useSummaryCounts
+        ? summary?.usersBelowMinimumBuild ?? risk.usersBelowMinimum
+        : risk.usersBelowMinimum;
+    final belowMinimumDevices = useSummaryCounts
+        ? summary?.devicesBelowMinimumBuild ?? risk.devicesBelowMinimum
+        : risk.devicesBelowMinimum;
+    final latestUsers = _nonNegative(activeUsers - oldUsers);
+    final latestDevices = _nonNegative(activeDevices - oldDevices);
+    final pushConnected = useSummaryCounts
+        ? summary?.pushConnected ?? stats.pushConnected
+        : stats.pushConnected;
+    final pushBlocked = useSummaryCounts
+        ? summary?.pushBlocked ?? stats.pushBlocked
+        : stats.pushBlocked;
+    final pushMissing = useSummaryCounts
+        ? summary?.pushMissing ?? stats.pushMissing
+        : stats.pushMissing;
+    final pushInvalidFailed = useSummaryCounts
+        ? summary?.pushInvalidFailed ?? stats.pushInvalidFailed
+        : stats.pushInvalidFailed;
+    final pushUnknown = useSummaryCounts
+        ? summary?.pushUnknown ?? stats.pushUnknown
+        : stats.pushUnknown;
+    // Push buckets are notification token/device states; connected devices are notification-ready.
+    final pushTotal =
+        pushConnected + pushBlocked + pushMissing + pushInvalidFailed + pushUnknown;
+    final notificationDeviceTotal = pushTotal == 0 ? activeDevices : pushTotal;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
+        _ReleaseGuidancePanel(
+          message: l.releaseOverviewGuidance,
+          notes: [
+            state.releaseCompanyId == null
+                ? l.releaseCenterAllCompaniesHint
+                : l.releaseOverviewMixedScopeHint,
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseKpiGrid(
           children: [
-            _InfoChip(
-              label: l.latestActiveWeb,
-              value: latestActiveWeb == null
-                  ? l.notAvailable
-                  : _versionLabel(
-                      latestActiveWeb.appVersion,
-                      latestActiveWeb.buildNumber,
-                      l,
-                    ),
-            ),
-            _InfoChip(
-              label: l.latestActiveAndroid,
-              value: latestActiveAndroid == null
-                  ? l.notAvailable
-                  : _versionLabel(
-                      latestActiveAndroid.appVersion,
-                      latestActiveAndroid.buildNumber,
-                      l,
-                    ),
-            ),
-            _InfoChip(
-              label: l.latestReleasedWeb,
-              value: _releaseVersionLabel(summary.latestWebRelease, l),
-            ),
-            _InfoChip(
-              label: l.latestReleasedAndroid,
-              value: _androidReleasedVersionLabel(
-                summary.latestAndroidRelease,
-                state.androidReleasePolicy,
+            _ReleaseKpiCard(
+              icon: Icons.language_rounded,
+              title: l.latestWebVersion,
+              value: _latestPlatformVersionLabel(
                 l,
+                active: latestActiveWeb,
+                release: summary?.latestWebRelease,
+              ),
+              detail: '${l.webUsersDevices}: $activeWebUsers / $activeWebDevices',
+              status: _latestPlatformStatusLabel(
+                l,
+                active: latestActiveWeb,
+                release: summary?.latestWebRelease,
+              ),
+              tone: _latestPlatformTone(
+                active: latestActiveWeb,
+                release: summary?.latestWebRelease,
               ),
             ),
-            _InfoChip(label: l.activeUsers, value: '${stats.activeUsers}'),
-            _InfoChip(label: l.activeDevices, value: '${stats.activeDevices}'),
-            _InfoChip(
-              label: l.webUsersDevices,
-              value: '${stats.activeWebUsers} / ${stats.activeWebDevices}',
+            _ReleaseKpiCard(
+              icon: Icons.android_rounded,
+              title: l.latestAndroidVersion,
+              value: _latestPlatformVersionLabel(
+                l,
+                active: latestActiveAndroid,
+                release: summary?.latestAndroidRelease,
+                policy: policy,
+              ),
+              detail:
+                  '${l.androidUsersDevices}: $activeAndroidUsers / $activeAndroidDevices',
+              status: _latestPlatformStatusLabel(
+                l,
+                active: latestActiveAndroid,
+                release: summary?.latestAndroidRelease,
+                policy: policy,
+              ),
+              tone: _latestPlatformTone(
+                active: latestActiveAndroid,
+                release: summary?.latestAndroidRelease,
+                policy: policy,
+              ),
             ),
-            _InfoChip(
-              label: l.androidUsersDevices,
-              value: '${stats.activeAndroidUsers} / ${stats.activeAndroidDevices}',
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _ReleaseKpiGrid(
+          children: [
+            _ReleaseKpiCard(
+              icon: Icons.admin_panel_settings_outlined,
+              title: l.androidReleaseManagement,
+              value: policy == null
+                  ? l.notAvailable
+                  : '${l.enabled}: ${policy.enabled ? l.yes : l.no}',
+              detail: policy == null
+                  ? l.androidReleasePolicyHint
+                  : '${l.releaseReady}: ${policy.releaseReady ? l.yes : l.no}',
+              status: policy == null
+                  ? null
+                  : policy.releaseReady
+                      ? l.releaseReady
+                      : l.draft,
+              tone: policy == null
+                  ? AppStatusTone.neutral
+                  : policy.enabled && policy.releaseReady
+                      ? AppStatusTone.success
+                      : AppStatusTone.warning,
             ),
-            _InfoChip(
-              label: l.oldBuilds,
-              value:
-                  '${summary.usersBelowLatestBuild} / ${summary.devicesBelowLatestBuild}',
+            _ReleaseKpiCard(
+              icon: Icons.verified_user_outlined,
+              title: l.latest,
+              value: '$latestUsers / $latestDevices',
+              detail: '${l.activeUsers} / ${l.activeDevices}',
+              tone: oldDevices == 0 ? AppStatusTone.success : AppStatusTone.info,
             ),
-            _InfoChip(
-              label: l.belowMinimumBuild,
-              value:
-                  '${summary.usersBelowMinimumBuild} / ${summary.devicesBelowMinimumBuild}',
+            _ReleaseKpiCard(
+              icon: Icons.warning_amber_rounded,
+              title: l.devicesBelowLatestBuild,
+              value: oldDevices.toString(),
+              detail: l.devicesBelowLatestBuildSummary(oldUsers, oldDevices),
+              status: belowMinimumDevices > 0
+                  ? l.oldBuild
+                  : oldDevices > 0
+                      ? l.oldBuild
+                      : l.latest,
+              tone: belowMinimumDevices > 0
+                  ? AppStatusTone.error
+                  : oldDevices > 0
+                      ? AppStatusTone.warning
+                      : AppStatusTone.success,
             ),
-            _InfoChip(
-              label: l.pushHealth,
-              value:
-                  '${summary.pushConnected} / ${summary.pushBlocked} / ${summary.pushMissing} / ${summary.pushInvalidFailed} / ${summary.pushUnknown}',
+            _ReleaseKpiCard(
+              icon: Icons.notifications_active_outlined,
+              title: l.notificationReadyDevices,
+              value: l.notificationReadyDevicesRatio(
+                pushConnected,
+                notificationDeviceTotal,
+              ),
+              detail: l.notificationReadyDevicesSummary(
+                pushConnected,
+                notificationDeviceTotal,
+              ),
+              status: pushConnected >= notificationDeviceTotal && notificationDeviceTotal > 0
+                  ? l.connected
+                  : l.requiresReview,
+              tone: notificationDeviceTotal == 0
+                  ? AppStatusTone.neutral
+                  : pushConnected >= notificationDeviceTotal
+                      ? AppStatusTone.success
+                      : AppStatusTone.warning,
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        _ReleaseHistoryTab(rows: summary.recentVersionChanges, compact: true),
+        _ReleaseSectionBlock(
+          title: l.health,
+          icon: Icons.health_and_safety_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  _ReleaseFieldView(
+                    field: _ReleaseField(
+                      l.notificationReadyDevices,
+                      l.notificationReadyDevicesSummary(
+                        pushConnected,
+                        notificationDeviceTotal,
+                      ),
+                    ),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(l.notificationBlockedDevices, pushBlocked.toString()),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(l.notificationMissingDevices, pushMissing.toString()),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(
+                      l.notificationInvalidFailedDevices,
+                      pushInvalidFailed.toString(),
+                    ),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(
+                      l.lastUpdated,
+                      summary?.lastUpdated == null
+                          ? l.notAvailable
+                          : _formatDate(context, summary!.lastUpdated!),
+                    ),
+                  ),
+                ],
+              ),
+              if (policy == null || !policy.releaseReady) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _ReleaseSignalPanel(
+                  message: policy == null
+                      ? l.androidReleasePolicyHint
+                      : l.androidPolicyNotReadyAction,
+                  fields: [
+                    _ReleaseField(l.releaseReady, policy?.releaseReady == true ? l.yes : l.no),
+                    _ReleaseField(l.belowMinimumBuild, '$belowMinimumUsers / $belowMinimumDevices'),
+                    _ReleaseField(
+                      l.notificationReadyDevices,
+                      l.notificationReadyDevicesSummary(
+                        pushConnected,
+                        notificationDeviceTotal,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                l.currentAdoptionHistoryHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -3757,69 +4099,62 @@ class _ReleaseRegistryTab extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final policy = state.androidReleasePolicy;
     final releases = state.releaseIntelligenceSummary?.releases ?? const [];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (policy == null)
-          AppEmptyState(
-            icon: Icons.system_update_alt_rounded,
-            title: l.androidReleaseManagement,
-            message: l.androidReleasePolicyHint,
-          )
-        else
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _InfoChip(label: l.enabled, value: policy.enabled ? l.yes : l.no),
-              _InfoChip(
-                label: l.releaseReady,
-                value: policy.releaseReady ? l.yes : l.no,
-              ),
-              _InfoChip(
-                label: l.minimumSupportedBuild,
-                value: policy.minimumSupportedBuildNumber.toString(),
-              ),
-              _InfoChip(
-                label: l.latestBuild,
-                value: _versionLabel(
-                  _versionNameFromUpdateUrl(
-                    policy.updateUrl,
-                    policy.latestBuildNumber,
-                  ),
-                  policy.latestBuildNumber,
-                  l,
-                ),
-              ),
-              _InfoChip(
-                label: l.updateUrl,
-                value: policy.updateUrl.isEmpty ? l.notAvailable : policy.updateUrl,
-              ),
-            ],
-          ),
-        const SizedBox(height: AppSpacing.md),
-        if (releases.isEmpty) ...[
-          AppEmptyState(
-            icon: Icons.inventory_2_outlined,
-            title: l.releases,
-            message: l.releaseRecordsStartAfterRegistryEnabled,
-          ),
-          if (policy != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(
+    return _ReleaseSectionBlock(
+      title: l.releases,
+      icon: Icons.inventory_2_outlined,
+      action: policy == null
+          ? null
+          : AppButton(
               label: l.createReleaseRecordFromAndroidPolicy,
               icon: Icons.add_circle_outline,
-              isLoading: state.activeSettingsActionId ==
-                  'releaseRecord:androidPolicy',
+              variant: AppButtonVariant.secondary,
+              isLoading:
+                  state.activeSettingsActionId == 'releaseRecord:androidPolicy',
               onPressed: state.status == PlatformStatus.saving
                   ? null
                   : () => _createReleaseRecordFromPolicy(context),
             ),
-          ],
-        ]
-        else
-          _ReleaseRecordList(releases: releases.take(12).toList()),
-      ],
+      child: releases.isEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ReleaseGuidancePanel(
+                  message: l.releaseRegistryGuidance,
+                  notes: [
+                    l.releaseSectionPlatformWideNote,
+                    l.releaseRegistryAndroidPolicyNote,
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (state.releaseCompanyId != null) ...[
+                  _ReleaseScopeNote(message: l.releaseSectionPlatformWideNote),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                AppEmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: l.releases,
+                  message: l.releaseRecordsStartAfterRegistryEnabled,
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ReleaseGuidancePanel(
+                  message: l.releaseRegistryGuidance,
+                  notes: [
+                    l.releaseSectionPlatformWideNote,
+                    l.releaseRegistryAndroidPolicyNote,
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (state.releaseCompanyId != null) ...[
+                  _ReleaseScopeNote(message: l.releaseSectionPlatformWideNote),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                _ReleaseRecordList(releases: releases.take(12).toList()),
+              ],
+            ),
     );
   }
 
@@ -3834,8 +4169,7 @@ class _ReleaseRegistryTab extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(l.cancel),
-          )
-          ,
+          ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(l.createAction),
@@ -3866,6 +4200,45 @@ CompanyMetadata? _companyById(List<CompanyMetadata> companies, String id) {
   return null;
 }
 
+class _ReleaseAdoptionDevicesTab extends StatelessWidget {
+  const _ReleaseAdoptionDevicesTab({
+    required this.adoptionRows,
+    required this.deviceRows,
+  });
+
+  final List<VersionAdoptionRow> adoptionRows;
+  final List<PlatformDeviceInstallRow> deviceRows;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ReleaseGuidancePanel(
+          message: l.releaseAdoptionDevicesGuidance,
+          notes: [
+            l.currentAdoptionHistoryHint,
+            l.notificationAdoptionSeparateNote,
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseSectionBlock(
+          title: l.versionAdoption,
+          icon: Icons.analytics_outlined,
+          child: _ReleaseAdoptionTab(rows: adoptionRows),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseSectionBlock(
+          title: l.devices,
+          icon: Icons.devices_other_outlined,
+          child: _ReleaseDevicesTab(rows: deviceRows),
+        ),
+      ],
+    );
+  }
+}
+
 class _ReleaseAdoptionTab extends StatelessWidget {
   const _ReleaseAdoptionTab({required this.rows});
 
@@ -3886,6 +4259,7 @@ class _ReleaseAdoptionTab extends StatelessWidget {
         return _ReleaseStructuredRow(
           title: _versionLabel(row.appVersion, row.buildNumber, l),
           status: _releaseStatusLabel(l, row.status),
+          tone: _releaseStatusTone(row.status),
           fields: [
             _ReleaseField(l.platform, _platformLabel(l, row.platform)),
             _ReleaseField(l.version, _notReported(row.appVersion, l)),
@@ -3934,6 +4308,7 @@ class _ReleaseDevicesTab extends StatelessWidget {
             l,
           ),
           status: _notificationStatusLabel(l, row.notificationTokenStatus),
+          tone: _notificationStatusTone(row.notificationTokenStatus),
           fields: [
             _ReleaseField(l.company, _notReported(row.companyName.isEmpty ? row.companyId : row.companyName, l)),
             _ReleaseField(l.role, _notReported(row.role, l)),
@@ -3954,6 +4329,116 @@ class _ReleaseDevicesTab extends StatelessWidget {
   }
 }
 
+class _ReleasePolicyTab extends StatelessWidget {
+  const _ReleasePolicyTab({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final policy = state.androidReleasePolicy;
+    return _ReleaseSectionBlock(
+      title: l.androidReleaseManagement,
+      icon: Icons.admin_panel_settings_outlined,
+      child: policy == null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ReleaseGuidancePanel(
+                  message: l.releaseAndroidPolicyGuidance,
+                  notes: [
+                    l.releaseSectionPlatformWideNote,
+                    l.androidPolicyBuildComparisonNote,
+                    l.suggestedApkUrlNotProof,
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (state.releaseCompanyId != null) ...[
+                  _ReleaseScopeNote(message: l.releaseSectionPlatformWideNote),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                AppEmptyState(
+                  icon: Icons.system_update_alt_rounded,
+                  title: l.androidReleaseManagement,
+                  message: l.androidReleasePolicyHint,
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ReleaseGuidancePanel(
+                  message: l.releaseAndroidPolicyGuidance,
+                  notes: [
+                    l.releaseSectionPlatformWideNote,
+                    l.androidPolicyBuildComparisonNote,
+                    l.suggestedApkUrlNotProof,
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (state.releaseCompanyId != null) ...[
+                  _ReleaseScopeNote(message: l.releaseSectionPlatformWideNote),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    _ReleaseFieldView(
+                      field: _ReleaseField(
+                        l.enabled,
+                        policy.enabled ? l.yes : l.no,
+                      ),
+                    ),
+                    _ReleaseFieldView(
+                      field: _ReleaseField(
+                        l.releaseReady,
+                        policy.releaseReady ? l.yes : l.no,
+                      ),
+                    ),
+                    _ReleaseFieldView(
+                      field: _ReleaseField(
+                        l.latestBuild,
+                        _policyVersionLabel(policy, l),
+                      ),
+                    ),
+                    _ReleaseFieldView(
+                      field: _ReleaseField(
+                        l.minimumSupportedBuild,
+                        policy.minimumSupportedBuildNumber.toString(),
+                      ),
+                    ),
+                    _ReleaseFieldView(
+                      field: _ReleaseField(
+                        l.updateUrl,
+                        policy.updateUrl.trim().isEmpty
+                            ? l.notAvailable
+                            : policy.updateUrl.trim(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ReleaseSignalPanel(
+                  message: policy.releaseReady
+                      ? l.androidPolicyReadyAction
+                      : l.androidPolicyNotReadyAction,
+                  fields: [
+                    _ReleaseField(l.releaseReady, policy.releaseReady ? l.yes : l.no),
+                    _ReleaseField(l.latestBuild, policy.latestBuildNumber.toString()),
+                    _ReleaseField(
+                      l.minimumSupportedBuild,
+                      policy.minimumSupportedBuildNumber.toString(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+}
+
 class _ReleaseHistoryTab extends StatelessWidget {
   const _ReleaseHistoryTab({required this.rows, this.compact = false});
 
@@ -3964,70 +4449,497 @@ class _ReleaseHistoryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     if (rows.isEmpty) {
-      return AppEmptyState(
-        icon: Icons.history_rounded,
-        title: l.versionHistory,
-        message: l.versionHistoryStartsAfterBuildChange,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ReleaseGuidancePanel(
+            message: l.releaseHistoryGuidance,
+            notes: [l.releaseHistoryProfileLimitNote],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppEmptyState(
+            icon: Icons.history_rounded,
+            title: l.versionHistory,
+            message: l.versionHistoryStartsAfterBuildChange,
+          ),
+        ],
       );
     }
     final visibleRows = compact ? rows.take(5) : rows.take(80);
-    return _ReleaseStructuredList(
-      rows: visibleRows.map((row) {
-        return _ReleaseStructuredRow(
-          title: _notReported(row.userName.isEmpty ? row.uid : row.userName, l),
-          status: _platformLabel(l, row.platform),
-          fields: [
-            _ReleaseField(l.company, _notReported(row.companyName.isEmpty ? row.companyId : row.companyName, l)),
-            _ReleaseField(l.oldBuild, _versionLabel(row.oldVersion, row.oldBuildNumber, l)),
-            _ReleaseField(l.latestBuild, _versionLabel(row.newVersion, row.newBuildNumber, l)),
-            _ReleaseField(
-              l.createdAt,
-              row.createdAt == null
-                  ? l.notReported
-                  : _formatDate(context, row.createdAt!),
-            ),
-          ],
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _ReleaseHealthTab extends StatelessWidget {
-  const _ReleaseHealthTab({required this.state});
-
-  final PlatformState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final summary = state.releaseIntelligenceSummary;
-    final stats = _releaseDeviceStats(state.releaseDeviceRows);
-    if (summary == null && state.releaseDeviceRows.isEmpty) {
-      return AppEmptyState(
-        icon: Icons.health_and_safety_outlined,
-        title: l.health,
-        message: l.noHealthDataYet,
-      );
-    }
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _InfoChip(label: l.connected, value: stats.pushConnected.toString()),
-        _InfoChip(label: l.blocked, value: stats.pushBlocked.toString()),
-        _InfoChip(label: l.missing, value: stats.pushMissing.toString()),
-        _InfoChip(label: l.invalidOrFailed, value: stats.pushInvalidFailed.toString()),
-        _InfoChip(label: l.unknown, value: stats.pushUnknown.toString()),
-        _InfoChip(
-          label: l.lastUpdated,
-          value: summary?.lastUpdated == null
-              ? l.notAvailable
-              : _formatDate(context, summary!.lastUpdated!),
+        _ReleaseGuidancePanel(
+          message: l.releaseHistoryGuidance,
+          notes: [l.releaseHistoryProfileLimitNote],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseStructuredList(
+          rows: visibleRows.map((row) {
+            final shortUid = _shortTechnicalId(row.uid);
+            final hasProfileLabel = _releaseHistoryHasUserProfileLabel(row);
+            return _ReleaseStructuredRow(
+              title: _releaseHistoryTitle(row, l),
+              status: _platformLabel(l, row.platform),
+              tone: AppStatusTone.info,
+              fields: [
+                _ReleaseField(
+                  l.company,
+                  _notReported(
+                    row.companyName.isEmpty ? row.companyId : row.companyName,
+                    l,
+                  ),
+                ),
+                _ReleaseField(l.role, _notReported(row.role, l)),
+                if (!hasProfileLabel)
+                  _ReleaseField(
+                    l.userProfileUnavailable,
+                    l.releaseEventTechnicalReferenceOnly,
+                  ),
+                if (shortUid.isNotEmpty)
+                  _ReleaseField(l.technicalReference, shortUid),
+                _ReleaseField(
+                  l.oldBuild,
+                  _versionLabel(row.oldVersion, row.oldBuildNumber, l),
+                ),
+                _ReleaseField(
+                  l.latestBuild,
+                  _versionLabel(row.newVersion, row.newBuildNumber, l),
+                ),
+                _ReleaseField(l.source, _notReported(row.source, l)),
+                _ReleaseField(
+                  l.createdAt,
+                  row.createdAt == null
+                      ? l.notReported
+                      : _formatDate(context, row.createdAt!),
+                ),
+              ],
+            );
+          }).toList(),
         ),
       ],
     );
   }
+}
+
+class _ReleaseKpiGrid extends StatelessWidget {
+  const _ReleaseKpiGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        var columns = width >= 1180
+            ? 5
+            : width >= 900
+                ? 3
+                : width >= 560
+                    ? 2
+                    : 1;
+        if (columns > children.length) {
+          columns = children.length;
+        }
+        const spacing = AppSpacing.sm;
+        final itemWidth =
+            columns == 1 ? width : (width - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(
+                width: itemWidth,
+                child: child,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ReleaseKpiCard extends StatelessWidget {
+  const _ReleaseKpiCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.detail,
+    this.status,
+    this.tone = AppStatusTone.neutral,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String detail;
+  final String? status;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _toneColor(context, tone);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 150),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.medium,
+                  border: Border.all(color: color.withValues(alpha: 0.24)),
+                ),
+                child: Icon(icon, color: color, size: 21),
+              ),
+              if (status != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.topEnd,
+                    child: AppStatusBadge(label: status!, tone: tone),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            title,
+            softWrap: true,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            softWrap: true,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimaryColor(context),
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            detail,
+            softWrap: true,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseSectionBlock extends StatelessWidget {
+  const _ReleaseSectionBlock({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.action,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final heading = Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color:
+                          AppColors.primaryColor(context).withValues(alpha: 0.12),
+                      borderRadius: AppRadius.medium,
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: AppColors.primaryColor(context),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      title,
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: AppColors.textPrimaryColor(context),
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ],
+              );
+              if (action == null) {
+                return heading;
+              }
+              if (constraints.maxWidth < 680) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    heading,
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: action,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: AppSpacing.sm),
+                  action!,
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseSignalPanel extends StatelessWidget {
+  const _ReleaseSignalPanel({
+    required this.message,
+    required this.fields,
+  });
+
+  final String message;
+  final List<_ReleaseField> fields;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.warningColor(context).withValues(alpha: .10),
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: AppColors.warningColor(context).withValues(alpha: .28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            message,
+            softWrap: true,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.warningColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          if (fields.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                for (final field in fields) _ReleaseFieldView(field: field),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseGuidancePanel extends StatelessWidget {
+  const _ReleaseGuidancePanel({
+    required this.message,
+    this.notes = const [],
+  });
+
+  final String message;
+  final List<String> notes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.infoColor(context).withValues(alpha: 0.08),
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: AppColors.infoColor(context).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.infoColor(context),
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  message,
+                  softWrap: true,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textPrimaryColor(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final note in notes)
+                  _ReleaseScopeNote(message: note),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseScopeNote extends StatelessWidget {
+  const _ReleaseScopeNote({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.infoColor(context).withValues(alpha: 0.08),
+        borderRadius: AppRadius.medium,
+        border: Border.all(
+          color: AppColors.infoColor(context).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Text(
+        message,
+        softWrap: true,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.infoColor(context),
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _ReleaseDialogSection extends StatelessWidget {
+  const _ReleaseDialogSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        borderRadius: AppRadius.large,
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primaryColor(context)),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  title,
+                  softWrap: true,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppColors.textPrimaryColor(context),
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseRiskStats {
+  const _ReleaseRiskStats({
+    required this.usersBelowLatest,
+    required this.devicesBelowLatest,
+    required this.usersBelowMinimum,
+    required this.devicesBelowMinimum,
+  });
+
+  final int usersBelowLatest;
+  final int devicesBelowLatest;
+  final int usersBelowMinimum;
+  final int devicesBelowMinimum;
 }
 
 class _ReleaseDeviceStats {
@@ -4110,6 +5022,50 @@ _ReleaseDeviceStats _releaseDeviceStats(List<PlatformDeviceInstallRow> rows) {
   );
 }
 
+_ReleaseRiskStats _releaseRiskStats({
+  required List<PlatformDeviceInstallRow> rows,
+  required int latestWebBuild,
+  required int latestAndroidBuild,
+  required int minimumAndroidBuild,
+}) {
+  final usersBelowLatest = <String>{};
+  final usersBelowMinimum = <String>{};
+  var devicesBelowLatest = 0;
+  var devicesBelowMinimum = 0;
+  for (final row in rows) {
+    final platform = row.platform.trim().toLowerCase();
+    final latestBuild = switch (platform) {
+      'web' => latestWebBuild,
+      'android' => latestAndroidBuild,
+      _ => 0,
+    };
+    final build = row.buildNumber;
+    final userKey = '${row.companyId}:${row.uid}';
+    final hasUser = row.uid.trim().isNotEmpty;
+    if (latestBuild > 0 && build > 0 && build < latestBuild) {
+      devicesBelowLatest += 1;
+      if (hasUser) {
+        usersBelowLatest.add(userKey);
+      }
+    }
+    if (platform == 'android' &&
+        minimumAndroidBuild > 0 &&
+        build > 0 &&
+        build < minimumAndroidBuild) {
+      devicesBelowMinimum += 1;
+      if (hasUser) {
+        usersBelowMinimum.add(userKey);
+      }
+    }
+  }
+  return _ReleaseRiskStats(
+    usersBelowLatest: usersBelowLatest.length,
+    devicesBelowLatest: devicesBelowLatest,
+    usersBelowMinimum: usersBelowMinimum.length,
+    devicesBelowMinimum: devicesBelowMinimum,
+  );
+}
+
 class _ReleaseRecordList extends StatelessWidget {
   const _ReleaseRecordList({required this.releases});
 
@@ -4123,6 +5079,7 @@ class _ReleaseRecordList extends StatelessWidget {
         return _ReleaseStructuredRow(
           title: _versionLabel(release.appVersion, release.buildNumber, l),
           status: _releaseStatusLabel(l, release.status),
+          tone: _releaseStatusTone(release.status),
           fields: [
             _ReleaseField(l.platform, _platformLabel(l, release.platform)),
             _ReleaseField(l.releaseReady, release.releaseReady ? l.yes : l.no),
@@ -4173,11 +5130,13 @@ class _ReleaseStructuredRow extends StatelessWidget {
     required this.title,
     required this.status,
     required this.fields,
+    this.tone = AppStatusTone.neutral,
   });
 
   final String title;
   final String status;
   final List<_ReleaseField> fields;
+  final AppStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
@@ -4191,21 +5150,38 @@ class _ReleaseStructuredRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  softWrap: true,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimaryColor(context),
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              AppStatusBadge(label: status),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final titleText = Text(
+                title,
+                softWrap: true,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.textPrimaryColor(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+              );
+              final badge = AppStatusBadge(label: status, tone: tone);
+              if (constraints.maxWidth < 520) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    titleText,
+                    const SizedBox(height: AppSpacing.xs),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: badge,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: titleText),
+                  const SizedBox(width: AppSpacing.sm),
+                  badge,
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
@@ -4238,7 +5214,7 @@ class _ReleaseFieldView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minWidth: 132, maxWidth: 260),
+      constraints: const BoxConstraints(minWidth: 150, maxWidth: 340),
       padding: const EdgeInsetsDirectional.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
@@ -4275,6 +5251,149 @@ class _ReleaseFieldView extends StatelessWidget {
   }
 }
 
+int _releaseBuild(PlatformReleaseRecord? release) {
+  if (release == null) {
+    return 0;
+  }
+  return release.latestBuildNumber > 0
+      ? release.latestBuildNumber
+      : release.buildNumber;
+}
+
+int _maxBuild(Iterable<int> builds) {
+  var max = 0;
+  for (final build in builds) {
+    if (build > max) {
+      max = build;
+    }
+  }
+  return max;
+}
+
+int _nonNegative(int value) => value < 0 ? 0 : value;
+
+String _latestPlatformVersionLabel(
+  AppLocalizations l, {
+  VersionAdoptionRow? active,
+  PlatformReleaseRecord? release,
+  AndroidReleasePolicy? policy,
+}) {
+  final activeBuild = active?.buildNumber ?? 0;
+  final releaseBuild = _releaseBuild(release);
+  final policyBuild = policy?.latestBuildNumber ?? 0;
+  final externalBuild = _maxBuild([releaseBuild, policyBuild]);
+  if (active != null && activeBuild >= externalBuild) {
+    return _versionLabel(active.appVersion, active.buildNumber, l);
+  }
+  if (policy != null && policyBuild >= releaseBuild && policyBuild > 0) {
+    return _policyVersionLabel(policy, l);
+  }
+  return _releaseVersionLabel(release, l);
+}
+
+String? _latestPlatformStatusLabel(
+  AppLocalizations l, {
+  VersionAdoptionRow? active,
+  PlatformReleaseRecord? release,
+  AndroidReleasePolicy? policy,
+}) {
+  final activeBuild = active?.buildNumber ?? 0;
+  final releaseBuild = _releaseBuild(release);
+  final policyBuild = policy?.latestBuildNumber ?? 0;
+  final externalBuild = _maxBuild([releaseBuild, policyBuild]);
+  if (active != null && activeBuild >= externalBuild) {
+    return _releaseStatusLabel(l, active.status);
+  }
+  if (policy != null && policyBuild >= releaseBuild && policyBuild > 0) {
+    return policy.releaseReady ? l.releaseReady : l.draft;
+  }
+  if (release != null) {
+    return _releaseStatusLabel(l, release.status);
+  }
+  return null;
+}
+
+AppStatusTone _latestPlatformTone({
+  VersionAdoptionRow? active,
+  PlatformReleaseRecord? release,
+  AndroidReleasePolicy? policy,
+}) {
+  final activeBuild = active?.buildNumber ?? 0;
+  final releaseBuild = _releaseBuild(release);
+  final policyBuild = policy?.latestBuildNumber ?? 0;
+  final externalBuild = _maxBuild([releaseBuild, policyBuild]);
+  if (active != null && activeBuild >= externalBuild) {
+    return _releaseStatusTone(active.status);
+  }
+  if (policy != null && policyBuild >= releaseBuild && policyBuild > 0) {
+    return policy.releaseReady ? AppStatusTone.success : AppStatusTone.warning;
+  }
+  if (release != null) {
+    return _releaseStatusTone(release.status);
+  }
+  return AppStatusTone.neutral;
+}
+
+String _policyVersionLabel(AndroidReleasePolicy policy, AppLocalizations l) {
+  return _versionLabel(
+    _versionNameFromUpdateUrl(policy.updateUrl, policy.latestBuildNumber),
+    policy.latestBuildNumber,
+    l,
+  );
+}
+
+String _releaseHistoryTitle(
+  DeviceVersionEventRow row,
+  AppLocalizations l,
+) {
+  final name = row.userName.trim();
+  if (_isUsefulReleaseHistoryLabel(name, row.uid)) {
+    return name;
+  }
+  final company = row.companyName.trim().isNotEmpty
+      ? row.companyName.trim()
+      : row.companyId.trim();
+  final role = row.role.trim();
+  if (role.isNotEmpty && company.isNotEmpty) {
+    return '${_roleText(l, role)} - $company';
+  }
+  if (company.isNotEmpty) {
+    return company;
+  }
+  if (role.isNotEmpty) {
+    return _roleText(l, role);
+  }
+  final platform = row.platform.trim();
+  if (platform.isNotEmpty) {
+    return _platformLabel(l, platform);
+  }
+  return l.unresolvedUser;
+}
+
+bool _releaseHistoryHasUserProfileLabel(DeviceVersionEventRow row) {
+  return _isUsefulReleaseHistoryLabel(row.userName.trim(), row.uid);
+}
+
+bool _isUsefulReleaseHistoryLabel(String label, String uid) {
+  final clean = label.trim();
+  if (clean.isEmpty || clean.toLowerCase() == 'unknown') {
+    return false;
+  }
+  return clean != uid.trim();
+}
+
+String _shortTechnicalId(String value) {
+  final clean = value.trim();
+  if (clean.isEmpty || clean.toLowerCase() == 'unknown') {
+    return '';
+  }
+  if (clean.length <= 8) {
+    final end = clean.length < 4 ? clean.length : 4;
+    return '${clean.substring(0, end)}...';
+  }
+  return '${clean.substring(0, 4)}...${clean.substring(clean.length - 3)}';
+}
+
 String _releaseVersionLabel(PlatformReleaseRecord? release, AppLocalizations l) {
   if (release == null) {
     return l.notAvailable;
@@ -4284,24 +5403,6 @@ String _releaseVersionLabel(PlatformReleaseRecord? release, AppLocalizations l) 
     release.latestBuildNumber > 0 ? release.latestBuildNumber : release.buildNumber,
     l,
   );
-}
-
-String _androidReleasedVersionLabel(
-  PlatformReleaseRecord? release,
-  AndroidReleasePolicy? policy,
-  AppLocalizations l,
-) {
-  if (release != null) {
-    return _releaseVersionLabel(release, l);
-  }
-  if (policy != null && policy.latestBuildNumber > 0) {
-    return _versionLabel(
-      _versionNameFromUpdateUrl(policy.updateUrl, policy.latestBuildNumber),
-      policy.latestBuildNumber,
-      l,
-    );
-  }
-  return l.notAvailable;
 }
 
 VersionAdoptionRow? _latestActiveVersion(
@@ -4357,6 +5458,31 @@ String _versionNameFromUpdateUrl(String updateUrl, int buildNumber) {
   return nameWithoutSuffix.substring(prefix.length).trim();
 }
 
+String? _androidApkUrlError(
+  String updateUrl,
+  int latestBuild,
+  AppLocalizations l,
+) {
+  final clean = updateUrl.trim();
+  if (clean.isEmpty) {
+    return l.requiredField;
+  }
+  final uri = Uri.tryParse(clean);
+  if (uri == null ||
+      uri.scheme.toLowerCase() != 'https' ||
+      uri.host.trim().isEmpty) {
+    return l.invalidUrl;
+  }
+  final fileName = Uri.decodeFull(uri.path).split('/').last.trim();
+  if (!fileName.toLowerCase().endsWith('.apk')) {
+    return l.invalidUrl;
+  }
+  if (latestBuild > 0 && !fileName.endsWith('-$latestBuild.apk')) {
+    return l.unableToSave;
+  }
+  return null;
+}
+
 String _platformLabel(AppLocalizations l, String platform) {
   return switch (platform) {
     'web' => l.web,
@@ -4379,6 +5505,24 @@ String _releaseStatusLabel(AppLocalizations l, String status) {
   };
 }
 
+AppStatusTone _releaseStatusTone(String status) {
+  final normalized = status.trim();
+  if (normalized == 'latest' ||
+      normalized == 'ready' ||
+      normalized == 'released') {
+    return AppStatusTone.success;
+  }
+  if (normalized == 'old' || normalized == 'draft') {
+    return AppStatusTone.warning;
+  }
+  if (normalized == 'belowMinimum' ||
+      normalized == 'disabled' ||
+      normalized == 'rolledBack') {
+    return AppStatusTone.error;
+  }
+  return AppStatusTone.neutral;
+}
+
 String _notificationStatusLabel(AppLocalizations l, String status) {
   final normalized = status.trim();
   if (normalized.isEmpty || normalized.toLowerCase() == 'unknown') {
@@ -4393,6 +5537,20 @@ String _notificationStatusLabel(AppLocalizations l, String status) {
     'invalid' => l.invalid,
     _ => normalized,
   };
+}
+
+AppStatusTone _notificationStatusTone(String status) {
+  final normalized = status.trim().toLowerCase();
+  if (normalized == 'active' || normalized == 'connected') {
+    return AppStatusTone.success;
+  }
+  if (normalized == 'blocked' || normalized == 'missing') {
+    return AppStatusTone.warning;
+  }
+  if (normalized == 'failed' || normalized == 'invalid') {
+    return AppStatusTone.error;
+  }
+  return AppStatusTone.neutral;
 }
 
 String _notReported(String value, AppLocalizations l) {
@@ -6650,7 +7808,7 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
   final urlController = TextEditingController(
     text: (policy?.updateUrl.trim().isNotEmpty ?? false)
         ? policy!.updateUrl
-        : suggestedUpdateUrl,
+        : '',
   );
   final titleEnController = TextEditingController(
     text: (policy?.titleEn.trim().isNotEmpty ?? false)
@@ -6682,8 +7840,11 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
         builder: (context, setDialogState) {
           final size = MediaQuery.sizeOf(context);
           final maxDialogWidth = size.width - 32;
-          final dialogWidth = maxDialogWidth < 560 ? maxDialogWidth : 560.0;
+          final dialogWidth = maxDialogWidth < 680 ? maxDialogWidth : 680.0;
           final dialogHeight = size.height * 0.88;
+          final activeUrl = urlController.text.trim();
+          final usingSuggestedUrl = activeUrl == suggestedUpdateUrl;
+          final showPolicyWarning = !releaseReady || usingSuggestedUrl;
 
           return Dialog(
             insetPadding: const EdgeInsets.all(AppSpacing.lg),
@@ -6709,123 +7870,206 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              l.androidReleasePolicyHint,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.warningColor(context),
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l.enabled),
-                              value: enabled,
-                              onChanged: (value) => setDialogState(() => enabled = value),
-                            ),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l.releaseReady),
-                              subtitle: Text(l.androidReleasePolicyHint),
-                              value: releaseReady,
-                              onChanged: (value) => setDialogState(() => releaseReady = value),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: minController,
-                              label: l.minimumSupportedBuild,
-                              keyboardType: TextInputType.number,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: latestController,
-                              label: l.latestBuild,
-                              keyboardType: TextInputType.number,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: urlController,
-                              label: l.updateUrl,
-                              keyboardType: TextInputType.url,
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Container(
-                              padding: const EdgeInsets.all(AppSpacing.sm),
-                              decoration: BoxDecoration(
-                                color: AppColors.inputSurface(context),
-                                borderRadius: AppRadius.large,
-                                border: Border.all(color: AppColors.borderColor(context)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    l.suggestedUpdateUrl,
-                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  SelectableText(
-                                    suggestedUpdateUrl,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: AppColors.textSecondaryColor(context),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
+                            _ReleaseDialogSection(
+                              title: l.androidReleaseManagement,
+                              icon: Icons.admin_panel_settings_outlined,
+                              children: [
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(l.enabled),
+                                  value: enabled,
+                                  onChanged: (value) =>
+                                      setDialogState(() => enabled = value),
+                                ),
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(l.releaseReady),
+                                  subtitle: Text(l.androidReleasePolicyHint),
+                                  value: releaseReady,
+                                  onChanged: (value) =>
+                                      setDialogState(() => releaseReady = value),
+                                ),
+                                if (showPolicyWarning) ...[
                                   const SizedBox(height: AppSpacing.xs),
-                                  Wrap(
-                                    spacing: AppSpacing.xs,
-                                    runSpacing: AppSpacing.xs,
+                                  _ReleaseSignalPanel(
+                                    message: usingSuggestedUrl
+                                        ? l.suggestedApkUrlNotProof
+                                        : l.androidPolicyNotReadyAction,
+                                    fields: const [],
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            _ReleaseDialogSection(
+                              title: l.latestBuild,
+                              icon: Icons.tag_outlined,
+                              children: [
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final narrow = constraints.maxWidth < 520;
+                                    final minField = AppTextField(
+                                      controller: minController,
+                                      label: l.minimumSupportedBuild,
+                                      keyboardType: TextInputType.number,
+                                    );
+                                    final latestField = AppTextField(
+                                      controller: latestController,
+                                      label: l.latestBuild,
+                                      keyboardType: TextInputType.number,
+                                    );
+                                    if (narrow) {
+                                      return Column(
+                                        children: [
+                                          minField,
+                                          const SizedBox(height: AppSpacing.sm),
+                                          latestField,
+                                        ],
+                                      );
+                                    }
+                                    return Row(
+                                      children: [
+                                        Expanded(child: minField),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Expanded(child: latestField),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            _ReleaseDialogSection(
+                              title: l.updateUrl,
+                              icon: Icons.link_rounded,
+                              children: [
+                                AppTextField(
+                                  controller: urlController,
+                                  label: l.updateUrl,
+                                  keyboardType: TextInputType.url,
+                                  maxLines: 2,
+                                  onChanged: (_) => setDialogState(() {}),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.all(AppSpacing.sm),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.appBackground(context),
+                                    borderRadius: AppRadius.large,
+                                    border: Border.all(
+                                      color: AppColors.borderColor(context),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      AppButton(
-                                        label: l.useSuggestedUpdateUrl,
-                                        icon: Icons.link_rounded,
-                                        variant: AppButtonVariant.secondary,
-                                        onPressed: () => setDialogState(
-                                          () => urlController.text = suggestedUpdateUrl,
-                                        ),
+                                      Text(
+                                        l.suggestedUpdateUrl,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
                                       ),
-                                      AppButton(
-                                        label: l.copyLink,
-                                        icon: Icons.copy_rounded,
-                                        variant: AppButtonVariant.ghost,
-                                        onPressed: () async {
-                                          await Clipboard.setData(
-                                            ClipboardData(text: suggestedUpdateUrl),
-                                          );
-                                          if (context.mounted) {
-                                            AppFeedback.success(context, l.linkCopied);
-                                          }
-                                        },
+                                      const SizedBox(height: 4),
+                                      SelectableText(
+                                        suggestedUpdateUrl,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textSecondaryColor(
+                                                context,
+                                              ),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        l.suggestedApkUrlNotProof,
+                                        softWrap: true,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.warningColor(
+                                                context,
+                                              ),
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Wrap(
+                                        spacing: AppSpacing.xs,
+                                        runSpacing: AppSpacing.xs,
+                                        children: [
+                                          AppButton(
+                                            label: l.useSuggestedUpdateUrl,
+                                            icon: Icons.link_rounded,
+                                            variant: AppButtonVariant.secondary,
+                                            onPressed: () => setDialogState(
+                                              () {
+                                                latestController.text =
+                                                    AppConstants.appBuildNumber;
+                                                urlController.text =
+                                                    suggestedUpdateUrl;
+                                              },
+                                            ),
+                                          ),
+                                          AppButton(
+                                            label: l.copyLink,
+                                            icon: Icons.copy_rounded,
+                                            variant: AppButtonVariant.ghost,
+                                            onPressed: () async {
+                                              await Clipboard.setData(
+                                                ClipboardData(
+                                                  text: suggestedUpdateUrl,
+                                                ),
+                                              );
+                                              if (context.mounted) {
+                                                AppFeedback.success(
+                                                  context,
+                                                  l.linkCopied,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: titleEnController,
-                              label: '${l.androidUpdateTitle} EN',
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: titleArController,
-                              label: '${l.androidUpdateTitle} AR',
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: bodyEnController,
-                              label: '${l.androidUpdateBody} EN',
-                              maxLines: 3,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            AppTextField(
-                              controller: bodyArController,
-                              label: '${l.androidUpdateBody} AR',
-                              maxLines: 3,
+                            _ReleaseDialogSection(
+                              title: l.androidUpdateTitle,
+                              icon: Icons.message_outlined,
+                              children: [
+                                AppTextField(
+                                  controller: titleEnController,
+                                  label: '${l.androidUpdateTitle} EN',
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                AppTextField(
+                                  controller: titleArController,
+                                  label: '${l.androidUpdateTitle} AR',
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                AppTextField(
+                                  controller: bodyEnController,
+                                  label: '${l.androidUpdateBody} EN',
+                                  maxLines: 3,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                AppTextField(
+                                  controller: bodyArController,
+                                  label: '${l.androidUpdateBody} AR',
+                                  maxLines: 3,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -6851,16 +8095,34 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                               AppFeedback.error(context, l.unableToSave);
                               return;
                             }
-                            if (releaseReady && urlController.text.trim().isEmpty) {
-                              AppFeedback.error(context, l.requiredField);
-                              return;
+                            final updateUrl = urlController.text.trim();
+                            if (enabled || releaseReady) {
+                              final urlError = _androidApkUrlError(
+                                updateUrl,
+                                latestBuild,
+                                l,
+                              );
+                              if (urlError != null) {
+                                AppFeedback.error(context, urlError);
+                                return;
+                              }
+                            } else if (updateUrl.isNotEmpty) {
+                              final optionalUrlError = _androidApkUrlError(
+                                updateUrl,
+                                latestBuild,
+                                l,
+                              );
+                              if (optionalUrlError != null) {
+                                AppFeedback.error(context, optionalUrlError);
+                                return;
+                              }
                             }
                             final success = await cubit.updateAndroidReleasePolicy(
                               enabled: enabled,
                               releaseReady: releaseReady,
                               minimumSupportedBuildNumber: minBuild,
                               latestBuildNumber: latestBuild,
-                              updateUrl: urlController.text.trim(),
+                              updateUrl: updateUrl,
                               titleEn: titleEnController.text.trim(),
                               titleAr: titleArController.text.trim(),
                               bodyEn: bodyEnController.text.trim(),
@@ -9414,6 +10676,9 @@ String _usersUsedLabel(
   PlatformState state,
   CompanyMetadata company,
 ) {
+  if (!state.hasSelectedCompanyUsers) {
+    return AppLocalizations.of(context)!.notAvailable;
+  }
   final limit = _limitValue(company.limits['users']);
   if (limit == null) {
     return state.companyUsers.length.toString();
@@ -9458,6 +10723,17 @@ String _roleLabel(AppLocalizations l, UserRole role) {
     case UserRole.viewer:
       return l.viewer;
   }
+}
+
+String _roleText(AppLocalizations l, String role) {
+  return switch (role.trim()) {
+    RoleConstants.admin => l.admin,
+    RoleConstants.manager => l.manager,
+    RoleConstants.salesAgent => l.salesAgent,
+    RoleConstants.marketing => l.marketing,
+    RoleConstants.viewer => l.viewer,
+    _ => role.trim().isEmpty ? l.notAvailable : role.trim(),
+  };
 }
 
 String _initialFor(String value) {

@@ -32,6 +32,12 @@ class PlatformState extends Equatable {
     this.loginActivities = const [],
     this.paymentHistory = const [],
     this.selectedCompanyId,
+    this.companyUsersCompanyId,
+    this.loginActivitiesCompanyId,
+    this.paymentHistoryCompanyId,
+    this.companyUsersLoading = false,
+    this.loginActivitiesLoading = false,
+    this.paymentHistoryLoading = false,
     this.searchQuery = '',
     this.companyFilter = PlatformCompanyFilter.all,
     this.activeCompanyActionId,
@@ -59,6 +65,12 @@ class PlatformState extends Equatable {
   final List<PlatformLoginActivity> loginActivities;
   final List<PlatformPaymentHistory> paymentHistory;
   final String? selectedCompanyId;
+  final String? companyUsersCompanyId;
+  final String? loginActivitiesCompanyId;
+  final String? paymentHistoryCompanyId;
+  final bool companyUsersLoading;
+  final bool loginActivitiesLoading;
+  final bool paymentHistoryLoading;
   final String searchQuery;
   final PlatformCompanyFilter companyFilter;
   final String? activeCompanyActionId;
@@ -92,6 +104,16 @@ class PlatformState extends Equatable {
     return companies.isEmpty ? null : companies.first;
   }
 
+  bool get hasSelectedCompanyUsers =>
+      selectedCompanyId != null && companyUsersCompanyId == selectedCompanyId;
+
+  bool get hasSelectedLoginActivities =>
+      selectedCompanyId != null &&
+      loginActivitiesCompanyId == selectedCompanyId;
+
+  bool get hasSelectedPaymentHistory =>
+      selectedCompanyId != null && paymentHistoryCompanyId == selectedCompanyId;
+
   List<CompanyMetadata> get filteredCompanies {
     final query = searchQuery.trim().toLowerCase();
     return companies.where((company) {
@@ -124,6 +146,12 @@ class PlatformState extends Equatable {
     List<PlatformLoginActivity>? loginActivities,
     List<PlatformPaymentHistory>? paymentHistory,
     String? selectedCompanyId,
+    String? companyUsersCompanyId,
+    String? loginActivitiesCompanyId,
+    String? paymentHistoryCompanyId,
+    bool? companyUsersLoading,
+    bool? loginActivitiesLoading,
+    bool? paymentHistoryLoading,
     String? searchQuery,
     PlatformCompanyFilter? companyFilter,
     String? activeCompanyActionId,
@@ -149,6 +177,10 @@ class PlatformState extends Equatable {
     bool clearDataHealthReport = false,
     bool clearActiveDataHealthAction = false,
     bool clearReleaseCompanyId = false,
+    bool clearSelectedCompanyId = false,
+    bool clearCompanyUsersCompanyId = false,
+    bool clearLoginActivitiesCompanyId = false,
+    bool clearPaymentHistoryCompanyId = false,
   }) {
     return PlatformState(
       status: status ?? this.status,
@@ -156,7 +188,21 @@ class PlatformState extends Equatable {
       companyUsers: companyUsers ?? this.companyUsers,
       loginActivities: loginActivities ?? this.loginActivities,
       paymentHistory: paymentHistory ?? this.paymentHistory,
-      selectedCompanyId: selectedCompanyId ?? this.selectedCompanyId,
+      selectedCompanyId:
+          clearSelectedCompanyId ? null : selectedCompanyId ?? this.selectedCompanyId,
+      companyUsersCompanyId: clearCompanyUsersCompanyId
+          ? null
+          : companyUsersCompanyId ?? this.companyUsersCompanyId,
+      loginActivitiesCompanyId: clearLoginActivitiesCompanyId
+          ? null
+          : loginActivitiesCompanyId ?? this.loginActivitiesCompanyId,
+      paymentHistoryCompanyId: clearPaymentHistoryCompanyId
+          ? null
+          : paymentHistoryCompanyId ?? this.paymentHistoryCompanyId,
+      companyUsersLoading: companyUsersLoading ?? this.companyUsersLoading,
+      loginActivitiesLoading:
+          loginActivitiesLoading ?? this.loginActivitiesLoading,
+      paymentHistoryLoading: paymentHistoryLoading ?? this.paymentHistoryLoading,
       searchQuery: searchQuery ?? this.searchQuery,
       companyFilter: companyFilter ?? this.companyFilter,
       activeCompanyActionId: clearActiveCompanyAction
@@ -200,6 +246,12 @@ class PlatformState extends Equatable {
     loginActivities,
     paymentHistory,
     selectedCompanyId,
+    companyUsersCompanyId,
+    loginActivitiesCompanyId,
+    paymentHistoryCompanyId,
+    companyUsersLoading,
+    loginActivitiesLoading,
+    paymentHistoryLoading,
     searchQuery,
     companyFilter,
     activeCompanyActionId,

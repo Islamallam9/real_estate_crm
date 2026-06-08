@@ -1929,6 +1929,65 @@
   "notificationPermissionBlockedBody": "Enable notifications from your browser or device settings when you want alerts.",
   "notificationPermissionConfigurationIssueTitle": "Notification setup needs configuration",
   "notificationPermissionConfigurationIssueBody": "The Web push key is missing in this build. Rebuild the app with the Firebase VAPID key to enable browser notifications.",
+  "platformActivityDeferredMessage": "Open activity to load selected-company users and login activity for this owner session.",
+  "platformWorkspaceSummaryDeferredMessage": "Open the workspace to load selected-company user counts for this owner session.",
+  "releaseOverviewGuidance": "Use this page to confirm the latest published Web and Android versions, outdated devices, Android update readiness, and notification health before releasing a new build.",
+  "releaseOverviewMixedScopeHint": "Latest releases and Android policy are platform-wide; device and history counts follow the selected company filter.",
+  "releaseRegistryGuidance": "This registry shows prepared and published platform releases. Use it to confirm what was recorded as a release, not to change Android forced-update policy.",
+  "releaseRegistryAndroidPolicyNote": "Android policy details are managed from Android release management.",
+  "releaseAdoptionDevicesGuidance": "Use this tab to see real active devices and users by version. Adoption shows installed usage, not the release registry.",
+  "releaseAndroidPolicyGuidance": "Use this tab to manage Android forced-update readiness. Mark a release ready only after the APK is uploaded and the download link is tested.",
+  "releaseHistoryGuidance": "Use this tab to review previous device version changes and release events for troubleshooting.",
+  "releaseHistoryProfileLimitNote": "Older events may only contain a technical user reference; a shortened reference appears only for troubleshooting.",
+  "releaseSectionPlatformWideNote": "This section is platform-wide and is not limited by the selected company.",
+  "notificationAdoptionSeparateNote": "Notification readiness is separate from version adoption.",
+  "androidPolicyBuildComparisonNote": "Android update decisions compare build numbers, not display version text.",
+  "suggestedApkUrlNotProof": "The suggested URL is only a naming helper. Upload the APK and test the download link before marking the release ready.",
+  "androidPolicyNotReadyAction": "Release is not ready. Upload and test the APK link before enabling ready state.",
+  "androidPolicyReadyAction": "Release is marked ready. Android clients will compare update requirements by build number.",
+  "notificationReadyDevices": "Notification-ready devices",
+  "notificationReadyDevicesRatio": "{ready} / {total}",
+  "@notificationReadyDevicesRatio": {
+    "placeholders": {
+      "ready": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationReadyDevicesSummary": "{ready} of {total} active devices can receive notifications.",
+  "@notificationReadyDevicesSummary": {
+    "placeholders": {
+      "ready": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationBlockedDevices": "Notification-blocked devices",
+  "notificationMissingDevices": "Devices without notification token",
+  "notificationInvalidFailedDevices": "Invalid or failed notification devices",
+  "devicesBelowLatestBuild": "Devices below latest build",
+  "devicesBelowLatestBuildSummary": "{users} users on {devices} devices are below the latest build.",
+  "@devicesBelowLatestBuildSummary": {
+    "placeholders": {
+      "users": {
+        "type": "int"
+      },
+      "devices": {
+        "type": "int"
+      }
+    }
+  },
+  "requiresReview": "Requires review",
+  "unresolvedUser": "Unresolved user",
+  "userProfileUnavailable": "User profile unavailable",
+  "releaseEventTechnicalReferenceOnly": "This release event only stored a technical user reference.",
+  "technicalReference": "Technical reference",
   "dashboardPerformanceDailyActivityNote": "Shows daily activity, so days without new records appear as 0.",
   "dashboardPerformanceTotalTrend": "Total",
   "dashboardPerformanceDailyTrend": "Daily",
