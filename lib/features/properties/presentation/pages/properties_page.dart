@@ -416,16 +416,12 @@ Future<void> _confirmDeactivate(
                 isLoading: isSubmitting,
                 onPressed: () async {
                   setDialogState(() => isSubmitting = true);
-                  await cubit.deactivateProperty(
+                  final success = await cubit.deactivateProperty(
                     companyId: companyId,
                     propertyId: property.id,
                     updatedBy: updatedBy,
                   );
-                  final completed =
-                      cubit.state.status == PropertiesStatus.saved &&
-                      cubit.state.lastAction ==
-                          PropertiesAction.deactivateProperty;
-                  if (completed && dialogContext.mounted) {
+                  if (success && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }

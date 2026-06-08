@@ -368,7 +368,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     }
   }
 
-  Future<void> assignClient({
+  Future<bool> assignClient({
     required String companyId,
     required String clientId,
     required String assignedTo,
@@ -420,7 +420,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -429,9 +429,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.assignClient,
         ),
       );
+      return true;
     } on ClientException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -442,7 +443,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       );
     } catch (_) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -452,9 +453,10 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
     }
+    return false;
   }
 
-  Future<void> archiveClient({
+  Future<bool> archiveClient({
     required String companyId,
     required String clientId,
     required String updatedBy,
@@ -496,7 +498,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -505,9 +507,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.archiveClient,
         ),
       );
+      return true;
     } on ClientException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -518,7 +521,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       );
     } catch (_) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -528,9 +531,10 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
     }
+    return false;
   }
 
-  Future<void> restoreClient({
+  Future<bool> restoreClient({
     required String companyId,
     required String clientId,
     required String updatedBy,
@@ -571,7 +575,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -580,9 +584,10 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.restoreClient,
         ),
       );
+      return true;
     } on ClientException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -593,7 +598,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       );
     } catch (_) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -603,6 +608,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       );
     }
+    return false;
   }
 
   void clearAction() {

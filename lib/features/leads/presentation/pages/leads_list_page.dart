@@ -2226,7 +2226,7 @@ Future<void> _showAssignLeadSheet(
                         selectedUserId,
                       );
                       final now = DateTime.now();
-                      await cubit.updateLead(
+                      final success = await cubit.updateLead(
                         companyId: companyId,
                         lead: lead.copyWith(
                           assignedTo: selectedUserId,
@@ -2241,9 +2241,7 @@ Future<void> _showAssignLeadSheet(
                         actorName: actorName,
                         successAction: LeadsAction.assignLead,
                       );
-                      final completed = cubit.state.status == LeadsStatus.saved &&
-                          cubit.state.lastAction == LeadsAction.assignLead;
-                      if (completed && sheetContext.mounted) {
+                      if (success && sheetContext.mounted) {
                         Navigator.of(sheetContext).pop();
                         return;
                       }

@@ -456,6 +456,11 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
   }
 
   String _latestVersionName(int latestBuildNumber) {
+    final fromPolicy = widget.policy.latestVersionName.trim();
+    if (fromPolicy.isNotEmpty) {
+      return fromPolicy;
+    }
+
     final fromUrl = _versionNameFromUpdateUrl(
       widget.policy.updateUrl,
       latestBuildNumber,
@@ -463,10 +468,12 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
     if (fromUrl.isNotEmpty) {
       return fromUrl;
     }
+
     final currentBuildNumber = int.tryParse(AppConstants.appBuildNumber) ?? 0;
     if (latestBuildNumber <= 0 || latestBuildNumber == currentBuildNumber) {
       return AppConstants.appVersion;
     }
+
     return '';
   }
 
@@ -502,7 +509,7 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
       return l.notAvailable;
     }
     if (cleanVersion.isEmpty) {
-      return '${l.buildNumber}: $buildNumber';
+      return '${l.notAvailable} (${l.buildNumber}: $buildNumber)';
     }
     if (buildNumber <= 0) {
       return cleanVersion;

@@ -670,6 +670,11 @@ AndroidReleasePolicy _androidReleasePolicyFromMap(Map<String, dynamic> data) {
     minimumSupportedBuildNumber: _intValue(data['minimumSupportedBuildNumber']),
     latestBuildNumber: _intValue(data['latestBuildNumber']),
     updateUrl: (data['updateUrl'] as String? ?? '').trim(),
+    latestVersionName: (data['latestVersionName'] as String? ??
+            data['latestVersion'] as String? ??
+            data['appVersion'] as String? ??
+            '')
+        .trim(),
     serverTime: _dateValue(data['serverTime']) ?? DateTime.now(),
     gracePeriodStartedAt: _dateValue(data['gracePeriodStartedAt']),
     gracePeriodEndsAt: _dateValue(data['gracePeriodEndsAt']),

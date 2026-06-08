@@ -1294,16 +1294,13 @@ Future<void> _confirmArchive(
                 isLoading: isSubmitting,
                 onPressed: () async {
                   setDialogState(() => isSubmitting = true);
-                  await cubit.archiveClient(
+                  final success = await cubit.archiveClient(
                     companyId: companyId,
                     clientId: client.id,
                     updatedBy: updatedBy,
                     reason: reasonController.text.trim(),
                   );
-                  final completed =
-                      cubit.state.status == ClientsStatus.saved &&
-                      cubit.state.lastAction == ClientsAction.archiveClient;
-                  if (completed && dialogContext.mounted) {
+                  if (success && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }
@@ -1351,15 +1348,12 @@ Future<void> _confirmRestore(
                 isLoading: isSubmitting,
                 onPressed: () async {
                   setDialogState(() => isSubmitting = true);
-                  await cubit.restoreClient(
+                  final success = await cubit.restoreClient(
                     companyId: companyId,
                     clientId: client.id,
                     updatedBy: updatedBy,
                   );
-                  final completed =
-                      cubit.state.status == ClientsStatus.saved &&
-                      cubit.state.lastAction == ClientsAction.restoreClient;
-                  if (completed && dialogContext.mounted) {
+                  if (success && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }
@@ -1439,7 +1433,7 @@ Future<void> _showAssignClientSheet(
                     onPressed: () async {
                       setSheetState(() => isSubmitting = true);
                       final selectedUser = _userById(users, selectedUserId);
-                      await cubit.assignClient(
+                      final success = await cubit.assignClient(
                         companyId: companyId,
                         clientId: client.id,
                         assignedTo: selectedUserId,
@@ -1451,8 +1445,12 @@ Future<void> _showAssignClientSheet(
                         managerName: selectedUser?.managerName ?? '',
                         updatedBy: updatedBy,
                       );
-                      if (sheetContext.mounted) {
+                      if (success && sheetContext.mounted) {
                         Navigator.of(sheetContext).pop();
+                        return;
+                      }
+                      if (sheetContext.mounted) {
+                        setSheetState(() => isSubmitting = false);
                       }
                     },
                   ),

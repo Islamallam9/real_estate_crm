@@ -472,7 +472,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     }
   }
 
-  Future<void> deactivateProperty({
+  Future<bool> deactivateProperty({
     required String companyId,
     required String propertyId,
     required String updatedBy,
@@ -505,7 +505,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -514,9 +514,10 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           lastAction: PropertiesAction.deactivateProperty,
         ),
       );
+      return true;
     } on PropertyException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -527,7 +528,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
       );
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -540,6 +541,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       );
     }
+    return false;
   }
 
   void clearError() {

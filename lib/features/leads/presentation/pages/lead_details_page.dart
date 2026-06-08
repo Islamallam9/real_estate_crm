@@ -714,7 +714,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       return;
     }
     final cubit = context.read<LeadsCubit>();
-    await cubit.archiveLead(
+    final success = await cubit.archiveLead(
       companyId: widget.companyId,
       leadId: widget.lead.id,
       archivedBy: widget.uid,
@@ -722,7 +722,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       reason: reasonController.text.trim(),
     );
     reasonController.dispose();
-    if (context.mounted && cubit.state.status == LeadsStatus.saved) {
+    if (context.mounted && success) {
       context.go(RouteNames.leads);
     }
   }
@@ -750,13 +750,13 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       return;
     }
     final cubit = context.read<LeadsCubit>();
-    await cubit.restoreLead(
+    final success = await cubit.restoreLead(
       companyId: widget.companyId,
       leadId: widget.lead.id,
       restoredBy: widget.uid,
       actorName: widget.actorName,
     );
-    if (context.mounted && cubit.state.status == LeadsStatus.saved) {
+    if (context.mounted && success) {
       context.go(RouteNames.leads);
     }
   }

@@ -422,7 +422,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     }
   }
 
-  Future<void> updateLead({
+  Future<bool> updateLead({
     required String companyId,
     required Lead lead,
     required String actorName,
@@ -465,7 +465,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       final updatedLeads = _replaceLeadInCurrentList(updated);
       emit(
@@ -491,14 +491,15 @@ class LeadsCubit extends Cubit<LeadsState> {
                   : LeadsAction.updateLead),
         ),
       );
+      return true;
     } on LeadException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -511,6 +512,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     }
+    return false;
   }
 
 
@@ -546,7 +548,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     );
   }
 
-  Future<void> archiveLead({
+  Future<bool> archiveLead({
     required String companyId,
     required String leadId,
     required String archivedBy,
@@ -597,7 +599,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -606,14 +608,15 @@ class LeadsCubit extends Cubit<LeadsState> {
           lastAction: LeadsAction.archiveLead,
         ),
       );
+      return true;
     } on LeadException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -626,9 +629,10 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     }
+    return false;
   }
 
-  Future<void> restoreLead({
+  Future<bool> restoreLead({
     required String companyId,
     required String leadId,
     required String restoredBy,
@@ -666,7 +670,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
       if (isClosed) {
-        return;
+        return true;
       }
       emit(
         state.copyWith(
@@ -675,14 +679,15 @@ class LeadsCubit extends Cubit<LeadsState> {
           lastAction: LeadsAction.restoreLead,
         ),
       );
+      return true;
     } on LeadException catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
     } catch (error) {
       if (isClosed) {
-        return;
+        return false;
       }
       emit(
         state.copyWith(
@@ -695,6 +700,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     }
+    return false;
   }
 
   Future<void> loadLead({

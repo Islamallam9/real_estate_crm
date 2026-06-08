@@ -25,6 +25,9 @@ class AppUpdateRemoteDataSource {
       minimumSupportedBuildNumber: _intValue(data['minimumSupportedBuildNumber']),
       latestBuildNumber: _intValue(data['latestBuildNumber']),
       updateUrl: (data['updateUrl'] as String? ?? '').trim(),
+      latestVersionName: _stringValue(
+        data['latestVersionName'] ?? data['latestVersion'] ?? data['appVersion'],
+      ),
       serverTime: _dateValue(data['serverTime']) ?? DateTime.now(),
       gracePeriodStartedAt: _dateValue(data['gracePeriodStartedAt']),
       gracePeriodEndsAt: _dateValue(data['gracePeriodEndsAt']),
@@ -33,6 +36,10 @@ class AppUpdateRemoteDataSource {
       bodyEn: data['bodyEn'] as String? ?? '',
       bodyAr: data['bodyAr'] as String? ?? '',
     );
+  }
+
+  String _stringValue(Object? value) {
+    return (value as String? ?? '').trim();
   }
 
   int _intValue(Object? value) {

@@ -50,6 +50,7 @@ exports.updateAndroidReleasePolicy = onCall(async (request) => {
   );
   const latestBuildNumber = parseBuildNumber(data.latestBuildNumber);
   const updateUrl = optionalString(data.updateUrl);
+  const appVersion = sanitizeShortString(data.appVersion, 40);
 
   if (minimumSupportedBuildNumber <= 0 || latestBuildNumber <= 0) {
     throw new HttpsError('invalid-argument', 'Build numbers must be positive whole numbers.');
@@ -66,6 +67,7 @@ exports.updateAndroidReleasePolicy = onCall(async (request) => {
     releaseReady: data.releaseReady === true,
     minimumSupportedBuildNumber,
     latestBuildNumber,
+    appVersion,
     updateUrl,
     titleEn: sanitizeShortString(data.titleEn, 120),
     titleAr: sanitizeShortString(data.titleAr, 120),
@@ -80,7 +82,7 @@ exports.updateAndroidReleasePolicy = onCall(async (request) => {
   await upsertPlatformReleaseRecord({
     actorUid,
     platform: 'android',
-    appVersion: sanitizeShortString(data.appVersion, 40),
+    appVersion,
     buildNumber: latestBuildNumber,
     channel: sanitizeReleaseChannel(data.channel),
     releaseType: sanitizeReleaseType(data.releaseType),
@@ -482,6 +484,7 @@ function androidReleasePolicyResponse({ currentBuildNumber, policy, serverNow })
     currentBuildNumber,
     minimumSupportedBuildNumber,
     latestBuildNumber: effectiveLatestBuildNumber,
+    latestVersionName: sanitizeShortString(policy.appVersion, 40) || versionNameFromUpdateUrl(updateUrl, effectiveLatestBuildNumber),
     updateUrl,
     serverTime: serverNow.toISOString(),
     gracePeriodStartedAt: timestampToIsoString(policy.gracePeriodStartedAt),
@@ -853,6 +856,21 @@ function sanitizeReleaseStatus(value) {
     return clean === 'rolledback' ? 'rolledBack' : clean;
   }
   return 'draft';
+}
+
+
+function versionNameFromUpdateUrl(updateUrl, buildNumber) {
+  const fileName = releaseApkFileName(updateUrl);
+  const suffix = `-${parseBuildNumber(buildNumber)}.apk`;
+  if (!fileName || !fileName.toLowerCase().endsWith(suffix.toLowerCase())) {
+    return '';
+  }
+  const nameWithoutSuffix = fileName.substring(0, fileName.length - suffix.length);
+  const prefix = 'masar-crm-';
+  if (!nameWithoutSuffix.toLowerCase().startsWith(prefix)) {
+    return '';
+  }
+  return sanitizeShortString(nameWithoutSuffix.substring(prefix.length), 40);
 }
 
 function releaseApkFileName(updateUrl) {

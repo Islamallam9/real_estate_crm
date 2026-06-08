@@ -331,6 +331,7 @@ Future<void> _confirmDeactivateFromDetails(
   final cubit = context.read<PropertiesCubit>();
   var isSubmitting = false;
   var didSubmit = false;
+  var mutationSucceeded = false;
 
   await showDialog<void>(
     context: context,
@@ -353,16 +354,12 @@ Future<void> _confirmDeactivateFromDetails(
                 onPressed: () async {
                   didSubmit = true;
                   setDialogState(() => isSubmitting = true);
-                  await cubit.deactivateProperty(
+                  mutationSucceeded = await cubit.deactivateProperty(
                     companyId: companyId,
                     propertyId: propertyId,
                     updatedBy: updatedBy,
                   );
-                  final completed =
-                      cubit.state.status == PropertiesStatus.saved &&
-                      cubit.state.lastAction ==
-                          PropertiesAction.deactivateProperty;
-                  if (completed && dialogContext.mounted) {
+                  if (mutationSucceeded && dialogContext.mounted) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }
@@ -383,11 +380,9 @@ Future<void> _confirmDeactivateFromDetails(
   if (!didSubmit) {
     return;
   }
-  if (cubit.state.status == PropertiesStatus.saved &&
-      cubit.state.lastAction == PropertiesAction.deactivateProperty) {
+  if (mutationSucceeded) {
     AppFeedback.success(context, l.propertyDeactivatedSuccessfully);
-  } else if (cubit.state.status == PropertiesStatus.failure &&
-      cubit.state.lastAction == PropertiesAction.deactivateProperty) {
+  } else {
     AppFeedback.error(context, l.unableToDeactivateProperty);
   }
 }

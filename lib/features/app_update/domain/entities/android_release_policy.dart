@@ -8,6 +8,7 @@ class AndroidReleasePolicy {
     required this.minimumSupportedBuildNumber,
     required this.latestBuildNumber,
     required this.updateUrl,
+    this.latestVersionName = '',
     required this.serverTime,
     this.gracePeriodStartedAt,
     this.gracePeriodEndsAt,
@@ -25,6 +26,7 @@ class AndroidReleasePolicy {
   final int minimumSupportedBuildNumber;
   final int latestBuildNumber;
   final String updateUrl;
+  final String latestVersionName;
   final DateTime serverTime;
   final DateTime? gracePeriodStartedAt;
   final DateTime? gracePeriodEndsAt;
