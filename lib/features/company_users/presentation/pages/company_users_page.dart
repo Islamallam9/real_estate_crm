@@ -748,7 +748,6 @@ class _LoginActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
@@ -777,71 +776,6 @@ class _LoginActivityCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          _LoginActivityInfoLine(
-            label: l.device,
-            value: _loginActivityDeviceLabel(l, activity),
-          ),
-          if (activity.browser.trim().isNotEmpty)
-            _LoginActivityInfoLine(
-              label: l.browser,
-              value: _isolate(activity.browser),
-            ),
-          if (activity.platform.trim().isNotEmpty)
-            _LoginActivityInfoLine(
-              label: l.platform,
-              value: _isolate(activity.platform),
-            ),
-          if (activity.ipAddress.trim().isNotEmpty)
-            _LoginActivityInfoLine(
-              label: l.ipAddress,
-              value: _isolate(activity.ipAddress),
-            ),
-          if (activity.timezone.trim().isNotEmpty)
-            _LoginActivityInfoLine(
-              label: l.timezone,
-              value: _isolate(activity.timezone),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginActivityInfoLine extends StatelessWidget {
-  const _LoginActivityInfoLine({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 92,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textSecondaryColor(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
         ],
       ),
     );
@@ -854,21 +788,6 @@ String _loginActivityDateLabel(BuildContext context, DateTime? value) {
   }
   final localeName = Localizations.localeOf(context).toString();
   return intl.DateFormat.yMMMd(localeName).add_jm().format(value.toLocal());
-}
-
-String _loginActivityDeviceLabel(
-  AppLocalizations l,
-  CompanyUserLoginActivity activity,
-) {
-  final deviceType = activity.deviceType.trim();
-  if (deviceType.isNotEmpty) {
-    return _isolate(deviceType);
-  }
-  final platform = activity.platform.trim();
-  if (platform.isNotEmpty) {
-    return _isolate(platform);
-  }
-  return l.notAvailable;
 }
 
 Future<CreatedCompanyUserResult?> _showAddUserDialog(BuildContext context, String companyId) {

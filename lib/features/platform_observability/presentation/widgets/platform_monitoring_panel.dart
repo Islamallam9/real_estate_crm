@@ -21,10 +21,23 @@ import '../../domain/entities/platform_error_log.dart';
 import '../cubit/platform_observability_cubit.dart';
 import '../cubit/platform_observability_state.dart';
 
-class PlatformMonitoringPanel extends StatelessWidget {
+class PlatformMonitoringPanel extends StatefulWidget {
   const PlatformMonitoringPanel({super.key, required this.companies});
 
   final List<CompanyMetadata> companies;
+
+  @override
+  State<PlatformMonitoringPanel> createState() =>
+      _PlatformMonitoringPanelState();
+}
+
+class _PlatformMonitoringPanelState extends State<PlatformMonitoringPanel> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<PlatformObservabilityCubit>().watch();
+    context.read<PlatformNotificationsCubit>().watchNotifications();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +71,7 @@ class PlatformMonitoringPanel extends StatelessWidget {
                 },
               ),
               const SizedBox(height: AppSpacing.md),
-              _MonitoringFilters(state: state, companies: companies),
+              _MonitoringFilters(state: state, companies: widget.companies),
               const SizedBox(height: AppSpacing.md),
               if (state.status == PlatformObservabilityStatus.loading)
                 const AppLoading()

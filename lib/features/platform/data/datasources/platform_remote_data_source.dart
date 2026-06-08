@@ -538,6 +538,8 @@ class FirebasePlatformRemoteDataSource implements PlatformRemoteDataSource {
     await _call('updateAndroidReleasePolicy', {
       'enabled': enabled,
       'releaseReady': releaseReady,
+      'appVersion': AppConstants.appVersion,
+      'buildNumber': AppConstants.appBuildNumber,
       'minimumSupportedBuildNumber': minimumSupportedBuildNumber,
       'latestBuildNumber': latestBuildNumber,
       'updateUrl': updateUrl,

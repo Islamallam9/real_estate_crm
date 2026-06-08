@@ -204,7 +204,7 @@ class PlatformPage extends StatelessWidget {
                 ListCompanyInvitationsUseCase(invitationsRepository),
             revokeCompanyInvitationUseCase:
                 RevokeCompanyInvitationUseCase(invitationsRepository),
-          )..loadInvitations(),
+          ),
         ),
         BlocProvider(
           create: (_) => PlatformNotificationsCubit(
@@ -220,7 +220,7 @@ class PlatformPage extends StatelessWidget {
                 MarkAllPlatformNotificationsReadUseCase(
               notificationsRepository,
             ),
-          )..watch(),
+          )..watchUnreadCount(),
         ),
         BlocProvider(
           create: (_) => PlatformObservabilityCubit(
@@ -228,7 +228,7 @@ class PlatformPage extends StatelessWidget {
                 WatchPlatformErrorLogsUseCase(observabilityRepository),
             markResolvedUseCase:
                 MarkPlatformErrorResolvedUseCase(observabilityRepository),
-          )..watch(),
+          ),
         ),
       ],
       child: PlatformPage(
@@ -3782,7 +3782,14 @@ class _ReleaseRegistryTab extends StatelessWidget {
               ),
               _InfoChip(
                 label: l.latestBuild,
-                value: policy.latestBuildNumber.toString(),
+                value: _versionLabel(
+                  _versionNameFromUpdateUrl(
+                    policy.updateUrl,
+                    policy.latestBuildNumber,
+                  ),
+                  policy.latestBuildNumber,
+                  l,
+                ),
               ),
               _InfoChip(
                 label: l.updateUrl,
@@ -4288,7 +4295,11 @@ String _androidReleasedVersionLabel(
     return _releaseVersionLabel(release, l);
   }
   if (policy != null && policy.latestBuildNumber > 0) {
-    return '${l.latestBuild} ${policy.latestBuildNumber}';
+    return _versionLabel(
+      _versionNameFromUpdateUrl(policy.updateUrl, policy.latestBuildNumber),
+      policy.latestBuildNumber,
+      l,
+    );
   }
   return l.notAvailable;
 }
@@ -4316,9 +4327,34 @@ String _versionLabel(String version, int buildNumber, AppLocalizations l) {
     return l.notAvailable;
   }
   if (cleanVersion.isEmpty) {
-    return '${l.latestBuild} $buildNumber';
+    return '${l.buildNumber}: $buildNumber';
   }
-  return '$cleanVersion+$buildNumber';
+  if (buildNumber <= 0) {
+    return cleanVersion;
+  }
+  return '$cleanVersion ($buildNumber)';
+}
+
+String _versionNameFromUpdateUrl(String updateUrl, int buildNumber) {
+  if (updateUrl.trim().isEmpty || buildNumber <= 0) {
+    return '';
+  }
+  final parsed = Uri.tryParse(updateUrl.trim());
+  final path = parsed?.path.trim().isNotEmpty == true
+      ? parsed!.path
+      : updateUrl.trim();
+  final fileName = Uri.decodeFull(path).split('/').last;
+  final suffix = '-$buildNumber.apk';
+  if (!fileName.toLowerCase().endsWith(suffix)) {
+    return '';
+  }
+  final nameWithoutSuffix =
+      fileName.substring(0, fileName.length - suffix.length);
+  const prefix = 'masar-crm-';
+  if (!nameWithoutSuffix.toLowerCase().startsWith(prefix)) {
+    return '';
+  }
+  return nameWithoutSuffix.substring(prefix.length).trim();
 }
 
 String _platformLabel(AppLocalizations l, String platform) {
@@ -4440,9 +4476,11 @@ class _AndroidVersionAdoptionCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             ...data.versions.take(6).map((version) {
-              final label = version.appVersion.trim().isEmpty
-                  ? '${l.latestBuild} ${version.buildNumber}'
-                  : '${version.appVersion} +${version.buildNumber}';
+              final label = _versionLabel(
+                version.appVersion,
+                version.buildNumber,
+                l,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Wrap(
@@ -6192,8 +6230,20 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _PlatformInvitationsPanel extends StatelessWidget {
+class _PlatformInvitationsPanel extends StatefulWidget {
   const _PlatformInvitationsPanel();
+
+  @override
+  State<_PlatformInvitationsPanel> createState() =>
+      _PlatformInvitationsPanelState();
+}
+
+class _PlatformInvitationsPanelState extends State<_PlatformInvitationsPanel> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<PlatformInvitationsCubit>().loadInvitations();
+  }
 
   @override
   Widget build(BuildContext context) {

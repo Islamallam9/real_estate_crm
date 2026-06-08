@@ -18,8 +18,16 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
   final CreateCompanyInvitationUseCase _createCompanyInvitationUseCase;
   final ListCompanyInvitationsUseCase _listCompanyInvitationsUseCase;
   final RevokeCompanyInvitationUseCase _revokeCompanyInvitationUseCase;
+  bool _loadedOnce = false;
 
-  Future<void> loadInvitations() async {
+  Future<void> loadInvitations({bool force = false}) async {
+    if (!force &&
+        (_loadedOnce ||
+            state.status == PlatformInvitationsStatus.loading ||
+            state.status == PlatformInvitationsStatus.saving)) {
+      return;
+    }
+    _loadedOnce = true;
     emit(
       state.copyWith(
         status: PlatformInvitationsStatus.loading,
@@ -36,6 +44,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
         ),
       );
     } catch (error) {
+      _loadedOnce = false;
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.failure,
@@ -88,6 +97,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
         notes: notes,
       );
       final invitations = await _listCompanyInvitationsUseCase();
+      _loadedOnce = true;
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.ready,
@@ -119,6 +129,7 @@ class PlatformInvitationsCubit extends Cubit<PlatformInvitationsState> {
     try {
       await _revokeCompanyInvitationUseCase(invitationId: invitationId);
       final invitations = await _listCompanyInvitationsUseCase();
+      _loadedOnce = true;
       emit(
         state.copyWith(
           status: PlatformInvitationsStatus.ready,

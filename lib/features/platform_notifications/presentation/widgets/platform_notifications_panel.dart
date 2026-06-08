@@ -94,6 +94,7 @@ Future<void> _showPlatformNotificationsMenu({
   required PlatformNotificationsCubit cubit,
   VoidCallback? onViewAll,
 }) {
+  cubit.watchNotifications();
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -349,8 +350,21 @@ class _PlatformNotificationMenuTile extends StatelessWidget {
   }
 }
 
-class PlatformNotificationsPanel extends StatelessWidget {
+class PlatformNotificationsPanel extends StatefulWidget {
   const PlatformNotificationsPanel({super.key});
+
+  @override
+  State<PlatformNotificationsPanel> createState() =>
+      _PlatformNotificationsPanelState();
+}
+
+class _PlatformNotificationsPanelState
+    extends State<PlatformNotificationsPanel> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<PlatformNotificationsCubit>().watchNotifications();
+  }
 
   @override
   Widget build(BuildContext context) {

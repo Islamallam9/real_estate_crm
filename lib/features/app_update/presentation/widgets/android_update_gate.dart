@@ -180,9 +180,11 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
     final remaining = _remainingDuration(widget.policy);
     final progress = _remainingProgress(widget.policy, remaining);
     final textTheme = Theme.of(context).textTheme;
-    final latestBuild = widget.policy.latestBuildNumber > 0
-        ? widget.policy.latestBuildNumber.toString()
-        : widget.policy.minimumSupportedBuildNumber.toString();
+    final currentBuildNumber = int.tryParse(AppConstants.appBuildNumber) ?? 0;
+    final latestBuildNumber = widget.policy.latestBuildNumber > 0
+        ? widget.policy.latestBuildNumber
+        : widget.policy.minimumSupportedBuildNumber;
+    final latestVersionName = _latestVersionName(latestBuildNumber);
     final downloadProgress = _downloadStatus?.progress;
     final downloadStatus = _downloadStatus;
     final canStartDownload = !_downloadStarted || downloadStatus?.isFailed == true;
@@ -246,12 +248,20 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
                         const SizedBox(height: AppSpacing.lg),
                         _VersionInfoRow(
                           label: l.androidUpdateCurrentVersion,
-                          value: '${AppConstants.appVersion}+${AppConstants.appBuildNumber}',
+                          value: _versionBuildLabel(
+                            l,
+                            version: AppConstants.appVersion,
+                            buildNumber: currentBuildNumber,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         _VersionInfoRow(
                           label: l.androidUpdateLatestVersion,
-                          value: latestBuild,
+                          value: _versionBuildLabel(
+                            l,
+                            version: latestVersionName,
+                            buildNumber: latestBuildNumber,
+                          ),
                         ),
                         if (remaining != null) ...[
                           const SizedBox(height: AppSpacing.lg),
@@ -440,7 +450,64 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
     final latestBuild = widget.policy.latestBuildNumber > 0
         ? widget.policy.latestBuildNumber
         : widget.policy.minimumSupportedBuildNumber;
-    return 'masar-crm-${AppConstants.appVersion}-$latestBuild.apk';
+    final latestVersion = _latestVersionName(latestBuild);
+    final fileVersion = latestVersion.isEmpty ? AppConstants.appVersion : latestVersion;
+    return 'masar-crm-$fileVersion-$latestBuild.apk';
+  }
+
+  String _latestVersionName(int latestBuildNumber) {
+    final fromUrl = _versionNameFromUpdateUrl(
+      widget.policy.updateUrl,
+      latestBuildNumber,
+    );
+    if (fromUrl.isNotEmpty) {
+      return fromUrl;
+    }
+    final currentBuildNumber = int.tryParse(AppConstants.appBuildNumber) ?? 0;
+    if (latestBuildNumber <= 0 || latestBuildNumber == currentBuildNumber) {
+      return AppConstants.appVersion;
+    }
+    return '';
+  }
+
+  String _versionNameFromUpdateUrl(String updateUrl, int buildNumber) {
+    if (updateUrl.trim().isEmpty || buildNumber <= 0) {
+      return '';
+    }
+    final parsed = Uri.tryParse(updateUrl.trim());
+    final path = parsed?.path.trim().isNotEmpty == true
+        ? parsed!.path
+        : updateUrl.trim();
+    final fileName = Uri.decodeFull(path).split('/').last;
+    final suffix = '-$buildNumber.apk';
+    if (!fileName.toLowerCase().endsWith(suffix)) {
+      return '';
+    }
+    final nameWithoutSuffix =
+        fileName.substring(0, fileName.length - suffix.length);
+    const prefix = 'masar-crm-';
+    if (!nameWithoutSuffix.toLowerCase().startsWith(prefix)) {
+      return '';
+    }
+    return nameWithoutSuffix.substring(prefix.length).trim();
+  }
+
+  String _versionBuildLabel(
+    AppLocalizations l, {
+    required String version,
+    required int buildNumber,
+  }) {
+    final cleanVersion = version.trim();
+    if (cleanVersion.isEmpty && buildNumber <= 0) {
+      return l.notAvailable;
+    }
+    if (cleanVersion.isEmpty) {
+      return '${l.buildNumber}: $buildNumber';
+    }
+    if (buildNumber <= 0) {
+      return cleanVersion;
+    }
+    return '$cleanVersion ($buildNumber)';
   }
 
   String _downloadTitle(AppLocalizations l) {

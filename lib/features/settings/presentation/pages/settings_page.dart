@@ -447,7 +447,7 @@ class _AboutSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '${l.version} ${AppConstants.appVersion}+${AppConstants.appBuildNumber}',
+            '${l.version} ${_appVersionBuildLabel()}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondaryColor(context),
                   fontWeight: FontWeight.w700,
@@ -467,6 +467,10 @@ class _AboutSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String _appVersionBuildLabel() {
+  return '${AppConstants.appVersion} (${AppConstants.appBuildNumber})';
 }
 
 class _SettingsSection extends StatelessWidget {

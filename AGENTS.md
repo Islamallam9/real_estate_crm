@@ -30,6 +30,71 @@ Core stack:
 
 ---
 
+## Latest handoff checkpoint — 2026-06-08
+
+Treat this as the active project baseline unless the user provides a newer handoff.
+
+Current branch and release context:
+- Branch: `dev`.
+- Latest stable/live performance checkpoint was confirmed good by the user after Hosting deploy.
+- Recent commits mentioned in the workflow included support WhatsApp update, Audit Logs optimization, Reports R1/R2/R3, Dashboard D1/D2, Sales Command UI cleanup, and Admin company-user login activity viewer.
+- The latest scoped versioning/update/privacy phase was implemented locally by Codex but still needed runtime QA/commit at the time of handoff. It bumped version to CalVer `2026.06.1+111`, but the user explicitly requested reverting away from CalVer to SemVer + build.
+
+Current required next step:
+- Revert the version format from CalVer back to best-practice SemVer + build number.
+- Target version should be `2.31.4+111` unless repo inspection shows a higher build number already exists.
+- User-facing display should be `Version 2.31.4 (111)` or compact `2.31.4.111`.
+- Keep Android/update comparison based on build number `111`; never lower/reset the Android build number.
+- Android update UI must show full version + build, not only build number.
+- Preserve Admin company-user login activity privacy: company Admin should see only login date/time. Do not show IP, platform, browser, device, user-agent, timezone, location, tokens, or technical metadata.
+- Platform Owner login activity must remain separate and unchanged.
+- Next optimization phase after version/privacy validation: Platform Owner Optimization PO1 only, guided by the completed Platform Owner static audit.
+
+Strict command discipline for the current environment:
+- The user often allows non-Flutter commands, but Flutter commands require explicit approval.
+- In this environment, `dart format` and `dart analyze` have hung multiple times. Treat Dart analyzer/formatter commands as forbidden unless the user explicitly approves running them locally.
+- Do not use `git add .`. Stage exact files only.
+- Do not claim analyzer/build/deploy/manual QA passed unless it actually ran or the user confirmed it.
+
+Completed/tested performance and stability checkpoint:
+- Notification timing refresh throttled; repeated `refreshAppointmentTimingNotifications` spam stopped.
+- Property and Deal detail/edit pages use single-record streams instead of list streams.
+- Reports stream lifecycle optimization completed/tested/committed:
+  - R1 removed unused Clients Reports listener.
+  - R2 made active-users/filters tab-aware and fixed duplicate listener crash with broadcast-once stream.
+  - R2 follow-up preserved employee/sales performance after Export → Overview.
+  - R3 lazy-starts overview streams only when overview/non-Export content is active; it does not cancel already-started streams.
+- Audit Logs optimization completed/tested/committed:
+  - Admin actor filter users lazy-load from filters.
+  - First paint improved by delaying initial watch and rendering shell/local loader.
+  - Admin default fetch reduced from up to 500 docs to roughly visible limit + 20.
+  - Admin filtered views keep higher over-fetch to preserve local-filter usefulness.
+  - Manager behavior intentionally unchanged for safety.
+  - Export/report/audit-log filter correctness fixed.
+  - Filter selections apply stream reload only on Apply.
+  - Search has a small debounce.
+- Dashboard optimization completed/tested/committed:
+  - D1 stabilized watcher churn and memoized local analytics/Sales Command derived data without changing query shapes/formulas/predicates.
+  - Sales Command duplicate lower summary-card row removed; KPI/chip row and detailed urgent items remain.
+  - D2 lazy-starts lower Dashboard streams: active users for team/employee activity and recent activity/audit logs from visibility triggers. Top KPI strip and Sales Command remain immediate and unchanged.
+- Admin company-user login activity viewer completed/tested/committed:
+  - Added from Company Users row actions.
+  - Reads company-scoped `companies/{companyId}/login_activity`.
+  - Platform Owner login activity remains separate.
+  - After the privacy request, Admin UI must display only login date/time.
+- Support WhatsApp number update was committed according to the recent log.
+
+Platform Owner optimization audit findings:
+- PO1 lowest-risk future batch: lazy-start observability, invitations, and platform notification list while preserving unread badge behavior.
+- PO2: selected-company users/payment/login streams visible-only and owner-session caching; clear on owner sign-out.
+- PO3 higher-risk: release/device collection-group scans and backend rollups. Do not touch release policy/update enforcement casually.
+
+Known remaining local/noise files often seen:
+- `.metadata` should usually remain unstaged.
+- `devtools_options.yaml` is local DevTools config and should usually remain unstaged.
+
+---
+
 ## Absolute rules for Codex / assistant work
 
 These rules are mandatory.
@@ -65,9 +130,9 @@ These rules are mandatory.
 
 ## Current status and release context
 
-Latest active working context is around `v2.31.3+105`.
+Latest active working context has moved beyond `v2.31.3+105`; use the latest handoff checkpoint above as the active baseline.
 
-Important: treat `v2.31.3+105` as local/current working context unless the user explicitly confirms it was committed, pushed, built, or deployed.
+Important: do not trust older version notes over the latest handoff checkpoint. Treat build/version status as confirmed only when the user confirms commit/build/deploy for that exact change.
 
 Recent completed/local-good items:
 - Release Intelligence and Device Lifecycle Monitoring was implemented around `v2.31.0+102`.

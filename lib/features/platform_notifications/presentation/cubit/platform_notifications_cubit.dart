@@ -28,13 +28,38 @@ class PlatformNotificationsCubit extends Cubit<PlatformNotificationsState> {
 
   StreamSubscription<List<PlatformNotification>>? _notificationsSubscription;
   StreamSubscription<int>? _unreadSubscription;
-  bool _watching = false;
+  bool _watchingNotifications = false;
+  bool _watchingUnreadCount = false;
 
   void watch() {
-    if (_watching) {
+    watchUnreadCount();
+    watchNotifications();
+  }
+
+  void watchUnreadCount() {
+    if (_watchingUnreadCount) {
       return;
     }
-    _watching = true;
+    _watchingUnreadCount = true;
+    _unreadSubscription = _watchUnreadCountUseCase().listen(
+      (count) {
+        if (!isClosed) {
+          emit(state.copyWith(unreadCount: count, clearMessage: true));
+        }
+      },
+      onError: (Object error) {
+        if (!isClosed) {
+          emit(state.copyWith(message: error.toString()));
+        }
+      },
+    );
+  }
+
+  void watchNotifications() {
+    if (_watchingNotifications) {
+      return;
+    }
+    _watchingNotifications = true;
     emit(state.copyWith(status: PlatformNotificationsStatus.loading));
     _notificationsSubscription = _watchNotificationsUseCase().listen(
       (notifications) {
@@ -56,18 +81,6 @@ class PlatformNotificationsCubit extends Cubit<PlatformNotificationsState> {
               message: error.toString(),
             ),
           );
-        }
-      },
-    );
-    _unreadSubscription = _watchUnreadCountUseCase().listen(
-      (count) {
-        if (!isClosed) {
-          emit(state.copyWith(unreadCount: count, clearMessage: true));
-        }
-      },
-      onError: (Object error) {
-        if (!isClosed) {
-          emit(state.copyWith(message: error.toString()));
         }
       },
     );
