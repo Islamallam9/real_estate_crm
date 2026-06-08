@@ -371,7 +371,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get english => 'الإنجليزية';
 
   @override
-  String get salesWorkspace => 'من العميل المحتمل إلى الصفقة، مسار واضح واحد.';
+  String get salesWorkspace => 'رحلة العميل إلى الصفقة';
 
   @override
   String get searchCrm => 'البحث في مسار CRM';
@@ -1312,6 +1312,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get staleLead => 'عميل خامد';
 
   @override
+  String get contactedTodayFollowUpStillOverdue =>
+      'تم التواصل اليوم والمتابعة ما زالت متأخرة';
+
+  @override
   String get markContactedToday => 'تسجيل التواصل اليوم';
 
   @override
@@ -1592,7 +1596,17 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String dashboardDailyInsightStaleLeads(Object count) {
-    return 'هناك $count فرص لم تحصل على متابعة منذ أكثر من ٥ أيام. افتح التفاصيل وابدأ بالأعلى قيمة.';
+    return 'هناك $count فرص نشطة بدون حركة حديثة منذ أكثر من ٥ أيام. ابدأ بالفرص الأعلى قيمة.';
+  }
+
+  @override
+  String dashboardDailyInsightNoNextFollowUp(Object count) {
+    return 'هناك $count فرص نشطة بدون موعد متابعة قادم. كل فرصة مفتوحة تحتاج خطوة واضحة.';
+  }
+
+  @override
+  String dashboardDailyInsightContactedTodayStillOverdue(Object count) {
+    return 'تم التواصل اليوم مع $count فرص، لكن المتابعة المتأخرة لم تُجدول من جديد. حدّد موعد المتابعة القادم قبل نهاية اليوم.';
   }
 
   @override

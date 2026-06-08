@@ -2410,6 +2410,10 @@ class DashboardDailyInsightCard extends StatelessWidget {
 
 String? _dailyInsightRoute(DashboardDailyInsightType type) {
   return switch (type) {
+    DashboardDailyInsightType.contactedTodayStillOverdue =>
+      RouteNames.filteredLeads(queue: 'contactedTodayStillOverdue'),
+    DashboardDailyInsightType.noNextFollowUp =>
+      RouteNames.filteredLeads(followUp: 'noFollowUp'),
     DashboardDailyInsightType.staleLeads =>
       RouteNames.filteredLeads(queue: 'stale'),
     DashboardDailyInsightType.conversionUp => RouteNames.reports,
@@ -3907,6 +3911,8 @@ Future<void> _showDailyInsightDrawer(
   final route = platformPreview ? null : _dailyInsightRoute(insight.type);
   final moduleLabel = switch (insight.type) {
     DashboardDailyInsightType.conversionUp => l.reports,
+    DashboardDailyInsightType.contactedTodayStillOverdue ||
+    DashboardDailyInsightType.noNextFollowUp ||
     DashboardDailyInsightType.staleLeads ||
     DashboardDailyInsightType.calm ||
     DashboardDailyInsightType.notEnoughData => l.leads,
@@ -6548,6 +6554,10 @@ String? _todayRoute(DashboardTodayItem item) {
 
 String _dailyInsightText(AppLocalizations l, DashboardDailyInsight insight) {
   return switch (insight.type) {
+    DashboardDailyInsightType.contactedTodayStillOverdue =>
+      l.dashboardDailyInsightContactedTodayStillOverdue(insight.primaryValue),
+    DashboardDailyInsightType.noNextFollowUp =>
+      l.dashboardDailyInsightNoNextFollowUp(insight.primaryValue),
     DashboardDailyInsightType.staleLeads =>
       l.dashboardDailyInsightStaleLeads(insight.primaryValue),
     DashboardDailyInsightType.conversionUp =>

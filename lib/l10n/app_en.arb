@@ -143,7 +143,7 @@
   "darkMode": "Dark mode",
   "arabic": "Arabic",
   "english": "English",
-  "salesWorkspace": "From lead to deal, one clear path.",
+  "salesWorkspace": "Lead-to-deal journey",
   "searchCrm": "Search Masar CRM",
   "notifications": "Notifications",
   "crmUser": "Masar user",
@@ -494,6 +494,7 @@
   "allFollowUps": "All follow-ups",
   "needsAttention": "Needs attention",
   "staleLead": "Stale lead",
+  "contactedTodayFollowUpStillOverdue": "Contacted today, follow-up still overdue",
   "markContactedToday": "Mark contacted today",
   "leadMarkedContactedToday": "Lead marked as contacted today.",
   "scheduleFollowUp": "Schedule follow-up",
@@ -590,8 +591,20 @@
   "dashboardSeriesAppointments": "Appointments",
   "dashboardSeriesDeals": "Deals",
   "dashboardSeriesPipelineValue": "Pipeline value",
-  "dashboardDailyInsightStaleLeads": "You have {count} leads without follow-up for more than 5 days. Start with the highest-value opportunities.",
+  "dashboardDailyInsightStaleLeads": "You have {count} active leads with no recent movement for more than 5 days. Start with the highest-value opportunities.",
   "@dashboardDailyInsightStaleLeads": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightNoNextFollowUp": "You have {count} active leads with no next follow-up scheduled. Every open lead needs a clear next step.",
+  "@dashboardDailyInsightNoNextFollowUp": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightContactedTodayStillOverdue": "You contacted {count} leads today, but their overdue follow-up was not rescheduled. Set the next follow-up date before closing the day.",
+  "@dashboardDailyInsightContactedTodayStillOverdue": {
     "placeholders": {
       "count": {}
     }

@@ -372,7 +372,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
-  String get salesWorkspace => 'From lead to deal, one clear path.';
+  String get salesWorkspace => 'Lead-to-deal journey';
 
   @override
   String get searchCrm => 'Search Masar CRM';
@@ -1318,6 +1318,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get staleLead => 'Stale lead';
 
   @override
+  String get contactedTodayFollowUpStillOverdue =>
+      'Contacted today, follow-up still overdue';
+
+  @override
   String get markContactedToday => 'Mark contacted today';
 
   @override
@@ -1600,7 +1604,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String dashboardDailyInsightStaleLeads(Object count) {
-    return 'You have $count leads without follow-up for more than 5 days. Start with the highest-value opportunities.';
+    return 'You have $count active leads with no recent movement for more than 5 days. Start with the highest-value opportunities.';
+  }
+
+  @override
+  String dashboardDailyInsightNoNextFollowUp(Object count) {
+    return 'You have $count active leads with no next follow-up scheduled. Every open lead needs a clear next step.';
+  }
+
+  @override
+  String dashboardDailyInsightContactedTodayStillOverdue(Object count) {
+    return 'You contacted $count leads today, but their overdue follow-up was not rescheduled. Set the next follow-up date before closing the day.';
   }
 
   @override

@@ -1,24 +1,17 @@
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../deals/domain/entities/deal.dart';
 import '../../../leads/domain/entities/lead.dart';
+import '../../../properties/domain/entities/property.dart';
 import '../../../tasks/domain/entities/crm_task.dart';
 
-/// Dashboard truth table for the v2.29.4 stabilization pass:
-/// - Active leads: loaded, scoped, not archived, not won, not lost.
-/// - Hot opportunities: loaded/scoped active leads with high priority or an
-///   interested/visit/negotiation status.
-/// - Overdue tasks: loaded/scoped active tasks, not completed/cancelled, with
-///   due date before today.
-/// - Open deals: loaded/scoped active deals, not archived, not won, not lost.
-/// - Deal risks: loaded/scoped open deals with closing date due/past or no
-///   activity for 14+ days. This matches the Deals page at-risk filter.
-/// - Missed appointments: loaded/scoped explicit missed appointments or open
-///   scheduled/rescheduled appointments whose end time has passed.
+/// Shared CRM truth table for dashboard KPIs, Sales Command, and list routes.
 ///
-/// These are loaded-stream counts, not server aggregate totals. A later
-/// server-side aggregate phase should replace them where exact full-scope
-/// totals are required.
+/// Real-estate rule: a contact activity is not the same as a next action.
+/// A lead can be contacted today and still remain overdue until the next
+/// follow-up is rescheduled, the lead is won/lost, or it is archived.
 abstract final class DashboardTruthRules {
+  static const staleLeadDays = 5;
+  static const highPriorityStaleLeadDays = 3;
   static const stuckDealDays = 14;
 
   static DateTime dateOnly(DateTime value) {
@@ -30,6 +23,10 @@ abstract final class DashboardTruthRules {
     return !lead.isArchived &&
         lead.status != LeadStatus.won &&
         lead.status != LeadStatus.lost;
+  }
+
+  static DateTime? leadLastTouchAt(Lead lead) {
+    return latestDate([lead.lastContactAt, lead.updatedAt, lead.createdAt]);
   }
 
   static bool isHotLead(Lead lead) {
@@ -54,10 +51,59 @@ abstract final class DashboardTruthRules {
         dateOnly(followUpAt).isBefore(dateOnly(today));
   }
 
+  static bool isUpcomingFollowUpLead(Lead lead, DateTime today) {
+    final followUpAt = lead.nextFollowUpAt;
+    return isActiveLead(lead) &&
+        followUpAt != null &&
+        dateOnly(followUpAt).isAfter(dateOnly(today));
+  }
+
+  static bool isLeadWithoutNextFollowUp(Lead lead) {
+    return isActiveLead(lead) && lead.nextFollowUpAt == null;
+  }
+
+  static bool isContactedTodayWithOverdueFollowUp(Lead lead, DateTime today) {
+    final lastContactAt = lead.lastContactAt;
+    return lastContactAt != null &&
+        dateOnly(lastContactAt) == dateOnly(today) &&
+        isOverdueFollowUpLead(lead, today);
+  }
+
+  static int? staleLeadAgeDays(
+    Lead lead,
+    DateTime today, {
+    int staleDays = staleLeadDays,
+  }) {
+    if (!isActiveLead(lead)) {
+      return null;
+    }
+    final lastTouch = leadLastTouchAt(lead);
+    if (lastTouch == null) {
+      return null;
+    }
+    final ageDays = dateOnly(today).difference(dateOnly(lastTouch)).inDays;
+    return ageDays > staleDays ? ageDays : null;
+  }
+
+  static bool isStaleLead(
+    Lead lead,
+    DateTime today, {
+    int staleDays = staleLeadDays,
+  }) {
+    return staleLeadAgeDays(lead, today, staleDays: staleDays) != null;
+  }
+
   static bool isOpenTask(CrmTask task) {
     return task.isActive &&
         task.status != TaskStatus.completed &&
         task.status != TaskStatus.cancelled;
+  }
+
+  static bool isDueTodayTask(CrmTask task, DateTime today) {
+    final dueDate = task.dueDate;
+    return isOpenTask(task) &&
+        dueDate != null &&
+        dateOnly(dueDate) == dateOnly(today);
   }
 
   static bool isOverdueTask(CrmTask task, DateTime today) {
@@ -65,6 +111,13 @@ abstract final class DashboardTruthRules {
     return isOpenTask(task) &&
         dueDate != null &&
         dateOnly(dueDate).isBefore(dateOnly(today));
+  }
+
+  static bool isUpcomingTask(CrmTask task, DateTime today) {
+    final dueDate = task.dueDate;
+    return isOpenTask(task) &&
+        dueDate != null &&
+        dateOnly(dueDate).isAfter(dateOnly(today));
   }
 
   static bool isOpenDeal(Deal deal) {
@@ -89,7 +142,19 @@ abstract final class DashboardTruthRules {
     }
     final lastActivity = deal.updatedAt ?? deal.createdAt;
     return lastActivity != null &&
-        now.difference(lastActivity.toLocal()).inDays >= staleDays;
+        dateOnly(now).difference(dateOnly(lastActivity)).inDays >= staleDays;
+  }
+
+  static DateTime? dealClosedAt(Deal deal) {
+    return deal.updatedAt ?? deal.closingDate ?? deal.createdAt;
+  }
+
+  static bool isDealWonThisMonth(Deal deal, DateTime now) {
+    final closedAt = dealClosedAt(deal)?.toLocal();
+    return deal.stage == DealStage.won &&
+        closedAt != null &&
+        closedAt.year == now.year &&
+        closedAt.month == now.month;
   }
 
   static bool isMissedAppointment(Appointment appointment, DateTime now) {
@@ -102,5 +167,22 @@ abstract final class DashboardTruthRules {
     final endAt = (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
     return appointment.status == AppointmentStatus.missed ||
         (openStatus && endAt != null && endAt.isBefore(now));
+  }
+
+  static bool isActiveProperty(Property property) {
+    return !property.isArchived && property.status == PropertyStatus.available;
+  }
+
+  static DateTime? latestDate(List<DateTime?> dates) {
+    DateTime? latest;
+    for (final date in dates) {
+      if (date == null) {
+        continue;
+      }
+      if (latest == null || date.isAfter(latest)) {
+        latest = date;
+      }
+    }
+    return latest;
   }
 }

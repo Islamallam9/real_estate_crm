@@ -7832,6 +7832,7 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
   );
   var enabled = policy?.enabled ?? true;
   var releaseReady = policy?.releaseReady ?? false;
+  var saving = false;
 
   await showDialog<void>(
     context: context,
@@ -7878,16 +7879,22 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(l.enabled),
                                   value: enabled,
-                                  onChanged: (value) =>
-                                      setDialogState(() => enabled = value),
+                                  onChanged: saving
+                                      ? null
+                                      : (value) => setDialogState(
+                                            () => enabled = value,
+                                          ),
                                 ),
                                 SwitchListTile(
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(l.releaseReady),
                                   subtitle: Text(l.androidReleasePolicyHint),
                                   value: releaseReady,
-                                  onChanged: (value) =>
-                                      setDialogState(() => releaseReady = value),
+                                  onChanged: saving
+                                      ? null
+                                      : (value) => setDialogState(
+                                            () => releaseReady = value,
+                                          ),
                                 ),
                                 if (showPolicyWarning) ...[
                                   const SizedBox(height: AppSpacing.xs),
@@ -7912,11 +7919,13 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                       controller: minController,
                                       label: l.minimumSupportedBuild,
                                       keyboardType: TextInputType.number,
+                                      enabled: !saving,
                                     );
                                     final latestField = AppTextField(
                                       controller: latestController,
                                       label: l.latestBuild,
                                       keyboardType: TextInputType.number,
+                                      enabled: !saving,
                                     );
                                     if (narrow) {
                                       return Column(
@@ -7948,6 +7957,7 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                   label: l.updateUrl,
                                   keyboardType: TextInputType.url,
                                   maxLines: 2,
+                                  enabled: !saving,
                                   onChanged: (_) => setDialogState(() {}),
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
@@ -8009,20 +8019,24 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                             label: l.useSuggestedUpdateUrl,
                                             icon: Icons.link_rounded,
                                             variant: AppButtonVariant.secondary,
-                                            onPressed: () => setDialogState(
-                                              () {
-                                                latestController.text =
-                                                    AppConstants.appBuildNumber;
-                                                urlController.text =
-                                                    suggestedUpdateUrl;
-                                              },
-                                            ),
+                                            onPressed: saving
+                                                ? null
+                                                : () => setDialogState(
+                                                      () {
+                                                        latestController.text =
+                                                            AppConstants.appBuildNumber;
+                                                        urlController.text =
+                                                            suggestedUpdateUrl;
+                                                      },
+                                                    ),
                                           ),
                                           AppButton(
                                             label: l.copyLink,
                                             icon: Icons.copy_rounded,
                                             variant: AppButtonVariant.ghost,
-                                            onPressed: () async {
+                                            onPressed: saving
+                                                ? null
+                                                : () async {
                                               await Clipboard.setData(
                                                 ClipboardData(
                                                   text: suggestedUpdateUrl,
@@ -8051,23 +8065,27 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                 AppTextField(
                                   controller: titleEnController,
                                   label: '${l.androidUpdateTitle} EN',
+                                  enabled: !saving,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 AppTextField(
                                   controller: titleArController,
                                   label: '${l.androidUpdateTitle} AR',
+                                  enabled: !saving,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 AppTextField(
                                   controller: bodyEnController,
                                   label: '${l.androidUpdateBody} EN',
                                   maxLines: 3,
+                                  enabled: !saving,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 AppTextField(
                                   controller: bodyArController,
                                   label: '${l.androidUpdateBody} AR',
                                   maxLines: 3,
+                                  enabled: !saving,
                                 ),
                               ],
                             ),
@@ -8082,13 +8100,18 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                       runSpacing: AppSpacing.sm,
                       children: [
                         TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          onPressed: saving
+                              ? null
+                              : () => Navigator.of(dialogContext).pop(),
                           child: Text(l.cancel),
                         ),
                         AppButton(
                           label: l.saveReleasePolicy,
                           icon: Icons.save_outlined,
-                          onPressed: () async {
+                          isLoading: saving,
+                          onPressed: saving
+                              ? null
+                              : () async {
                             final minBuild = int.tryParse(minController.text.trim()) ?? 0;
                             final latestBuild = int.tryParse(latestController.text.trim()) ?? 0;
                             if (minBuild <= 0 || latestBuild <= 0 || latestBuild < minBuild) {
@@ -8117,6 +8140,7 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                                 return;
                               }
                             }
+                            setDialogState(() => saving = true);
                             final success = await cubit.updateAndroidReleasePolicy(
                               enabled: enabled,
                               releaseReady: releaseReady,
@@ -8134,7 +8158,9 @@ Future<void> _showAndroidReleasePolicyDialog(BuildContext context) async {
                             if (success) {
                               Navigator.of(dialogContext).pop();
                               AppFeedback.success(context, l.androidReleasePolicySaved);
+                              return;
                             }
+                            setDialogState(() => saving = false);
                           },
                         ),
                       ],

@@ -52,23 +52,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return BlocListener<PasswordManagementCubit, PasswordManagementState>(
-      listener: (context, state) {
-        if (state.status == PasswordManagementStatus.success) {
-          AppFeedback.success(context, l.passwordChangedSuccessfully);
-          Navigator.of(context).pop();
-        }
-        if (state.status == PasswordManagementStatus.failure) {
-          AppFeedback.error(
-            context,
-            _passwordErrorLabel(l, state.message),
-          );
-        }
-      },
-      child: BlocBuilder<PasswordManagementCubit, PasswordManagementState>(
-        builder: (context, state) {
-          final saving = state.status == PasswordManagementStatus.saving;
-          return AlertDialog(
+    return BlocBuilder<PasswordManagementCubit, PasswordManagementState>(
+      builder: (context, state) {
+        final saving = state.status == PasswordManagementStatus.saving;
+        return AlertDialog(
             title: Text(l.changePassword),
             content: SizedBox(
               width: 440,
@@ -127,21 +114,31 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 onPressed: saving ? null : _submit,
               ),
             ],
-          );
-        },
-      ),
+        );
+      },
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    context.read<PasswordManagementCubit>().changePassword(
+    final cubit = context.read<PasswordManagementCubit>();
+    final success = await cubit.changePassword(
       currentPassword: _currentPassword.text,
       newPassword: _newPassword.text,
     );
+    if (!mounted) {
+      return;
+    }
+    final l = AppLocalizations.of(context)!;
+    if (success) {
+      AppFeedback.success(context, l.passwordChangedSuccessfully);
+      Navigator.of(context).pop();
+      return;
+    }
+    AppFeedback.error(context, _passwordErrorLabel(l, cubit.state.message));
   }
 }
 

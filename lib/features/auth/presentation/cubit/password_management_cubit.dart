@@ -16,7 +16,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
   final ChangePasswordUseCase _changePasswordUseCase;
   final CompleteRequiredPasswordChangeUseCase? _completeRequiredPasswordChangeUseCase;
 
-  Future<void> completeRequiredPasswordChange({
+  Future<bool> completeRequiredPasswordChange({
     required String companyId,
     required String currentPassword,
     required String newPassword,
@@ -29,7 +29,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           message: AuthErrorMessages.passwordChangeFailed,
         ),
       );
-      return;
+      return false;
     }
 
     emit(
@@ -51,6 +51,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           clearMessage: true,
         ),
       );
+      return true;
     } on AuthException catch (error) {
       emit(
         state.copyWith(
@@ -58,6 +59,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           message: error.message,
         ),
       );
+      return false;
     } catch (_) {
       emit(
         state.copyWith(
@@ -65,10 +67,11 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           message: AuthErrorMessages.passwordChangeFailed,
         ),
       );
+      return false;
     }
   }
 
-  Future<void> changePassword({
+  Future<bool> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
@@ -90,6 +93,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           clearMessage: true,
         ),
       );
+      return true;
     } on AuthException catch (error) {
       emit(
         state.copyWith(
@@ -97,6 +101,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           message: error.message,
         ),
       );
+      return false;
     } catch (_) {
       emit(
         state.copyWith(
@@ -104,6 +109,7 @@ class PasswordManagementCubit extends Cubit<PasswordManagementState> {
           message: AuthErrorMessages.passwordChangeFailed,
         ),
       );
+      return false;
     }
   }
 }

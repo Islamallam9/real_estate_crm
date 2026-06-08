@@ -633,11 +633,7 @@ class DealsCubit extends Cubit<DealsState> {
         }
         return DashboardTruthRules.isDealAtRisk(deal, now);
       case DealWorkQueueFilter.wonThisMonth:
-        final closedAt = (deal.closingDate ?? deal.updatedAt ?? deal.createdAt)?.toLocal();
-        return deal.stage == DealStage.won &&
-            closedAt != null &&
-            closedAt.year == now.year &&
-            closedAt.month == now.month;
+        return DashboardTruthRules.isDealWonThisMonth(deal, now);
     }
   }
 

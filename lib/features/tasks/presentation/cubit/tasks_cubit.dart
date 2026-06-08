@@ -592,18 +592,13 @@ class TasksCubit extends Cubit<TasksState> {
     TaskDueDateFilter filter,
     DateTime today,
   ) {
-    final dueDate = task.dueDate;
-    if (dueDate == null) {
-      return false;
-    }
-    final dueDay = _dateOnly(dueDate);
     switch (filter) {
       case TaskDueDateFilter.overdue:
         return DashboardTruthRules.isOverdueTask(task, today);
       case TaskDueDateFilter.today:
-        return dueDay == today;
+        return DashboardTruthRules.isDueTodayTask(task, today);
       case TaskDueDateFilter.upcoming:
-        return dueDay.isAfter(today);
+        return DashboardTruthRules.isUpcomingTask(task, today);
     }
   }
 

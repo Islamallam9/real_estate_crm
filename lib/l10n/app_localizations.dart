@@ -797,7 +797,7 @@ abstract class AppLocalizations {
   /// No description provided for @salesWorkspace.
   ///
   /// In en, this message translates to:
-  /// **'From lead to deal, one clear path.'**
+  /// **'Lead-to-deal journey'**
   String get salesWorkspace;
 
   /// No description provided for @searchCrm.
@@ -2564,6 +2564,12 @@ abstract class AppLocalizations {
   /// **'Stale lead'**
   String get staleLead;
 
+  /// No description provided for @contactedTodayFollowUpStillOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacted today, follow-up still overdue'**
+  String get contactedTodayFollowUpStillOverdue;
+
   /// No description provided for @markContactedToday.
   ///
   /// In en, this message translates to:
@@ -3113,8 +3119,20 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardDailyInsightStaleLeads.
   ///
   /// In en, this message translates to:
-  /// **'You have {count} leads without follow-up for more than 5 days. Start with the highest-value opportunities.'**
+  /// **'You have {count} active leads with no recent movement for more than 5 days. Start with the highest-value opportunities.'**
   String dashboardDailyInsightStaleLeads(Object count);
+
+  /// No description provided for @dashboardDailyInsightNoNextFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} active leads with no next follow-up scheduled. Every open lead needs a clear next step.'**
+  String dashboardDailyInsightNoNextFollowUp(Object count);
+
+  /// No description provided for @dashboardDailyInsightContactedTodayStillOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'You contacted {count} leads today, but their overdue follow-up was not rescheduled. Set the next follow-up date before closing the day.'**
+  String dashboardDailyInsightContactedTodayStillOverdue(Object count);
 
   /// No description provided for @dashboardDailyInsightConversionUp.
   ///

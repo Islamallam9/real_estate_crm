@@ -34,6 +34,8 @@ enum DashboardPerformanceSeriesType { leads, appointments, followUps, deals, pip
 enum DashboardOpportunityType { lead, deal, property }
 
 enum DashboardDailyInsightType {
+  contactedTodayStillOverdue,
+  noNextFollowUp,
   staleLeads,
   conversionUp,
   calm,

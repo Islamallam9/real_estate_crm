@@ -35,6 +35,7 @@ import '../constants/role_constants.dart';
 import '../localization/locale_cubit.dart';
 import '../permissions/app_permission.dart';
 import '../permissions/permission_service.dart';
+import '../platform/browser_title_updater.dart';
 import '../permissions/company_feature_gate.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
@@ -516,6 +517,7 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
       child: Stack(
         children: [
           widget.child,
+          const _BrowserNotificationTitleSync(),
           const _NotificationPermissionBanner(),
           // Toast for brand-new notifications only.
           // This is separate from the smart guidance overlay, which rotates
@@ -531,6 +533,52 @@ class _CrmNotificationsStarterState extends State<_CrmNotificationsStarter> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _BrowserNotificationTitleSync extends StatefulWidget {
+  const _BrowserNotificationTitleSync();
+
+  @override
+  State<_BrowserNotificationTitleSync> createState() =>
+      _BrowserNotificationTitleSyncState();
+}
+
+class _BrowserNotificationTitleSyncState
+    extends State<_BrowserNotificationTitleSync> {
+  String _baseTitle = 'Masar | CRM';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _baseTitle = AppLocalizations.of(context)?.websiteTitle ?? _baseTitle;
+    _updateTitle(context.read<NotificationsCubit>().state.effectiveBadgeCount);
+  }
+
+  @override
+  void dispose() {
+    setBrowserTitle(_baseTitle);
+    super.dispose();
+  }
+
+  void _updateTitle(int unreadCount) {
+    if (unreadCount <= 0) {
+      setBrowserTitle(_baseTitle);
+      return;
+    }
+    final badge = unreadCount > 99 ? '99+' : unreadCount.toString();
+    setBrowserTitle('($badge) $_baseTitle');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<NotificationsCubit, NotificationsState>(
+      listenWhen: (previous, current) =>
+          previous.effectiveBadgeCount != current.effectiveBadgeCount,
+      listener: (context, state) => _updateTitle(state.effectiveBadgeCount),
+      child: const SizedBox.shrink(),
     );
   }
 }
@@ -2693,10 +2741,11 @@ class _BrandHeader extends StatelessWidget {
                 ),
                 Text(
                   AppLocalizations.of(context)!.salesWorkspace,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  softWrap: true,
                   style: textTheme.bodySmall?.copyWith(
                       color: brandMutedColor,
+                      height: 1.2,
                   ),
                 ),
               ],

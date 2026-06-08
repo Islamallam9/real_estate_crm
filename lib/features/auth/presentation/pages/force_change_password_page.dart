@@ -73,31 +73,10 @@ class _ForceChangePasswordViewState extends State<_ForceChangePasswordView> {
     final authState = context.watch<AuthBloc>().state;
     final companyId = authState.userProfile?.companyId ?? '';
 
-    return BlocListener<PasswordManagementCubit, PasswordManagementState>(
-      listener: (context, state) {
-        if (state.status == PasswordManagementStatus.success) {
-          final profile = context.read<AuthBloc>().state.userProfile;
-          if (profile != null) {
-            context.read<AuthBloc>().add(
-              AuthProfileUpdated(
-                profile: profile.copyWith(
-                  mustChangePassword: false,
-                  passwordSetupMethod: 'changed',
-                ),
-              ),
-            );
-          }
-          AppFeedback.success(context, l.passwordChangedSuccessfully);
-          context.go(RouteNames.dashboard);
-        }
-        if (state.status == PasswordManagementStatus.failure) {
-          AppFeedback.error(context, _passwordErrorLabel(l, state.message));
-        }
-      },
-      child: BlocBuilder<PasswordManagementCubit, PasswordManagementState>(
-        builder: (context, state) {
-          final saving = state.status == PasswordManagementStatus.saving;
-          return Scaffold(
+    return BlocBuilder<PasswordManagementCubit, PasswordManagementState>(
+      builder: (context, state) {
+        final saving = state.status == PasswordManagementStatus.saving;
+        return Scaffold(
             body: SafeArea(
               child: Container(
                 width: double.infinity,
@@ -214,26 +193,48 @@ class _ForceChangePasswordViewState extends State<_ForceChangePasswordView> {
                 ),
               ),
             ),
-          );
-        },
-      ),
+        );
+      },
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    final companyId = context.read<AuthBloc>().state.userProfile?.companyId ?? '';
+    final authBloc = context.read<AuthBloc>();
+    final companyId = authBloc.state.userProfile?.companyId ?? '';
     if (companyId.isEmpty) {
       return;
     }
-    context.read<PasswordManagementCubit>().completeRequiredPasswordChange(
-          companyId: companyId,
-          currentPassword: _currentPassword.text,
-          newPassword: _newPassword.text,
-        );
+    final cubit = context.read<PasswordManagementCubit>();
+    final success = await cubit.completeRequiredPasswordChange(
+      companyId: companyId,
+      currentPassword: _currentPassword.text,
+      newPassword: _newPassword.text,
+    );
+    if (!mounted) {
+      return;
+    }
+    final l = AppLocalizations.of(context)!;
+    if (!success) {
+      AppFeedback.error(context, _passwordErrorLabel(l, cubit.state.message));
+      return;
+    }
+    final profile = authBloc.state.userProfile;
+    if (profile != null) {
+      authBloc.add(
+        AuthProfileUpdated(
+          profile: profile.copyWith(
+            mustChangePassword: false,
+            passwordSetupMethod: 'changed',
+          ),
+        ),
+      );
+    }
+    AppFeedback.success(context, l.passwordChangedSuccessfully);
+    context.go(RouteNames.dashboard);
   }
 }
 

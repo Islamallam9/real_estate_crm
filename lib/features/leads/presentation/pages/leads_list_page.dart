@@ -24,6 +24,7 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/assignment_user_policy.dart';
@@ -1289,30 +1290,16 @@ class _LeadSummaryCards extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final newLeads = leads.where((lead) => lead.status == LeadStatus.newLead);
-    final activeLeads = leads.where((lead) {
-      return lead.status == LeadStatus.contacted ||
-          lead.status == LeadStatus.interested ||
-          lead.status == LeadStatus.visitScheduled ||
-          lead.status == LeadStatus.negotiation;
+    final today = DateTime.now();
+    final activeLeads = leads.where(DashboardTruthRules.isActiveLead);
+    final unassignedLeads = leads.where((lead) {
+      return DashboardTruthRules.isActiveLead(lead) && lead.assignedTo.isEmpty;
     });
-    final unassignedLeads = leads.where((lead) => lead.assignedTo.isEmpty);
     final overdueFollowUps = leads.where((lead) {
-      final nextFollowUpAt = lead.nextFollowUpAt;
-      if (nextFollowUpAt == null) {
-        return false;
-      }
-      return DateUtils.dateOnly(
-        nextFollowUpAt.toLocal(),
-      ).isBefore(DateUtils.dateOnly(DateTime.now()));
+      return DashboardTruthRules.isOverdueFollowUpLead(lead, today);
     });
     final upcomingFollowUps = leads.where((lead) {
-      final nextFollowUpAt = lead.nextFollowUpAt;
-      if (nextFollowUpAt == null) {
-        return false;
-      }
-      return DateUtils.dateOnly(
-        nextFollowUpAt.toLocal(),
-      ).isAfter(DateUtils.dateOnly(DateTime.now()));
+      return DashboardTruthRules.isUpcomingFollowUpLead(lead, today);
     });
     final cards = [
       _LeadSummaryCard(
@@ -2758,7 +2745,9 @@ String _followUpStatusLabel(AppLocalizations localizations, Lead lead) {
   final today = DateUtils.dateOnly(DateTime.now());
   final followUpDate = DateUtils.dateOnly(nextFollowUpAt.toLocal());
   if (followUpDate.isBefore(today)) {
-    return localizations.overdue;
+    return DashboardTruthRules.isContactedTodayWithOverdueFollowUp(lead, today)
+        ? localizations.contactedTodayFollowUpStillOverdue
+        : localizations.overdue;
   }
   if (followUpDate == today) {
     return localizations.dueToday;
@@ -2784,19 +2773,9 @@ AppStatusTone _followUpStatusTone(Lead lead) {
 }
 
 bool _needsStaleLeadAttention(Lead lead) {
-  final nextFollowUpAt = lead.nextFollowUpAt;
   final today = DateUtils.dateOnly(DateTime.now());
-  if (nextFollowUpAt != null) {
-    return DateUtils.dateOnly(nextFollowUpAt.toLocal()).isBefore(today);
-  }
-
-  final lastContactAt = lead.lastContactAt;
-  if (lastContactAt == null) {
-    return false;
-  }
-
-  final staleBefore = today.subtract(const Duration(days: 7));
-  return DateUtils.dateOnly(lastContactAt.toLocal()).isBefore(staleBefore);
+  return DashboardTruthRules.isOverdueFollowUpLead(lead, today) ||
+      DashboardTruthRules.isStaleLead(lead, today);
 }
 
 String _staleLeadLabel(AppLocalizations localizations, Lead lead) {
@@ -2829,6 +2808,8 @@ String _workQueueFilterLabel(
     LeadWorkQueueFilter.newToday => localizations.newLeads,
     LeadWorkQueueFilter.hot => localizations.dashboardKpiHotOpportunities,
     LeadWorkQueueFilter.stale => localizations.staleLead,
+    LeadWorkQueueFilter.contactedTodayStillOverdue =>
+      localizations.contactedTodayFollowUpStillOverdue,
     LeadWorkQueueFilter.unassigned => localizations.unassignedLeads,
   };
 }

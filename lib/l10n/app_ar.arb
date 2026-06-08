@@ -143,7 +143,7 @@
   "darkMode": "الوضع الداكن",
   "arabic": "العربية",
   "english": "الإنجليزية",
-  "salesWorkspace": "من العميل المحتمل إلى الصفقة، مسار واضح واحد.",
+  "salesWorkspace": "رحلة العميل إلى الصفقة",
   "searchCrm": "البحث في مسار CRM",
   "notifications": "الإشعارات",
   "crmUser": "مستخدم مسار",
@@ -494,6 +494,7 @@
   "allFollowUps": "كل المتابعات",
   "needsAttention": "يحتاج اهتمام",
   "staleLead": "عميل خامد",
+  "contactedTodayFollowUpStillOverdue": "تم التواصل اليوم والمتابعة ما زالت متأخرة",
   "markContactedToday": "تسجيل التواصل اليوم",
   "leadMarkedContactedToday": "تم تسجيل التواصل مع العميل المحتمل اليوم.",
   "scheduleFollowUp": "جدولة متابعة",
@@ -590,8 +591,20 @@
   "dashboardSeriesAppointments": "المواعيد",
   "dashboardSeriesDeals": "الصفقات",
   "dashboardSeriesPipelineValue": "قيمة الصفقات",
-  "dashboardDailyInsightStaleLeads": "هناك {count} فرص لم تحصل على متابعة منذ أكثر من ٥ أيام. افتح التفاصيل وابدأ بالأعلى قيمة.",
+  "dashboardDailyInsightStaleLeads": "هناك {count} فرص نشطة بدون حركة حديثة منذ أكثر من ٥ أيام. ابدأ بالفرص الأعلى قيمة.",
   "@dashboardDailyInsightStaleLeads": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightNoNextFollowUp": "هناك {count} فرص نشطة بدون موعد متابعة قادم. كل فرصة مفتوحة تحتاج خطوة واضحة.",
+  "@dashboardDailyInsightNoNextFollowUp": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailyInsightContactedTodayStillOverdue": "تم التواصل اليوم مع {count} فرص، لكن المتابعة المتأخرة لم تُجدول من جديد. حدّد موعد المتابعة القادم قبل نهاية اليوم.",
+  "@dashboardDailyInsightContactedTodayStillOverdue": {
     "placeholders": {
       "count": {}
     }

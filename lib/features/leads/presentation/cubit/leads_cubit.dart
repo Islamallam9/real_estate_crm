@@ -1177,11 +1177,6 @@ class LeadsCubit extends Cubit<LeadsState> {
 }
 
 bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
-  final nextFollowUpAt = lead.nextFollowUpAt;
-  if (nextFollowUpAt == null) {
-    return filter == LeadFollowUpFilter.notScheduled;
-  }
-
   final today = DateTime.now();
 
   return switch (filter) {
@@ -1190,11 +1185,9 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
     LeadFollowUpFilter.dueToday =>
       DashboardTruthRules.isDueTodayFollowUpLead(lead, today),
     LeadFollowUpFilter.upcoming =>
-      DashboardTruthRules.isActiveLead(lead) &&
-          DashboardTruthRules.dateOnly(nextFollowUpAt).isAfter(
-            DashboardTruthRules.dateOnly(today),
-          ),
-    LeadFollowUpFilter.notScheduled => false,
+      DashboardTruthRules.isUpcomingFollowUpLead(lead, today),
+    LeadFollowUpFilter.notScheduled =>
+      DashboardTruthRules.isLeadWithoutNextFollowUp(lead),
   };
 }
 
@@ -1204,6 +1197,11 @@ bool _matchesWorkQueueFilter(Lead lead, LeadWorkQueueFilter filter) {
     LeadWorkQueueFilter.newToday => _dateOnly(lead.createdAt) == _dateOnly(DateTime.now()),
     LeadWorkQueueFilter.hot => _isHotLead(lead),
     LeadWorkQueueFilter.stale => _isStaleLead(lead),
+    LeadWorkQueueFilter.contactedTodayStillOverdue =>
+      DashboardTruthRules.isContactedTodayWithOverdueFollowUp(
+        lead,
+        DateTime.now(),
+      ),
     LeadWorkQueueFilter.unassigned =>
       _isActiveLead(lead) && lead.assignedTo.trim().isEmpty,
   };
@@ -1218,32 +1216,7 @@ bool _isHotLead(Lead lead) {
 }
 
 bool _isStaleLead(Lead lead) {
-  if (!_isActiveLead(lead)) {
-    return false;
-  }
-  final lastTouch = _latestDate([
-    lead.lastContactAt,
-    lead.updatedAt,
-    lead.createdAt,
-  ]);
-  if (lastTouch == null) {
-    return false;
-  }
-  final today = _dateOnly(DateTime.now());
-  return today.difference(_dateOnly(lastTouch.toLocal())).inDays > 5;
-}
-
-DateTime? _latestDate(List<DateTime?> dates) {
-  DateTime? latest;
-  for (final date in dates) {
-    if (date == null) {
-      continue;
-    }
-    if (latest == null || date.isAfter(latest)) {
-      latest = date;
-    }
-  }
-  return latest;
+  return DashboardTruthRules.isStaleLead(lead, DateTime.now());
 }
 
 int _compareByFollowUpUrgency(Lead a, Lead b) {
@@ -1283,12 +1256,8 @@ int _followUpUrgencyRank(Lead lead) {
     return 3;
   }
 
-  final lastContactAt = lead.lastContactAt;
-  if (lastContactAt != null) {
-    final staleBefore = today.subtract(const Duration(days: 7));
-    if (_dateOnly(lastContactAt.toLocal()).isBefore(staleBefore)) {
-      return 1;
-    }
+  if (DashboardTruthRules.isStaleLead(lead, today)) {
+    return 1;
   }
 
   return 4;

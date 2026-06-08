@@ -9,7 +9,14 @@ enum LeadsStatus { initial, loading, loaded, saving, saved, empty, failure }
 
 enum LeadFollowUpFilter { overdue, dueToday, upcoming, notScheduled }
 
-enum LeadWorkQueueFilter { active, newToday, hot, stale, unassigned }
+enum LeadWorkQueueFilter {
+  active,
+  newToday,
+  hot,
+  stale,
+  contactedTodayStillOverdue,
+  unassigned,
+}
 
 enum LeadsAction {
   none,

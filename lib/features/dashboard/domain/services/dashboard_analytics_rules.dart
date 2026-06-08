@@ -28,8 +28,7 @@ class DashboardAnalyticsRules {
     final hotOpportunities =
         input.leads.where(DashboardTruthRules.isHotLead).toList();
     final dueTodayFollowUps = input.leads.where((lead) {
-      final date = lead.nextFollowUpAt;
-      return date != null && _dateOnly(date) == input.today;
+      return DashboardTruthRules.isDueTodayFollowUpLead(lead, input.today);
     }).toList();
     final overdueFollowUps = input.leads.where((lead) {
       return DashboardTruthRules.isOverdueFollowUpLead(lead, input.today);
@@ -38,10 +37,7 @@ class DashboardAnalyticsRules {
       return DashboardTruthRules.isOverdueTask(task, input.today);
     }).toList();
     final todayTasks = input.tasks.where((task) {
-      final date = task.dueDate;
-      return DashboardTruthRules.isOpenTask(task) &&
-          date != null &&
-          _dateOnly(date) == input.today;
+      return DashboardTruthRules.isDueTodayTask(task, input.today);
     }).toList();
     final openTasks =
         input.tasks.where(DashboardTruthRules.isOpenTask).toList();
@@ -62,18 +58,14 @@ class DashboardAnalyticsRules {
       );
     }).toList();
     final wonDealsThisMonth = input.deals.where((deal) {
-      final closedAt = _dealClosedAt(deal)?.toLocal();
-      return deal.stage == DealStage.won &&
-          closedAt != null &&
-          closedAt.year == input.now.year &&
-          closedAt.month == input.now.month;
+      return DashboardTruthRules.isDealWonThisMonth(deal, input.now);
     }).toList();
     final unassignedLeads = activeLeads.where((lead) {
       return lead.assignedTo.trim().isEmpty;
     }).toList();
     final teamWorkload = activeLeads.length + openTasks.length + openDeals.length;
     final activeProperties = input.properties.where((property) {
-      return property.status == PropertyStatus.available;
+      return DashboardTruthRules.isActiveProperty(property);
     }).toList();
 
     final leadSparkline = _countsByTrailingDays(
@@ -399,7 +391,8 @@ class DashboardAnalyticsRules {
         DashboardBarMetric(
           key: 'missed',
           value: todayAppointments
-              .where((appointment) => appointment.status == AppointmentStatus.missed)
+              .where((appointment) =>
+                  DashboardTruthRules.isMissedAppointment(appointment, input.now))
               .length,
         ),
       ],
@@ -461,6 +454,8 @@ class DashboardAnalyticsRules {
       importantOpportunities: _importantOpportunities(input),
       dailyInsight: _dailyInsight(
         input,
+        contactedTodayStillOverdue: _contactedTodayStillOverdueLeads(input).length,
+        noNextFollowUp: _leadsWithoutNextFollowUp(input).length,
         staleLeads: _staleLeads(input).length,
         urgentActions: overdueFollowUps.length + overdueTasks.length,
       ),
@@ -922,9 +917,25 @@ class DashboardAnalyticsRules {
 
   DashboardDailyInsight _dailyInsight(
     DashboardAnalyticsInput input, {
+    required int contactedTodayStillOverdue,
+    required int noNextFollowUp,
     required int staleLeads,
     required int urgentActions,
   }) {
+    if (contactedTodayStillOverdue > 0) {
+      return DashboardDailyInsight(
+        type: DashboardDailyInsightType.contactedTodayStillOverdue,
+        primaryValue: contactedTodayStillOverdue,
+      );
+    }
+
+    if (noNextFollowUp > 0) {
+      return DashboardDailyInsight(
+        type: DashboardDailyInsightType.noNextFollowUp,
+        primaryValue: noNextFollowUp,
+      );
+    }
+
     if (staleLeads > 0) {
       return DashboardDailyInsight(
         type: DashboardDailyInsightType.staleLeads,
@@ -952,13 +963,22 @@ class DashboardAnalyticsRules {
     return const DashboardDailyInsight(type: DashboardDailyInsightType.notEnoughData);
   }
 
+  List<Lead> _contactedTodayStillOverdueLeads(DashboardAnalyticsInput input) {
+    return input.leads.where((lead) {
+      return DashboardTruthRules.isContactedTodayWithOverdueFollowUp(
+        lead,
+        input.today,
+      );
+    }).toList();
+  }
+
+  List<Lead> _leadsWithoutNextFollowUp(DashboardAnalyticsInput input) {
+    return input.leads.where(DashboardTruthRules.isLeadWithoutNextFollowUp).toList();
+  }
+
   List<Lead> _staleLeads(DashboardAnalyticsInput input) {
     return input.leads.where((lead) {
-      if (!DashboardTruthRules.isActiveLead(lead)) {
-        return false;
-      }
-      final lastTouch = _latestDate([lead.lastContactAt, lead.updatedAt, lead.createdAt]);
-      return lastTouch != null && input.now.difference(lastTouch.toLocal()).inDays > 5;
+      return DashboardTruthRules.isStaleLead(lead, input.today);
     }).toList();
   }
 
@@ -1034,8 +1054,8 @@ class DashboardAnalyticsRules {
         id: lead.assignedTo,
         name: lead.assignedToName,
         active: 1,
-        overdue: followUp != null && _dateOnly(followUp).isBefore(input.today) ? 1 : 0,
-        dueToday: followUp != null && _dateOnly(followUp) == input.today ? 1 : 0,
+        overdue: DashboardTruthRules.isOverdueFollowUpLead(lead, input.today) ? 1 : 0,
+        dueToday: DashboardTruthRules.isDueTodayFollowUpLead(lead, input.today) ? 1 : 0,
       );
     }
     for (final task in input.tasks.where(DashboardTruthRules.isOpenTask)) {
@@ -1044,8 +1064,8 @@ class DashboardAnalyticsRules {
         id: task.assignedTo,
         name: task.assignedToName,
         active: 1,
-        overdue: dueDate != null && _dateOnly(dueDate).isBefore(input.today) ? 1 : 0,
-        dueToday: dueDate != null && _dateOnly(dueDate) == input.today ? 1 : 0,
+        overdue: DashboardTruthRules.isOverdueTask(task, input.today) ? 1 : 0,
+        dueToday: DashboardTruthRules.isDueTodayTask(task, input.today) ? 1 : 0,
       );
     }
     for (final deal in input.deals.where(DashboardTruthRules.isOpenDeal)) {
@@ -1219,7 +1239,7 @@ class _TeamRowAccumulator {
 }
 
 DateTime? _dealClosedAt(Deal deal) {
-  return deal.closingDate ?? deal.updatedAt ?? deal.createdAt;
+  return DashboardTruthRules.dealClosedAt(deal);
 }
 
 List<CrmTask> _completedFollowUps(List<CrmTask> tasks) {

@@ -8,8 +8,8 @@ import 'dashboard_truth_rules.dart';
 
 class SalesCommandCenterRules {
   const SalesCommandCenterRules({
-    this.staleLeadDays = 7,
-    this.highPriorityStaleLeadDays = 3,
+    this.staleLeadDays = DashboardTruthRules.staleLeadDays,
+    this.highPriorityStaleLeadDays = DashboardTruthRules.highPriorityStaleLeadDays,
     this.stuckDealDays = 14,
     this.feedbackWindowDays = 7,
     this.overloadedTaskThreshold = 3,
@@ -187,12 +187,12 @@ class SalesCommandCenterRules {
       }
 
       final followUpAt = lead.nextFollowUpAt?.toLocal();
-      final lastTouch = _latestDate([
-        lead.lastContactAt,
-        lead.updatedAt,
-        lead.createdAt,
-      ])?.toLocal();
-      final ageDays = lastTouch == null ? null : input.now.difference(lastTouch).inDays;
+      final lastTouch = DashboardTruthRules.leadLastTouchAt(lead)?.toLocal();
+      final ageDays = lastTouch == null
+          ? null
+          : DashboardTruthRules.dateOnly(input.today)
+              .difference(DashboardTruthRules.dateOnly(lastTouch))
+              .inDays;
       final priorityBoost = _leadPriorityBoost(lead.priority);
       final statusBoost = _leadStatusBoost(lead.status);
 
@@ -270,7 +270,12 @@ class SalesCommandCenterRules {
       final staleAfter = lead.priority == LeadPriority.high
           ? highPriorityStaleLeadDays
           : staleLeadDays;
-      if (ageDays != null && ageDays >= staleAfter) {
+      final staleAgeDays = DashboardTruthRules.staleLeadAgeDays(
+        lead,
+        input.today,
+        staleDays: staleAfter,
+      );
+      if (staleAgeDays != null) {
         risk.add(
           _leadItem(
             lead: lead,
@@ -283,8 +288,8 @@ class SalesCommandCenterRules {
             score: 64 +
                 priorityBoost +
                 statusBoost +
-                ageDays.clamp(0, 12).toInt(),
-            ageDays: ageDays,
+                staleAgeDays.clamp(0, 12).toInt(),
+            ageDays: staleAgeDays,
           ),
         );
       }
