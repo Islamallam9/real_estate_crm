@@ -138,6 +138,53 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function taskIdUnchangedOrLegacyHydrated(taskId) {
+      return request.resource.data.id == taskId;
+    }
+
+    function taskCompanyIdUnchangedOrLegacyHydrated(companyId) {
+      return ('companyId' in resource.data.keys()
+          && resource.data.companyId is string
+          && resource.data.companyId != '')
+        ? request.resource.data.companyId == resource.data.companyId
+        : request.resource.data.companyId == companyId;
+    }
+
+    function taskCreatedByUnchangedOrLegacyHydrated() {
+      return ('createdBy' in resource.data.keys()
+          && resource.data.createdBy is string
+          && resource.data.createdBy != '')
+        ? request.resource.data.createdBy == resource.data.createdBy
+        : (request.resource.data.createdBy is string
+          && request.resource.data.createdBy != '');
+    }
+
+    function taskCreatedAtUnchangedOrLegacyHydrated() {
+      return ('createdAt' in resource.data.keys()
+          && resource.data.createdAt is timestamp)
+        ? request.resource.data.createdAt == resource.data.createdAt
+        : request.resource.data.createdAt is timestamp;
+    }
+
+    function taskIsActiveUnchangedOrLegacyHydrated() {
+      return ('isActive' in resource.data.keys()
+          && resource.data.isActive is bool)
+        ? request.resource.data.isActive == resource.data.isActive
+        : request.resource.data.isActive == true;
+    }
+
+    function validTaskBaseUpdate(companyId, taskId) {
+      return request.resource.data.id == taskId
+        && request.resource.data.companyId == companyId
+        && taskIdUnchangedOrLegacyHydrated(taskId)
+        && taskCompanyIdUnchangedOrLegacyHydrated(companyId)
+        && taskCreatedByUnchangedOrLegacyHydrated()
+        && taskCreatedAtUnchangedOrLegacyHydrated()
+        && taskIsActiveUnchangedOrLegacyHydrated()
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function activeAssignedRecord(data) {
       return data.assignedTo == request.auth.uid;
     }
@@ -323,7 +370,13 @@ service cloud.firestore {
         && data.assignedTo is string
         && data.assignedTo != ''
         && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.isActive == true
-        && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.managerId == request.auth.uid;
+        && (
+          data.assignedTo == request.auth.uid
+          || get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.managerId == request.auth.uid
+          || (get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.teamId is string
+            && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.teamId != ''
+            && get(/databases/$(database)/documents/companies/$(companyId)/users/$(data.assignedTo)).data.teamId == currentUserData(companyId).teamId)
+        );
     }
 
 
@@ -331,16 +384,25 @@ service cloud.firestore {
       return !(field in data.keys()) || data[field] == null || data[field] == '';
     }
 
-    function optionalSnapshotFieldMatches(data, field, expected) {
-      return !(field in data.keys())
-        || data[field] == expected
-        || (data[field] == '' && expected == null);
-    }
 
     function profileSnapshotFieldMatches(data, profile, field) {
       return data[field] == profile[field]
         || (!(field in profile.keys()) && data[field] == '')
         || (profile[field] == null && data[field] == '');
+    }
+
+    function profileDisplayNameSnapshotMatches(data, profile, field) {
+      return data[field] == profile.fullName
+        || ((!(profile.fullName is string) || profile.fullName == '')
+          && data[field] == profile.email)
+        || ((!(profile.fullName is string) || profile.fullName == '')
+          && !(profile.email is string)
+          && data[field] == '');
+    }
+
+    function profileEmailSnapshotMatches(data, profile) {
+      return data.assignedToEmail == profile.email
+        || (!(profile.email is string) && data.assignedToEmail == '');
     }
 
     function snapshotFieldUnchangedOrEmptyDefault(data, field) {
@@ -377,6 +439,7 @@ service cloud.firestore {
 
     function managerCanAssignUser(companyId, assignedTo) {
       return role(companyId) != 'manager'
+        || assignedTo == request.auth.uid
         || assignedUserData(companyId, assignedTo).managerId == request.auth.uid
         || (assignedUserData(companyId, assignedTo).teamId is string
           && assignedUserData(companyId, assignedTo).teamId != ''
@@ -895,21 +958,53 @@ service cloud.firestore {
         && request.resource.data.isActive is bool;
     }
 
+    function isTaskSelfAssignment(data) {
+      return data.assignedTo is string
+        && data.assignedTo == request.auth.uid;
+    }
+
+    function taskAssignedUserSnapshotMatches(companyId, data) {
+      let profile = assignedUserData(companyId, data.assignedTo);
+      return data.assignedTo is string
+        && data.assignedTo != ''
+        && profile.isActive == true
+        && profileDisplayNameSnapshotMatches(data, profile, 'assignedToName')
+        && profileEmailSnapshotMatches(data, profile)
+        && profileSnapshotFieldMatches(data, profile, 'teamId')
+        && profileSnapshotFieldMatches(data, profile, 'teamName')
+        && profileSnapshotFieldMatches(data, profile, 'managerId')
+        && profileSnapshotFieldMatches(data, profile, 'managerName');
+    }
+
+    function taskManagerSelfAssignmentSnapshotMatches(companyId, data) {
+      let profile = assignedUserData(companyId, data.assignedTo);
+      return isTaskSelfAssignment(data)
+        && profile.isActive == true
+        && profile.role == 'manager'
+        && profileDisplayNameSnapshotMatches(data, profile, 'assignedToName')
+        && profileEmailSnapshotMatches(data, profile)
+        && taskManagerSelfAssignmentTeamSnapshotMatches(data, profile)
+        && data.managerId == request.auth.uid
+        && profileDisplayNameSnapshotMatches(data, profile, 'managerName');
+    }
+
+    function taskActorSelfAssignmentSnapshotMatches(companyId, data) {
+      return isTaskSelfAssignment(data)
+        && (
+          (role(companyId) == 'manager'
+            && taskManagerSelfAssignmentSnapshotMatches(companyId, data))
+          || ((role(companyId) == 'salesAgent'
+              || role(companyId) == 'marketing')
+            && taskAssignedUserSnapshotMatches(companyId, data))
+        );
+    }
+
     function canReadTask(companyId) {
       return companyReadableRecord(companyId)
         || managerScopedRecord(companyId, resource.data)
         || (isSalesAgent(companyId) && activeAssignedActiveRecord(resource.data))
         || (isMarketing(companyId) && activeAssignedActiveRecord(resource.data))
         || (isViewer(companyId) && activeAssignedActiveRecord(resource.data));
-    }
-
-    function canCreateTask(companyId) {
-      return isAdmin(companyId)
-        || managerCanCreateAssignedRecord(companyId, request.resource.data)
-        || ((isSalesAgent(companyId) || isMarketing(companyId))
-          && request.resource.data.assignedTo == request.auth.uid
-          && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.updatedBy == request.auth.uid);
     }
 
     function canReadAppointment(companyId) {
@@ -919,14 +1014,288 @@ service cloud.firestore {
         || (isMarketing(companyId) && activeAssignedRecord(resource.data));
     }
 
-    function canUpdateTask(companyId) {
+    function taskAssignedUserRoleAllowed(companyId, data, allowedRoles) {
+      return data.assignedTo is string
+        && data.assignedTo != ''
+        && assignedUserData(companyId, data.assignedTo).isActive == true
+        && assignedUserData(companyId, data.assignedTo).role in allowedRoles;
+    }
+
+    function taskStrictAssignmentSnapshotMatches(companyId, data, allowedRoles) {
+      return taskAssignedUserRoleAllowed(companyId, data, allowedRoles)
+        && taskAssignedUserSnapshotMatches(companyId, data);
+    }
+
+    function taskManagerSelfAssignmentTeamSnapshotMatches(data, profile) {
+      return ((!(profile.teamId is string) || profile.teamId == '')
+          && data.teamId == ''
+          && optionalSnapshotFieldEmpty(data, 'teamName'))
+        || (profile.teamId is string
+          && profile.teamId != ''
+          && profileSnapshotFieldMatches(data, profile, 'teamId')
+          && profileSnapshotFieldMatches(data, profile, 'teamName'));
+    }
+
+    function taskAssignmentFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName'
+      ]);
+    }
+
+    function taskAssignmentFieldsUnchanged() {
+      return !taskAssignmentFieldsChanged();
+    }
+
+    function taskAssignmentSnapshotUnchanged() {
+      return request.resource.data.assignedTo == resource.data.assignedTo
+        && request.resource.data.assignedToName == resource.data.assignedToName
+        && request.resource.data.assignedToEmail == resource.data.assignedToEmail
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.teamName == resource.data.teamName
+        && request.resource.data.managerId == resource.data.managerId
+        && request.resource.data.managerName == resource.data.managerName;
+    }
+
+
+    function taskFullUpdateFieldsChangedAllowed() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'id',
+        'companyId',
+        'title',
+        'description',
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
+        'relatedType',
+        'relatedId',
+        'relatedTitle',
+        'relatedSubtitle',
+        'dueDate',
+        'status',
+        'priority',
+        'createdAt',
+        'createdBy',
+        'updatedAt',
+        'updatedBy',
+        'isActive'
+      ]);
+    }
+
+    function taskAdminAssignmentAfterUpdateAllowed(companyId) {
+      return taskAssignmentFieldsUnchanged()
+        || taskAssignmentSnapshotUnchanged()
+        || taskStrictAssignmentSnapshotMatches(
+          companyId,
+          request.resource.data,
+          ['admin', 'manager', 'salesAgent', 'marketing']
+        )
+        || taskActorSelfAssignmentSnapshotMatches(companyId, request.resource.data);
+    }
+
+
+    function taskManagerReassignmentFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'assignedTo',
+        'assignedToName',
+        'assignedToEmail',
+        'teamId',
+        'teamName',
+        'managerId',
+        'managerName',
+        'updatedAt',
+        'updatedBy'
+      ]);
+    }
+
+    function taskManagerContentFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'title',
+        'description',
+        'relatedType',
+        'relatedId',
+        'relatedTitle',
+        'relatedSubtitle',
+        'dueDate',
+        'status',
+        'priority',
+        'updatedAt',
+        'updatedBy'
+      ]);
+    }
+
+
+    function taskAdminUpdateShapeAllowed(companyId) {
+      return taskFullUpdateFieldsChangedAllowed()
+        && taskAdminAssignmentAfterUpdateAllowed(companyId);
+    }
+
+    function taskSalesMarketingUpdateShapeAllowed(companyId) {
+      return resource.data.assignedTo == request.auth.uid
+        && request.resource.data.assignedTo == request.auth.uid
+        && taskFullUpdateFieldsChangedAllowed()
+        && (
+          taskAssignmentFieldsUnchanged()
+          || taskAssignmentSnapshotUnchanged()
+        );
+    }
+
+    function taskManagerExistingScopeForActor(companyId, actor) {
+      return resource.data.assignedTo == request.auth.uid
+        || resource.data.managerId == request.auth.uid
+        || (resource.data.teamId is string
+          && resource.data.teamId != ''
+          && (
+            (actor.teamId is string
+              && actor.teamId != ''
+              && resource.data.teamId == actor.teamId)
+            || managesTeamById(companyId, resource.data.teamId)
+          ));
+    }
+
+    function taskManagerTargetScopeForActor(companyId, actor) {
+      return request.resource.data.assignedTo == request.auth.uid
+        || request.resource.data.managerId == request.auth.uid
+        || (request.resource.data.teamId is string
+          && request.resource.data.teamId != ''
+          && (
+            (actor.teamId is string
+              && actor.teamId != ''
+              && request.resource.data.teamId == actor.teamId)
+            || managesTeamById(companyId, request.resource.data.teamId)
+          ));
+    }
+
+    function taskManagerSelfReassignShapeAllowed(companyId, actor) {
+      return taskManagerExistingScopeForActor(companyId, actor)
+        && taskManagerReassignmentFieldsOnly()
+        && request.resource.data.assignedTo == request.auth.uid
+        && request.resource.data.managerId == request.auth.uid
+        && request.resource.data.assignedToName is string
+        && request.resource.data.assignedToEmail is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerName')
+        && (
+          !(request.resource.data.teamId is string)
+          || request.resource.data.teamId == ''
+          || (actor.teamId is string
+            && actor.teamId != ''
+            && request.resource.data.teamId == actor.teamId)
+          || managesTeamById(companyId, request.resource.data.teamId)
+        );
+    }
+
+    function taskManagerStaffReassignShapeAllowed(companyId, actor) {
+      let assignedUser = assignedUserData(
+        companyId,
+        request.resource.data.assignedTo
+      );
+      return taskManagerExistingScopeForActor(companyId, actor)
+        && taskManagerReassignmentFieldsOnly()
+        && request.resource.data.assignedTo is string
+        && request.resource.data.assignedTo != ''
+        && assignedUser.isActive == true
+        && assignedUser.role in ['salesAgent', 'marketing']
+        && request.resource.data.managerId == request.auth.uid
+        && request.resource.data.assignedToName is string
+        && request.resource.data.assignedToEmail is string
+        && optionalStringField(request.resource.data, 'teamId')
+        && optionalStringField(request.resource.data, 'teamName')
+        && optionalStringField(request.resource.data, 'managerName')
+        && (
+          assignedUser.managerId == request.auth.uid
+          || (request.resource.data.teamId is string
+            && request.resource.data.teamId != ''
+            && assignedUser.teamId == request.resource.data.teamId
+            && (
+              managesTeamById(companyId, request.resource.data.teamId)
+              || (actor.teamId is string
+                && actor.teamId != ''
+                && assignedUser.teamId == actor.teamId)
+            ))
+        );
+    }
+
+    function taskManagerContentShapeAllowed(companyId, actor) {
+      return taskManagerExistingScopeForActor(companyId, actor)
+        && taskManagerTargetScopeForActor(companyId, actor)
+        && taskAssignmentSnapshotUnchanged()
+        && taskManagerContentFieldsOnly();
+    }
+
+    function taskManagerUpdateRoutedAllowed(companyId, actor) {
+      return taskManagerSelfReassignShapeAllowed(companyId, actor)
+        || taskManagerStaffReassignShapeAllowed(companyId, actor)
+        || taskManagerContentShapeAllowed(companyId, actor);
+    }
+
+    function taskUpdateAllowed(companyId, taskId) {
+      let actor = currentUserData(companyId);
+      return validTaskData(companyId, taskId)
+        && validTaskBaseUpdate(companyId, taskId)
+        && signedIn()
+        && companyOpenForCrm(companyId)
+        && actor.companyId == companyId
+        && actor.isActive == true
+        && (
+          (actor.role == 'admin'
+            && taskAdminUpdateShapeAllowed(companyId))
+          || (actor.role == 'manager'
+            && taskManagerUpdateRoutedAllowed(companyId, actor))
+          || ((actor.role == 'salesAgent' || actor.role == 'marketing')
+            && taskSalesMarketingUpdateShapeAllowed(companyId))
+        );
+    }
+
+    function taskAdminCreateAllowed(companyId) {
       return isAdmin(companyId)
-        || managerScopedRecord(companyId, resource.data)
-        || (isSalesAgent(companyId)
-          && resource.data.assignedTo == request.auth.uid
-          && request.resource.data.assignedTo == request.auth.uid
-          && request.resource.data.assignedToName == resource.data.assignedToName
-          && request.resource.data.assignedToEmail == resource.data.assignedToEmail);
+        && taskStrictAssignmentSnapshotMatches(
+          companyId,
+          request.resource.data,
+          ['admin', 'manager', 'salesAgent', 'marketing']
+        );
+    }
+
+    function taskManagerCreateAllowed(companyId) {
+      return isManager(companyId)
+        && (
+          taskActorSelfAssignmentSnapshotMatches(companyId, request.resource.data)
+          || (managerCanCreateAssignedRecord(companyId, request.resource.data)
+            && taskStrictAssignmentSnapshotMatches(
+              companyId,
+              request.resource.data,
+              ['salesAgent', 'marketing']
+            ))
+        );
+    }
+
+    function taskSalesMarketingCreateAllowed(companyId) {
+      return (isSalesAgent(companyId) || isMarketing(companyId))
+        && request.resource.data.assignedTo == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && taskActorSelfAssignmentSnapshotMatches(companyId, request.resource.data);
+    }
+
+    function taskCreateAllowed(companyId, taskId) {
+      return validTaskData(companyId, taskId)
+        && validBaseCreate(companyId, taskId)
+        && request.resource.data.isActive == true
+        && (
+          taskAdminCreateAllowed(companyId)
+          || taskManagerCreateAllowed(companyId)
+          || taskSalesMarketingCreateAllowed(companyId)
+        );
     }
 
     function dealFields() {
@@ -1765,20 +2134,8 @@ service cloud.firestore {
       match /tasks/{taskId} {
         allow get, list: if isActivePlatformAdmin()
           || (commonCrmRead(companyId) && canReadTask(companyId));
-        allow create: if canCreateTask(companyId)
-          && validTaskData(companyId, taskId)
-          && validBaseCreate(companyId, taskId)
-          && validAssignmentSnapshot(companyId, request.resource.data, ['admin', 'manager', 'salesAgent', 'marketing'])
-          && request.resource.data.isActive == true;
-        allow update: if isActiveCompanyUser(companyId)
-          && canUpdateTask(companyId)
-          && validTaskData(companyId, taskId)
-          && validBaseUpdate(companyId)
-          && assignmentFieldsUnchangedOrValid(
-            companyId,
-            request.resource.data,
-            ['admin', 'manager', 'salesAgent', 'marketing']
-          );
+        allow create: if taskCreateAllowed(companyId, taskId);
+        allow update: if taskUpdateAllowed(companyId, taskId);
         allow delete: if false;
       }
 

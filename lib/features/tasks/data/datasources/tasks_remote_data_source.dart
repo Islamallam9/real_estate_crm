@@ -109,8 +109,10 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       }
 
       final existingTask = CrmTaskModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, task: existingTask);
-      await document.update({
+      final existingData = snapshot.data() ?? const <String, dynamic>{};
+      _ensureExistingTaskCompany(companyId: companyId, data: existingData);
+
+      final updateData = <String, dynamic>{
         'title': task.title,
         'description': task.description,
         'assignedTo': task.assignedTo,
@@ -124,12 +126,22 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
         'relatedId': task.relatedId,
         'relatedTitle': task.relatedTitle,
         'relatedSubtitle': task.relatedSubtitle,
-        'dueDate': task.dueDate == null ? null : Timestamp.fromDate(task.dueDate!),
+        'dueDate': task.dueDate == null
+            ? null
+            : Timestamp.fromDate(task.dueDate!),
         'status': task.status.name,
         'priority': task.priority.name,
         'updatedAt': Timestamp.now(),
         'updatedBy': task.updatedBy,
-      });
+      };
+      _hydrateLegacyTaskBaseFields(
+        updateData: updateData,
+        existingData: existingData,
+        companyId: companyId,
+        task: task,
+        existingTask: existingTask,
+      );
+      await document.update(updateData);
       final updatedSnapshot = await document.get(
         const GetOptions(source: Source.server),
       );
@@ -184,7 +196,7 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
-    return query.limit(limit).snapshots().map((snapshot) {
+    return query.orderBy('dueDate').limit(limit).snapshots().map((snapshot) {
       final tasks = snapshot.docs.map((document) {
         final task = CrmTaskModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, task: task);
@@ -449,6 +461,66 @@ void _ensureSameCompany({
     throw const TaskException(AppErrorMessages.permissionDenied);
   }
 }
+
+void _ensureExistingTaskCompany({
+  required String companyId,
+  required Map<String, dynamic> data,
+}) {
+  final storedCompanyId = data['companyId'] as String?;
+  if (companyId.isEmpty ||
+      (storedCompanyId != null &&
+          storedCompanyId.trim().isNotEmpty &&
+          storedCompanyId != companyId)) {
+    throw const TaskException(AppErrorMessages.permissionDenied);
+  }
+}
+
+void _hydrateLegacyTaskBaseFields({
+  required Map<String, dynamic> updateData,
+  required Map<String, dynamic> existingData,
+  required String companyId,
+  required CrmTaskModel task,
+  required CrmTaskModel existingTask,
+}) {
+  if (_missingOrEmptyString(existingData['id'])) {
+    updateData['id'] = existingTask.id.isNotEmpty ? existingTask.id : task.id;
+  }
+  if (_missingOrEmptyString(existingData['companyId'])) {
+    updateData['companyId'] = companyId;
+  }
+  if (_missingOrEmptyString(existingData['createdBy'])) {
+    updateData['createdBy'] = _firstNonEmptyString([
+      existingTask.createdBy,
+      task.createdBy,
+      task.updatedBy,
+    ]);
+  }
+  if (existingData['createdAt'] is! Timestamp) {
+    updateData['createdAt'] = Timestamp.fromDate(
+      existingTask.createdAt ?? task.createdAt ?? DateTime.now(),
+    );
+  }
+  if (existingData['isActive'] is! bool) {
+    updateData['isActive'] = existingTask.isActive;
+  }
+}
+
+
+
+bool _missingOrEmptyString(Object? value) {
+  return value is! String || value.trim().isEmpty;
+}
+
+String _firstNonEmptyString(List<String> values) {
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+  }
+  return '';
+}
+
 
 String _mapFirestoreError(FirebaseException error) {
   switch (error.code) {
