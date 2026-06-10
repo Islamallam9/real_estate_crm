@@ -2912,76 +2912,113 @@ exports.setCompanyActiveStatus = onCall(async (request) => {
   return { companyId, isActive };
 });
 
-exports.refreshCompanyStorageUsage = onCall(async (request) => {
-  const actorUid = await requireActivePlatformAdmin(request);
-  const data = request.data || {};
-  const companyId = requiredString(data.companyId, 'companyId');
-  validateCompanyId(companyId);
+exports.refreshCompanyStorageUsage = onCall(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 300,
+    memory: '512MiB',
+    maxInstances: 2,
+  },
+  async (request) => {
+    const startedAt = Date.now();
+    let actorUid = '';
+    let companyId = '';
+    let scannedFiles = 0;
+    let scannedPages = 0;
+    try {
+      actorUid = await requireActivePlatformAdmin(request);
+      const data = request.data || {};
+      companyId = requiredString(data.companyId, 'companyId');
+      validateCompanyId(companyId);
 
-  const companyRef = db.doc(`companies/${companyId}`);
-  const companySnapshot = await companyRef.get();
-  if (!companySnapshot.exists) {
-    throw new HttpsError('not-found', 'Company was not found.');
-  }
-  const company = companySnapshot.data() || {};
-
-  const bucket = admin.storage().bucket();
-  const prefix = `companies/${companyId}/`;
-  let pageToken;
-  let totalBytes = 0;
-
-  do {
-    const [files, nextQuery] = await bucket.getFiles({
-      prefix,
-      autoPaginate: false,
-      maxResults: 1000,
-      pageToken,
-    });
-    for (const file of files) {
-      const size = Number(file.metadata && file.metadata.size ? file.metadata.size : 0);
-      if (Number.isFinite(size) && size > 0) {
-        totalBytes += size;
+      const companyRef = db.doc(`companies/${companyId}`);
+      const companySnapshot = await companyRef.get();
+      if (!companySnapshot.exists) {
+        throw new HttpsError('not-found', 'Company was not found.');
       }
-    }
-    pageToken = nextQuery && nextQuery.pageToken;
-  } while (pageToken);
+      const company = companySnapshot.data() || {};
 
-  await companyRef.update({
-    storageUsedBytes: totalBytes,
-    storageUsageUpdatedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: request.auth.uid,
-  });
-  const actor = await platformActorSummary(actorUid);
-  const companyName = companyNotificationName(companyId, company);
-  const limitBytes = storageLimitBytes(company);
-  const usagePercent = limitBytes > 0 ? Math.round((totalBytes / limitBytes) * 10000) / 100 : 0;
-  if (limitBytes > 0 && usagePercent >= 80) {
-    const level = usagePercent >= 95 ? 'urgent' : 'warning';
-    await createPlatformNotificationSafely('storage_near_limit', {
-      id: `storage_near_limit_${companyId}_${level}`,
-      type: 'storageNearLimit',
-      title: 'Storage near limit',
-      message: `${companyName} storage is at ${usagePercent}%.`,
-      severity: level,
-      source: 'storage',
-      route: '/platform',
-      actorId: actor.actorId,
-      actorName: actor.actorName,
-      actorEmail: actor.actorEmail,
-      companyId,
-      companyName,
-      metadata: {
+      const bucket = admin.storage().bucket();
+      const prefix = `companies/${companyId}/`;
+      let pageToken;
+      let totalBytes = 0;
+
+      do {
+        const [files, nextQuery] = await bucket.getFiles({
+          prefix,
+          autoPaginate: false,
+          maxResults: 1000,
+          pageToken,
+        });
+        scannedPages += 1;
+        scannedFiles += files.length;
+        for (const file of files) {
+          const size = Number(file.metadata && file.metadata.size ? file.metadata.size : 0);
+          if (Number.isFinite(size) && size > 0) {
+            totalBytes += size;
+          }
+        }
+        pageToken = nextQuery && nextQuery.pageToken;
+      } while (pageToken);
+
+      await companyRef.update({
+        storageUsedBytes: totalBytes,
+        storageUsageUpdatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      });
+      const actor = await platformActorSummary(actorUid);
+      const companyName = companyNotificationName(companyId, company);
+      const limitBytes = storageLimitBytes(company);
+      const usagePercent = limitBytes > 0 ? Math.round((totalBytes / limitBytes) * 10000) / 100 : 0;
+      if (limitBytes > 0 && usagePercent >= 80) {
+        const level = usagePercent >= 95 ? 'urgent' : 'warning';
+        await createPlatformNotificationSafely('storage_near_limit', {
+          id: `storage_near_limit_${companyId}_${level}`,
+          type: 'storageNearLimit',
+          title: 'Storage near limit',
+          message: `${companyName} storage is at ${usagePercent}%.`,
+          severity: level,
+          source: 'storage',
+          route: '/platform',
+          actorId: actor.actorId,
+          actorName: actor.actorName,
+          actorEmail: actor.actorEmail,
+          companyId,
+          companyName,
+          metadata: {
+            storageUsedBytes: totalBytes,
+            storageLimitBytes: limitBytes,
+            usagePercent,
+            threshold: usagePercent >= 95 ? 95 : 80,
+          },
+        });
+      }
+
+      console.info('refresh_company_storage_usage_completed', {
+        companyId,
+        actorUid,
+        scannedPages,
+        scannedFiles,
         storageUsedBytes: totalBytes,
         storageLimitBytes: limitBytes,
         usagePercent,
-        threshold: usagePercent >= 95 ? 95 : 80,
-      },
-    });
-  }
+        durationMs: Date.now() - startedAt,
+      });
 
-  return { companyId, storageUsedBytes: totalBytes };
-});
+      return { companyId, storageUsedBytes: totalBytes };
+    } catch (error) {
+      console.error('refresh_company_storage_usage_failed', {
+        companyId,
+        actorUid,
+        code: error && error.code ? error.code : '',
+        message: error && error.message ? error.message : String(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  },
+);
 
 exports.updateCompanyPlatformSettings = onCall(async (request) => {
   const actorUid = await requireActivePlatformAdmin(request);
@@ -3552,193 +3589,234 @@ exports.recordReportExportActivity = onCall(async (request) => {
 });
 
 
-exports.generateReportExportFile = onCall(async (request) => {
-  const data = request.data || {};
-  const companyId = requiredString(data.companyId, 'companyId');
-  validateCompanyId(companyId);
+exports.generateReportExportFile = onCall(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 120,
+    memory: '512MiB',
+    maxInstances: 5,
+  },
+  async (request) => {
+    const startedAt = Date.now();
+    let actorUid = '';
+    let companyId = '';
+    let actorRole = '';
+    let exportType = '';
+    let reportType = '';
+    let exportScope = '';
+    let recordCount = 0;
+    try {
+      const data = request.data || {};
+      companyId = requiredString(data.companyId, 'companyId');
+      validateCompanyId(companyId);
 
-  const actorUid = request.auth && request.auth.uid ? request.auth.uid : '';
-  if (!actorUid) {
-    throw new HttpsError('unauthenticated', 'Sign in is required.');
-  }
+      actorUid = request.auth && request.auth.uid ? request.auth.uid : '';
+      if (!actorUid) {
+        throw new HttpsError('unauthenticated', 'Sign in is required.');
+      }
 
-  const actor = await requireActiveCompanyUser(request, companyId);
-  const actorRole = optionalString(actor.role);
-  if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
-    throw new HttpsError('permission-denied', 'This role cannot export reports.');
-  }
-  await requireCompanyExportsEnabled(companyId);
+      const actor = await requireActiveCompanyUser(request, companyId);
+      actorRole = optionalString(actor.role);
+      if (!['admin', 'manager', 'salesAgent', 'marketing'].includes(actorRole)) {
+        throw new HttpsError('permission-denied', 'This role cannot export reports.');
+      }
+      await requireCompanyExportsEnabled(companyId);
 
-  const exportType = enumValueOrDefault(
-    data.exportType,
-    REPORT_EXPORT_TYPES,
-    'reportsExport',
-  );
-  const reportType = enumValueOrDefault(
-    data.reportType || data.exportedModule,
-    REPORT_EXPORT_MODULES,
-    'leads',
-  );
-  const dateRangePreset = enumValueOrDefault(
-    data.dateRangePreset,
-    REPORT_EXPORT_DATE_RANGES,
-    'thisMonth',
-  );
-  const exportScope = enumValueOrDefault(
-    data.exportScope,
-    REPORT_EXPORT_SCOPES,
-    exportScopeForRole(actorRole),
-  );
-  assertReportExportAllowed({ actorRole, exportType, reportType, exportScope });
+      exportType = enumValueOrDefault(
+        data.exportType,
+        REPORT_EXPORT_TYPES,
+        'reportsExport',
+      );
+      reportType = enumValueOrDefault(
+        data.reportType || data.exportedModule,
+        REPORT_EXPORT_MODULES,
+        'leads',
+      );
+      const dateRangePreset = enumValueOrDefault(
+        data.dateRangePreset,
+        REPORT_EXPORT_DATE_RANGES,
+        'thisMonth',
+      );
+      exportScope = enumValueOrDefault(
+        data.exportScope,
+        REPORT_EXPORT_SCOPES,
+        exportScopeForRole(actorRole),
+      );
+      assertReportExportAllowed({ actorRole, exportType, reportType, exportScope });
 
-  const labels = serverExportLabels(data.labels);
-  const reportTypeLabel = sanitizeLogText(
-    optionalString(data.reportTypeLabel) || labelForExport(labels, `module.${reportType}`, reportType),
-    160,
-  );
-  const dateRangeLabel = sanitizeLogText(
-    optionalString(data.dateRangeLabel) || labelForExport(labels, `dateRange.${dateRangePreset}`, dateRangePreset),
-    120,
-  );
-  const filtersSummary = sanitizeLogText(optionalString(data.filtersSummary), 300);
-  const statusFilter = optionalString(data.statusFilter);
-  const assigneeId = optionalString(data.assigneeId);
-  const includeArchived = data.includeArchived === true;
-  const outputLanguage = optionalString(data.outputLanguage) === 'ar' ? 'ar' : 'en';
-  const selectedColumns = safeStringList(data.selectedColumns, 80, 80);
-  const exportScopeSnapshot = await resolveExportActorScope({
-    companyId,
-    actor,
-    actorUid,
-    actorRole,
-    actorName: sanitizeLogText(optionalString(actor.fullName) || optionalString(actor.email) || actorRole, 160),
-  });
-  const dateWindow = serverExportDateWindow({
-    dateRangePreset,
-    customStart: data.customStart,
-    customEnd: data.customEnd,
-  });
+      const labels = serverExportLabels(data.labels);
+      const reportTypeLabel = sanitizeLogText(
+        optionalString(data.reportTypeLabel) || labelForExport(labels, `module.${reportType}`, reportType),
+        160,
+      );
+      const dateRangeLabel = sanitizeLogText(
+        optionalString(data.dateRangeLabel) || labelForExport(labels, `dateRange.${dateRangePreset}`, dateRangePreset),
+        120,
+      );
+      const filtersSummary = sanitizeLogText(optionalString(data.filtersSummary), 300);
+      const statusFilter = optionalString(data.statusFilter);
+      const assigneeId = optionalString(data.assigneeId);
+      const includeArchived = data.includeArchived === true;
+      const outputLanguage = optionalString(data.outputLanguage) === 'ar' ? 'ar' : 'en';
+      const selectedColumns = safeStringList(data.selectedColumns, 80, 80);
+      const exportScopeSnapshot = await resolveExportActorScope({
+        companyId,
+        actor,
+        actorUid,
+        actorRole,
+        actorName: sanitizeLogText(optionalString(actor.fullName) || optionalString(actor.email) || actorRole, 160),
+      });
+      const dateWindow = serverExportDateWindow({
+        dateRangePreset,
+        customStart: data.customStart,
+        customEnd: data.customEnd,
+      });
 
-  const dataset = await buildServerReportDataset({
-    companyId,
-    actorUid,
-    actorRole,
-    teamId: exportScopeSnapshot.teamId,
-    managerId: exportScopeSnapshot.managerId,
-    reportType,
-    labels,
-    selectedColumns,
-    dateWindow,
-    statusFilter,
-    assigneeId,
-    includeArchived,
-  });
+      const dataset = await buildServerReportDataset({
+        companyId,
+        actorUid,
+        actorRole,
+        teamId: exportScopeSnapshot.teamId,
+        managerId: exportScopeSnapshot.managerId,
+        reportType,
+        labels,
+        selectedColumns,
+        dateWindow,
+        statusFilter,
+        assigneeId,
+        includeArchived,
+      });
 
-  const generatedAt = new Date();
-  const exportedAtIso = generatedAt.toISOString();
-  const exportedAtLabel = exportedAtIso.slice(0, 16).replace('T', ' ');
-  const actorName = sanitizeLogText(
-    optionalString(actor.fullName) || optionalString(actor.email) || actorRole,
-    160,
-  );
-  const actorEmail = sanitizeLogText(optionalString(actor.email), 180);
-  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+      const generatedAt = new Date();
+      const exportedAtIso = generatedAt.toISOString();
+      const exportedAtLabel = exportedAtIso.slice(0, 16).replace('T', ' ');
+      const actorName = sanitizeLogText(
+        optionalString(actor.fullName) || optionalString(actor.email) || actorRole,
+        160,
+      );
+      const actorEmail = sanitizeLogText(optionalString(actor.email), 180);
+      const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
 
-  const notificationResult = await createExportSupervisorNotifications({
-    companyId,
-    actorUid,
-    actorRole,
-    actorName,
-    actorEmail,
-    teamId: exportScopeSnapshot.teamId,
-    teamName: exportScopeSnapshot.teamName,
-    managerId: exportScopeSnapshot.managerId,
-    auditLogId: auditRef.id,
-    exportType,
-    reportType,
-    reportTypeLabel,
-    dateRangeLabel,
-    exportedAtLabel,
-    exportScope,
-    rowCount: dataset.recordCount,
-  });
+      const notificationResult = await createExportSupervisorNotifications({
+        companyId,
+        actorUid,
+        actorRole,
+        actorName,
+        actorEmail,
+        teamId: exportScopeSnapshot.teamId,
+        teamName: exportScopeSnapshot.teamName,
+        managerId: exportScopeSnapshot.managerId,
+        auditLogId: auditRef.id,
+        exportType,
+        reportType,
+        reportTypeLabel,
+        dateRangeLabel,
+        exportedAtLabel,
+        exportScope,
+        rowCount: dataset.recordCount,
+      });
 
-  const fileFormat = 'Excel';
-  await auditRef.set({
-    id: auditRef.id,
-    companyId,
-    actorId: actorUid,
-    actorName,
-    actorEmail,
-    actorRole,
-    action: 'exported',
-    module: exportType === 'auditLogsExport' ? 'auditLogs' : 'reports',
-    recordId: reportType,
-    recordTitle: reportTypeLabel,
-    recordSubtitle: `${fileFormat} - ${dateRangeLabel}`,
-    assignedTo: actorRole === 'salesAgent' || actorRole === 'marketing'
-      ? actorUid
-      : '',
-    teamId: exportScopeSnapshot.teamId,
-    teamName: exportScopeSnapshot.teamName,
-    managerId: exportScopeSnapshot.managerId,
-    managerName: exportScopeSnapshot.managerName,
-    createdAt: FieldValue.serverTimestamp(),
-    metadata: {
-      exportType,
-      reportType,
-      exportedModule: reportType,
-      reportTypeLabel,
-      dateRangePreset,
-      dateRangeLabel,
-      exportedAt: exportedAtIso,
-      filtersSummary,
-      selectedColumns: dataset.columns.map((column) => column.key).slice(0, 80),
-      selectedColumnsCount: dataset.columns.length,
-      rowCount: dataset.recordCount,
-      fileFormat,
-      exportScope,
-      limitedByCap: dataset.limitedByCap,
-      generatedServerSide: true,
-      auditLogId: auditRef.id,
-      notifiedAdminCount: notificationResult.notifiedAdminCount,
-      notifiedManagerCount: notificationResult.notifiedManagerCount,
-    },
-  });
+      const fileFormat = 'Excel';
+      await auditRef.set({
+        id: auditRef.id,
+        companyId,
+        actorId: actorUid,
+        actorName,
+        actorEmail,
+        actorRole,
+        action: 'exported',
+        module: exportType === 'auditLogsExport' ? 'auditLogs' : 'reports',
+        recordId: reportType,
+        recordTitle: reportTypeLabel,
+        recordSubtitle: `${fileFormat} - ${dateRangeLabel}`,
+        assignedTo: actorRole === 'salesAgent' || actorRole === 'marketing'
+          ? actorUid
+          : '',
+        teamId: exportScopeSnapshot.teamId,
+        teamName: exportScopeSnapshot.teamName,
+        managerId: exportScopeSnapshot.managerId,
+        managerName: exportScopeSnapshot.managerName,
+        createdAt: FieldValue.serverTimestamp(),
+        metadata: {
+          exportType,
+          reportType,
+          exportedModule: reportType,
+          reportTypeLabel,
+          dateRangePreset,
+          dateRangeLabel,
+          exportedAt: exportedAtIso,
+          filtersSummary,
+          selectedColumns: dataset.columns.map((column) => column.key).slice(0, 80),
+          selectedColumnsCount: dataset.columns.length,
+          rowCount: dataset.recordCount,
+          fileFormat,
+          exportScope,
+          limitedByCap: dataset.limitedByCap,
+          generatedServerSide: true,
+          auditLogId: auditRef.id,
+          notifiedAdminCount: notificationResult.notifiedAdminCount,
+          notifiedManagerCount: notificationResult.notifiedManagerCount,
+        },
+      });
 
-  const companyName = sanitizeLogText(optionalString(data.companyName) || companyId, 160);
-  const fileName = `masar_${companyId}_${reportType}_${serverExportFileStamp(generatedAt)}.xlsx`;
-  const workbook = buildServerXlsxWorkbook({
-    title: 'Masar CRM',
-    subtitle: reportTypeLabel,
-    summaryRows: [
-      [labelForExport(labels, 'company', 'Company'), companyName],
-      [labelForExport(labels, 'reportName', 'Report'), reportTypeLabel],
-      [labelForExport(labels, 'scope', 'Scope'), serverExportScopeLabel(labels, exportScope)],
-      [labelForExport(labels, 'dateRange', 'Date range'), dateRangeLabel],
-      [labelForExport(labels, 'generatedBy', 'Generated by'), actorName],
-      [labelForExport(labels, 'generatedAt', 'Generated at'), exportedAtLabel],
-      [labelForExport(labels, 'recordCount', 'Record count'), String(dataset.recordCount)],
-      [labelForExport(labels, 'filtersSummary', 'Filters'), filtersSummary],
-    ],
-    columns: dataset.columns.map((column) => column.label),
-    rows: dataset.rows,
-    summarySheetName: labelForExport(labels, 'reportSummary', 'Summary'),
-    dataSheetName: labelForExport(labels, 'dataSheet', 'Data'),
-    rtl: outputLanguage === 'ar',
-  });
+      const companyName = sanitizeLogText(optionalString(data.companyName) || companyId, 160);
+      const fileName = `masar_${companyId}_${reportType}_${serverExportFileStamp(generatedAt)}.xlsx`;
+      const workbook = buildServerXlsxWorkbook({
+        title: 'Masar CRM',
+        subtitle: reportTypeLabel,
+        summaryRows: [
+          [labelForExport(labels, 'company', 'Company'), companyName],
+          [labelForExport(labels, 'reportName', 'Report'), reportTypeLabel],
+          [labelForExport(labels, 'scope', 'Scope'), serverExportScopeLabel(labels, exportScope)],
+          [labelForExport(labels, 'dateRange', 'Date range'), dateRangeLabel],
+          [labelForExport(labels, 'generatedBy', 'Generated by'), actorName],
+          [labelForExport(labels, 'generatedAt', 'Generated at'), exportedAtLabel],
+          [labelForExport(labels, 'recordCount', 'Record count'), String(dataset.recordCount)],
+          [labelForExport(labels, 'filtersSummary', 'Filters'), filtersSummary],
+        ],
+        columns: dataset.columns.map((column) => column.label),
+        rows: dataset.rows,
+        summarySheetName: labelForExport(labels, 'reportSummary', 'Summary'),
+        dataSheetName: labelForExport(labels, 'dataSheet', 'Data'),
+        rtl: outputLanguage === 'ar',
+      });
 
-  return {
-    fileName,
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    base64Data: workbook.toString('base64'),
-    generatedAt: exportedAtIso,
-    recordCount: dataset.recordCount,
-    auditLogId: auditRef.id,
-    notifiedAdminCount: notificationResult.notifiedAdminCount,
-    notifiedManagerCount: notificationResult.notifiedManagerCount,
-  };
-});
+      recordCount = dataset.recordCount;
+      console.info('generate_report_export_file_completed', {
+        companyId,
+        actorUid,
+        actorRole,
+        exportType,
+        reportType,
+        exportScope,
+        recordCount,
+        selectedColumnsCount: dataset.columns.length,
+        limitedByCap: dataset.limitedByCap,
+        durationMs: Date.now() - startedAt,
+      });
+
+      return {
+        fileName,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        base64Data: workbook.toString('base64'),
+        generatedAt: exportedAtIso,
+        recordCount: dataset.recordCount,
+        auditLogId: auditRef.id,
+        notifiedAdminCount: notificationResult.notifiedAdminCount,
+        notifiedManagerCount: notificationResult.notifiedManagerCount,
+      };
+    } catch (error) {
+      console.error('generate_report_export_file_failed', {
+        companyId,
+        actorUid,
+        code: error && error.code ? error.code : '',
+        message: error && error.message ? error.message : String(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  },
+);
 
 function serverExportLabels(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -4275,80 +4353,115 @@ exports.listPlatformErrorLogs = onCall(async (request) => {
   };
 });
 
-exports.exportCompanyDataForPlatform = onCall(async (request) => {
-  await requireActivePlatformAdmin(request);
-  const data = request.data || {};
-  const companyId = requiredString(data.companyId, 'companyId');
-  validateCompanyId(companyId);
+exports.exportCompanyDataForPlatform = onCall(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 300,
+    memory: '1GiB',
+    maxInstances: 2,
+  },
+  async (request) => {
+    const startedAt = Date.now();
+    let actorUid = '';
+    let companyId = '';
+    let collectionCount = 0;
+    let recordCount = 0;
+    try {
+      actorUid = await requireActivePlatformAdmin(request);
+      const data = request.data || {};
+      companyId = requiredString(data.companyId, 'companyId');
+      validateCompanyId(companyId);
 
-  const companySnapshot = await db.doc(`companies/${companyId}`).get();
-  if (!companySnapshot.exists) {
-    throw new HttpsError('not-found', 'Company was not found.');
-  }
+      const companySnapshot = await db.doc(`companies/${companyId}`).get();
+      if (!companySnapshot.exists) {
+        throw new HttpsError('not-found', 'Company was not found.');
+      }
 
-  const allowedCollections = new Set([
-    'users',
-    'leads',
-    'clients',
-    'properties',
-    'tasks',
-    'deals',
-    'appointments',
-    'notifications',
-    'audit_logs',
-    'teams',
-  ]);
-  const requestedCollections = Array.isArray(data.collections)
-    ? data.collections.map(optionalString).filter(Boolean)
-    : [];
-  const collections = requestedCollections.length > 0
-    ? requestedCollections.filter((collectionName) => allowedCollections.has(collectionName))
-    : [...allowedCollections];
+      const allowedCollections = new Set([
+        'users',
+        'leads',
+        'clients',
+        'properties',
+        'tasks',
+        'deals',
+        'appointments',
+        'notifications',
+        'audit_logs',
+        'teams',
+      ]);
+      const requestedCollections = Array.isArray(data.collections)
+        ? data.collections.map(optionalString).filter(Boolean)
+        : [];
+      const collections = requestedCollections.length > 0
+        ? requestedCollections.filter((collectionName) => allowedCollections.has(collectionName))
+        : [...allowedCollections];
 
-  if (collections.length === 0) {
-    throw new HttpsError('invalid-argument', 'Select at least one export section.');
-  }
+      collectionCount = collections.length;
 
-  const result = {
-    companyId,
-    exportedAt: new Date().toISOString(),
-    company: serializeExportValue(companySnapshot.data() || {}),
-    data: {},
-  };
+      if (collections.length === 0) {
+        throw new HttpsError('invalid-argument', 'Select at least one export section.');
+      }
 
-  for (const collectionName of collections) {
-    const snapshot = await db
-      .collection(`companies/${companyId}/${collectionName}`)
-      .limit(5000)
-      .get();
-    result.data[collectionName] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...serializeExportValue(doc.data() || {}),
-    }));
-  }
+      const result = {
+        companyId,
+        exportedAt: new Date().toISOString(),
+        company: serializeExportValue(companySnapshot.data() || {}),
+        data: {},
+      };
 
-  const exportedAt = new Date();
-  const workbook = buildPlatformXlsxPayload({
-    companyId,
-    company: result.company,
-    collections,
-    data: result.data,
-    exportedAt,
-  });
-  // Platform owner exports are administrative platform operations. They should
-  // not create company-visible audit logs or tenant admin notifications, because
-  // the company export feature toggle only controls tenant/company users.
+      for (const collectionName of collections) {
+        const snapshot = await db
+          .collection(`companies/${companyId}/${collectionName}`)
+          .limit(5000)
+          .get();
+        result.data[collectionName] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...serializeExportValue(doc.data() || {}),
+        }));
+      }
+
+      const exportedAt = new Date();
+      const workbook = buildPlatformXlsxPayload({
+        companyId,
+        company: result.company,
+        collections,
+        data: result.data,
+        exportedAt,
+      });
+      // Platform owner exports are administrative platform operations. They should
+      // not create company-visible audit logs or tenant admin notifications, because
+      // the company export feature toggle only controls tenant/company users.
 
 
-  return {
-    ...result,
-    fileName: `masar_${companyId}_platform_export_${serverExportFileStamp(exportedAt)}.xlsx`,
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    base64Data: workbook.toString('base64'),
-    generatedAt: exportedAt.toISOString(),
-    recordCount: Object.values(result.data).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0),
-  };
-});
+      recordCount = Object.values(result.data).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+      console.info('export_company_data_for_platform_completed', {
+        companyId,
+        actorUid,
+        collectionCount,
+        recordCount,
+        durationMs: Date.now() - startedAt,
+      });
+
+      return {
+        ...result,
+        fileName: `masar_${companyId}_platform_export_${serverExportFileStamp(exportedAt)}.xlsx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        base64Data: workbook.toString('base64'),
+        generatedAt: exportedAt.toISOString(),
+        recordCount,
+      };
+    } catch (error) {
+      console.error('export_company_data_for_platform_failed', {
+        companyId,
+        actorUid,
+        code: error && error.code ? error.code : '',
+        message: error && error.message ? error.message : String(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  },
+);
 
 exports.expireTrialCompanies = onSchedule('every 1 minutes', async () => {
   const now = new Date();

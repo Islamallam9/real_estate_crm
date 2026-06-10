@@ -1398,7 +1398,7 @@ class _PlatformKpis extends StatelessWidget {
   }
 }
 
-class _PlatformDashboardOverview extends StatelessWidget {
+class _PlatformDashboardOverview extends StatefulWidget {
   const _PlatformDashboardOverview({
     required this.state,
     required this.onOpenCompanies,
@@ -1412,13 +1412,43 @@ class _PlatformDashboardOverview extends StatelessWidget {
   final VoidCallback onOpenActivity;
 
   @override
+  State<_PlatformDashboardOverview> createState() =>
+      _PlatformDashboardOverviewState();
+}
+
+class _PlatformDashboardOverviewState extends State<_PlatformDashboardOverview> {
+  @override
+  void initState() {
+    super.initState();
+    _scheduleOverviewDataLoad();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlatformDashboardOverview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.selectedCompanyId != widget.state.selectedCompanyId) {
+      _scheduleOverviewDataLoad();
+    }
+  }
+
+  void _scheduleOverviewDataLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final companyId = widget.state.selectedCompany?.id;
+      if (companyId == null) return;
+      final cubit = context.read<PlatformCubit>();
+      cubit.ensureCompanyUsersLoaded(companyId);
+      cubit.ensureLoginActivityLoaded(companyId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _PlatformHeroCard(state: state),
-        const SizedBox(height: AppSpacing.md),
-        _PlatformCurrentCompanySelector(state: state),
         const SizedBox(height: AppSpacing.md),
         _PlatformKpis(state: state),
         const SizedBox(height: AppSpacing.md),
@@ -1429,13 +1459,13 @@ class _PlatformDashboardOverview extends StatelessWidget {
               children: [
                 _SelectedCompanyDashboardCard(
                   state: state,
-                  onOpenWorkspace: onOpenWorkspace,
+                  onOpenWorkspace: widget.onOpenWorkspace,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _DashboardCompaniesPanel(
                   state: state,
-                  onOpenCompanies: onOpenCompanies,
-                  onOpenWorkspace: onOpenWorkspace,
+                  onOpenCompanies: widget.onOpenCompanies,
+                  onOpenWorkspace: widget.onOpenWorkspace,
                 ),
               ],
             );
@@ -1443,7 +1473,7 @@ class _PlatformDashboardOverview extends StatelessWidget {
               children: [
                 _DashboardActivityPanel(
                   state: state,
-                  onOpenActivity: onOpenActivity,
+                  onOpenActivity: widget.onOpenActivity,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _WorkspaceSummaryPanel(state: state),
@@ -2228,6 +2258,9 @@ class _DashboardActivityPanel extends StatelessWidget {
         title: l.noCompanySelected,
         message: l.noCompanySelectedMessage,
       );
+    } else if (!activityLoaded &&
+        (state.companyUsersLoading || state.loginActivitiesLoading)) {
+      content = const AppLoading();
     } else if (!activityLoaded) {
       content = AppEmptyState(
         icon: Icons.manage_history_outlined,
@@ -2281,6 +2314,14 @@ class _WorkspaceSummaryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final company = state.selectedCompany;
+    if (company != null &&
+        !state.hasSelectedCompanyUsers &&
+        state.companyUsersLoading) {
+      return _Panel(
+        title: l.platformWorkspaceSummary,
+        child: const AppLoading(),
+      );
+    }
     if (company != null && !state.hasSelectedCompanyUsers) {
       return _Panel(
         title: l.platformWorkspaceSummary,
