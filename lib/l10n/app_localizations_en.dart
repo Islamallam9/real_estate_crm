@@ -2533,6 +2533,47 @@ class AppLocalizationsEn extends AppLocalizations {
       'Allow Masar CRM to install updates, then return and tap Install update again.';
 
   @override
+  String get checkForUpdates => 'Check for updates';
+
+  @override
+  String get checkForUpdatesSubtitle =>
+      'Check whether this device is running the latest Masar CRM version.';
+
+  @override
+  String get checkingForUpdates => 'Checking for updates';
+
+  @override
+  String get appUpdateAvailableTitle => 'Update available';
+
+  @override
+  String get appUpdateAvailableBody =>
+      'A newer Masar CRM version is available. Update now to get the latest fixes and improvements.';
+
+  @override
+  String get appUpdateRequiredManualBody =>
+      'This version is no longer supported. Update Masar CRM to continue safely.';
+
+  @override
+  String get appUpdateUpToDate => 'You’re up to date.';
+
+  @override
+  String get appUpdateUnableToCheck =>
+      'Unable to check for updates. Please try again.';
+
+  @override
+  String get appUpdateLater => 'Later';
+
+  @override
+  String get appUpdateReminderTitle => 'Masar CRM update available';
+
+  @override
+  String get appUpdateReminderBody =>
+      'A newer Masar CRM version is available. Update now to keep your workspace secure and stable.';
+
+  @override
+  String get appUpdateOpenUpdater => 'Update now';
+
+  @override
   String get exportNotAvailableForRole =>
       'This export is not available for your role.';
 

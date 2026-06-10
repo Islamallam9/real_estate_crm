@@ -4754,6 +4754,78 @@ abstract class AppLocalizations {
   /// **'Allow Masar CRM to install updates, then return and tap Install update again.'**
   String get androidUpdateInstallPermissionRequired;
 
+  /// No description provided for @checkForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get checkForUpdates;
+
+  /// No description provided for @checkForUpdatesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check whether this device is running the latest Masar CRM version.'**
+  String get checkForUpdatesSubtitle;
+
+  /// No description provided for @checkingForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates'**
+  String get checkingForUpdates;
+
+  /// No description provided for @appUpdateAvailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get appUpdateAvailableTitle;
+
+  /// No description provided for @appUpdateAvailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A newer Masar CRM version is available. Update now to get the latest fixes and improvements.'**
+  String get appUpdateAvailableBody;
+
+  /// No description provided for @appUpdateRequiredManualBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This version is no longer supported. Update Masar CRM to continue safely.'**
+  String get appUpdateRequiredManualBody;
+
+  /// No description provided for @appUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You’re up to date.'**
+  String get appUpdateUpToDate;
+
+  /// No description provided for @appUpdateUnableToCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to check for updates. Please try again.'**
+  String get appUpdateUnableToCheck;
+
+  /// No description provided for @appUpdateLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get appUpdateLater;
+
+  /// No description provided for @appUpdateReminderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Masar CRM update available'**
+  String get appUpdateReminderTitle;
+
+  /// No description provided for @appUpdateReminderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A newer Masar CRM version is available. Update now to keep your workspace secure and stable.'**
+  String get appUpdateReminderBody;
+
+  /// No description provided for @appUpdateOpenUpdater.
+  ///
+  /// In en, this message translates to:
+  /// **'Update now'**
+  String get appUpdateOpenUpdater;
+
   /// No description provided for @exportNotAvailableForRole.
   ///
   /// In en, this message translates to:

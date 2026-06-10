@@ -3684,12 +3684,13 @@ class _PlatformReleaseManagementPanelState
   Widget _buildSelectedTab(PlatformState state) {
     return switch (_tabIndex) {
       0 => _ReleaseOverviewTab(state: state),
-      1 => _ReleaseRegistryTab(state: state),
-      2 => _ReleaseAdoptionDevicesTab(
+      1 => _ReleaseUsageMetricsTab(state: state),
+      2 => _ReleaseRegistryTab(state: state),
+      3 => _ReleaseAdoptionDevicesTab(
           adoptionRows: state.releaseAdoptionRows,
           deviceRows: state.releaseDeviceRows,
         ),
-      3 => _ReleasePolicyTab(state: state),
+      4 => _ReleasePolicyTab(state: state),
       _ => _ReleaseHistoryTab(rows: state.releaseVersionEvents),
     };
   }
@@ -3701,6 +3702,14 @@ class _PlatformReleaseManagementPanelState
     final adoptionDevicesLabel = '${l.versionAdoption} / ${l.devices}';
     final tabs = [
       MasarSwitchTabItem(label: l.releaseOverview, icon: Icons.insights_outlined),
+      MasarSwitchTabItem(
+        label: _releaseTrustText(
+          context,
+          'Usage metrics',
+          'مؤشرات الاستخدام',
+        ),
+        icon: Icons.verified_outlined,
+      ),
       MasarSwitchTabItem(label: l.releases, icon: Icons.inventory_2_outlined),
       MasarSwitchTabItem(
         label: adoptionDevicesLabel,
@@ -4121,6 +4130,250 @@ class _ReleaseOverviewTab extends StatelessWidget {
                       color: AppColors.textSecondaryColor(context),
                       fontWeight: FontWeight.w700,
                     ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _ReleaseUsageMetricsTab extends StatelessWidget {
+  const _ReleaseUsageMetricsTab({required this.state});
+
+  final PlatformState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final summary = state.releaseIntelligenceSummary;
+    final stats = _releaseDeviceStats(state.releaseDeviceRows);
+    final selectedCompany = state.releaseCompanyId == null
+        ? null
+        : _companyById(state.companies, state.releaseCompanyId!);
+    final scopedToOneCompany = selectedCompany != null;
+    final activeCompanies = scopedToOneCompany
+        ? 1
+        : state.companies.where((company) => company.isUsable).length;
+    final totalCompanies = scopedToOneCompany ? 1 : state.companies.length;
+    final useSummaryCounts = state.releaseCompanyId == null &&
+        state.releaseDeviceRows.isEmpty &&
+        summary != null;
+    final activeUsers = useSummaryCounts ? summary!.activeUsers : stats.activeUsers;
+    final activeDevices = useSummaryCounts ? summary!.activeDevices : stats.activeDevices;
+    final activeWebUsers = useSummaryCounts
+        ? summary!.activeWebUsers
+        : stats.activeWebUsers;
+    final activeWebDevices = useSummaryCounts
+        ? summary!.activeWebDevices
+        : stats.activeWebDevices;
+    final activeAndroidUsers = useSummaryCounts
+        ? summary!.activeAndroidUsers
+        : stats.activeAndroidUsers;
+    final activeAndroidDevices = useSummaryCounts
+        ? summary!.activeAndroidDevices
+        : stats.activeAndroidDevices;
+    final pushConnected = useSummaryCounts
+        ? summary!.pushConnected
+        : stats.pushConnected;
+    final pushBlocked = useSummaryCounts ? summary!.pushBlocked : stats.pushBlocked;
+    final pushMissing = useSummaryCounts ? summary!.pushMissing : stats.pushMissing;
+    final pushInvalidFailed = useSummaryCounts
+        ? summary!.pushInvalidFailed
+        : stats.pushInvalidFailed;
+    final pushUnknown = useSummaryCounts ? summary!.pushUnknown : stats.pushUnknown;
+    final pushTotal = pushConnected + pushBlocked + pushMissing +
+        pushInvalidFailed + pushUnknown;
+    final publicUsers = _roundedUsageMetric(activeUsers);
+    final publicCompanies = _roundedUsageMetric(activeCompanies);
+    final publicStatement = _releaseTrustText(
+      context,
+      'Trusted by $publicUsers+ users across $publicCompanies+ real estate teams.',
+      'موثوق به من $publicUsers+ مستخدم عبر $publicCompanies+ فرق عقارية.',
+    );
+    final scopeLabel = scopedToOneCompany
+        ? _companyTitle(selectedCompany!)
+        : l.allCompanies;
+    final lastUpdated = summary?.lastUpdated == null
+        ? l.notAvailable
+        : _formatDate(context, summary!.lastUpdated!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ReleaseGuidancePanel(
+          message: _releaseTrustText(
+            context,
+            'Owner-only usage metrics for internal trust tracking. These numbers are not shown to customers or the public app yet.',
+            'مؤشرات استخدام داخلية للمالك فقط. هذه الأرقام لا تظهر للعملاء أو في التطبيق العام الآن.',
+          ),
+          notes: [
+            _releaseTrustText(
+              context,
+              'Use rounded wording only when you decide to publish the metric later.',
+              'عند نشر الرقم لاحقًا استخدم صياغة تقريبية فقط، وليس أرقامًا دقيقة.',
+            ),
+            _releaseTrustText(
+              context,
+              'Current scope: $scopeLabel',
+              'النطاق الحالي: $scopeLabel',
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseKpiGrid(
+          children: [
+            _ReleaseKpiCard(
+              icon: Icons.people_alt_outlined,
+              title: _releaseTrustText(context, 'Active users', 'المستخدمون النشطون'),
+              value: activeUsers.toString(),
+              detail: _releaseTrustText(
+                context,
+                'Unique users seen in the release intelligence window',
+                'مستخدمون فريدون ضمن فترة ذكاء الإصدارات',
+              ),
+              status: _releaseTrustText(context, 'Owner only', 'للمالك فقط'),
+              tone: AppStatusTone.info,
+            ),
+            _ReleaseKpiCard(
+              icon: Icons.business_outlined,
+              title: _releaseTrustText(context, 'Companies', 'الشركات'),
+              value: '$activeCompanies / $totalCompanies',
+              detail: _releaseTrustText(
+                context,
+                'Usable companies / total companies',
+                'الشركات القابلة للاستخدام / إجمالي الشركات',
+              ),
+              tone: AppStatusTone.success,
+            ),
+            _ReleaseKpiCard(
+              icon: Icons.devices_other_outlined,
+              title: l.activeDevices,
+              value: activeDevices.toString(),
+              detail: _releaseTrustText(
+                context,
+                'Active app installs currently counted',
+                'تثبيتات التطبيق النشطة المحسوبة حاليًا',
+              ),
+              tone: AppStatusTone.info,
+            ),
+            _ReleaseKpiCard(
+              icon: Icons.notifications_active_outlined,
+              title: _releaseTrustText(context, 'Push-ready devices', 'الأجهزة الجاهزة للتنبيهات'),
+              value: pushTotal == 0
+                  ? pushConnected.toString()
+                  : '$pushConnected / $pushTotal',
+              detail: _releaseTrustText(
+                context,
+                'Devices with active notification connection',
+                'الأجهزة التي لديها اتصال تنبيهات نشط',
+              ),
+              tone: pushConnected > 0 ? AppStatusTone.success : AppStatusTone.neutral,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseSectionBlock(
+          title: _releaseTrustText(
+            context,
+            'Public wording preview',
+            'معاينة الصياغة العامة',
+          ),
+          icon: Icons.campaign_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ReleaseSignalPanel(
+                message: _releaseTrustText(
+                  context,
+                  'Keep this owner-only until the numbers are strong enough for public marketing.',
+                  'احتفظ بها للمالك فقط حتى تكون الأرقام قوية كفاية للنشر التسويقي.',
+                ),
+                fields: [
+                  _ReleaseField(
+                    _releaseTrustText(context, 'Suggested sentence', 'الجملة المقترحة'),
+                    publicStatement,
+                  ),
+                  _ReleaseField(
+                    _releaseTrustText(context, 'Counting method', 'طريقة الحساب'),
+                    _releaseTrustText(
+                      context,
+                      'Aggregated release/device intelligence, not live customer data.',
+                      'تجميع من بيانات الإصدارات والأجهزة، وليس بيانات عملاء مباشرة.',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  _ReleaseFieldView(
+                    field: _ReleaseField(
+                      _releaseTrustText(context, 'Public users label', 'صياغة المستخدمين العامة'),
+                      '$publicUsers+',
+                    ),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(
+                      _releaseTrustText(context, 'Public companies label', 'صياغة الشركات العامة'),
+                      '$publicCompanies+',
+                    ),
+                  ),
+                  _ReleaseFieldView(
+                    field: _ReleaseField(l.lastUpdated, lastUpdated),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ReleaseSectionBlock(
+          title: _releaseTrustText(context, 'Platform split', 'تقسيم المنصات'),
+          icon: Icons.pie_chart_outline_rounded,
+          child: Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  l.webUsersDevices,
+                  '$activeWebUsers / $activeWebDevices',
+                ),
+              ),
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  l.androidUsersDevices,
+                  '$activeAndroidUsers / $activeAndroidDevices',
+                ),
+              ),
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  _releaseTrustText(context, 'Blocked notifications', 'تنبيهات محظورة'),
+                  pushBlocked.toString(),
+                ),
+              ),
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  _releaseTrustText(context, 'Missing notifications', 'تنبيهات غير مسجلة'),
+                  pushMissing.toString(),
+                ),
+              ),
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  _releaseTrustText(context, 'Invalid/failed notifications', 'تنبيهات فاشلة/غير صالحة'),
+                  pushInvalidFailed.toString(),
+                ),
+              ),
+              _ReleaseFieldView(
+                field: _ReleaseField(
+                  _releaseTrustText(context, 'Unknown notification state', 'حالة تنبيهات غير معروفة'),
+                  pushUnknown.toString(),
+                ),
               ),
             ],
           ),
@@ -5290,6 +5543,22 @@ class _ReleaseFieldView extends StatelessWidget {
       ),
     );
   }
+}
+
+String _releaseTrustText(BuildContext context, String en, String ar) {
+  return Localizations.localeOf(context).languageCode == 'ar' ? ar : en;
+}
+
+String _roundedUsageMetric(int value) {
+  if (value < 10) return value.toString();
+  if (value < 100) return (value ~/ 10 * 10).toString();
+  if (value < 1000) return (value ~/ 50 * 50).toString();
+  if (value < 10000) {
+    final rounded = value ~/ 100 * 100;
+    return rounded >= 1000 ? '${(rounded / 1000).toStringAsFixed(rounded % 1000 == 0 ? 0 : 1)}K' : rounded.toString();
+  }
+  final rounded = value ~/ 1000;
+  return '${rounded}K';
 }
 
 int _releaseBuild(PlatformReleaseRecord? release) {

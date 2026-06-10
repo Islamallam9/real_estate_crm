@@ -14,9 +14,11 @@ import '../../../../core/widgets/masar_brand.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../notifications/presentation/routing/web_foreground_notification_notifier.dart';
 import '../../data/datasources/android_apk_update_installer.dart';
 import '../../data/datasources/app_update_remote_data_source.dart';
 import '../../domain/entities/android_release_policy.dart';
+import '../app_update_coordinator.dart';
 
 class AndroidUpdateGate extends StatefulWidget {
   const AndroidUpdateGate({super.key, required this.child});
@@ -28,12 +30,96 @@ class AndroidUpdateGate extends StatefulWidget {
 }
 
 class _AndroidUpdateGateState extends State<AndroidUpdateGate> {
+  static const Duration _updateReminderInterval = Duration(hours: 6);
+  static const MethodChannel _updateNotificationChannel =
+      MethodChannel('masarcrm/update_notifications');
+
   late Future<AndroidReleasePolicy?> _policyFuture;
+  final AppUpdateCoordinator _coordinator = AppUpdateCoordinator.instance;
+  Timer? _updateReminderTimer;
+  AndroidReleasePolicy? _requestedPolicy;
+  AndroidReleasePolicy? _lastReminderPolicy;
+  bool _isReminderCheckRunning = false;
+  bool _isReminderDialogVisible = false;
+  DateTime? _lastReminderShownAt;
 
   @override
   void initState() {
     super.initState();
     _policyFuture = _loadPolicy();
+    _coordinator.requestedPolicy.addListener(_handleRequestedPolicyChanged);
+    _updateNotificationChannel.setMethodCallHandler(_handleUpdateNotificationMethod);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingUpdateNotificationTap();
+    });
+    _updateReminderTimer = Timer.periodic(
+      _updateReminderInterval,
+      (_) => _checkForUpdateReminder(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _coordinator.requestedPolicy.removeListener(_handleRequestedPolicyChanged);
+    _updateNotificationChannel.setMethodCallHandler(null);
+    _updateReminderTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleRequestedPolicyChanged() {
+    final requested = _coordinator.requestedPolicy.value;
+    if (requested == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _requestedPolicy = requested;
+    });
+  }
+
+  Future<dynamic> _handleUpdateNotificationMethod(MethodCall call) async {
+    if (call.method == 'showUpdateReminderFromNotification') {
+      await _openUpdateFromNotification();
+      return true;
+    }
+    return null;
+  }
+
+  Future<void> _consumePendingUpdateNotificationTap() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android || !mounted) {
+      return;
+    }
+    try {
+      final hasPendingTap = await _updateNotificationChannel
+          .invokeMethod<bool>('consumePendingUpdateNotificationTap') ?? false;
+      if (hasPendingTap) {
+        await _openUpdateFromNotification();
+      }
+    } catch (_) {
+      // Native notification tap handling is best-effort.
+    }
+  }
+
+  Future<void> _openUpdateFromNotification() async {
+    if (!mounted) return;
+    final cachedPolicy = _lastReminderPolicy;
+    if (cachedPolicy != null &&
+        (cachedPolicy.updateAvailable || cachedPolicy.updateRequired)) {
+      _coordinator.showUpdate(cachedPolicy);
+      return;
+    }
+
+    try {
+      final policy = await AppUpdateRemoteDataSource()
+          .getAndroidReleasePolicy()
+          .timeout(const Duration(seconds: 10));
+      if (!mounted || !(policy.updateAvailable || policy.updateRequired)) {
+        return;
+      }
+      _lastReminderPolicy = policy;
+      _coordinator.showUpdate(policy);
+    } catch (_) {
+      // The in-app/manual check flow will still be available from Settings.
+    }
   }
 
   Future<AndroidReleasePolicy?> _loadPolicy() async {
@@ -51,8 +137,124 @@ class _AndroidUpdateGateState extends State<AndroidUpdateGate> {
     }
   }
 
+  Future<void> _checkForUpdateReminder() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    if (_isReminderCheckRunning || _requestedPolicy != null || !mounted) {
+      return;
+    }
+    final authState = context.read<AuthBloc>().state;
+    if (authState.user == null || authState.status != AuthStatus.authenticated) {
+      return;
+    }
+
+    final lastReminder = _lastReminderShownAt;
+    if (lastReminder != null &&
+        DateTime.now().difference(lastReminder) < _updateReminderInterval) {
+      return;
+    }
+
+    _isReminderCheckRunning = true;
+    try {
+      final policy = await AppUpdateRemoteDataSource()
+          .getAndroidReleasePolicy()
+          .timeout(const Duration(seconds: 10));
+      if (!mounted || !(policy.updateAvailable || policy.updateRequired)) {
+        return;
+      }
+      _lastReminderShownAt = DateTime.now();
+      _lastReminderPolicy = policy;
+      final l = AppLocalizations.of(context)!;
+      await _showAndroidUpdateNotification(policy, l);
+      await showMasarWebForegroundNotification(
+        title: l.appUpdateReminderTitle,
+        body: l.appUpdateReminderBody,
+        route: '/settings',
+        tag: 'masar_app_update_available',
+      );
+      _showUpdateReminder(policy);
+    } catch (_) {
+      // Reminder checks are best-effort and must never block the app.
+    } finally {
+      _isReminderCheckRunning = false;
+    }
+  }
+
+  Future<void> _showAndroidUpdateNotification(
+    AndroidReleasePolicy policy,
+    AppLocalizations l,
+  ) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    try {
+      await _updateNotificationChannel.invokeMethod<bool>(
+        'showUpdateAvailableNotification',
+        <String, Object?>{
+          'title': policy.updateRequired
+              ? l.androidUpdateTitle
+              : l.appUpdateAvailableTitle,
+          'body': policy.updateRequired
+              ? l.appUpdateRequiredManualBody
+              : l.appUpdateReminderBody,
+          'actionLabel': l.appUpdateOpenUpdater,
+          'updateRequired': policy.updateRequired,
+          'latestBuildNumber': policy.latestBuildNumber,
+          'minimumSupportedBuildNumber': policy.minimumSupportedBuildNumber,
+        },
+      );
+    } catch (_) {
+      // The in-app reminder remains the primary UX if Android notifications are blocked.
+    }
+  }
+
+  void _showUpdateReminder(AndroidReleasePolicy policy) {
+    if (!mounted || _isReminderDialogVisible || _requestedPolicy != null) {
+      return;
+    }
+    final l = AppLocalizations.of(context)!;
+    _isReminderDialogVisible = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: !policy.updateRequired,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          policy.updateRequired ? l.androidUpdateTitle : l.appUpdateAvailableTitle,
+        ),
+        content: Text(
+          policy.updateRequired
+              ? l.appUpdateRequiredManualBody
+              : l.appUpdateReminderBody,
+        ),
+        actions: [
+          if (!policy.updateRequired)
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l.appUpdateLater),
+            ),
+          AppButton(
+            label: l.appUpdateOpenUpdater,
+            icon: Icons.system_update_alt_rounded,
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _coordinator.showUpdate(policy);
+            },
+          ),
+        ],
+      ),
+    ).whenComplete(() {
+      _isReminderDialogVisible = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final requestedPolicy = _requestedPolicy;
+    if (requestedPolicy != null) {
+      return AndroidForcedUpdateScreen(policy: requestedPolicy);
+    }
+
     final authState = context.watch<AuthBloc>().state;
     if (_shouldBypassGateForAuthState(authState)) {
       return widget.child;
@@ -72,7 +274,7 @@ class _AndroidUpdateGateState extends State<AndroidUpdateGate> {
           return widget.child;
         }
 
-        return _AndroidForcedUpdateScreen(policy: policy);
+        return AndroidForcedUpdateScreen(policy: policy);
       },
     );
   }
@@ -125,17 +327,17 @@ class _AndroidUpdateCheckingScreen extends StatelessWidget {
   }
 }
 
-class _AndroidForcedUpdateScreen extends StatefulWidget {
-  const _AndroidForcedUpdateScreen({required this.policy});
+class AndroidForcedUpdateScreen extends StatefulWidget {
+  const AndroidForcedUpdateScreen({super.key, required this.policy});
 
   final AndroidReleasePolicy policy;
 
   @override
-  State<_AndroidForcedUpdateScreen> createState() =>
+  State<AndroidForcedUpdateScreen> createState() =>
       _AndroidForcedUpdateScreenState();
 }
 
-class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> {
+class _AndroidForcedUpdateScreenState extends State<AndroidForcedUpdateScreen> {
   final AndroidApkUpdateInstaller _installer = AndroidApkUpdateInstaller();
 
   late DateTime _estimatedServerNow;
@@ -171,12 +373,18 @@ class _AndroidForcedUpdateScreenState extends State<_AndroidForcedUpdateScreen> 
     final l = AppLocalizations.of(context)!;
     final localeCode = Localizations.localeOf(context).languageCode;
     final isArabic = localeCode == 'ar';
+    final fallbackTitle = widget.policy.updateRequired
+        ? l.androidUpdateTitle
+        : l.appUpdateAvailableTitle;
+    final fallbackBody = widget.policy.updateRequired
+        ? l.androidUpdateBody
+        : l.appUpdateAvailableBody;
     final title = isArabic
-        ? _firstText(widget.policy.titleAr, widget.policy.titleEn, l.androidUpdateTitle)
-        : _firstText(widget.policy.titleEn, widget.policy.titleAr, l.androidUpdateTitle);
+        ? _firstText(widget.policy.titleAr, widget.policy.titleEn, fallbackTitle)
+        : _firstText(widget.policy.titleEn, widget.policy.titleAr, fallbackTitle);
     final body = isArabic
-        ? _firstText(widget.policy.bodyAr, widget.policy.bodyEn, l.androidUpdateBody)
-        : _firstText(widget.policy.bodyEn, widget.policy.bodyAr, l.androidUpdateBody);
+        ? _firstText(widget.policy.bodyAr, widget.policy.bodyEn, fallbackBody)
+        : _firstText(widget.policy.bodyEn, widget.policy.bodyAr, fallbackBody);
     final remaining = _remainingDuration(widget.policy);
     final progress = _remainingProgress(widget.policy, remaining);
     final textTheme = Theme.of(context).textTheme;

@@ -2521,6 +2521,47 @@ class AppLocalizationsAr extends AppLocalizations {
       'اسمح لتطبيق مسار CRM بتثبيت التحديثات، ثم ارجع واضغط تثبيت التحديث مرة أخرى.';
 
   @override
+  String get checkForUpdates => 'التحقق من التحديثات';
+
+  @override
+  String get checkForUpdatesSubtitle =>
+      'تحقق هل يعمل هذا الجهاز على أحدث إصدار من مسار CRM.';
+
+  @override
+  String get checkingForUpdates => 'جاري التحقق من التحديثات';
+
+  @override
+  String get appUpdateAvailableTitle => 'يتوفر تحديث جديد';
+
+  @override
+  String get appUpdateAvailableBody =>
+      'يتوفر إصدار أحدث من مسار CRM. حدّث الآن للحصول على آخر الإصلاحات والتحسينات.';
+
+  @override
+  String get appUpdateRequiredManualBody =>
+      'هذا الإصدار لم يعد مدعومًا. حدّث مسار CRM للاستمرار بأمان.';
+
+  @override
+  String get appUpdateUpToDate => 'أنت تستخدم أحدث إصدار.';
+
+  @override
+  String get appUpdateUnableToCheck =>
+      'تعذر التحقق من التحديثات. حاول مرة أخرى.';
+
+  @override
+  String get appUpdateLater => 'لاحقًا';
+
+  @override
+  String get appUpdateReminderTitle => 'يتوفر تحديث لمسار CRM';
+
+  @override
+  String get appUpdateReminderBody =>
+      'يتوفر إصدار أحدث من مسار CRM. حدّث الآن للحفاظ على مساحة عملك آمنة ومستقرة.';
+
+  @override
+  String get appUpdateOpenUpdater => 'التحديث الآن';
+
+  @override
   String get exportNotAvailableForRole => 'هذا التصدير غير متاح لدورك.';
 
   @override

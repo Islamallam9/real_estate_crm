@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,9 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/widgets/change_password_dialog.dart';
 import '../../../platform/presentation/widgets/platform_account_shell.dart';
 import '../../../notifications/presentation/widgets/notification_push_status_card.dart';
+import '../../../app_update/data/datasources/app_update_remote_data_source.dart';
+import '../../../app_update/domain/entities/android_release_policy.dart';
+import '../../../app_update/presentation/app_update_coordinator.dart';
 import '../../data/datasources/platform_owner_account_remote_data_source.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -453,6 +457,8 @@ class _AboutSection extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          const _CheckForUpdatesTile(),
           const SizedBox(height: AppSpacing.sm),
           Divider(color: AppColors.borderColor(context)),
           const SizedBox(height: AppSpacing.xs),
@@ -465,6 +471,239 @@ class _AboutSection extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _CheckForUpdatesTile extends StatefulWidget {
+  const _CheckForUpdatesTile();
+
+  @override
+  State<_CheckForUpdatesTile> createState() => _CheckForUpdatesTileState();
+}
+
+class _CheckForUpdatesTileState extends State<_CheckForUpdatesTile> {
+  bool _checking = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final textTheme = Theme.of(context).textTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.system_update_alt_rounded,
+                  color: AppColors.primaryColor(context),
+                  size: 22,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.checkForUpdates,
+                        style: textTheme.titleSmall?.copyWith(
+                          color: AppColors.textPrimaryColor(context),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l.checkForUpdatesSubtitle,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryColor(context),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppButton(
+              label: _checking ? l.checkingForUpdates : l.checkForUpdates,
+              icon: Icons.refresh_rounded,
+              variant: AppButtonVariant.secondary,
+              isLoading: _checking,
+              isExpanded: true,
+              onPressed: _checking ? null : _checkForUpdates,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdates() async {
+    final l = AppLocalizations.of(context)!;
+    setState(() => _checking = true);
+    try {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+        if (!mounted) return;
+        AppFeedback.success(context, l.appUpdateUpToDate);
+        return;
+      }
+
+      final policy = await AppUpdateRemoteDataSource()
+          .getAndroidReleasePolicy()
+          .timeout(const Duration(seconds: 10));
+      if (!mounted) return;
+      if (policy.updateRequired || policy.updateAvailable) {
+        await _showUpdateResult(policy);
+      } else {
+        AppFeedback.success(context, l.appUpdateUpToDate);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppFeedback.error(context, l.appUpdateUnableToCheck);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checking = false);
+      }
+    }
+  }
+
+  Future<void> _showUpdateResult(AndroidReleasePolicy policy) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardSurface(context),
+      builder: (sheetContext) {
+        final l = AppLocalizations.of(sheetContext)!;
+        final textTheme = Theme.of(sheetContext).textTheme;
+        final latestBuild = policy.latestBuildNumber > 0
+            ? policy.latestBuildNumber
+            : policy.minimumSupportedBuildNumber;
+        final latestVersion = policy.latestVersionName.trim().isNotEmpty
+            ? policy.latestVersionName.trim()
+            : AppConstants.appVersion;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg + MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(
+                  policy.updateRequired
+                      ? Icons.warning_amber_rounded
+                      : Icons.system_update_alt_rounded,
+                  color: policy.updateRequired
+                      ? AppColors.warningColor(sheetContext)
+                      : AppColors.primaryColor(sheetContext),
+                  size: 36,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  policy.updateRequired
+                      ? l.androidUpdateTitle
+                      : l.appUpdateAvailableTitle,
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimaryColor(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  policy.updateRequired
+                      ? l.appUpdateRequiredManualBody
+                      : l.appUpdateAvailableBody,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondaryColor(sheetContext),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _UpdateInfoRow(
+                  label: l.androidUpdateCurrentVersion,
+                  value: _appVersionBuildLabel(),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _UpdateInfoRow(
+                  label: l.androidUpdateLatestVersion,
+                  value: '$latestVersion ($latestBuild)',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppButton(
+                  label: l.appUpdateOpenUpdater,
+                  icon: Icons.system_update_alt_rounded,
+                  isExpanded: true,
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    AppUpdateCoordinator.instance.showUpdate(policy);
+                  },
+                ),
+                if (!policy.updateRequired) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    child: Text(l.appUpdateLater),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UpdateInfoRow extends StatelessWidget {
+  const _UpdateInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryColor(context),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textPrimaryColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }

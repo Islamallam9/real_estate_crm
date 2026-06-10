@@ -181,6 +181,14 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
     _watchAppointments(attentionMode: index == 1);
   }
 
+  void _showAppointmentsTab() {
+    if (_selectedTab == 0) {
+      return;
+    }
+    setState(() => _selectedTab = 0);
+    _watchAppointments();
+  }
+
   void _applyInitialFiltersIfNeeded() {
     final signature = _filterSignature(widget.initialFilters);
     if (signature.isEmpty || _appliedFilterSignature == signature) {
@@ -280,7 +288,10 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   canCreate: canCreate,
                   onCreate: () => context.go(RouteNames.appointmentsCreate),
                 );
-                final summary = _AppointmentsSummary(state: state);
+                final summary = _AppointmentsSummary(
+                  state: state,
+                  onKpiSelected: _showAppointmentsTab,
+                );
                 final tabs = _AppointmentsTabs(
                   selectedIndex: _selectedTab,
                   attentionCount: _attentionBadgeCount(state, attentionAppointments),
@@ -450,9 +461,10 @@ class _AppointmentsHeader extends StatelessWidget {
 }
 
 class _AppointmentsSummary extends StatelessWidget {
-  const _AppointmentsSummary({required this.state});
+  const _AppointmentsSummary({required this.state, this.onKpiSelected});
 
   final AppointmentsState state;
+  final VoidCallback? onKpiSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -470,6 +482,7 @@ class _AppointmentsSummary extends StatelessWidget {
         tone: AppStatusTone.info,
         selected: state.dateFilter == AppointmentDateFilter.today,
         onTap: () {
+          onKpiSelected?.call();
           cubit.clearFilters();
           cubit.setDateFilter(AppointmentDateFilter.today);
         },
@@ -485,6 +498,7 @@ class _AppointmentsSummary extends StatelessWidget {
         tone: AppStatusTone.warning,
         selected: state.dateFilter == AppointmentDateFilter.upcoming,
         onTap: () {
+          onKpiSelected?.call();
           cubit.clearFilters();
           cubit.setDateFilter(AppointmentDateFilter.upcoming);
         },
@@ -500,6 +514,7 @@ class _AppointmentsSummary extends StatelessWidget {
         tone: AppStatusTone.error,
         selected: state.dateFilter == AppointmentDateFilter.missed,
         onTap: () {
+          onKpiSelected?.call();
           cubit.clearFilters();
           cubit.setDateFilter(AppointmentDateFilter.missed);
         },
@@ -515,6 +530,7 @@ class _AppointmentsSummary extends StatelessWidget {
         tone: AppStatusTone.success,
         selected: state.statusFilter == AppointmentStatus.completed,
         onTap: () {
+          onKpiSelected?.call();
           cubit.clearFilters();
           cubit.setStatusFilter(AppointmentStatus.completed);
         },

@@ -241,9 +241,11 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   _DashboardWatchScopeKey? _watchScopeKey;
   Timer? _clockTicker;
+  Timer? _initialFailureRetryTimer;
   Stream<List<UserProfile>>? _activeUsersStream;
   bool _activeUsersRequested = false;
   bool _auditLogsRequested = false;
+  int _initialFailureRetryCount = 0;
 
   @override
   void initState() {
@@ -265,6 +267,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void dispose() {
     _clockTicker?.cancel();
+    _initialFailureRetryTimer?.cancel();
     super.dispose();
   }
 
@@ -370,7 +373,32 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   void _retry() {
+    _initialFailureRetryTimer?.cancel();
+    _initialFailureRetryTimer = null;
+    _initialFailureRetryCount = 0;
     _watchScopedDashboardData(force: true);
+  }
+
+  void _scheduleInitialFailureRecovery(String? message) {
+    if (_initialFailureRetryTimer != null ||
+        _initialFailureRetryCount >= 3 ||
+        !_isRecoverableDashboardInitialFailure(message)) {
+      return;
+    }
+    final delay = Duration(seconds: 2 + (_initialFailureRetryCount * 2));
+    _initialFailureRetryTimer = Timer(delay, () {
+      _initialFailureRetryTimer = null;
+      _initialFailureRetryCount += 1;
+      if (mounted) {
+        _watchScopedDashboardData(force: true);
+      }
+    });
+  }
+
+  void _clearInitialFailureRecovery() {
+    _initialFailureRetryTimer?.cancel();
+    _initialFailureRetryTimer = null;
+    _initialFailureRetryCount = 0;
   }
 
   void _requestDashboardActiveUsers() {
@@ -527,14 +555,22 @@ class _DashboardContentState extends State<_DashboardContent> {
                             tasksState.message ??
                             appointmentsState.message ??
                             (dealsAllowed ? dealsState.message : null);
+                        final recoverInitialFailure = hasInitialFailure &&
+                            _initialFailureRetryCount < 3 &&
+                            _isRecoverableDashboardInitialFailure(failureMessage);
+                        if (recoverInitialFailure) {
+                          _scheduleInitialFailureRecovery(failureMessage);
+                        } else if (!hasInitialFailure && !isLoading) {
+                          _clearInitialFailureRecovery();
+                        }
 
                             return _DashboardView(
                               data: data,
                               authState: widget.authState,
                               platformPreview: widget.platformPreview,
                               previewCompanyName: widget.previewCompanyName,
-                              isLoading: isLoading,
-                              hasInitialFailure: hasInitialFailure,
+                              isLoading: isLoading || recoverInitialFailure,
+                              hasInitialFailure: recoverInitialFailure ? false : hasInitialFailure,
                               failureMessage: failureMessage,
                               onRetry: _retry,
                               onActiveUsersNeeded: _requestDashboardActiveUsers,
@@ -555,6 +591,19 @@ class _DashboardContentState extends State<_DashboardContent> {
       },
     );
   }
+}
+
+
+bool _isRecoverableDashboardInitialFailure(String? message) {
+  final normalized = (message ?? '').toLowerCase();
+  if (normalized.contains('permission-denied') ||
+      normalized.contains('permission denied') ||
+      normalized.contains('missing index') ||
+      normalized.contains('failed-precondition') ||
+      normalized.contains('not-found')) {
+    return false;
+  }
+  return true;
 }
 
 class _RecentActivityPanel extends StatelessWidget {

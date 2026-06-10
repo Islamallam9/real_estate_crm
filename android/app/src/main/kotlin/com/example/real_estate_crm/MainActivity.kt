@@ -1,9 +1,14 @@
 package com.example.real_estate_crm
 
 import android.app.DownloadManager
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -19,6 +24,8 @@ import java.io.IOException
 import androidx.core.content.FileProvider
 
 class MainActivity : FlutterActivity() {
+    private var pendingUpdateNotificationTap: Boolean = false
+    private var updateNotificationChannel: MethodChannel? = null
     private var pendingExportSaveResult: MethodChannel.Result? = null
     private var pendingExportSourcePath: String = ""
     private var pendingExportFileName: String = ""
@@ -121,6 +128,42 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        updateNotificationChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            UPDATE_NOTIFICATIONS_CHANNEL
+        )
+        updateNotificationChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "showUpdateAvailableNotification" -> {
+                    val title = call.argument<String>("title")?.trim().orEmpty()
+                    val body = call.argument<String>("body")?.trim().orEmpty()
+                    val actionLabel = call.argument<String>("actionLabel")?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?: "Update"
+                    val required = call.argument<Boolean>("updateRequired") ?: false
+                    if (title.isEmpty() || body.isEmpty()) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        result.success(showUpdateAvailableNotification(title, body, actionLabel, required))
+                    } catch (_: Exception) {
+                        result.success(false)
+                    }
+                }
+                "consumePendingUpdateNotificationTap" -> {
+                    val hadPendingTap = pendingUpdateNotificationTap || hasUpdateNotificationAction(intent)
+                    pendingUpdateNotificationTap = false
+                    clearUpdateNotificationAction(intent)
+                    result.success(hadPendingTap)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        if (hasUpdateNotificationAction(intent)) {
+            pendingUpdateNotificationTap = true
+        }
+
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             APK_UPDATER_CHANNEL
@@ -192,6 +235,98 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (hasUpdateNotificationAction(intent)) {
+            pendingUpdateNotificationTap = true
+            updateNotificationChannel?.invokeMethod("showUpdateReminderFromNotification", null)
+        }
+    }
+
+    private fun showUpdateAvailableNotification(
+        title: String,
+        body: String,
+        actionLabel: String,
+        required: Boolean
+    ): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                UPDATE_NOTIFICATION_CHANNEL_ID,
+                "App updates",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Masar CRM update reminders"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val tapIntent = Intent(this, MainActivity::class.java).apply {
+            action = ACTION_SHOW_UPDATE
+            putExtra(EXTRA_UPDATE_NOTIFICATION_TAP, true)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val tapPendingIntent = PendingIntent.getActivity(
+            this,
+            UPDATE_NOTIFICATION_REQUEST_CODE,
+            tapIntent,
+            flags
+        )
+        val smallIcon = if (applicationInfo.icon != 0) applicationInfo.icon else R.mipmap.ic_launcher
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, UPDATE_NOTIFICATION_CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+
+        builder
+            .setSmallIcon(smallIcon)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(Notification.BigTextStyle().bigText(body))
+            .setContentIntent(tapPendingIntent)
+            .setAutoCancel(true)
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
+            .setPriority(if (required) Notification.PRIORITY_HIGH else Notification.PRIORITY_DEFAULT)
+            .setCategory(Notification.CATEGORY_STATUS)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            builder.addAction(
+                Notification.Action.Builder(smallIcon, actionLabel, tapPendingIntent).build()
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            builder.addAction(smallIcon, actionLabel, tapPendingIntent)
+        }
+
+        notificationManager.notify(UPDATE_NOTIFICATION_ID, builder.build())
+        return true
+    }
+
+    private fun hasUpdateNotificationAction(intent: Intent?): Boolean {
+        return intent?.getBooleanExtra(EXTRA_UPDATE_NOTIFICATION_TAP, false) == true ||
+            intent?.action == ACTION_SHOW_UPDATE
+    }
+
+    private fun clearUpdateNotificationAction(intent: Intent?) {
+        intent?.removeExtra(EXTRA_UPDATE_NOTIFICATION_TAP)
+        if (intent?.action == ACTION_SHOW_UPDATE) {
+            intent.action = null
         }
     }
 
@@ -609,10 +744,16 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val FILE_DOWNLOADER_CHANNEL = "masarcrm/file_downloader"
         const val APK_UPDATER_CHANNEL = "masarcrm/android_apk_updater"
+        const val UPDATE_NOTIFICATIONS_CHANNEL = "masarcrm/update_notifications"
         const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         const val EXCEL_XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         const val EXCEL_LEGACY_MIME_TYPE = "application/vnd.ms-excel"
         const val MIN_APK_BYTES = 1024 * 1024
         const val EXPORT_SAVE_REQUEST_CODE = 42420
+        const val UPDATE_NOTIFICATION_CHANNEL_ID = "masar_app_updates"
+        const val UPDATE_NOTIFICATION_ID = 93021
+        const val UPDATE_NOTIFICATION_REQUEST_CODE = 93022
+        const val ACTION_SHOW_UPDATE = "com.example.real_estate_crm.SHOW_UPDATE"
+        const val EXTRA_UPDATE_NOTIFICATION_TAP = "masar_update_notification_tap"
     }
 }
