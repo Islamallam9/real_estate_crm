@@ -107,11 +107,14 @@ class _CreateTaskViewState extends State<_CreateTaskView> {
                                 );
                               },
                               builder: (context, users) {
-                                final effectiveUsers = users.isEmpty &&
-                                        (role == UserRole.salesAgent ||
-                                            role == UserRole.marketing)
-                                    ? <UserProfile>[userProfile]
-                                    : users;
+                                final effectiveUsers = _includeCurrentUserProfile(
+                                  users.isEmpty &&
+                                          (role == UserRole.salesAgent ||
+                                              role == UserRole.marketing)
+                                      ? <UserProfile>[userProfile]
+                                      : users,
+                                  userProfile,
+                                );
                                 final taskAssignees = eligibleTaskAssigneesForRole(
                                   users: effectiveUsers,
                                   role: role,
@@ -121,6 +124,7 @@ class _CreateTaskViewState extends State<_CreateTaskView> {
                                 return TaskForm(
                                   companyId: userProfile.companyId,
                                   actorUid: user.uid,
+                                  actorProfile: userProfile,
                                   users: taskAssignees,
                                   canEditAssignment:
                                       role == UserRole.admin ||
@@ -227,6 +231,51 @@ class _CreateTaskViewState extends State<_CreateTaskView> {
   }
 }
 
+
+List<UserProfile> _includeCurrentUserProfile(
+  List<UserProfile> users,
+  UserProfile currentUser,
+) {
+  var foundCurrentUser = false;
+  final mergedUsers = users.map((user) {
+    if (user.uid != currentUser.uid) {
+      return user;
+    }
+    foundCurrentUser = true;
+    return _preferCurrentUserAssignmentSnapshot(user, currentUser);
+  }).toList();
+  if (foundCurrentUser) {
+    return mergedUsers;
+  }
+  return <UserProfile>[currentUser, ...users];
+}
+
+UserProfile _preferCurrentUserAssignmentSnapshot(
+  UserProfile user,
+  UserProfile currentUser,
+) {
+  return user.copyWith(
+    fullName: _firstNonEmptyText([currentUser.fullName, user.fullName]),
+    email: _firstNonEmptyText([currentUser.email, user.email]),
+    teamId: _firstNonEmptyText([currentUser.teamId, user.teamId]),
+    teamName: _firstNonEmptyText([currentUser.teamName, user.teamName]),
+    managerId: _firstNonEmptyText([currentUser.managerId, user.managerId]),
+    managerName: _firstNonEmptyText([
+      currentUser.managerName,
+      user.managerName,
+    ]),
+  );
+}
+
+String _firstNonEmptyText(List<String> values) {
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+  }
+  return '';
+}
 
 TaskRelatedType? _initialRelatedType(Map<String, String> initialValues) {
   final value = initialValues['relatedType']?.trim();

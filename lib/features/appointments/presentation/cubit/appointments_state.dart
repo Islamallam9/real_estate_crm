@@ -1,9 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
+
 import '../../domain/entities/appointment.dart';
 import '../../domain/entities/appointment_related_record_option.dart';
 
-enum AppointmentsStatus { initial, loading, loaded, empty, saving, saved, failure }
+enum AppointmentsStatus { initial, loading, loadingMore, loaded, empty, saving, saved, failure }
 
 enum AppointmentRelatedRecordsStatus { initial, loading, loaded, empty, failure }
 
@@ -18,7 +20,7 @@ enum AppointmentAction {
 
 enum AppointmentDateFilter { today, thisWeek, upcoming, missed, feedbackNeeded, all }
 
-enum AppointmentCalendarView { today, month, week, day }
+enum AppointmentCalendarView { today, week, month, day }
 
 class AppointmentsState extends Equatable {
   const AppointmentsState({
@@ -34,6 +36,8 @@ class AppointmentsState extends Equatable {
     required this.calendarView,
     required this.selectedCalendarDate,
     required this.assignedToFilter,
+    required this.pageLimit,
+    this.kpiCounts = const ModuleKpiCounts.empty(),
     required this.message,
     required this.lastAction,
     required this.relatedRecordsStatus,
@@ -55,6 +59,8 @@ class AppointmentsState extends Equatable {
         calendarView = AppointmentCalendarView.today,
         selectedCalendarDate = null,
         assignedToFilter = '',
+        pageLimit = 15,
+      kpiCounts = const ModuleKpiCounts.empty(),
         message = null,
         lastAction = null,
         relatedRecordsStatus = AppointmentRelatedRecordsStatus.initial,
@@ -74,6 +80,38 @@ class AppointmentsState extends Equatable {
   final AppointmentCalendarView calendarView;
   final DateTime? selectedCalendarDate;
   final String assignedToFilter;
+  final int pageLimit;
+  final ModuleKpiCounts kpiCounts;
+  bool get hasLocalTableFilters {
+    return searchQuery.trim().isNotEmpty ||
+        statusFilter != null ||
+        typeFilter != null ||
+        dateFilter != null ||
+        selectedDateFilter != null ||
+        selectedCalendarDate != null ||
+        assignedToFilter.trim().isNotEmpty;
+  }
+
+  int? get filteredTotalCount {
+    if (hasLocalTableFilters) {
+      return null;
+    }
+    return kpiCounts.valueOrNull('listTotal') ?? kpiCounts.valueOrNull('total');
+  }
+
+  bool get canLoadMore {
+    if (filteredAppointments.length > pageLimit) {
+      return true;
+    }
+    if (hasLocalTableFilters) {
+      return false;
+    }
+    final listTotal = filteredTotalCount;
+    if (listTotal != null) {
+      return filteredAppointments.length < listTotal;
+    }
+    return false;
+  }
   final String? message;
   final AppointmentAction? lastAction;
   final AppointmentRelatedRecordsStatus relatedRecordsStatus;
@@ -94,6 +132,8 @@ class AppointmentsState extends Equatable {
     AppointmentCalendarView? calendarView,
     DateTime? selectedCalendarDate,
     String? assignedToFilter,
+    int? pageLimit,
+    ModuleKpiCounts? kpiCounts,
     String? message,
     AppointmentAction? lastAction,
     AppointmentRelatedRecordsStatus? relatedRecordsStatus,
@@ -133,6 +173,8 @@ class AppointmentsState extends Equatable {
           ? null
           : selectedCalendarDate ?? this.selectedCalendarDate,
       assignedToFilter: assignedToFilter ?? this.assignedToFilter,
+      pageLimit: pageLimit ?? this.pageLimit,
+      kpiCounts: kpiCounts ?? this.kpiCounts,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? null : lastAction ?? this.lastAction,
       relatedRecordsStatus: clearRelatedRecords
@@ -163,6 +205,8 @@ class AppointmentsState extends Equatable {
         calendarView,
         selectedCalendarDate,
         assignedToFilter,
+        pageLimit,
+    kpiCounts,
         message,
         lastAction,
         relatedRecordsStatus,

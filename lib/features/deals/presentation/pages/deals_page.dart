@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/archive/archive_filter.dart';
@@ -10,19 +11,24 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/assignment_user_policy.dart';
@@ -259,6 +265,8 @@ class _DealsViewState extends State<_DealsView> {
                             ],
                           );
 
+                          final kpis = _DealsKpiCards(state: state);
+
                           final filters = _DealsFilters(
                             state: state,
                             searchController: _searchController,
@@ -280,6 +288,7 @@ class _DealsViewState extends State<_DealsView> {
                             canEdit: canEdit,
                             canArchive: canArchive,
                             canUpdateStage: canUpdateStage,
+                            onLoadMore: () => context.read<DealsCubit>().loadMoreDeals(),
                             isArchivedView:
                                 state.archiveFilter == ArchiveFilter.archived,
                           );
@@ -301,6 +310,8 @@ class _DealsViewState extends State<_DealsView> {
                                       currentUserId: uid,
                                       teamId: teamId,
                                       archiveFilter: state.archiveFilter,
+                                      limit: state.pageLimit,
+                                      resetPage: false,
                                     );
 
                                 // Keep current stream content visible while Firestore
@@ -320,6 +331,8 @@ class _DealsViewState extends State<_DealsView> {
                                   children: [
                                     header,
                                     const SizedBox(height: AppSpacing.sm),
+                                    kpis,
+                                    const SizedBox(height: AppSpacing.sm),
                                     filters,
                                     const SizedBox(height: AppSpacing.sm),
                                     body,
@@ -335,6 +348,8 @@ class _DealsViewState extends State<_DealsView> {
                             children: [
                               header,
                               const SizedBox(height: AppSpacing.sm),
+                              kpis,
+                              const SizedBox(height: AppSpacing.sm),
                               filters,
                               const SizedBox(height: AppSpacing.sm),
                               Expanded(child: body),
@@ -349,6 +364,141 @@ class _DealsViewState extends State<_DealsView> {
             ),
     );
   }
+}
+
+
+class _DealsKpiCards extends StatelessWidget {
+  const _DealsKpiCards({required this.state});
+
+  final DealsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<DealsCubit>();
+    final openDeals = state.deals.where(DashboardTruthRules.isOpenDeal).toList();
+    final pipelineValue = openDeals.fold<num>(
+      0,
+      (sum, deal) => sum + deal.expectedValue,
+    );
+    final expectedCommission = openDeals.fold<num>(
+      0,
+      (sum, deal) => sum + deal.commission,
+    );
+
+    void clearThen(void Function() apply) {
+      cubit.clearFilters();
+      apply();
+    }
+
+    final cards = [
+      ModuleKpiCardData(
+        label: l.totalDeals,
+        value: state.kpiCounts.display(
+          'total',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.handshake_outlined,
+        tone: AppStatusTone.info,
+        selected: !_hasActiveDealFilter(state),
+        onTap: cubit.clearFilters,
+      ),
+      ModuleKpiCardData(
+        label: l.openDeals,
+        value: state.kpiCounts.display(
+          'open',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.trending_up_outlined,
+        tone: AppStatusTone.warning,
+        selected: state.workQueueFilter == DealWorkQueueFilter.open,
+        onTap: () => clearThen(
+          () => cubit.setWorkQueueFilter(DealWorkQueueFilter.open),
+        ),
+      ),
+      ModuleKpiCardData(
+        label: l.salesCommandMetricRisk,
+        value: state.kpiCounts.display(
+          'atRisk',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.warning_amber_rounded,
+        tone: AppStatusTone.error,
+        selected: state.workQueueFilter == DealWorkQueueFilter.atRisk,
+        onTap: () => clearThen(
+          () => cubit.setWorkQueueFilter(DealWorkQueueFilter.atRisk),
+        ),
+      ),
+      ModuleKpiCardData(
+        label: l.loadedExpectedValueTotal,
+        value: _formatDealMoney(context, pipelineValue),
+        icon: Icons.account_balance_wallet_outlined,
+        tone: AppStatusTone.info,
+        onTap: () => clearThen(
+          () => cubit.setWorkQueueFilter(DealWorkQueueFilter.open),
+        ),
+      ),
+      ModuleKpiCardData(
+        label: l.loadedCommissionTotal,
+        value: _formatDealMoney(context, expectedCommission),
+        icon: Icons.payments_outlined,
+        tone: AppStatusTone.success,
+        onTap: () => clearThen(
+          () => cubit.setWorkQueueFilter(DealWorkQueueFilter.open),
+        ),
+      ),
+      ModuleKpiCardData(
+        label: l.wonDealsThisMonth,
+        value: state.kpiCounts.display(
+          'wonThisMonth',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.verified_outlined,
+        tone: AppStatusTone.success,
+        selected: state.workQueueFilter == DealWorkQueueFilter.wonThisMonth,
+        onTap: () => clearThen(
+          () => cubit.setWorkQueueFilter(DealWorkQueueFilter.wonThisMonth),
+        ),
+      ),
+      ModuleKpiCardData(
+        label: l.lostDeals,
+        value: state.kpiCounts.display(
+          'lost',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.trending_down_outlined,
+        tone: AppStatusTone.error,
+        selected: state.stageFilter == DealStage.lost,
+        onTap: () => clearThen(() => cubit.setStageFilter(DealStage.lost)),
+      ),
+    ];
+
+    return ModuleKpiStrip(cards: cards);
+  }
+}
+
+
+bool _hasActiveDealFilter(DealsState state) {
+  return state.searchQuery.trim().isNotEmpty ||
+      state.stageFilter != null ||
+      state.assignedToFilter.trim().isNotEmpty ||
+      state.closingDateFilter != null ||
+      state.workQueueFilter != null;
+}
+
+Color _toneColor(BuildContext context, AppStatusTone tone) {
+  return switch (tone) {
+    AppStatusTone.success => AppColors.successColor(context),
+    AppStatusTone.warning => AppColors.warningColor(context),
+    AppStatusTone.error => AppColors.errorColor(context),
+    AppStatusTone.info => AppColors.primaryColor(context),
+    AppStatusTone.neutral => AppColors.textSecondaryColor(context),
+  };
 }
 
 class _DealsFilters extends StatelessWidget {
@@ -566,8 +716,8 @@ class _DealFilterChipPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          softWrap: true,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: AppColors.primaryColor(context),
             fontWeight: FontWeight.w800,
@@ -675,6 +825,7 @@ class _DealsBody extends StatelessWidget {
     required this.canEdit,
     required this.canArchive,
     required this.canUpdateStage,
+    required this.onLoadMore,
     required this.isArchivedView,
   });
 
@@ -686,6 +837,7 @@ class _DealsBody extends StatelessWidget {
   final bool canEdit;
   final bool canArchive;
   final bool canUpdateStage;
+  final VoidCallback onLoadMore;
   final bool isArchivedView;
 
   @override
@@ -708,6 +860,8 @@ class _DealsBody extends StatelessWidget {
             currentUserId: uid,
             teamId: teamId,
             archiveFilter: state.archiveFilter,
+            limit: state.pageLimit,
+            resetPage: false,
           );
         },
       );
@@ -724,28 +878,35 @@ class _DealsBody extends StatelessWidget {
     }
 
     if (state.filteredDeals.isEmpty) {
-      return AppEmptyState(
-        title: l.noData,
-        message: l.noDealsMatchFilters,
-        icon: Icons.search_off_outlined,
+      return _withLoadMoreFooter(
+        context,
+        AppEmptyState(
+          title: l.noData,
+          message: l.noDealsMatchFilters,
+          icon: Icons.search_off_outlined,
+        ),
       );
     }
+
+    final visibleDeals = _visiblePagedDeals(state);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
-          return Column(
-            children: [
-              for (var index = 0; index < state.filteredDeals.length; index++) ...[
-                DealCard(
-                  deal: state.filteredDeals[index],
+          return _withLoadMoreFooter(
+            context,
+            Column(
+              children: [
+                for (var index = 0; index < visibleDeals.length; index++) ...[
+                  DealCard(
+                  deal: visibleDeals[index],
                   onTap: () => context.go(
-                    RouteNames.dealDetails(state.filteredDeals[index].id),
+                    RouteNames.dealDetails(visibleDeals[index].id),
                   ),
                   onEdit: canEdit
                           && !isArchivedView
                       ? () => context.go(
-                    RouteNames.dealEdit(state.filteredDeals[index].id),
+                    RouteNames.dealEdit(visibleDeals[index].id),
                   )
                       : null,
                   onUpdateStage: canUpdateStage
@@ -753,7 +914,7 @@ class _DealsBody extends StatelessWidget {
                       ? () => showDealStageDialog(
                     context,
                     companyId: companyId,
-                    deal: state.filteredDeals[index],
+                    deal: visibleDeals[index],
                     updatedBy: uid,
                   )
                       : null,
@@ -762,7 +923,7 @@ class _DealsBody extends StatelessWidget {
                       ? () => showArchiveDealDialog(
                     context,
                     companyId: companyId,
-                    deal: state.filteredDeals[index],
+                    deal: visibleDeals[index],
                     updatedBy: uid,
                   )
                       : null,
@@ -770,61 +931,152 @@ class _DealsBody extends StatelessWidget {
                       ? () => showRestoreDealDialog(
                             context,
                             companyId: companyId,
-                            deal: state.filteredDeals[index],
+                            deal: visibleDeals[index],
                             updatedBy: uid,
                           )
                       : null,
                   isArchivedView: isArchivedView,
                 ),
-                if (index != state.filteredDeals.length - 1)
+                if (index != visibleDeals.length - 1)
                   const SizedBox(height: AppSpacing.sm),
+                ],
               ],
-            ],
+            ),
+            visibleCount: visibleDeals.length,
+            totalCountOverride: state.hasLocalFilters
+                ? state.filteredDeals.length
+                : state.filteredTotalCount,
           );
         }
 
-        return Align(
-          alignment: AlignmentDirectional.topStart,
-          child: SizedBox(
-            height: _tableHeightForRows(state.filteredDeals.length),
-            child: DealListTable(
-              deals: state.filteredDeals,
-              onOpen: (deal) => context.go(RouteNames.dealDetails(deal.id)),
-              onEdit: canEdit
-                      && !isArchivedView
-                  ? (deal) => context.go(RouteNames.dealEdit(deal.id))
-                  : null,
-              onUpdateStage: canUpdateStage
-                      && !isArchivedView
-                  ? (deal) => showDealStageDialog(
-                        context,
-                        companyId: companyId,
-                        deal: deal,
-                        updatedBy: uid,
-                      )
-                  : null,
-              onArchive: canArchive
-                      && !isArchivedView
-                  ? (deal) => showArchiveDealDialog(
-                        context,
-                        companyId: companyId,
-                        deal: deal,
-                        updatedBy: uid,
-                  )
-                  : null,
-              onRestore: canArchive && isArchivedView
-                  ? (deal) => showRestoreDealDialog(
-                        context,
-                        companyId: companyId,
-                        deal: deal,
-                        updatedBy: uid,
-                      )
-                  : null,
-              isArchivedView: isArchivedView,
+        return _withLoadMoreFooter(
+          context,
+          Align(
+            alignment: AlignmentDirectional.topStart,
+            child: SizedBox(
+              height: _tableHeightForRows(visibleDeals.length),
+              child: DealListTable(
+                deals: visibleDeals,
+                onOpen: (deal) => context.go(RouteNames.dealDetails(deal.id)),
+                onEdit: canEdit && !isArchivedView
+                    ? (deal) => context.go(RouteNames.dealEdit(deal.id))
+                    : null,
+                onUpdateStage: canUpdateStage && !isArchivedView
+                    ? (deal) => showDealStageDialog(
+                          context,
+                          companyId: companyId,
+                          deal: deal,
+                          updatedBy: uid,
+                        )
+                    : null,
+                onArchive: canArchive && !isArchivedView
+                    ? (deal) => showArchiveDealDialog(
+                          context,
+                          companyId: companyId,
+                          deal: deal,
+                          updatedBy: uid,
+                        )
+                    : null,
+                onRestore: canArchive && isArchivedView
+                    ? (deal) => showRestoreDealDialog(
+                          context,
+                          companyId: companyId,
+                          deal: deal,
+                          updatedBy: uid,
+                        )
+                    : null,
+                isArchivedView: isArchivedView,
+              ),
             ),
           ),
+          visibleCount: visibleDeals.length,
+          totalCountOverride: state.hasLocalFilters
+              ? state.filteredDeals.length
+              : state.filteredTotalCount,
         );
       },
+    );
+  }
+
+  Widget _withLoadMoreFooter(
+    BuildContext context,
+    Widget child, {
+    int? visibleCount,
+    int? totalCountOverride,
+  }) {
+    if (!state.canLoadMore) {
+      return child;
+    }
+
+    final footer = Padding(
+      padding: const EdgeInsetsDirectional.only(top: AppSpacing.sm),
+      child: Align(
+        alignment: AlignmentDirectional.center,
+        child: _LoadMoreDealsButton(
+          loadedCount: visibleCount ?? state.filteredDeals.length,
+          totalCount: totalCountOverride ?? state.filteredTotalCount,
+          pageSize: 15,
+          isLoading: state.status == DealsStatus.loadingMore,
+          onPressed: onLoadMore,
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedHeight) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: child),
+              footer,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            child,
+            footer,
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+List<Deal> _visiblePagedDeals(DealsState state) {
+  final limit = state.pageLimit < 1 ? 15 : state.pageLimit;
+  if (state.filteredDeals.length <= limit) {
+    return state.filteredDeals;
+  }
+  return state.filteredDeals.take(limit).toList(growable: false);
+}
+
+class _LoadMoreDealsButton extends StatelessWidget {
+  const _LoadMoreDealsButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
+
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
     );
   }
 }
@@ -1169,6 +1421,14 @@ List<_DealAssigneeFilterOption> _assigneeOptions(List<UserProfile> users) {
     for (final user in assignableUsers)
       _DealAssigneeFilterOption.value(user.uid),
   ];
+}
+
+String _formatDealMoney(BuildContext context, num value) {
+  final localeName = Localizations.localeOf(context).toLanguageTag();
+  if (value.abs() >= 1000000) {
+    return NumberFormat.compact(locale: localeName).format(value);
+  }
+  return NumberFormat.decimalPattern(localeName).format(value);
 }
 
 String _assigneeLabel(AppLocalizations l, List<UserProfile> users, String uid) {

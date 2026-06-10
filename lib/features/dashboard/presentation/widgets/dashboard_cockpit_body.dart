@@ -1347,7 +1347,7 @@ String? _kpiRoute(DashboardKpiType type) {
       RouteNames.filteredLeads(followUp: 'overdue'),
     DashboardKpiType.overdueActions => null,
     DashboardKpiType.appointmentsToday =>
-      RouteNames.filteredAppointments(selectedDate: _queryDate(DateTime.now())),
+      RouteNames.filteredAppointments(date: 'today'),
     DashboardKpiType.missedAppointments =>
       RouteNames.filteredAppointments(date: 'missed'),
     DashboardKpiType.overdueTasks => RouteNames.filteredTasks(due: 'overdue'),

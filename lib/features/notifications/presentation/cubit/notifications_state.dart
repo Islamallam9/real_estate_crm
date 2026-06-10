@@ -11,6 +11,7 @@ class NotificationsState extends Equatable {
     required this.notifications,
     required this.reminders,
     required this.unreadCount,
+    this.notificationsLimit = 15,
     this.message,
     this.reminderMessage,
     this.markingNotificationId = '',
@@ -24,6 +25,7 @@ class NotificationsState extends Equatable {
         notifications = const [],
         reminders = const [],
         unreadCount = 0,
+        notificationsLimit = 15,
         message = null,
         reminderMessage = null,
         markingNotificationId = '',
@@ -35,6 +37,7 @@ class NotificationsState extends Equatable {
   final List<CrmNotification> notifications;
   final List<AttentionReminder> reminders;
   final int unreadCount;
+  final int notificationsLimit;
   final String? message;
   final String? reminderMessage;
   final String markingNotificationId;
@@ -54,11 +57,14 @@ class NotificationsState extends Equatable {
 
   bool get hasUnreadNotifications => effectiveUnreadCount > 0;
 
+  bool get canLoadMoreNotifications => notifications.length >= notificationsLimit;
+
   NotificationsState copyWith({
     NotificationsStatus? status,
     List<CrmNotification>? notifications,
     List<AttentionReminder>? reminders,
     int? unreadCount,
+    int? notificationsLimit,
     String? message,
     String? reminderMessage,
     String? markingNotificationId,
@@ -74,6 +80,7 @@ class NotificationsState extends Equatable {
       notifications: notifications ?? this.notifications,
       reminders: reminders ?? this.reminders,
       unreadCount: unreadCount ?? this.unreadCount,
+      notificationsLimit: notificationsLimit ?? this.notificationsLimit,
       message: clearMessage ? null : message ?? this.message,
       reminderMessage:
           clearReminderMessage ? null : reminderMessage ?? this.reminderMessage,
@@ -93,6 +100,7 @@ class NotificationsState extends Equatable {
         notifications,
         reminders,
         unreadCount,
+        notificationsLimit,
         message,
         reminderMessage,
         markingNotificationId,

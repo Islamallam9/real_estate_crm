@@ -93,7 +93,8 @@ class _EditTaskViewState extends State<_EditTaskView> {
     final canEditRole =
         role == UserRole.admin ||
         role == UserRole.manager ||
-        role == UserRole.salesAgent;
+        role == UserRole.salesAgent ||
+        role == UserRole.marketing;
     if (session != null && canEditRole) {
       _watchTaskWhenReady(session);
     }
@@ -127,7 +128,9 @@ class _EditTaskViewState extends State<_EditTaskView> {
                   );
                 }
 
-                if (role == UserRole.salesAgent && task.assignedTo != uid) {
+                if ((role == UserRole.salesAgent ||
+                        role == UserRole.marketing) &&
+                    task.assignedTo != uid) {
                   return AppErrorView(message: l.permissionDenied);
                 }
 
@@ -146,7 +149,10 @@ class _EditTaskViewState extends State<_EditTaskView> {
                               ),
                             );
                           }
-                          final users = usersSnapshot.data ?? const [];
+                          final users = _includeCurrentUserProfile(
+                            usersSnapshot.data ?? const [],
+                            session?.profile,
+                          );
                           final taskAssignees = eligibleTaskAssigneesForRole(
                             users: users,
                             role: role!,
@@ -156,6 +162,7 @@ class _EditTaskViewState extends State<_EditTaskView> {
                           return TaskForm(
                             companyId: companyId,
                             actorUid: uid,
+                            actorProfile: session?.profile,
                             task: task,
                             users: taskAssignees,
                             canEditAssignment: true,
@@ -220,7 +227,12 @@ class _EditTaskViewState extends State<_EditTaskView> {
                     : TaskForm(
                         companyId: companyId,
                         actorUid: uid,
+                        actorProfile: session?.profile,
                         task: task,
+                        users: _includeCurrentUserProfile(
+                          const <UserProfile>[],
+                          session?.profile,
+                        ),
                         canEditStatus: true,
                         relatedRecordsAssignedTo:
                             role == UserRole.salesAgent ||
@@ -299,11 +311,59 @@ class _EditTaskViewState extends State<_EditTaskView> {
   }
 }
 
+List<UserProfile> _includeCurrentUserProfile(
+  List<UserProfile> users,
+  UserProfile? currentUser,
+) {
+  if (currentUser == null) {
+    return users;
+  }
+  var foundCurrentUser = false;
+  final mergedUsers = users.map((user) {
+    if (user.uid != currentUser.uid) {
+      return user;
+    }
+    foundCurrentUser = true;
+    return _preferCurrentUserAssignmentSnapshot(user, currentUser);
+  }).toList();
+  if (foundCurrentUser) {
+    return mergedUsers;
+  }
+  return <UserProfile>[currentUser, ...users];
+}
+
+UserProfile _preferCurrentUserAssignmentSnapshot(
+  UserProfile user,
+  UserProfile currentUser,
+) {
+  return user.copyWith(
+    fullName: _firstNonEmptyText([currentUser.fullName, user.fullName]),
+    email: _firstNonEmptyText([currentUser.email, user.email]),
+    teamId: _firstNonEmptyText([currentUser.teamId, user.teamId]),
+    teamName: _firstNonEmptyText([currentUser.teamName, user.teamName]),
+    managerId: _firstNonEmptyText([currentUser.managerId, user.managerId]),
+    managerName: _firstNonEmptyText([
+      currentUser.managerName,
+      user.managerName,
+    ]),
+  );
+}
+
 Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
   final repository = UserProfileRepositoryImpl(
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+String _firstNonEmptyText(List<String> values) {
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+  }
+  return '';
 }
 
 

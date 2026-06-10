@@ -280,13 +280,30 @@ String _safeTextValue(Object? value, {String? localeName}) {
         ? const ['ar', 'ar-EG', 'titleAr', 'bodyAr', 'en', 'titleEn', 'bodyEn']
         : const ['en', 'en-US', 'titleEn', 'bodyEn', 'ar', 'titleAr', 'bodyAr'];
     for (final key in keys) {
-      final text = _safeTextValue(value[key]).trim();
+      final text = _safeTextValue(_safeMapValue(value, key)).trim();
       if (text.isNotEmpty) {
         return text;
       }
     }
   }
   return '';
+}
+
+Object? _safeMapValue(Map<dynamic, dynamic> map, String key) {
+  try {
+    if (map.containsKey(key)) {
+      return map[key];
+    }
+    for (final entry in map.entries) {
+      final entryKey = entry.key;
+      if (entryKey is String && entryKey == key) {
+        return entry.value;
+      }
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
 
 String reminderTitle(AppLocalizations l, AttentionReminder reminder) {

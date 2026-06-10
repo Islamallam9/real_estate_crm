@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
@@ -49,8 +50,25 @@ class DealsCubit extends Cubit<DealsState> {
   final ArchiveDealUseCase _archiveDealUseCase;
   final RestoreDealUseCase _restoreDealUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
 
   StreamSubscription<dynamic>? _dealsSubscription;
+  String? _watchedCompanyId;
+  UserRole? _watchedRole;
+  String? _watchedCurrentUserId;
+  String? _watchedTeamId;
+  ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'open',
+    'atRisk',
+    'wonThisMonth',
+    'lost',
+  ];
+  static const int _dashboardWatchLimit = 1000;
   final InitialLoadTimeout _dealsInitialLoadTimeout = InitialLoadTimeout();
 
   void watchDeal({
@@ -64,10 +82,14 @@ class DealsCubit extends Cubit<DealsState> {
         clearLastAction: true,
       ),
     );
+    if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _dealsSubscription?.cancel();
     _dealsInitialLoadTimeout.start(() {
       if (isClosed ||
-          state.status != DealsStatus.loading ||
+          (state.status != DealsStatus.loading &&
+              state.status != DealsStatus.loadingMore) ||
           state.deals.isNotEmpty) {
         return;
       }
@@ -118,18 +140,36 @@ class DealsCubit extends Cubit<DealsState> {
     required String currentUserId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int? limit,
+    bool resetPage = true,
+    bool usePagination = true,
   }) {
+    _watchedCompanyId = companyId;
+    _watchedRole = role;
+    _watchedCurrentUserId = currentUserId;
+    _watchedTeamId = teamId;
+    _watchedArchiveFilter = archiveFilter;
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
     emit(
       state.copyWith(
-        status: DealsStatus.loading,
+        status: resetPage || state.deals.isEmpty
+            ? DealsStatus.loading
+            : DealsStatus.loadingMore,
+        pageLimit: pageLimit,
         clearMessage: true,
         clearLastAction: true,
       ),
     );
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _dealsSubscription?.cancel();
     _dealsInitialLoadTimeout.start(() {
       if (isClosed ||
-          state.status != DealsStatus.loading ||
+          (state.status != DealsStatus.loading &&
+              state.status != DealsStatus.loadingMore) ||
           state.deals.isNotEmpty) {
         return;
       }
@@ -146,6 +186,7 @@ class DealsCubit extends Cubit<DealsState> {
       currentUserId: currentUserId,
       teamId: teamId,
       archiveFilter: archiveFilter,
+      limit: usePagination ? pageLimit : _dashboardWatchLimit,
     ).listen(
       (deals) {
         if (isClosed) {
@@ -158,9 +199,12 @@ class DealsCubit extends Cubit<DealsState> {
             deals: deals,
             filteredDeals: _applyFilters(deals),
             archiveFilter: archiveFilter,
+            pageLimit: pageLimit,
             clearMessage: true,
           ),
         );
+        unawaited(_refreshKpiCounts());
+        _debugCheckKpiInvariant();
       },
       onError: (error) {
         if (isClosed) {
@@ -174,6 +218,98 @@ class DealsCubit extends Cubit<DealsState> {
           ),
         );
       },
+    );
+  }
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    final role = _watchedRole;
+    final currentUserId = _watchedCurrentUserId;
+    if (companyId == null || companyId.trim().isEmpty || role == null || currentUserId == null) {
+      return;
+    }
+    final counts = await _countsDataSource.dealCounts(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+    );
+    if (!isClosed && _watchedCompanyId == companyId) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'deals',
+      loadedRows: state.deals.length,
+      totalCount: state.kpiCounts.valueOrNull('total'),
+      hasLocalFilters: state.searchQuery.trim().isNotEmpty ||
+          state.stageFilter != null ||
+          state.assignedToFilter.trim().isNotEmpty ||
+          state.closingDateFilter != null ||
+          state.workQueueFilter != null,
+      scopeLabel: state.archiveFilter.name,
+    );
+  }
+
+  void loadMoreDeals() {
+    final companyId = _watchedCompanyId;
+    final role = _watchedRole;
+    final currentUserId = _watchedCurrentUserId;
+    if (companyId == null ||
+        companyId.isEmpty ||
+        role == null ||
+        currentUserId == null ||
+        currentUserId.isEmpty ||
+        state.status == DealsStatus.loading ||
+        state.status == DealsStatus.loadingMore) {
+      return;
+    }
+
+    final nextLimit = state.pageLimit + _pageIncrement;
+    if (state.filteredDeals.length > state.pageLimit) {
+      emit(state.copyWith(pageLimit: nextLimit));
+      _debugCheckKpiInvariant();
+      return;
+    }
+    if (!state.canLoadMore) {
+      return;
+    }
+
+    watchDeals(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      limit: nextLimit,
+      resetPage: false,
+    );
+  }
+
+  void _reloadCurrentDealScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    final role = _watchedRole;
+    final currentUserId = _watchedCurrentUserId;
+    if (companyId == null ||
+        companyId.trim().isEmpty ||
+        role == null ||
+        currentUserId == null ||
+        currentUserId.trim().isEmpty) {
+      return;
+    }
+    watchDeals(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      resetPage: true,
+      usePagination: !state.hasLocalFilters,
     );
   }
 
@@ -198,15 +334,18 @@ class DealsCubit extends Cubit<DealsState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredDeals: _applyFilters(state.deals, searchQuery: query),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   void setStageFilter(DealStage? stage) {
     emit(
       state.copyWith(
         stageFilter: stage,
+        pageLimit: _defaultPageLimit,
         clearStageFilter: stage == null,
         filteredDeals: _applyFilters(
           state.deals,
@@ -215,21 +354,25 @@ class DealsCubit extends Cubit<DealsState> {
         ),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   void setAssignedToFilter(String assignedTo) {
     emit(
       state.copyWith(
         assignedToFilter: assignedTo,
+        pageLimit: _defaultPageLimit,
         filteredDeals: _applyFilters(state.deals, assignedToFilter: assignedTo),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   void setClosingDateFilter(DealClosingDateFilter? filter) {
     emit(
       state.copyWith(
         closingDateFilter: filter,
+        pageLimit: _defaultPageLimit,
         clearClosingDateFilter: filter == null,
         filteredDeals: _applyFilters(
           state.deals,
@@ -238,12 +381,14 @@ class DealsCubit extends Cubit<DealsState> {
         ),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   void setWorkQueueFilter(DealWorkQueueFilter? filter) {
     emit(
       state.copyWith(
         workQueueFilter: filter,
+        pageLimit: _defaultPageLimit,
         clearWorkQueueFilter: filter == null,
         filteredDeals: _applyFilters(
           state.deals,
@@ -252,6 +397,7 @@ class DealsCubit extends Cubit<DealsState> {
         ),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   void clearFilters() {
@@ -259,6 +405,7 @@ class DealsCubit extends Cubit<DealsState> {
       state.copyWith(
         searchQuery: '',
         assignedToFilter: '',
+        pageLimit: _defaultPageLimit,
         clearStageFilter: true,
         clearClosingDateFilter: true,
         clearWorkQueueFilter: true,
@@ -275,6 +422,7 @@ class DealsCubit extends Cubit<DealsState> {
         ),
       ),
     );
+    _reloadCurrentDealScopeAfterFilterChange();
   }
 
   Future<bool> createDeal({
@@ -492,6 +640,7 @@ class DealsCubit extends Cubit<DealsState> {
       if (isClosed) {
         return false;
       }
+      unawaited(_refreshKpiCounts());
       final updatedDeals = result is Deal
           ? _upsertDealInCurrentList(result)
           : state.deals;

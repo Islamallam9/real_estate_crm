@@ -2677,7 +2677,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get expectedValueTotal => 'إجمالي القيمة المتوقعة';
 
   @override
+  String get loadedExpectedValueTotal => 'القيمة المتوقعة للسجلات المحملة';
+
+  @override
   String get commissionTotal => 'إجمالي العمولة';
+
+  @override
+  String get loadedCommissionTotal => 'عمولة السجلات المحملة';
 
   @override
   String get dealsByStage => 'الصفقات حسب المرحلة';
@@ -2753,6 +2759,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get totalListedValue => 'إجمالي قيمة المعروض';
+
+  @override
+  String get loadedListedValue => 'قيمة العقارات المحملة';
 
   @override
   String get averagePrice => 'متوسط السعر';
@@ -3569,7 +3578,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get appointmentCalendarWeekView => 'الأسبوع';
 
   @override
-  String get appointmentCalendarDayView => 'اليوم المحدد';
+  String get appointmentCalendarDayView => 'يوم محدد';
 
   @override
   String get todayAgenda => 'جدول اليوم';

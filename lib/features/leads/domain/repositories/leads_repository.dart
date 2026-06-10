@@ -34,6 +34,11 @@ abstract interface class LeadsRepository {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    LeadStatus? statusFilter,
+    LeadSource? sourceFilter,
+    LeadPriority? priorityFilter,
+    String? followUpFilter,
+    String? workQueueFilter,
     int limit = 30,
   });
 }

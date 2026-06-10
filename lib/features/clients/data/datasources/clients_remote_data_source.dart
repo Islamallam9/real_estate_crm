@@ -300,33 +300,93 @@ class FirestoreClientsRemoteDataSource implements ClientsRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
-    return query.limit(limit).snapshots().map((snapshot) {
-      final clients = snapshot.docs.map((document) {
-        final client = ClientModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, client: client);
-        return client;
-      }).where((client) {
-        if (archiveFilter == ArchiveFilter.archived) {
-          return client.isArchived || !client.isActive;
-        }
-        if (archiveFilter == ArchiveFilter.active) {
-          return !client.isArchived && client.isActive;
-        }
-        return true;
-      }).toList();
+    final fallbackQuery = query;
+    final orderedQuery = query
+        .orderBy('createdAt', descending: true)
+        .orderBy(FieldPath.documentId, descending: true);
 
+    return _watchClientModels(
+      companyId: companyId,
+      archiveFilter: archiveFilter,
+      primaryQuery: orderedQuery,
+      fallbackQuery: fallbackQuery,
+      limit: limit,
+    );
+  }
+
+  Stream<List<ClientModel>> _watchClientModels({
+    required String companyId,
+    required ArchiveFilter archiveFilter,
+    required Query<Map<String, dynamic>> primaryQuery,
+    required Query<Map<String, dynamic>> fallbackQuery,
+    required int limit,
+  }) async* {
+    try {
+      await for (final snapshot in primaryQuery.limit(limit).snapshots()) {
+        yield _clientsFromSnapshot(
+          snapshot,
+          companyId: companyId,
+          archiveFilter: archiveFilter,
+          sortLocally: false,
+        );
+      }
+    } on FirebaseException catch (error) {
+      if (error.code != 'failed-precondition') {
+        throw ClientException(_mapFirestoreError(error));
+      }
+      if (kDebugMode) {
+        debugPrint(
+          'MasarClientsQueryFallback: code=${error.code} '
+          'message=${error.message ?? ""}',
+        );
+      }
+      try {
+        await for (final snapshot in fallbackQuery.limit(limit).snapshots()) {
+          yield _clientsFromSnapshot(
+            snapshot,
+            companyId: companyId,
+            archiveFilter: archiveFilter,
+            sortLocally: true,
+          );
+        }
+      } on FirebaseException catch (fallbackError) {
+        throw ClientException(_mapFirestoreError(fallbackError));
+      } catch (_) {
+        throw const ClientException(AppErrorMessages.unknown);
+      }
+    } catch (_) {
+      throw const ClientException(AppErrorMessages.unknown);
+    }
+  }
+
+  List<ClientModel> _clientsFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String companyId,
+    required ArchiveFilter archiveFilter,
+    required bool sortLocally,
+  }) {
+    final clients = snapshot.docs.map((document) {
+      final client = ClientModel.fromFirestore(document);
+      _ensureSameCompany(companyId: companyId, client: client);
+      return client;
+    }).where((client) {
+      if (archiveFilter == ArchiveFilter.archived) {
+        return client.isArchived || !client.isActive;
+      }
+      if (archiveFilter == ArchiveFilter.active) {
+        return !client.isArchived && client.isActive;
+      }
+      return true;
+    }).toList();
+
+    if (sortLocally) {
       clients.sort((a, b) {
         final aDate = a.updatedAt ?? a.createdAt ?? DateTime(0);
         final bDate = b.updatedAt ?? b.createdAt ?? DateTime(0);
         return bDate.compareTo(aDate);
       });
-      return clients;
-    }).handleError((Object error) {
-      if (error is FirebaseException) {
-        throw ClientException(_mapFirestoreError(error));
-      }
-      throw const ClientException(AppErrorMessages.unknown);
-    });
+    }
+    return clients;
   }
 
   CollectionReference<Map<String, dynamic>> _clientsCollection(

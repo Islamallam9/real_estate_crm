@@ -5066,11 +5066,23 @@ abstract class AppLocalizations {
   /// **'Expected value total'**
   String get expectedValueTotal;
 
+  /// No description provided for @loadedExpectedValueTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded expected value'**
+  String get loadedExpectedValueTotal;
+
   /// No description provided for @commissionTotal.
   ///
   /// In en, this message translates to:
   /// **'Commission total'**
   String get commissionTotal;
+
+  /// No description provided for @loadedCommissionTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded commission'**
+  String get loadedCommissionTotal;
 
   /// No description provided for @dealsByStage.
   ///
@@ -5221,6 +5233,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total listed value'**
   String get totalListedValue;
+
+  /// No description provided for @loadedListedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded listed value'**
+  String get loadedListedValue;
 
   /// No description provided for @averagePrice.
   ///
@@ -6620,7 +6638,7 @@ abstract class AppLocalizations {
   /// No description provided for @appointmentCalendarDayView.
   ///
   /// In en, this message translates to:
-  /// **'Day'**
+  /// **'Specific day'**
   String get appointmentCalendarDayView;
 
   /// No description provided for @todayAgenda.

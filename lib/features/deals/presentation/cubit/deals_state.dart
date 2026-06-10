@@ -1,9 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
+
 import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/deal.dart';
 
-enum DealsStatus { initial, loading, loaded, saving, saved, empty, failure }
+enum DealsStatus { initial, loading, loadingMore, loaded, saving, saved, empty, failure }
 
 enum DealsAction { none, createDeal, updateDeal, updateStage, archiveDeal, restoreDeal }
 
@@ -22,6 +24,8 @@ class DealsState extends Equatable {
     this.closingDateFilter,
     this.workQueueFilter,
     this.archiveFilter = ArchiveFilter.active,
+    this.pageLimit = 15,
+    this.kpiCounts = const ModuleKpiCounts.empty(),
     this.message,
     this.lastAction = DealsAction.none,
   });
@@ -36,6 +40,8 @@ class DealsState extends Equatable {
       closingDateFilter = null,
       workQueueFilter = null,
       archiveFilter = ArchiveFilter.active,
+      pageLimit = 15,
+      kpiCounts = const ModuleKpiCounts.empty(),
       message = null,
       lastAction = DealsAction.none;
 
@@ -48,6 +54,52 @@ class DealsState extends Equatable {
   final DealClosingDateFilter? closingDateFilter;
   final DealWorkQueueFilter? workQueueFilter;
   final ArchiveFilter archiveFilter;
+  final int pageLimit;
+  final ModuleKpiCounts kpiCounts;
+  bool get hasLocalFilters {
+    return searchQuery.trim().isNotEmpty ||
+        stageFilter != null ||
+        assignedToFilter.trim().isNotEmpty ||
+        closingDateFilter != null ||
+        workQueueFilter != null;
+  }
+
+  int? get filteredTotalCount {
+    if (searchQuery.trim().isNotEmpty ||
+        assignedToFilter.trim().isNotEmpty ||
+        closingDateFilter != null) {
+      return null;
+    }
+    if (stageFilter == null && workQueueFilter == null) {
+      return kpiCounts.valueOrNull('total');
+    }
+    if (stageFilter == DealStage.lost && workQueueFilter == null) {
+      return kpiCounts.valueOrNull('lost');
+    }
+    if (stageFilter == null) {
+      return switch (workQueueFilter) {
+        DealWorkQueueFilter.open => kpiCounts.valueOrNull('open'),
+        DealWorkQueueFilter.atRisk => kpiCounts.valueOrNull('atRisk'),
+        DealWorkQueueFilter.wonThisMonth => kpiCounts.valueOrNull('wonThisMonth'),
+        _ => null,
+      };
+    }
+    return null;
+  }
+
+  bool get canLoadMore {
+    if (filteredDeals.length > pageLimit) {
+      return true;
+    }
+    if (hasLocalFilters) {
+      return false;
+    }
+    final total = filteredTotalCount;
+    if (total != null) {
+      return filteredDeals.length < total;
+    }
+    return false;
+  }
   final String? message;
   final DealsAction lastAction;
 
@@ -61,6 +113,8 @@ class DealsState extends Equatable {
     DealClosingDateFilter? closingDateFilter,
     DealWorkQueueFilter? workQueueFilter,
     ArchiveFilter? archiveFilter,
+    int? pageLimit,
+    ModuleKpiCounts? kpiCounts,
     String? message,
     DealsAction? lastAction,
     bool clearStageFilter = false,
@@ -83,6 +137,8 @@ class DealsState extends Equatable {
           ? null
           : workQueueFilter ?? this.workQueueFilter,
       archiveFilter: archiveFilter ?? this.archiveFilter,
+      pageLimit: pageLimit ?? this.pageLimit,
+      kpiCounts: kpiCounts ?? this.kpiCounts,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction ? DealsAction.none : lastAction ?? this.lastAction,
     );
@@ -99,6 +155,8 @@ class DealsState extends Equatable {
     closingDateFilter,
     workQueueFilter,
     archiveFilter,
+    pageLimit,
+    kpiCounts,
     message,
     lastAction,
   ];

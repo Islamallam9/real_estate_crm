@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../core/auth/protected_company_session.dart';
@@ -10,6 +11,7 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -24,6 +26,7 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -199,19 +202,25 @@ class _ReportsContentState extends State<_ReportsContent> {
       assignedTo: assignedTo,
       managerId: managerId,
       teamId: managerTeamId,
+      usePagination: false,
     );
-    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
+    context.read<PropertiesCubit>().watchProperties(
+      companyId: widget.companyId,
+      usePagination: false,
+    );
     context.read<TasksCubit>().watchTasks(
       companyId: widget.companyId,
       assignedTo: assignedTo,
       managerId: managerId,
       teamId: managerTeamId,
+      usePagination: false,
     );
     context.read<DealsCubit>().watchDeals(
       companyId: widget.companyId,
       role: widget.role,
       currentUserId: widget.currentUserId,
       teamId: managerTeamId,
+      usePagination: false,
     );
   }
 
@@ -1412,55 +1421,49 @@ class _ExecutiveSummary extends StatelessWidget {
         data.leads.length,
         AppStatusTone.info,
         Icons.people_alt_outlined,
+        RouteNames.leads,
       ),
       _SummaryItem(
         l.totalDeals,
         data.deals.length,
         AppStatusTone.warning,
         Icons.handshake_outlined,
+        RouteNames.deals,
       ),
       _SummaryItem(
         l.openDeals,
         data.openDeals.length,
         AppStatusTone.warning,
         Icons.trending_up_outlined,
+        RouteNames.filteredDeals(queue: 'open'),
       ),
       _SummaryItem(
         l.completedTasks,
         data.completedTasks.length,
         AppStatusTone.success,
         Icons.task_alt_outlined,
+        RouteNames.filteredTasks(status: 'completed'),
       ),
       _SummaryItem(
         l.availableProperties,
         data.availableProperties.length,
         AppStatusTone.success,
         Icons.apartment_outlined,
+        RouteNames.filteredProperties(status: 'available'),
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 5
-            : constraints.maxWidth >= 640
-            ? 3
-            : 2;
-        const gap = AppSpacing.xs;
-        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
-
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: width,
-                child: _SummaryCard(item: item),
-              ),
-          ],
-        );
-      },
+    return ModuleKpiStrip(
+      cards: [
+        for (final item in items)
+          ModuleKpiCardData(
+            label: item.label,
+            value: item.value.toString(),
+            icon: item.icon,
+            tone: item.tone,
+            onTap: () => context.go(item.route),
+          ),
+      ],
     );
   }
 }
@@ -1534,92 +1537,13 @@ class _ReportCard extends StatelessWidget {
 }
 
 class _SummaryItem {
-  const _SummaryItem(this.label, this.value, this.tone, this.icon);
+  const _SummaryItem(this.label, this.value, this.tone, this.icon, this.route);
 
   final String label;
   final int value;
   final AppStatusTone tone;
   final IconData icon;
-}
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.item});
-
-  final _SummaryItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _toneColor(context, item.tone);
-
-    return _ReportHoverCard(
-      borderRadius: AppRadius.xLarge,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface(context),
-          border: Border.all(color: AppColors.borderColor(context)),
-          borderRadius: AppRadius.xLarge,
-          boxShadow: Theme.of(context).brightness == Brightness.dark
-              ? null
-              : AppShadows.card,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: AppRadius.large,
-              ),
-              child: Icon(item.icon, color: color, size: 18),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    key: ValueKey('report-summary-${item.label}-${item.value}'),
-                    tween: Tween<double>(
-                      begin: 0,
-                      end: item.value.toDouble(),
-                    ),
-                    duration: const Duration(milliseconds: 520),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return Text(
-                        value.round().toString(),
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.textPrimaryColor(context),
-                        ),
-                      );
-                    },
-                  ),
-                  Text(
-                    item.label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.textSecondaryColor(context),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final String route;
 }
 class _DonutReportCard extends StatefulWidget {
   const _DonutReportCard({
@@ -2519,8 +2443,8 @@ class _LegendRow extends StatelessWidget {
           Expanded(
             child: Text(
               segment.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              softWrap: true,
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ),
@@ -2567,8 +2491,8 @@ class _BarLine extends StatelessWidget {
           width: 92,
           child: Text(
             row.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+            softWrap: true,
             style: Theme.of(context).textTheme.labelMedium,
           ),
         ),

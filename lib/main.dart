@@ -19,10 +19,7 @@ Future<void> masarFirebaseMessagingBackgroundHandler(RemoteMessage message) asyn
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await FirebaseInitializer.initialize();
-  } catch (error, stackTrace) {
-    debugPrint('MasarFCM: background-initialize-failed ${error.runtimeType}');
-    debugPrintStack(stackTrace: stackTrace);
-  }
+  } catch (_) {}
 }
 
 Future<void> main() async {

@@ -1,9 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
+
 import '../../domain/entities/crm_task.dart';
 import '../../domain/entities/task_related_record_option.dart';
 
-enum TasksStatus { initial, loading, loaded, saving, saved, empty, failure }
+enum TasksStatus { initial, loading, loadingMore, loaded, saving, saved, empty, failure }
 
 enum TasksAction { none, createTask, updateTask, markCompleted, cancelTask }
 
@@ -22,6 +24,8 @@ class TasksState extends Equatable {
     this.priorityFilter,
     this.dueDateFilter,
     this.assignedToFilter = '',
+    this.pageLimit = 15,
+    this.kpiCounts = const ModuleKpiCounts.empty(),
     this.relatedRecordsStatus = TaskRelatedRecordsStatus.initial,
     this.relatedRecordOptions = const [],
     this.relatedRecordsType,
@@ -40,6 +44,8 @@ class TasksState extends Equatable {
       priorityFilter = null,
       dueDateFilter = null,
       assignedToFilter = '',
+      pageLimit = 15,
+      kpiCounts = const ModuleKpiCounts.empty(),
       relatedRecordsStatus = TaskRelatedRecordsStatus.initial,
       relatedRecordOptions = const [],
       relatedRecordsType = null,
@@ -56,6 +62,36 @@ class TasksState extends Equatable {
   final TaskPriority? priorityFilter;
   final TaskDueDateFilter? dueDateFilter;
   final String assignedToFilter;
+  final int pageLimit;
+  final ModuleKpiCounts kpiCounts;
+  bool get hasLocalFilters {
+    return searchQuery.trim().isNotEmpty ||
+        statusFilter != null ||
+        priorityFilter != null ||
+        dueDateFilter != null ||
+        assignedToFilter.trim().isNotEmpty;
+  }
+
+  int? get filteredTotalCount {
+    if (hasLocalFilters) {
+      return null;
+    }
+    return kpiCounts.valueOrNull('total');
+  }
+
+  bool get canLoadMore {
+    if (filteredTasks.length > pageLimit) {
+      return true;
+    }
+    if (hasLocalFilters) {
+      return false;
+    }
+    final total = filteredTotalCount;
+    if (total != null) {
+      return filteredTasks.length < total;
+    }
+    return false;
+  }
   final TaskRelatedRecordsStatus relatedRecordsStatus;
   final List<TaskRelatedRecordOption> relatedRecordOptions;
   final TaskRelatedType? relatedRecordsType;
@@ -73,6 +109,8 @@ class TasksState extends Equatable {
     TaskPriority? priorityFilter,
     TaskDueDateFilter? dueDateFilter,
     String? assignedToFilter,
+    int? pageLimit,
+    ModuleKpiCounts? kpiCounts,
     TaskRelatedRecordsStatus? relatedRecordsStatus,
     List<TaskRelatedRecordOption>? relatedRecordOptions,
     TaskRelatedType? relatedRecordsType,
@@ -105,6 +143,8 @@ class TasksState extends Equatable {
       assignedToFilter: clearAssignedToFilter
           ? ''
           : assignedToFilter ?? this.assignedToFilter,
+      pageLimit: pageLimit ?? this.pageLimit,
+      kpiCounts: kpiCounts ?? this.kpiCounts,
       relatedRecordsStatus: clearRelatedRecords
           ? TaskRelatedRecordsStatus.initial
           : relatedRecordsStatus ?? this.relatedRecordsStatus,
@@ -133,6 +173,8 @@ class TasksState extends Equatable {
     priorityFilter,
     dueDateFilter,
     assignedToFilter,
+    pageLimit,
+    kpiCounts,
     relatedRecordsStatus,
     relatedRecordOptions,
     relatedRecordsType,

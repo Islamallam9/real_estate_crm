@@ -98,6 +98,7 @@ class FirestoreNotificationsRemoteDataSource
       }
       final notifications = byId.values
           .where((notification) => !notification.isDismissed)
+          .where(_shouldKeepNotificationForDisplay)
           .toList()
         ..sort(_compareNotificationRecency);
 
@@ -488,6 +489,7 @@ class FirestoreNotificationsRemoteDataSource
         'readAt': FieldValue.serverTimestamp(),
         'actionState': 'resolved',
         'resolvedAt': FieldValue.serverTimestamp(),
+        'expiresAt': _retentionExpiry(notificationReadRetentionDays),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } on FirebaseException catch (error) {
@@ -508,6 +510,7 @@ class FirestoreNotificationsRemoteDataSource
         'readAt': FieldValue.serverTimestamp(),
         'actionState': 'dismissed',
         'dismissedAt': FieldValue.serverTimestamp(),
+        'expiresAt': _retentionExpiry(notificationDismissedRetentionDays),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } on FirebaseException catch (error) {
@@ -968,6 +971,27 @@ int _reminderGroup(AttentionReminder reminder) {
     AttentionReminderType.followUpDueToday => 7,
     AttentionReminderType.taskDueToday => 8,
   };
+}
+
+bool _shouldKeepNotificationForDisplay(CrmNotificationModel notification) {
+  if (!notification.isRead || notification.needsAction) {
+    return true;
+  }
+  final retentionAnchor =
+      notification.resolvedAt ?? notification.readAt ?? notification.createdAt;
+  if (retentionAnchor == null) {
+    return true;
+  }
+  final expiresAt = retentionAnchor.toLocal().add(
+        const Duration(days: notificationReadRetentionDays),
+      );
+  return expiresAt.isAfter(DateTime.now());
+}
+
+Timestamp _retentionExpiry(int retentionDays) {
+  return Timestamp.fromDate(
+    DateTime.now().toUtc().add(Duration(days: retentionDays)),
+  );
 }
 
 DateTime _dateOnly(DateTime value) {

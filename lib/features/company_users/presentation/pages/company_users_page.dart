@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' as intl;
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/utils/external_link_opener.dart';
@@ -20,6 +21,7 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/company_users_remote_data_source.dart';
@@ -127,6 +129,8 @@ class _CompanyUsersScopeState extends State<_CompanyUsersScope> {
                     saving: saving,
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  _UsersSummaryCards(state: state),
+                  const SizedBox(height: AppSpacing.sm),
                   controls,
                   const SizedBox(height: AppSpacing.sm),
                   content,
@@ -155,6 +159,82 @@ class _CompanyUsersScopeState extends State<_CompanyUsersScope> {
     );
   }
 }
+
+
+class _UsersSummaryCards extends StatelessWidget {
+  const _UsersSummaryCards({required this.state});
+
+  final CompanyUsersState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<CompanyUsersCubit>();
+    final users = state.users;
+    final activeUsers = users.where((user) => user.isActive).length;
+    final inactiveUsers = users.where((user) => !user.isActive).length;
+    final managers = users.where((user) => user.role == 'manager').length;
+    final salesUsers = users.where((user) => user.role == 'salesAgent').length;
+    final admins = users.where((user) => user.role == 'admin').length;
+
+    final cards = <ModuleKpiCardData>[
+      ModuleKpiCardData(
+        label: l.companyUsers,
+        value: users.length.toString(),
+        icon: Icons.groups_2_outlined,
+        tone: AppStatusTone.info,
+        selected: state.roleFilter.trim().isEmpty && state.activeFilter == null,
+        onTap: () {
+          cubit.applyRoleFilter(null);
+          cubit.applyActiveFilter(null);
+        },
+      ),
+      ModuleKpiCardData(
+        label: l.active,
+        value: activeUsers.toString(),
+        icon: Icons.verified_user_outlined,
+        tone: AppStatusTone.success,
+        selected: state.activeFilter == true,
+        onTap: () => cubit.applyActiveFilter(true),
+      ),
+      ModuleKpiCardData(
+        label: l.inactive,
+        value: inactiveUsers.toString(),
+        icon: Icons.person_off_outlined,
+        tone: AppStatusTone.error,
+        selected: state.activeFilter == false,
+        onTap: () => cubit.applyActiveFilter(false),
+      ),
+      ModuleKpiCardData(
+        label: l.manager,
+        value: managers.toString(),
+        icon: Icons.supervisor_account_outlined,
+        tone: AppStatusTone.info,
+        selected: state.roleFilter == 'manager',
+        onTap: () => cubit.applyRoleFilter('manager'),
+      ),
+      ModuleKpiCardData(
+        label: l.salesAgent,
+        value: salesUsers.toString(),
+        icon: Icons.badge_outlined,
+        tone: AppStatusTone.warning,
+        selected: state.roleFilter == 'salesAgent',
+        onTap: () => cubit.applyRoleFilter('salesAgent'),
+      ),
+      ModuleKpiCardData(
+        label: l.admin,
+        value: admins.toString(),
+        icon: Icons.admin_panel_settings_outlined,
+        tone: AppStatusTone.neutral,
+        selected: state.roleFilter == 'admin',
+        onTap: () => cubit.applyRoleFilter('admin'),
+      ),
+    ];
+
+    return ModuleKpiStrip(cards: cards);
+  }
+}
+
 
 class _UsersControls extends StatelessWidget {
   const _UsersControls({required this.companyId, required this.saving});

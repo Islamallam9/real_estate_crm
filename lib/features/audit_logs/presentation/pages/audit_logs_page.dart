@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -19,6 +20,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -171,8 +173,6 @@ class _AuditLogsContent extends StatefulWidget {
 }
 
 class _AuditLogsContentState extends State<_AuditLogsContent> {
-  static const int _limit = 100;
-
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<List<UserProfile>> _filterUsersNotifier =
@@ -183,6 +183,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
   AuditLogAction? _action;
   String _actorId = '';
   String _search = '';
+  bool _showImportantOnly = false;
   String _openedFocusAuditId = '';
   String _watchKey = '';
   String _usersStreamKey = '';
@@ -344,8 +345,13 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
           hasSearchFilter: hasSearchFilter,
           startAt: window?.start,
           endAt: window?.end,
-          limit: _limit,
+          limit: AuditLogsCubit.defaultPageLimit,
+          resetPage: true,
         );
+  }
+
+  void _loadMoreLogs() {
+    context.read<AuditLogsCubit>().loadMoreAuditLogs();
   }
 
   bool get _adminSearchAffectsFetchLimit {
@@ -390,12 +396,15 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
   }
 
   List<AuditLog> _visibleLogs(List<AuditLog> logs) {
+    final importantFiltered = _showImportantOnly
+        ? logs.where(_isImportantLog).toList(growable: false)
+        : logs;
     final query = _search.trim().toLowerCase();
     if (query.isEmpty) {
-      return logs;
+      return importantFiltered;
     }
     final l = AppLocalizations.of(context)!;
-    return logs.where((log) {
+    return importantFiltered.where((log) {
       final haystack = [
         log.recordTitle,
         log.recordSubtitle,
@@ -445,6 +454,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
       _module = selection.module;
       _action = selection.action;
       _actorId = selection.actorId;
+      _showImportantOnly = false;
     });
     _watchLogs();
   }
@@ -458,6 +468,40 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
       _action = null;
       _actorId = '';
       _search = '';
+      _showImportantOnly = false;
+      _searchController.clear();
+    });
+    _watchLogs();
+  }
+
+  void _showTodayActivity() {
+    _applyFilterSelection(
+      const _AuditFilterSelection(dateRange: _AuditDateRangePreset.today, customRange: null, module: null, action: null, actorId: ''),
+    );
+  }
+
+  void _showExportActivity() {
+    _applyFilterSelection(
+      const _AuditFilterSelection(
+        dateRange: _AuditDateRangePreset.last7Days,
+        customRange: null,
+        module: AuditLogModule.exports,
+        action: null,
+        actorId: '',
+      ),
+    );
+  }
+
+  void _showImportantActivity() {
+    _searchFetchTimer?.cancel();
+    setState(() {
+      _dateRange = _AuditDateRangePreset.last7Days;
+      _customRange = null;
+      _module = null;
+      _action = null;
+      _actorId = '';
+      _search = '';
+      _showImportantOnly = true;
       _searchController.clear();
     });
     _watchLogs();
@@ -535,6 +579,11 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     return BlocBuilder<AuditLogsCubit, AuditLogsState>(
       builder: (context, state) {
         final visibleLogs = _visibleLogs(state.logs);
+        final hasLocalVisibleFilter =
+            _search.trim().isNotEmpty || _showImportantOnly;
+        final showLoadMore = state.canLoadMore &&
+            !hasLocalVisibleFilter &&
+            visibleLogs.length >= AuditLogsCubit.defaultPageLimit;
         final isInitialLoading = state.status == AuditLogsStatus.initial ||
             state.status == AuditLogsStatus.loading && state.logs.isEmpty;
         if (state.status == AuditLogsStatus.failure && state.logs.isEmpty) {
@@ -559,6 +608,10 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
                 _AuditHeader(
                   logs: visibleLogs,
                   dateRangeLabel: _dateRangeLabel(l),
+                  onVisibleTap: _clearFilters,
+                  onTodayTap: _showTodayActivity,
+                  onExportTap: _showExportActivity,
+                  onImportantTap: _showImportantActivity,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _AuditFilters(
@@ -566,6 +619,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
                   module: _module,
                   action: _action,
                   actorId: _actorId,
+                  showImportantOnly: _showImportantOnly,
                   searchController: _searchController,
                   search: _search,
                   onOpenFilters: () => _openFilters(state.logs),
@@ -587,11 +641,21 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
                     title: l.noAuditLogsFound,
                     message: l.noAuditLogsFoundMessage,
                   )
-                else
+                else ...[
                   _AuditLogList(
                     logs: visibleLogs,
                     isAdmin: widget.profile.role == UserRole.admin,
                   ),
+                  if (showLoadMore) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _LoadMoreAuditLogsButton(
+                      loadedCount: visibleLogs.length,
+                      pageSize: AuditLogsCubit.defaultPageLimit,
+                      isLoading: state.status == AuditLogsStatus.loadingMore,
+                      onPressed: _loadMoreLogs,
+                    ),
+                  ],
+                ],
                 const SizedBox(height: AppSpacing.xxl),
               ],
             ),
@@ -639,14 +703,49 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
   }
 }
 
+class _LoadMoreAuditLogsButton extends StatelessWidget {
+  const _LoadMoreAuditLogsButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
+
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
+    );
+  }
+}
+
 class _AuditHeader extends StatelessWidget {
   const _AuditHeader({
     required this.logs,
     required this.dateRangeLabel,
+    required this.onVisibleTap,
+    required this.onTodayTap,
+    required this.onExportTap,
+    required this.onImportantTap,
   });
 
   final List<AuditLog> logs;
   final String dateRangeLabel;
+  final VoidCallback onVisibleTap;
+  final VoidCallback onTodayTap;
+  final VoidCallback onExportTap;
+  final VoidCallback onImportantTap;
 
   @override
   Widget build(BuildContext context) {
@@ -662,10 +761,34 @@ class _AuditHeader extends StatelessWidget {
     final exportCount = logs.where(_isExportLog).length;
     final importantCount = logs.where(_isImportantLog).length;
     final stats = [
-      _AuditStat(l.visibleAuditLogs, logs.length.toString(), Icons.history),
-      _AuditStat(l.todayActivityCount, todayCount.toString(), Icons.today),
-      _AuditStat(l.exportActivity, exportCount.toString(), Icons.ios_share),
-      _AuditStat(l.importantActivity, importantCount.toString(), Icons.priority_high),
+      ModuleKpiCardData(
+        label: l.visibleAuditLogs,
+        value: logs.length.toString(),
+        icon: Icons.history,
+        tone: AppStatusTone.info,
+        onTap: onVisibleTap,
+      ),
+      ModuleKpiCardData(
+        label: l.todayActivityCount,
+        value: todayCount.toString(),
+        icon: Icons.today,
+        tone: AppStatusTone.info,
+        onTap: onTodayTap,
+      ),
+      ModuleKpiCardData(
+        label: l.exportActivity,
+        value: exportCount.toString(),
+        icon: Icons.ios_share,
+        tone: AppStatusTone.warning,
+        onTap: onExportTap,
+      ),
+      ModuleKpiCardData(
+        label: l.importantActivity,
+        value: importantCount.toString(),
+        icon: Icons.priority_high,
+        tone: AppStatusTone.error,
+        onTap: onImportantTap,
+      ),
     ];
 
     return Container(
@@ -721,94 +844,7 @@ class _AuditHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 680;
-              if (compact) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var index = 0; index < stats.length; index++) ...[
-                        SizedBox(
-                          width: 142,
-                          child: _AuditStatCard(stat: stats[index], compact: true),
-                        ),
-                        if (index != stats.length - 1)
-                          const SizedBox(width: AppSpacing.xs),
-                      ],
-                    ],
-                  ),
-                );
-              }
-              return Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final stat in stats)
-                    SizedBox(
-                      width: 160,
-                      child: _AuditStatCard(stat: stat),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuditStat {
-  const _AuditStat(this.label, this.value, this.icon);
-
-  final String label;
-  final String value;
-  final IconData icon;
-}
-
-class _AuditStatCard extends StatelessWidget {
-  const _AuditStatCard({required this.stat, this.compact = false});
-
-  final _AuditStat stat;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(compact ? 8 : AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: _surfaceAltColor(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: AppRadius.large,
-      ),
-      child: Row(
-        children: [
-          Icon(stat.icon, size: compact ? 16 : 18, color: AppColors.primaryColor(context)),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  stat.value,
-                  style: (compact
-                          ? Theme.of(context).textTheme.titleSmall
-                          : Theme.of(context).textTheme.titleMedium)
-                      ?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                Text(
-                  stat.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryColor(context),
-                      ),
-                ),
-              ],
-            ),
-          ),
+          ModuleKpiStrip(cards: stats),
         ],
       ),
     );
@@ -821,6 +857,7 @@ class _AuditFilters extends StatelessWidget {
     required this.module,
     required this.action,
     required this.actorId,
+    required this.showImportantOnly,
     required this.searchController,
     required this.search,
     required this.onOpenFilters,
@@ -833,6 +870,7 @@ class _AuditFilters extends StatelessWidget {
   final AuditLogModule? module;
   final AuditLogAction? action;
   final String actorId;
+  final bool showImportantOnly;
   final TextEditingController searchController;
   final String search;
   final VoidCallback onOpenFilters;
@@ -844,7 +882,8 @@ class _AuditFilters extends StatelessWidget {
     return dateRange != _AuditDateRangePreset.last7Days ||
         module != null ||
         action != null ||
-        actorId.trim().isNotEmpty;
+        actorId.trim().isNotEmpty ||
+        showImportantOnly;
   }
 
   @override
@@ -1137,6 +1176,7 @@ class _AuditLogList extends StatelessWidget {
           : SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
+                showCheckboxColumn: false,
                 headingRowHeight: 42,
                 dataRowMinHeight: 56,
                 dataRowMaxHeight: 72,
@@ -1155,17 +1195,33 @@ class _AuditLogList extends StatelessWidget {
                       onSelectChanged: (_) =>
                           _showAuditDetails(context, log, isAdmin: isAdmin),
                       cells: [
-                        DataCell(Text(_formatDateTime(context, log.createdAt))),
-                        DataCell(_ActorCell(log: log)),
-                        DataCell(Text(_roleLabel(AppLocalizations.of(context)!, log.actorRole))),
-                        DataCell(Text(_moduleLabel(AppLocalizations.of(context)!, log.module))),
+                        DataCell(
+                          Text(_formatDateTime(context, log.createdAt)),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
+                        ),
+                        DataCell(
+                          _ActorCell(log: log),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
+                        ),
+                        DataCell(
+                          Text(_roleLabel(AppLocalizations.of(context)!, log.actorRole)),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
+                        ),
+                        DataCell(
+                          Text(_moduleLabel(AppLocalizations.of(context)!, log.module)),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
+                        ),
                         DataCell(
                           AppStatusBadge(
                             label: _actionLabel(AppLocalizations.of(context)!, log.action),
                             tone: _actionTone(log.action),
                           ),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
                         ),
-                        DataCell(_RecordCell(log: log)),
+                        DataCell(
+                          _RecordCell(log: log),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
+                        ),
                         DataCell(
                           SizedBox(
                             width: 280,
@@ -1175,6 +1231,7 @@ class _AuditLogList extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          onTap: () => _showAuditDetails(context, log, isAdmin: isAdmin),
                         ),
                       ],
                     ),

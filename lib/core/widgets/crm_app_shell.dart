@@ -394,7 +394,6 @@ class _PushNotificationOpenRouterState
       return;
     }
     final resolution = NotificationRouteResolver.resolvePushData(message.data);
-    debugPrint('MasarFCM: status=push-opened route=${resolution.route}');
     _queueRoute(resolution.route);
   }
 
@@ -413,7 +412,6 @@ class _PushNotificationOpenRouterState
         message.data['notificationId']?.toString() ??
         message.messageId ??
         resolution.route;
-    debugPrint('MasarFCM: status=foreground-web-message route=${resolution.route}');
     await showMasarWebForegroundNotification(
       title: title,
       body: body,
@@ -458,8 +456,7 @@ class _PushNotificationOpenRouterState
     _pendingRoute = null;
     try {
       context.go(route);
-    } catch (error) {
-      debugPrint('MasarFCM: status=push-route-failed ${error.runtimeType}');
+    } catch (_) {
       context.go(RouteNames.notifications);
       return;
     }

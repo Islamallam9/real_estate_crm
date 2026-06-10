@@ -10,6 +10,8 @@ class CompanyUsersState extends Equatable {
     required this.status,
     required this.users,
     required this.query,
+    required this.roleFilter,
+    required this.activeFilter,
     this.message,
     this.createdResult,
   });
@@ -18,23 +20,30 @@ class CompanyUsersState extends Equatable {
       : status = CompanyUsersStatus.initial,
         users = const [],
         query = '',
+        roleFilter = '',
+        activeFilter = null,
         message = null,
         createdResult = null;
 
   final CompanyUsersStatus status;
   final List<CompanyCrmUser> users;
   final String query;
+  final String roleFilter;
+  final bool? activeFilter;
   final String? message;
   final CreatedCompanyUserResult? createdResult;
 
   List<CompanyCrmUser> get filteredUsers {
     final clean = query.trim().toLowerCase();
-    if (clean.isEmpty) return users;
     return users.where((user) {
-      return user.fullName.toLowerCase().contains(clean) ||
+      final matchesQuery = clean.isEmpty ||
+          user.fullName.toLowerCase().contains(clean) ||
           user.email.toLowerCase().contains(clean) ||
           user.role.toLowerCase().contains(clean) ||
           user.phone.toLowerCase().contains(clean);
+      final matchesRole = roleFilter.trim().isEmpty || user.role == roleFilter;
+      final matchesActive = activeFilter == null || user.isActive == activeFilter;
+      return matchesQuery && matchesRole && matchesActive;
     }).toList();
   }
 
@@ -42,15 +51,21 @@ class CompanyUsersState extends Equatable {
     CompanyUsersStatus? status,
     List<CompanyCrmUser>? users,
     String? query,
+    String? roleFilter,
+    bool? activeFilter,
     String? message,
     CreatedCompanyUserResult? createdResult,
     bool clearMessage = false,
     bool clearCreatedResult = false,
+    bool clearRoleFilter = false,
+    bool clearActiveFilter = false,
   }) {
     return CompanyUsersState(
       status: status ?? this.status,
       users: users ?? this.users,
       query: query ?? this.query,
+      roleFilter: clearRoleFilter ? '' : roleFilter ?? this.roleFilter,
+      activeFilter: clearActiveFilter ? null : activeFilter ?? this.activeFilter,
       message: clearMessage ? null : message ?? this.message,
       createdResult:
           clearCreatedResult ? null : createdResult ?? this.createdResult,
@@ -58,5 +73,13 @@ class CompanyUsersState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [status, users, query, message, createdResult];
+  List<Object?> get props => [
+        status,
+        users,
+        query,
+        roleFilter,
+        activeFilter,
+        message,
+        createdResult,
+      ];
 }

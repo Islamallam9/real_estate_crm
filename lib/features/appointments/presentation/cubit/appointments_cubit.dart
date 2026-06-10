@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../domain/entities/appointment.dart';
@@ -31,9 +32,29 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   final SaveAppointmentUseCase _saveAppointmentUseCase;
   final GetAppointmentRelatedRecordOptionsUseCase
       _getRelatedRecordOptionsUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
 
   StreamSubscription<List<Appointment>>? _appointmentsSubscription;
   StreamSubscription<Appointment?>? _appointmentSubscription;
+  String? _watchedCompanyId;
+  String? _watchedAssignedTo;
+  String? _watchedManagerId;
+  String? _watchedTeamId;
+  DateTime? _watchedRangeStart;
+  DateTime? _watchedRangeEnd;
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'listTotal',
+    'today',
+    'upcoming',
+    'missed',
+    'completed',
+  ];
+  static const int _dashboardWatchLimit = 1000;
+  static const int _filterModeWatchLimit = 500;
   final InitialLoadTimeout _appointmentsInitialLoadTimeout =
       InitialLoadTimeout();
   final InitialLoadTimeout _appointmentInitialLoadTimeout =
@@ -46,19 +67,40 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     String? teamId,
     DateTime? rangeStart,
     DateTime? rangeEnd,
-    int limit = 160,
+    int? limit,
+    bool resetPage = true,
+    bool usePagination = true,
   }) {
+    _watchedCompanyId = companyId;
+    _watchedAssignedTo = assignedTo;
+    _watchedManagerId = managerId;
+    _watchedTeamId = teamId;
+    _watchedRangeStart = rangeStart;
+    _watchedRangeEnd = rangeEnd;
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
+    final watchLimit = usePagination
+        ? _effectiveWatchLimit(pageLimit)
+        : _dashboardWatchLimit;
     emit(
       state.copyWith(
-        status: AppointmentsStatus.loading,
+        status: resetPage || state.appointments.isEmpty
+            ? AppointmentsStatus.loading
+            : AppointmentsStatus.loadingMore,
+        pageLimit: pageLimit,
         clearMessage: true,
         clearLastAction: true,
       ),
     );
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _appointmentsSubscription?.cancel();
     _appointmentsInitialLoadTimeout.start(() {
       if (isClosed ||
-          state.status != AppointmentsStatus.loading ||
+          (state.status != AppointmentsStatus.loading &&
+              state.status != AppointmentsStatus.loadingMore) ||
           state.appointments.isNotEmpty) {
         return;
       }
@@ -76,7 +118,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       teamId: teamId,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
-      limit: limit,
+      limit: watchLimit,
     ).listen(
       (appointments) {
         if (isClosed) {
@@ -90,9 +132,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
                 : AppointmentsStatus.loaded,
             appointments: appointments,
             filteredAppointments: _applyFilters(appointments),
+            pageLimit: pageLimit,
             clearMessage: true,
           ),
         );
+        unawaited(_refreshKpiCounts());
+        _debugCheckKpiInvariant();
       },
       onError: (Object error) {
         if (isClosed) {
@@ -106,6 +151,94 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           ),
         );
       },
+    );
+  }
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    final counts = await _countsDataSource.appointmentCounts(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+    );
+    if (!isClosed && _watchedCompanyId == companyId) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'appointments',
+      loadedRows: state.appointments.length,
+      totalCount: state.kpiCounts.valueOrNull('listTotal'),
+      hasLocalFilters: state.hasLocalTableFilters,
+      scopeLabel: 'listWindow',
+    );
+  }
+
+  int _effectiveWatchLimit(int pageLimit) {
+    // Appointment workspaces are calendar/attention driven, not a plain newest
+    // table. Loading only the first paged slice can hide today's appointment
+    // while the KPI count correctly reports it. Keep the watch bounded, but
+    // wide enough for the rolling calendar and attention views to stay truthful.
+    final workspaceLimit = pageLimit > _filterModeWatchLimit
+        ? pageLimit
+        : _filterModeWatchLimit;
+    return workspaceLimit;
+  }
+
+  void loadMoreAppointments() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null ||
+        companyId.isEmpty ||
+        state.status == AppointmentsStatus.loading ||
+        state.status == AppointmentsStatus.loadingMore) {
+      return;
+    }
+
+    final nextLimit = state.pageLimit + _pageIncrement;
+    if (state.filteredAppointments.length > state.pageLimit) {
+      emit(state.copyWith(pageLimit: nextLimit));
+      _debugCheckKpiInvariant();
+      return;
+    }
+    if (!state.canLoadMore) {
+      return;
+    }
+
+    watchAppointments(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+      limit: nextLimit,
+      resetPage: false,
+    );
+  }
+
+  void _reloadCurrentAppointmentScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    watchAppointments(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+      resetPage: true,
     );
   }
 
@@ -172,16 +305,19 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredAppointments:
             _applyFilters(state.appointments, searchQuery: query),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void setStatusFilter(AppointmentStatus? statusFilter) {
     emit(
       state.copyWith(
         statusFilter: statusFilter,
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: statusFilter == null,
         filteredAppointments: _applyFilters(
           state.appointments,
@@ -190,12 +326,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         ),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void setTypeFilter(AppointmentType? typeFilter) {
     emit(
       state.copyWith(
         typeFilter: typeFilter,
+        pageLimit: _defaultPageLimit,
         clearTypeFilter: typeFilter == null,
         filteredAppointments: _applyFilters(
           state.appointments,
@@ -204,12 +342,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         ),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void setDateFilter(AppointmentDateFilter? dateFilter) {
     emit(
       state.copyWith(
         dateFilter: dateFilter,
+        pageLimit: _defaultPageLimit,
         clearDateFilter: dateFilter == null,
         clearSelectedDateFilter: true,
         filteredAppointments: _applyFilters(
@@ -221,12 +361,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         ),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void setSelectedDateFilter(DateTime? selectedDateFilter) {
     emit(
       state.copyWith(
         selectedDateFilter: selectedDateFilter,
+        pageLimit: _defaultPageLimit,
         clearSelectedDateFilter: selectedDateFilter == null,
         filteredAppointments: _applyFilters(
           state.appointments,
@@ -235,6 +377,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         ),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void setCalendarView(AppointmentCalendarView view) {
@@ -259,10 +402,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     emit(
       state.copyWith(
         assignedToFilter: assignedTo,
+        pageLimit: _defaultPageLimit,
         filteredAppointments:
             _applyFilters(state.appointments, assignedToFilter: assignedTo),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   void clearFilters() {
@@ -270,6 +415,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       state.copyWith(
         searchQuery: '',
         assignedToFilter: '',
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: true,
         clearTypeFilter: true,
         clearDateFilter: true,
@@ -289,6 +435,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         ),
       ),
     );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
   Future<bool> saveAppointment({
@@ -625,6 +772,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   Future<void> close() {
     _appointmentsInitialLoadTimeout.cancel();
     _appointmentInitialLoadTimeout.cancel();
+    _refreshKpiCounts();
     _appointmentsSubscription?.cancel();
     _appointmentSubscription?.cancel();
     return super.close();

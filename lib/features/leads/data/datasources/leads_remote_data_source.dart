@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../domain/entities/lead.dart';
 import '../../domain/errors/lead_exception.dart';
 import '../models/lead_model.dart';
 
@@ -50,6 +51,11 @@ abstract interface class LeadsRemoteDataSource {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    LeadStatus? statusFilter,
+    LeadSource? sourceFilter,
+    LeadPriority? priorityFilter,
+    String? followUpFilter,
+    String? workQueueFilter,
     int limit = 30,
   });
 }
@@ -324,6 +330,11 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    LeadStatus? statusFilter,
+    LeadSource? sourceFilter,
+    LeadPriority? priorityFilter,
+    String? followUpFilter,
+    String? workQueueFilter,
     int limit = 30,
   }) {
     Query<Map<String, dynamic>> query = _leadsCollection(companyId);
@@ -340,8 +351,18 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
+    final queryConfig = _applyLeadListFilters(
+      query,
+      statusFilter: statusFilter,
+      sourceFilter: sourceFilter,
+      priorityFilter: priorityFilter,
+      followUpFilter: followUpFilter,
+      workQueueFilter: workQueueFilter,
+    );
+    query = queryConfig.query;
+
     return query
-        .orderBy('createdAt', descending: true)
+        .orderBy(queryConfig.orderByField, descending: queryConfig.descending)
         .limit(limit)
         .snapshots()
         .map((snapshot) {
@@ -379,9 +400,68 @@ class FirestoreLeadsRemoteDataSource implements LeadsRemoteDataSource {
     });
   }
 
+
   CollectionReference<Map<String, dynamic>> _leadsCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyLeads(companyId));
   }
+}
+
+class _LeadListQueryConfig {
+  const _LeadListQueryConfig({
+    required this.query,
+    required this.orderByField,
+    required this.descending,
+  });
+
+  final Query<Map<String, dynamic>> query;
+  final String orderByField;
+  final bool descending;
+}
+
+_LeadListQueryConfig _applyLeadListFilters(
+  Query<Map<String, dynamic>> query, {
+  required LeadStatus? statusFilter,
+  required LeadSource? sourceFilter,
+  required LeadPriority? priorityFilter,
+  required String? followUpFilter,
+  required String? workQueueFilter,
+}) {
+  // Secondary filters are intentionally not applied here for this repair pass.
+  // The Leads Cubit keeps role/company/archive/assignee scope server-side and
+  // applies status/source/priority/follow-up/work-queue filters locally to the
+  // currently loaded scoped page. That stops missing-index filter changes from
+  // breaking the entire Leads page. Re-introduce server-side filtered lists only
+  // after each exact query shape has a confirmed deployed Firestore index.
+  return _createdAtLeadListQuery(query);
+}
+
+const List<String> _activeLeadStatusValues = <String>[
+  'new',
+  'contacted',
+  'interested',
+  'visitScheduled',
+  'negotiation',
+];
+
+_LeadListQueryConfig _createdAtLeadListQuery(Query<Map<String, dynamic>> query) {
+  return _LeadListQueryConfig(
+    query: query,
+    orderByField: 'createdAt',
+    descending: true,
+  );
+}
+
+_LeadListQueryConfig _followUpLeadListQuery(Query<Map<String, dynamic>> query) {
+  return _LeadListQueryConfig(
+    query: query,
+    orderByField: 'nextFollowUpAt',
+    descending: false,
+  );
+}
+
+DateTime _startOfLocalDay(DateTime value) {
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
 }
 
 void _logWatchLeadsFailure({
@@ -394,27 +474,11 @@ void _logWatchLeadsFailure({
   if (!kDebugMode) {
     return;
   }
-
-  final message = error.message ?? '';
-  final lowerMessage = message.toLowerCase();
-  final containsIndexLink =
-      lowerMessage.contains('indexes?create_composite=') ||
-      lowerMessage.contains('create_composite') ||
-      lowerMessage.contains('requires an index') ||
-      lowerMessage.contains('create it here');
+  final message = _sanitizeDiagnosticText(error.message ?? '');
   debugPrint(
-    'MasarFirestoreDiagnostic '
-    'feature=leads '
-    'operation=watchLeads/list_stream '
-    'code=${error.code} '
-    'message="${_sanitizeDiagnosticText(message)}" '
-    'containsIndexLink=$containsIndexLink '
-    'scope=${_watchLeadsScopeLabel(
-      assignedTo: assignedTo,
-      managerId: managerId,
-      teamId: teamId,
-    )} '
-    'archiveFilter=${archiveFilter.name}',
+    'MasarLeadsQuery: code=${error.code} '
+    'scope=${_watchLeadsScopeLabel(assignedTo: assignedTo, managerId: managerId, teamId: teamId)} '
+    'archive=${archiveFilter.name} message=$message',
   );
 }
 

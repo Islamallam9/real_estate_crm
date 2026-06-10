@@ -15,11 +15,14 @@ import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -265,6 +268,15 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                     ],
                   );
 
+                  final summary = _ClientsSummaryCards(
+                    state: state,
+                    companyId: widget.companyId,
+                    assignedTo: widget.assignedTo,
+                    managerId: widget.managerId,
+                    teamId: widget.teamId,
+                    showArchiveFilter: widget.canArchive,
+                  );
+
                   final filters = _ClientsFilters(
                     state: state,
                     users: users,
@@ -290,6 +302,8 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                     isSalesAgentView: widget.isSalesAgentView,
                     isArchivedView:
                         state.archiveFilter == ArchiveFilter.archived,
+                    onLoadMore: () =>
+                        context.read<ClientsCubit>().loadMoreClients(),
                   );
 
                   if (isMobile) {
@@ -301,6 +315,8 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           header,
+                          const SizedBox(height: AppSpacing.sm),
+                          summary,
                           const SizedBox(height: AppSpacing.sm),
                           filters,
                           const SizedBox(height: AppSpacing.sm),
@@ -316,6 +332,8 @@ class _ClientsListContentState extends State<_ClientsListContent> {
                     children: [
                       header,
                       const SizedBox(height: AppSpacing.sm),
+                      summary,
+                      const SizedBox(height: AppSpacing.sm),
                       filters,
                       const SizedBox(height: AppSpacing.sm),
                       Expanded(child: body),
@@ -329,6 +347,103 @@ class _ClientsListContentState extends State<_ClientsListContent> {
       ),
     );
   }
+}
+
+
+const _clientFilterAssigned = '__assigned__';
+const _clientFilterUnassigned = '__unassigned__';
+
+class _ClientsSummaryCards extends StatelessWidget {
+  const _ClientsSummaryCards({
+    required this.state,
+    required this.companyId,
+    required this.showArchiveFilter,
+    this.assignedTo,
+    this.managerId,
+    this.teamId,
+  });
+
+  final ClientsState state;
+  final String companyId;
+  final String? assignedTo;
+  final String? managerId;
+  final String? teamId;
+  final bool showArchiveFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<ClientsCubit>();
+    final cards = <ModuleKpiCardData>[
+      ModuleKpiCardData(
+        label: l.clients,
+        value: state.kpiCounts.display(
+          'total',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.people_outline,
+        tone: AppStatusTone.info,
+        selected: !_hasActiveClientFilter(state),
+        onTap: () => cubit.applyKpiFilter(null),
+      ),
+      ModuleKpiCardData(
+        label: l.assignedTo,
+        value: state.kpiCounts.display(
+          'assigned',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.assignment_ind_outlined,
+        tone: AppStatusTone.success,
+        selected: state.assignedToFilter == _clientFilterAssigned,
+        onTap: () => cubit.applyKpiFilter(_clientFilterAssigned),
+      ),
+      ModuleKpiCardData(
+        label: l.unassigned,
+        value: state.kpiCounts.display(
+          'unassigned',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.person_off_outlined,
+        tone: AppStatusTone.warning,
+        selected: state.assignedToFilter == _clientFilterUnassigned,
+        onTap: () => cubit.applyKpiFilter(_clientFilterUnassigned),
+      ),
+      if (showArchiveFilter)
+        ModuleKpiCardData(
+          label: state.archiveFilter == ArchiveFilter.archived
+              ? l.active
+              : l.archived,
+          value: '',
+          icon: state.archiveFilter == ArchiveFilter.archived
+              ? Icons.inventory_2_outlined
+              : Icons.archive_outlined,
+          tone: AppStatusTone.neutral,
+          onTap: () {
+            cubit.setAssignedToFilter(null);
+            cubit.setArchiveFilter(
+              state.archiveFilter == ArchiveFilter.archived
+                  ? ArchiveFilter.active
+                  : ArchiveFilter.archived,
+              companyId: companyId,
+              assignedTo: assignedTo,
+              managerId: managerId,
+              teamId: teamId,
+            );
+          },
+        ),
+    ];
+
+    return ModuleKpiStrip(cards: cards);
+  }
+}
+
+
+bool _hasActiveClientFilter(ClientsState state) {
+  return state.searchQuery.trim().isNotEmpty ||
+      (state.assignedToFilter ?? '').trim().isNotEmpty;
 }
 
 class _ClientsFilters extends StatelessWidget {
@@ -527,14 +642,7 @@ class _ClientsActiveFilterChips extends StatelessWidget {
     }
 
     final l = AppLocalizations.of(context)!;
-    final user = _userById(users, assignedTo);
-    final name = user?.fullName.trim() ?? '';
-    final email = user?.email.trim() ?? '';
-    final label = name.isNotEmpty
-        ? name
-        : email.isNotEmpty
-            ? email
-            : l.assignee;
+    final label = _clientFilterLabel(l, users, assignedTo);
 
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
@@ -550,6 +658,35 @@ class _ClientsActiveFilterChips extends StatelessWidget {
       ),
     );
   }
+}
+
+
+bool _isSpecialClientFilter(String? value) {
+  return value == _clientFilterAssigned ||
+      value == _clientFilterUnassigned;
+}
+
+String _clientFilterLabel(
+  AppLocalizations l,
+  List<UserProfile> users,
+  String assignedTo,
+) {
+  if (assignedTo == _clientFilterAssigned) {
+    return l.assignedTo;
+  }
+  if (assignedTo == _clientFilterUnassigned) {
+    return l.unassigned;
+  }
+  final user = _userById(users, assignedTo);
+  final name = user?.fullName.trim() ?? '';
+  final email = user?.email.trim() ?? '';
+  if (name.isNotEmpty) {
+    return name;
+  }
+  if (email.isNotEmpty) {
+    return email;
+  }
+  return l.assignee;
 }
 
 class _ActiveFilterChip extends StatelessWidget {
@@ -623,7 +760,9 @@ Future<void> _showClientsFiltersSheet(
                 ClientAssignmentDropdown(
                   label: l.assignee,
                   users: users,
-                  value: state.assignedToFilter,
+                  value: _isSpecialClientFilter(state.assignedToFilter)
+                      ? null
+                      : state.assignedToFilter,
                   includeAllOption: true,
                   onChanged: cubit.setAssignedToFilter,
                 ),
@@ -656,6 +795,7 @@ class _ClientsBody extends StatelessWidget {
     required this.users,
     required this.isSalesAgentView,
     required this.isArchivedView,
+    required this.onLoadMore,
     this.assignedTo,
     this.managerId,
     this.teamId,
@@ -673,6 +813,7 @@ class _ClientsBody extends StatelessWidget {
   final List<UserProfile> users;
   final bool isSalesAgentView;
   final bool isArchivedView;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -723,14 +864,19 @@ class _ClientsBody extends StatelessWidget {
       );
     }
 
+    final visibleClients = _visiblePagedClients(state);
+    final paginationTotalCount = state.hasLocalTableFilters
+        ? state.filteredClients.length
+        : state.filteredTotalCount;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 720) {
           return Column(
             children: [
-              for (var index = 0; index < state.filteredClients.length; index++) ...[
+              for (var index = 0; index < visibleClients.length; index++) ...[
                 _ClientCard(
-                  client: state.filteredClients[index],
+                  client: visibleClients[index],
                   canEdit: canEdit,
                   canArchive: canArchive,
                   canAssign: canAssign,
@@ -751,42 +897,108 @@ class _ClientsBody extends StatelessWidget {
                   ),
                   isArchivedView: isArchivedView,
                 ),
-                if (index != state.filteredClients.length - 1)
+                if (index != visibleClients.length - 1)
                   const SizedBox(height: AppSpacing.sm),
+              ],
+              if (state.canLoadMore) ...[
+                const SizedBox(height: AppSpacing.md),
+                _LoadMoreClientsButton(
+                  loadedCount: visibleClients.length,
+                  totalCount: paginationTotalCount,
+                  pageSize: 15,
+                  isLoading: state.status == ClientsStatus.loadingMore,
+                  onPressed: onLoadMore,
+                ),
               ],
             ],
           );
         }
 
-        return Align(
-          alignment: AlignmentDirectional.topStart,
-          child: SizedBox(
-            height: _tableHeightForRows(state.filteredClients.length),
-            child: _ClientsTable(
-              clients: state.filteredClients,
-              canEdit: canEdit,
-              canArchive: canArchive,
-              canAssign: canAssign,
-              users: users,
-              companyId: companyId,
-              updatedBy: uid,
-              onArchive: (client) => _confirmArchive(
-                context,
-                client: client,
-                companyId: companyId,
-                updatedBy: uid,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.topStart,
+                child: SizedBox(
+                  height: _tableHeightForRows(visibleClients.length),
+                  child: _ClientsTable(
+                    clients: visibleClients,
+                    canEdit: canEdit,
+                    canArchive: canArchive,
+                    canAssign: canAssign,
+                    users: users,
+                    companyId: companyId,
+                    updatedBy: uid,
+                    onArchive: (client) => _confirmArchive(
+                      context,
+                      client: client,
+                      companyId: companyId,
+                      updatedBy: uid,
+                    ),
+                    onRestore: (client) => _confirmRestore(
+                      context,
+                      client: client,
+                      companyId: companyId,
+                      updatedBy: uid,
+                    ),
+                    isArchivedView: isArchivedView,
+                  ),
+                ),
               ),
-              onRestore: (client) => _confirmRestore(
-                context,
-                client: client,
-                companyId: companyId,
-                updatedBy: uid,
-              ),
-              isArchivedView: isArchivedView,
             ),
-          ),
+            if (state.canLoadMore) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: AlignmentDirectional.center,
+                child: _LoadMoreClientsButton(
+                  loadedCount: visibleClients.length,
+                  totalCount: paginationTotalCount,
+                  pageSize: 15,
+                  isLoading: state.status == ClientsStatus.loadingMore,
+                  onPressed: onLoadMore,
+                ),
+              ),
+            ],
+          ],
         );
       },
+    );
+  }
+}
+
+
+List<Client> _visiblePagedClients(ClientsState state) {
+  final limit = state.pageLimit < 1 ? 15 : state.pageLimit;
+  if (state.filteredClients.length <= limit) {
+    return state.filteredClients;
+  }
+  return state.filteredClients.take(limit).toList(growable: false);
+}
+
+class _LoadMoreClientsButton extends StatelessWidget {
+  const _LoadMoreClientsButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
+
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
     );
   }
 }
@@ -845,8 +1057,8 @@ class _ClientCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _fallback(client.fullName, l.notAvailable),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -864,7 +1076,7 @@ class _ClientCard extends StatelessWidget {
                   _ClientInfoPill(icon: Icons.phone_outlined, text: client.phone),
                   _ClientInfoPill(
                     icon: Icons.person_outline,
-                    text: client.assignedToName,
+                    text: _clientAssigneeLabel(l, client),
                   ),
                 ],
               ),
@@ -1134,6 +1346,7 @@ class _ClientsTableHeader extends StatelessWidget {
           _TableHeaderText(localizations.fullNameUpdated, flex: 3),
           _TableHeaderText(localizations.phone, flex: 2),
           _TableHeaderText(localizations.email, flex: 3),
+          _TableHeaderText(localizations.assignedTo, flex: 2),
           _TableHeaderText(localizations.preferredLocation, flex: 3),
           _TableHeaderText(localizations.preferredPropertyType, flex: 3),
           _TableHeaderText(
@@ -1191,6 +1404,7 @@ class _ClientsTableRow extends StatelessWidget {
               _TableBodyText(_fallback(client.fullName, l.notAvailable), flex: 3),
               _TableBodyText(_fallback(client.phone, l.notAvailable), flex: 2),
               _TableBodyText(_fallback(client.email, l.notAvailable), flex: 3),
+              _TableBodyText(_clientAssigneeLabel(l, client), flex: 2),
               _TableBodyText(
                 _fallback(client.preferredLocation, l.notAvailable),
                 flex: 3,
@@ -1478,9 +1692,8 @@ class _TableHeaderText extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
         child: Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
+          maxLines: 2,
+          softWrap: true,
           textAlign: TextAlign.start,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: AppColors.textSecondaryColor(context),
@@ -1506,9 +1719,8 @@ class _TableBodyText extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
         child: Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
+          maxLines: 2,
+          softWrap: true,
           textAlign: TextAlign.start,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
@@ -1520,6 +1732,21 @@ class _TableBodyText extends StatelessWidget {
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback : trimmed;
+}
+
+String _clientAssigneeLabel(AppLocalizations l, Client client) {
+  if (client.assignedTo.trim().isEmpty) {
+    return l.unassigned;
+  }
+  final name = client.assignedToName.trim();
+  if (name.isNotEmpty) {
+    return name;
+  }
+  final email = client.assignedToEmail.trim();
+  if (email.isNotEmpty) {
+    return email;
+  }
+  return l.assignedUserUnavailable;
 }
 
 String _budgetLabel(AppLocalizations l, Client client) {

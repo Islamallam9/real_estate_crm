@@ -11,6 +11,10 @@ const db = admin.firestore();
 const auth = admin.auth();
 const messaging = admin.messaging();
 const FieldValue = admin.firestore.FieldValue;
+const COMPANY_NOTIFICATION_READ_RETENTION_DAYS = 90;
+const COMPANY_NOTIFICATION_DISMISSED_RETENTION_DAYS = 30;
+const NOTIFICATION_CLEANUP_BATCH_SIZE = 450;
+
 
 
 exports.getServerTime = onCall(() => {
@@ -5512,9 +5516,9 @@ exports.assignClientRecord = onCall(async (request) => {
       if (!canManageExisting) {
         throw new HttpsError('permission-denied', 'You can assign only clients in your team.');
       }
-      if (!assignedTo) {
-        throw new HttpsError('permission-denied', 'Managers cannot leave clients unassigned.');
-      }
+      // Managers may clear the assignment only after passing the existing
+      // team-scope check above. Clearing assignment removes team/manager
+      // snapshots and makes the client an Admin-owned unassigned record.
     }
 
     let assignmentUpdate = {
@@ -6159,6 +6163,7 @@ exports.markCompanyNotificationRead = onCall(
     await notificationRef.update({
       isRead: true,
       readAt: FieldValue.serverTimestamp(),
+      expiresAt: retentionExpiryFromNow(COMPANY_NOTIFICATION_READ_RETENTION_DAYS),
       updatedAt: FieldValue.serverTimestamp(),
     });
     return { updated: 1, alreadyRead: false };
@@ -6207,6 +6212,7 @@ exports.markCompanyNotificationsRead = onCall(
         batch.update(document.ref, {
           isRead: true,
           readAt: FieldValue.serverTimestamp(),
+          expiresAt: retentionExpiryFromNow(COMPANY_NOTIFICATION_READ_RETENTION_DAYS),
           updatedAt: FieldValue.serverTimestamp(),
         });
         updated += 1;
@@ -6251,6 +6257,7 @@ exports.markCompanyNotificationsRead = onCall(
         batch.update(document.ref, {
           isRead: true,
           readAt: FieldValue.serverTimestamp(),
+          expiresAt: retentionExpiryFromNow(COMPANY_NOTIFICATION_READ_RETENTION_DAYS),
           updatedAt: FieldValue.serverTimestamp(),
         });
         updated += 1;
@@ -11894,6 +11901,55 @@ async function createCompanyNotification({
     notificationRef,
   });
   return notificationRef.id;
+}
+
+
+exports.cleanupExpiredCompanyNotifications = onSchedule(
+  {
+    region: 'us-east1',
+    schedule: 'every 24 hours',
+    timeZone: 'Etc/UTC',
+  },
+  async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await db.collectionGroup('notifications')
+      .where('expiresAt', '<=', now)
+      .limit(NOTIFICATION_CLEANUP_BATCH_SIZE)
+      .get();
+
+    if (snapshot.empty) {
+      return { scanned: 0, deleted: 0, skipped: 0 };
+    }
+
+    const batch = db.batch();
+    let deleted = 0;
+    let skipped = 0;
+
+    for (const document of snapshot.docs) {
+      const data = document.data() || {};
+      const actionState = optionalString(data.actionState);
+      const isRead = data.isRead === true;
+      if (!isRead && actionState === 'actionNeeded') {
+        skipped += 1;
+        continue;
+      }
+      batch.delete(document.ref);
+      deleted += 1;
+    }
+
+    if (deleted > 0) {
+      await batch.commit();
+    }
+
+    return { scanned: snapshot.size, deleted, skipped };
+  },
+);
+
+function retentionExpiryFromNow(days) {
+  const safeDays = Math.max(1, Number(days) || COMPANY_NOTIFICATION_READ_RETENTION_DAYS);
+  return admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + safeDays * 24 * 60 * 60 * 1000),
+  );
 }
 
 

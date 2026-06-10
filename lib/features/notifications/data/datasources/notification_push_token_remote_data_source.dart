@@ -399,14 +399,7 @@ class FirebaseNotificationPushTokenRemoteDataSource
   }
 
   void _debugTokenStatus(String status) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint(
-      'MasarFCM: status=$status '
-      'platform=${_platformName()} '
-      'hasVapidKey=${!kIsWeb || _webVapidKey.trim().isNotEmpty}',
-    );
+    return;
   }
 
   String _mapFirebaseError(FirebaseException error) {

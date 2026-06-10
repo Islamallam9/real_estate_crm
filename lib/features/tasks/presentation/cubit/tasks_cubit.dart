@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
@@ -38,9 +39,27 @@ class TasksCubit extends Cubit<TasksState> {
   final UpdateTaskUseCase _updateTaskUseCase;
   final GetTaskRelatedRecordOptionsUseCase _getRelatedRecordOptionsUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
 
   StreamSubscription<List<CrmTask>>? _tasksSubscription;
   StreamSubscription<CrmTask?>? _taskSubscription;
+  String? _watchedCompanyId;
+  String? _watchedAssignedTo;
+  String? _watchedManagerId;
+  String? _watchedTeamId;
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const int _filterScanLimit = 500;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'overdue',
+    'today',
+    'upcoming',
+    'completed',
+    'cancelled',
+  ];
+  static const int _dashboardWatchLimit = 1000;
   final InitialLoadTimeout _tasksInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _taskInitialLoadTimeout = InitialLoadTimeout();
 
@@ -49,18 +68,40 @@ class TasksCubit extends Cubit<TasksState> {
     String? assignedTo,
     String? managerId,
     String? teamId,
+    int? limit,
+    bool resetPage = true,
+    bool usePagination = true,
   }) {
+    _watchedCompanyId = companyId;
+    _watchedAssignedTo = assignedTo;
+    _watchedManagerId = managerId;
+    _watchedTeamId = teamId;
+    final effectiveAssignedTo = _effectiveAssignedToScope();
+    final hasLocalFilters = _hasLocalTaskFilters();
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
+    final queryLimit = usePagination
+        ? (hasLocalFilters ? _filterScanLimit : pageLimit)
+        : _dashboardWatchLimit;
     emit(
       state.copyWith(
-        status: TasksStatus.loading,
+        status: resetPage || state.tasks.isEmpty
+            ? TasksStatus.loading
+            : TasksStatus.loadingMore,
+        pageLimit: pageLimit,
         clearMessage: true,
         clearLastAction: true,
       ),
     );
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _tasksSubscription?.cancel();
     _tasksInitialLoadTimeout.start(() {
       if (isClosed ||
-          state.status != TasksStatus.loading ||
+          (state.status != TasksStatus.loading &&
+              state.status != TasksStatus.loadingMore) ||
           state.tasks.isNotEmpty) {
         return;
       }
@@ -73,9 +114,10 @@ class TasksCubit extends Cubit<TasksState> {
     });
     _tasksSubscription = _watchTasksUseCase(
       companyId: companyId,
-      assignedTo: assignedTo,
+      assignedTo: effectiveAssignedTo,
       managerId: managerId,
       teamId: teamId,
+      limit: queryLimit,
     ).listen(
       (tasks) {
         if (isClosed) {
@@ -87,9 +129,12 @@ class TasksCubit extends Cubit<TasksState> {
             status: tasks.isEmpty ? TasksStatus.empty : TasksStatus.loaded,
             tasks: tasks,
             filteredTasks: _applyFilters(tasks),
+            pageLimit: pageLimit,
             clearMessage: true,
           ),
         );
+        unawaited(_refreshKpiCounts());
+        _debugCheckKpiInvariant();
       },
       onError: (error) {
         if (isClosed) {
@@ -103,6 +148,78 @@ class TasksCubit extends Cubit<TasksState> {
           ),
         );
       },
+    );
+  }
+
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    final counts = await _countsDataSource.taskCounts(
+      companyId: companyId,
+      assignedTo: _effectiveAssignedToScope(),
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+    );
+    if (!isClosed && _watchedCompanyId == companyId) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'tasks',
+      loadedRows: state.tasks.length,
+      totalCount: state.kpiCounts.valueOrNull('total'),
+      hasLocalFilters: _hasLocalTaskFilters(),
+      scopeLabel: 'active',
+    );
+  }
+
+  void loadMoreTasks() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null ||
+        companyId.isEmpty ||
+        state.status == TasksStatus.loading ||
+        state.status == TasksStatus.loadingMore) {
+      return;
+    }
+
+    final nextLimit = state.pageLimit + _pageIncrement;
+    if (state.filteredTasks.length > state.pageLimit) {
+      emit(state.copyWith(pageLimit: nextLimit));
+      _debugCheckKpiInvariant();
+      return;
+    }
+    if (!state.canLoadMore) {
+      return;
+    }
+
+    watchTasks(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      limit: nextLimit,
+      resetPage: false,
+    );
+  }
+
+  void _reloadCurrentTaskScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    watchTasks(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      resetPage: true,
     );
   }
 
@@ -165,15 +282,18 @@ class TasksCubit extends Cubit<TasksState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredTasks: _applyFilters(state.tasks, searchQuery: query),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   void setStatusFilter(TaskStatus? status) {
     emit(
       state.copyWith(
         statusFilter: status,
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: status == null,
         filteredTasks: _applyFilters(
           state.tasks,
@@ -182,12 +302,14 @@ class TasksCubit extends Cubit<TasksState> {
         ),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   void setPriorityFilter(TaskPriority? priority) {
     emit(
       state.copyWith(
         priorityFilter: priority,
+        pageLimit: _defaultPageLimit,
         clearPriorityFilter: priority == null,
         filteredTasks: _applyFilters(
           state.tasks,
@@ -196,12 +318,14 @@ class TasksCubit extends Cubit<TasksState> {
         ),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   void setDueDateFilter(TaskDueDateFilter? dueDateFilter) {
     emit(
       state.copyWith(
         dueDateFilter: dueDateFilter,
+        pageLimit: _defaultPageLimit,
         clearDueDateFilter: dueDateFilter == null,
         filteredTasks: _applyFilters(
           state.tasks,
@@ -210,12 +334,43 @@ class TasksCubit extends Cubit<TasksState> {
         ),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
+  }
+
+
+  void applyKpiFilter({
+    TaskStatus? statusFilter,
+    TaskDueDateFilter? dueDateFilter,
+  }) {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        pageLimit: _defaultPageLimit,
+        statusFilter: statusFilter,
+        clearStatusFilter: statusFilter == null,
+        clearPriorityFilter: true,
+        dueDateFilter: dueDateFilter,
+        clearDueDateFilter: dueDateFilter == null,
+        filteredTasks: _applyFilters(
+          state.tasks,
+          searchQuery: '',
+          statusFilter: statusFilter,
+          priorityFilter: null,
+          dueDateFilter: dueDateFilter,
+          overrideStatusFilter: true,
+          overridePriorityFilter: true,
+          overrideDueDateFilter: true,
+        ),
+      ),
+    );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   void clearFilters() {
     emit(
       state.copyWith(
         searchQuery: '',
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: true,
         clearPriorityFilter: true,
         clearDueDateFilter: true,
@@ -233,15 +388,18 @@ class TasksCubit extends Cubit<TasksState> {
         ),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   void setAssignedToFilter(String assignedTo) {
     emit(
       state.copyWith(
         assignedToFilter: assignedTo,
+        pageLimit: _defaultPageLimit,
         filteredTasks: _applyFilters(state.tasks, assignedToFilter: assignedTo),
       ),
     );
+    _reloadCurrentTaskScopeAfterFilterChange();
   }
 
   Future<bool> createTask({
@@ -283,6 +441,7 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) {
         return false;
       }
+      unawaited(_refreshKpiCounts());
       emit(
         state.copyWith(
           status: TasksStatus.saved,
@@ -367,6 +526,7 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) {
         return false;
       }
+      unawaited(_refreshKpiCounts());
       final updatedTasks = _replaceTaskInCurrentList(updatedTask);
       emit(
         state.copyWith(
@@ -526,6 +686,27 @@ class TasksCubit extends Cubit<TasksState> {
   }
 
 
+  String? _effectiveAssignedToScope() {
+    final baseAssignedTo = _watchedAssignedTo?.trim() ?? '';
+    if (baseAssignedTo.isNotEmpty) {
+      return baseAssignedTo;
+    }
+    if ((_watchedManagerId?.trim().isNotEmpty ?? false) ||
+        (_watchedTeamId?.trim().isNotEmpty ?? false)) {
+      return null;
+    }
+    final selectedAssignedTo = state.assignedToFilter.trim();
+    return selectedAssignedTo.isEmpty ? null : selectedAssignedTo;
+  }
+
+  bool _hasLocalTaskFilters() {
+    return state.searchQuery.trim().isNotEmpty ||
+        state.statusFilter != null ||
+        state.priorityFilter != null ||
+        state.dueDateFilter != null ||
+        state.assignedToFilter.trim().isNotEmpty;
+  }
+
   List<CrmTask> _replaceTaskInCurrentList(CrmTask updated) {
     final index = state.tasks.indexWhere((task) => task.id == updated.id);
     if (index < 0) {
@@ -583,7 +764,7 @@ class TasksCubit extends Cubit<TasksState> {
           matchesAssignedTo;
     }).toList();
 
-    filtered.sort((a, b) => _compareTasksByUrgency(a, b, today));
+    filtered.sort(_compareTasksByCreatedAtDesc);
     return filtered;
   }
 
@@ -612,6 +793,16 @@ class TasksCubit extends Cubit<TasksState> {
     final aDate = a.dueDate ?? DateTime(9999);
     final bDate = b.dueDate ?? DateTime(9999);
     return aDate.compareTo(bDate);
+  }
+
+  int _compareTasksByCreatedAtDesc(CrmTask a, CrmTask b) {
+    final aDate = a.createdAt ?? a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final dateCompare = bDate.compareTo(aDate);
+    if (dateCompare != 0) {
+      return dateCompare;
+    }
+    return b.id.compareTo(a.id);
   }
 
   int _urgencyGroup(CrmTask task, DateTime today) {
@@ -701,6 +892,7 @@ class TasksCubit extends Cubit<TasksState> {
   Future<void> close() {
     _tasksInitialLoadTimeout.cancel();
     _taskInitialLoadTimeout.cancel();
+    _refreshKpiCounts();
     _tasksSubscription?.cancel();
     _taskSubscription?.cancel();
     return super.close();

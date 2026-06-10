@@ -15,6 +15,7 @@ import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -23,6 +24,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -157,7 +159,7 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
     }
   }
 
-  void _watchAppointments() {
+  void _watchAppointments({bool attentionMode = false}) {
     final dateWindow = _appointmentsRollingDateWindow();
     context.read<AppointmentsCubit>().watchAppointments(
           companyId: widget.companyId,
@@ -166,8 +168,17 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
           teamId: widget.teamId,
           rangeStart: dateWindow.start,
           rangeEnd: dateWindow.end,
+          usePagination: !attentionMode,
         );
     _applyInitialFiltersIfNeeded();
+  }
+
+  void _setSelectedTab(int index) {
+    if (_selectedTab == index) {
+      return;
+    }
+    setState(() => _selectedTab = index);
+    _watchAppointments(attentionMode: index == 1);
   }
 
   void _applyInitialFiltersIfNeeded() {
@@ -269,13 +280,11 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   canCreate: canCreate,
                   onCreate: () => context.go(RouteNames.appointmentsCreate),
                 );
-                final summary = _AppointmentsSummary(
-                  appointments: state.appointments,
-                );
+                final summary = _AppointmentsSummary(state: state);
                 final tabs = _AppointmentsTabs(
                   selectedIndex: _selectedTab,
-                  attentionCount: attentionAppointments.length,
-                  onChanged: (index) => setState(() => _selectedTab = index),
+                  attentionCount: _attentionBadgeCount(state, attentionAppointments),
+                  onChanged: _setSelectedTab,
                 );
                 final filters = _AppointmentsFilters(
                   state: state,
@@ -291,6 +300,8 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   assignedTo: widget.assignedTo,
                   managerId: widget.managerId,
                   teamId: widget.teamId,
+                  onLoadMore: () =>
+                      context.read<AppointmentsCubit>().loadMoreAppointments(),
                 );
                 final showAttentionTab = _selectedTab == 1;
 
@@ -417,8 +428,8 @@ class _AppointmentsHeader extends StatelessWidget {
           Expanded(
             child: Text(
               l.appointmentsSubtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: 3,
+              softWrap: true,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondaryColor(context),
                   ),
@@ -439,189 +450,78 @@ class _AppointmentsHeader extends StatelessWidget {
 }
 
 class _AppointmentsSummary extends StatelessWidget {
-  const _AppointmentsSummary({required this.appointments});
+  const _AppointmentsSummary({required this.state});
 
-  final List<Appointment> appointments;
+  final AppointmentsState state;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final completed = appointments
-        .where((appointment) => appointment.status == AppointmentStatus.completed)
-        .length;
-    final missed = appointments.where((appointment) {
-      return appointment.status == AppointmentStatus.missed ||
-          (_isOpenScheduledStatus(appointment.status) &&
-              _isAppointmentPastStart(appointment, now));
-    }).length;
-    final todayCount = appointments.where((appointment) {
-      final date = appointment.scheduledAt?.toLocal();
-      return date != null &&
-          DateTime(date.year, date.month, date.day) == today;
-    }).length;
-    final upcoming = appointments.where((appointment) {
-      final scheduledAt = appointment.scheduledAt;
-      return scheduledAt != null &&
-          scheduledAt.isAfter(now) &&
-          (appointment.status == AppointmentStatus.scheduled ||
-              appointment.status == AppointmentStatus.rescheduled);
-    }).length;
-
+    final cubit = context.read<AppointmentsCubit>();
     final cards = [
-      _SummaryCardData(
+      ModuleKpiCardData(
         label: l.todaysAppointments,
-        value: todayCount.toString(),
+        value: state.kpiCounts.display(
+          'today',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
         icon: Icons.today_outlined,
         tone: AppStatusTone.info,
+        selected: state.dateFilter == AppointmentDateFilter.today,
+        onTap: () {
+          cubit.clearFilters();
+          cubit.setDateFilter(AppointmentDateFilter.today);
+        },
       ),
-      _SummaryCardData(
+      ModuleKpiCardData(
         label: l.upcomingAppointments,
-        value: upcoming.toString(),
+        value: state.kpiCounts.display(
+          'upcoming',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
         icon: Icons.event_available_outlined,
         tone: AppStatusTone.warning,
+        selected: state.dateFilter == AppointmentDateFilter.upcoming,
+        onTap: () {
+          cubit.clearFilters();
+          cubit.setDateFilter(AppointmentDateFilter.upcoming);
+        },
       ),
-      _SummaryCardData(
+      ModuleKpiCardData(
         label: l.missedAppointments,
-        value: missed.toString(),
+        value: state.kpiCounts.display(
+          'missed',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
         icon: Icons.event_busy_outlined,
         tone: AppStatusTone.error,
+        selected: state.dateFilter == AppointmentDateFilter.missed,
+        onTap: () {
+          cubit.clearFilters();
+          cubit.setDateFilter(AppointmentDateFilter.missed);
+        },
       ),
-      _SummaryCardData(
+      ModuleKpiCardData(
         label: l.completedAppointments,
-        value: completed.toString(),
+        value: state.kpiCounts.display(
+          'completed',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
         icon: Icons.verified_outlined,
         tone: AppStatusTone.success,
+        selected: state.statusFilter == AppointmentStatus.completed,
+        onTap: () {
+          cubit.clearFilters();
+          cubit.setStatusFilter(AppointmentStatus.completed);
+        },
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 680 ? 2 : 4;
-        return GridView.count(
-          crossAxisCount: columns,
-          crossAxisSpacing: AppSpacing.xs,
-          mainAxisSpacing: AppSpacing.xs,
-          childAspectRatio: constraints.maxWidth < 680 ? 2.9 : 4.6,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (var index = 0; index < cards.length; index++)
-              _AnimatedSummaryTile(
-                index: index,
-                child: _SummaryTile(card: cards[index]),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SummaryCardData {
-  const _SummaryCardData({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.tone,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final AppStatusTone tone;
-}
-
-class _AnimatedSummaryTile extends StatelessWidget {
-  const _AnimatedSummaryTile({required this.index, required this.child});
-
-  final int index;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 220 + index * 35),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 12 * (1 - value)),
-            child: Transform.scale(
-              scale: 0.985 + (0.015 * value),
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
-
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({required this.card});
-
-  final _SummaryCardData card;
-
-  @override
-  Widget build(BuildContext context) {
-    final toneColor = _toneColor(context, card.tone);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        border: Border.all(color: AppColors.borderColor(context)),
-        borderRadius: AppRadius.large,
-        boxShadow:
-            Theme.of(context).brightness == Brightness.dark ? null : AppShadows.card,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: 6,
-        ),
-        child: Row(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: toneColor.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(card.icon, color: toneColor, size: 16),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.value,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  Text(
-                    card.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppColors.textSecondaryColor(context),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return ModuleKpiStrip(cards: cards);
   }
 }
 
@@ -655,26 +555,30 @@ class _AppointmentsAttentionStripState
   @override
   void didUpdateWidget(covariant _AppointmentsAttentionStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.appointments.length <= 3 && _expanded) {
+    if (widget.appointments.length <= _attentionPageSize && _expanded) {
       _expanded = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.appointments.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final l = AppLocalizations.of(context)!;
-    final canToggle = widget.appointments.length > 3;
+    if (widget.appointments.isEmpty) {
+      return _AnimatedEmptyState(
+        child: AppEmptyState(
+          title: l.attentionNeeded,
+          message: l.noAppointmentsMatchFilters,
+          icon: Icons.notifications_active_outlined,
+        ),
+      );
+    }
+    final canToggle = widget.appointments.length > _attentionPageSize;
     final itemCount = _expanded
         ? widget.appointments.length
-        : widget.appointments.length > 3
-            ? 3
+        : widget.appointments.length > _attentionPageSize
+            ? _attentionPageSize
             : widget.appointments.length;
-    final visibleRows = _expanded
-        ? (itemCount > 6 ? 6 : itemCount)
-        : itemCount;
+    final visibleRows = itemCount > 6 ? 6 : itemCount;
     final listHeight = (visibleRows * 78.0).toDouble();
 
     return TweenAnimationBuilder<double>(
@@ -725,8 +629,8 @@ class _AppointmentsAttentionStripState
                   Expanded(
                     child: Text(
                       l.appointmentAttention,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
@@ -755,7 +659,7 @@ class _AppointmentsAttentionStripState
                 height: listHeight,
                 child: ListView.builder(
                   primary: false,
-                  physics: _expanded && widget.appointments.length > 6
+                  physics: itemCount > 6
                       ? const ClampingScrollPhysics()
                       : const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
@@ -775,6 +679,22 @@ class _AppointmentsAttentionStripState
                   },
                 ),
               ),
+              if (canToggle) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: AlignmentDirectional.center,
+                  child: AppButton(
+                    label: _expanded
+                        ? l.collapseAttentionNeeded
+                        : '${l.more} +${widget.appointments.length - _attentionPageSize}',
+                    icon: _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.expand_more_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -839,8 +759,8 @@ class _AppointmentAttentionTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       appointment.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -1043,7 +963,11 @@ Future<void> _showFiltersSheet(
                       child: AppDropdown<_FilterOption<AppointmentDateFilter>>(
                         label: l.filterByDate,
                         value: _FilterOption.fromValue(state.dateFilter),
-                        items: _filterOptions(AppointmentDateFilter.values),
+                        items: _filterOptions(
+                          AppointmentDateFilter.values.where(
+                            (filter) => filter != AppointmentDateFilter.all,
+                          ),
+                        ),
                         itemLabelBuilder: (option) => option.isAll
                             ? l.allAppointments
                             : _dateFilterLabel(l, option.value!),
@@ -1120,6 +1044,7 @@ class _AppointmentsBody extends StatelessWidget {
     required this.state,
     required this.users,
     required this.canManage,
+    required this.onLoadMore,
     this.assignedTo,
     this.managerId,
     this.teamId,
@@ -1130,6 +1055,7 @@ class _AppointmentsBody extends StatelessWidget {
   final AppointmentsState state;
   final List<UserProfile> users;
   final bool canManage;
+  final VoidCallback onLoadMore;
   final String? assignedTo;
   final String? managerId;
   final String? teamId;
@@ -1155,6 +1081,8 @@ class _AppointmentsBody extends StatelessWidget {
                 teamId: teamId,
                 rangeStart: dateWindow.start,
                 rangeEnd: dateWindow.end,
+                limit: state.pageLimit,
+                resetPage: false,
               );
         },
       );
@@ -1178,41 +1106,108 @@ class _AppointmentsBody extends StatelessWidget {
       );
     }
     if (state.filteredAppointments.isEmpty) {
-      return _AnimatedEmptyState(
-        child: AppEmptyState(
-          title: state.dateFilter == AppointmentDateFilter.missed
-              ? l.noMissedAppointments
-              : l.noAppointmentsMatchFilters,
-          message: l.clearFilters,
-          icon: state.dateFilter == AppointmentDateFilter.missed
-              ? Icons.event_busy_outlined
-              : Icons.manage_search_outlined,
+      return _withLoadMoreFooter(
+        context,
+        _AnimatedEmptyState(
+          child: AppEmptyState(
+            title: state.dateFilter == AppointmentDateFilter.missed
+                ? l.noMissedAppointments
+                : l.noAppointmentsMatchFilters,
+            message: l.clearFilters,
+            icon: state.dateFilter == AppointmentDateFilter.missed
+                ? Icons.event_busy_outlined
+                : Icons.manage_search_outlined,
+          ),
         ),
       );
     }
 
-    if (state.dateFilter == AppointmentDateFilter.missed) {
-      return SingleChildScrollView(
-        primary: false,
-        physics: const ClampingScrollPhysics(),
-        child: _AgendaPanel(
-          title: l.missedAppointments,
-          appointments: state.filteredAppointments,
-          companyId: companyId,
-          uid: uid,
-          users: users,
-          canManage: canManage,
-          emptyMessage: l.noMissedAppointments,
+    if (_shouldShowFilteredAppointmentsAgenda(state)) {
+      final visibleAppointments = _visiblePagedAppointments(state);
+      return _withLoadMoreFooter(
+        context,
+        SingleChildScrollView(
+          primary: false,
+          physics: const ClampingScrollPhysics(),
+          child: _AgendaPanel(
+            title: _appointmentsFilterTitle(l, state),
+            appointments: visibleAppointments,
+            companyId: companyId,
+            uid: uid,
+            users: users,
+            canManage: canManage,
+            emptyMessage: state.dateFilter == AppointmentDateFilter.missed
+                ? l.noMissedAppointments
+                : l.noAppointmentsMatchFilters,
+          ),
         ),
+        visibleCount: visibleAppointments.length,
+        totalCountOverride: state.filteredAppointments.length,
       );
     }
 
-    return _AppointmentsCalendarWorkspace(
-      state: state,
-      companyId: companyId,
-      uid: uid,
-      users: users,
-      canManage: canManage,
+    return _withLoadMoreFooter(
+      context,
+      _AppointmentsCalendarWorkspace(
+        state: state,
+        companyId: companyId,
+        uid: uid,
+        users: users,
+        canManage: canManage,
+      ),
+      visibleCount: _visibleCalendarAppointmentCount(context, state),
+      visibleCountMatchesLoadedScope: false,
+    );
+  }
+
+  Widget _withLoadMoreFooter(
+    BuildContext context,
+    Widget child, {
+    int? visibleCount,
+    int? totalCountOverride,
+    bool visibleCountMatchesLoadedScope = true,
+  }) {
+    const pageSize = 15;
+    final loadedCount = visibleCount ?? state.filteredAppointments.length;
+    if (!state.canLoadMore || loadedCount < pageSize) {
+      return child;
+    }
+    final totalCount = totalCountOverride ??
+        (visibleCountMatchesLoadedScope ? state.filteredTotalCount : null);
+
+    final footer = Padding(
+      padding: const EdgeInsetsDirectional.only(top: AppSpacing.sm),
+      child: Align(
+        alignment: AlignmentDirectional.center,
+        child: _LoadMoreAppointmentsButton(
+          loadedCount: loadedCount,
+          totalCount: totalCount,
+          pageSize: pageSize,
+          isLoading: state.status == AppointmentsStatus.loadingMore,
+          onPressed: onLoadMore,
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedHeight) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: child),
+              footer,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            child,
+            footer,
+          ],
+        );
+      },
     );
   }
 }
@@ -1368,6 +1363,30 @@ class _CalendarWorkspaceContent extends StatelessWidget {
                   context.read<AppointmentsCubit>().setSelectedCalendarDate,
             );
           case AppointmentCalendarView.day:
+            final dayCalendar = _MonthCalendarPanel(
+              selectedDate: selectedDate,
+              appointments: appointments,
+              onDateSelected:
+                  context.read<AppointmentsCubit>().setSelectedCalendarDate,
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  dayCalendar,
+                  const SizedBox(height: AppSpacing.sm),
+                  agenda,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: dayCalendar),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(flex: 2, child: agenda),
+              ],
+            );
           case AppointmentCalendarView.today:
             return agenda;
         }
@@ -1445,8 +1464,8 @@ class _MonthCalendarPanel extends StatelessWidget {
                   child: Center(
                     child: Text(
                       label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.textSecondaryColor(context),
                             fontWeight: FontWeight.w800,
@@ -1748,8 +1767,8 @@ class _WeekDayGroup extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '$dateLabel - $dayLabel',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: color,
                             fontWeight: FontWeight.w900,
@@ -1794,6 +1813,34 @@ class _WeekDayGroup extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+class _LoadMoreAppointmentsButton extends StatelessWidget {
+  const _LoadMoreAppointmentsButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
+
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
     );
   }
 }
@@ -1909,8 +1956,8 @@ class _AgendaAppointmentTile extends StatelessWidget {
                     Text(
                       _timeOnlyLabel(l, appointment.scheduledAt),
                       textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: color,
                             fontWeight: FontWeight.w900,
@@ -2033,8 +2080,8 @@ class _WorkspacePanel extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
@@ -2207,7 +2254,7 @@ class _AppointmentCard extends StatelessWidget {
                   child: Text(
                     appointment.title,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -3013,8 +3060,8 @@ class _Pill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          softWrap: true,
           style: Theme.of(context).textTheme.labelMedium,
         ),
       ),
@@ -3036,8 +3083,8 @@ class _TableHeaderText extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
         child: Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          softWrap: true,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: AppColors.textSecondaryColor(context),
                 fontWeight: FontWeight.w800,
@@ -3062,8 +3109,8 @@ class _TableBodyText extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
         child: Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          softWrap: true,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),
@@ -3098,7 +3145,7 @@ class _FilterOption<T> {
   int get hashCode => Object.hash(value, isAll);
 }
 
-List<_FilterOption<T>> _filterOptions<T>(List<T> values) {
+List<_FilterOption<T>> _filterOptions<T>(Iterable<T> values) {
   return [
     _FilterOption<T>.all(),
     for (final value in values) _FilterOption<T>.value(value),
@@ -3198,7 +3245,17 @@ String _relatedRecordDisplayLabel(
   return '$typeLabel: $title';
 }
 
-enum _AppointmentAttentionType { missed, dueNow, upcomingSoon, today }
+const int _attentionPageSize = 15;
+const int _staleMissedAttentionDays = 30;
+
+int _attentionBadgeCount(
+  AppointmentsState state,
+  List<Appointment> attentionAppointments,
+) {
+  return attentionAppointments.length;
+}
+
+enum _AppointmentAttentionType { missed, dueNow, upcomingSoon }
 
 List<Appointment> _attentionAppointments(List<Appointment> appointments) {
   final selected = appointments.where((appointment) {
@@ -3236,20 +3293,19 @@ _AppointmentAttentionType? _appointmentAttentionType(Appointment appointment) {
   if (appointment.status == AppointmentStatus.missed ||
       (_isOpenScheduledStatus(appointment.status) &&
           _isAppointmentPastStart(appointment, now))) {
+    final staleCutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: _staleMissedAttentionDays));
+    if (localStart.isBefore(staleCutoff)) {
+      return null;
+    }
     return _AppointmentAttentionType.missed;
   }
   if (localStart.isAfter(now) &&
       localStart.isBefore(now.add(const Duration(hours: 2)))) {
     return _AppointmentAttentionType.upcomingSoon;
-  }
-  final today = DateTime(now.year, now.month, now.day);
-  final appointmentDay = DateTime(
-    localStart.year,
-    localStart.month,
-    localStart.day,
-  );
-  if (appointmentDay == today) {
-    return _AppointmentAttentionType.today;
   }
   return null;
 }
@@ -3259,8 +3315,7 @@ int _appointmentAttentionRank(_AppointmentAttentionType? type) {
     _AppointmentAttentionType.missed => 0,
     _AppointmentAttentionType.dueNow => 1,
     _AppointmentAttentionType.upcomingSoon => 2,
-    _AppointmentAttentionType.today => 3,
-    null => 4,
+    null => 3,
   };
 }
 
@@ -3274,7 +3329,6 @@ String _appointmentAttentionLabel(
     _AppointmentAttentionType.dueNow => l.notificationAppointmentDueNowTitle,
     _AppointmentAttentionType.upcomingSoon =>
       l.notificationAppointmentUpcomingSoonTitle,
-    _AppointmentAttentionType.today => l.notificationAppointmentTodayAttentionTitle,
     null => l.appointmentStatusScheduled,
   };
 }
@@ -3283,8 +3337,7 @@ AppStatusTone _appointmentAttentionTone(_AppointmentAttentionType? type) {
   return switch (type) {
     _AppointmentAttentionType.missed || _AppointmentAttentionType.dueNow =>
       AppStatusTone.error,
-    _AppointmentAttentionType.upcomingSoon || _AppointmentAttentionType.today =>
-      AppStatusTone.warning,
+    _AppointmentAttentionType.upcomingSoon => AppStatusTone.warning,
     null => AppStatusTone.info,
   };
 }
@@ -3294,7 +3347,6 @@ IconData _appointmentAttentionIcon(_AppointmentAttentionType? type) {
     _AppointmentAttentionType.missed => Icons.event_busy_outlined,
     _AppointmentAttentionType.dueNow => Icons.notifications_active_outlined,
     _AppointmentAttentionType.upcomingSoon => Icons.upcoming_outlined,
-    _AppointmentAttentionType.today => Icons.today_outlined,
     null => Icons.event_available_outlined,
   };
 }
@@ -3360,6 +3412,45 @@ List<Appointment> _appointmentsForDay(
       final bDate = b.scheduledAt ?? DateTime(9999);
       return aDate.compareTo(bDate);
     });
+}
+
+int _visibleCalendarAppointmentCount(
+  BuildContext context,
+  AppointmentsState state,
+) {
+  final appointments = state.filteredAppointments;
+  final selectedDate = state.calendarView == AppointmentCalendarView.today
+      ? _dateOnly(DateTime.now())
+      : state.selectedCalendarDate ?? _dateOnly(DateTime.now());
+  return switch (state.calendarView) {
+    AppointmentCalendarView.today =>
+      _appointmentsForDay(appointments, selectedDate).length,
+    AppointmentCalendarView.day =>
+      _appointmentsForDay(appointments, selectedDate).length,
+    AppointmentCalendarView.week => _appointmentsForDaysCount(
+        appointments,
+        _weekDays(context, selectedDate),
+      ),
+    AppointmentCalendarView.month => _appointmentsForDaysCount(
+        appointments,
+        _visibleMonthDays(context, selectedDate),
+      ),
+  };
+}
+
+int _appointmentsForDaysCount(
+  List<Appointment> appointments,
+  Iterable<DateTime> days,
+) {
+  final visibleDays = days.map(_dateOnly).toSet();
+  var count = 0;
+  for (final appointment in appointments) {
+    final scheduledAt = appointment.scheduledAt;
+    if (scheduledAt != null && visibleDays.contains(_dateOnly(scheduledAt))) {
+      count++;
+    }
+  }
+  return count;
 }
 
 List<DateTime> _visibleMonthDays(BuildContext context, DateTime selectedDate) {
@@ -3481,6 +3572,52 @@ String? _linkedRecordRoute(Appointment appointment) {
   };
 }
 
+
+
+List<Appointment> _visiblePagedAppointments(AppointmentsState state) {
+  final limit = state.pageLimit < 1 ? 15 : state.pageLimit;
+  if (state.filteredAppointments.length <= limit) {
+    return state.filteredAppointments;
+  }
+  return state.filteredAppointments.take(limit).toList(growable: false);
+}
+
+bool _shouldShowFilteredAppointmentsAgenda(AppointmentsState state) {
+  final hasSearch = state.searchQuery.trim().isNotEmpty;
+  final hasAssignee = state.assignedToFilter.trim().isNotEmpty;
+  final hasSelectedDate = state.selectedDateFilter != null;
+  final hasStatus = state.statusFilter != null;
+  final hasType = state.typeFilter != null;
+  final dateFilter = state.dateFilter;
+  final hasNonTodayDateFilter = dateFilter != null &&
+      dateFilter != AppointmentDateFilter.today;
+  return hasSearch ||
+      hasAssignee ||
+      hasSelectedDate ||
+      hasStatus ||
+      hasType ||
+      hasNonTodayDateFilter;
+}
+
+String _appointmentsFilterTitle(AppLocalizations l, AppointmentsState state) {
+  final selectedDate = state.selectedDateFilter;
+  if (selectedDate != null) {
+    return l.dashboardAppointmentsForDate(
+      intl.DateFormat.yMMMd(l.localeName).format(selectedDate),
+    );
+  }
+  if (state.dateFilter != null) {
+    return _dateFilterLabel(l, state.dateFilter!);
+  }
+  if (state.statusFilter != null) {
+    return appointmentStatusLabel(l, state.statusFilter!);
+  }
+  if (state.typeFilter != null) {
+    return appointmentTypeLabel(l, state.typeFilter!);
+  }
+  return l.appointments;
+}
+
 String _dateFilterLabel(AppLocalizations l, AppointmentDateFilter filter) {
   return switch (filter) {
     AppointmentDateFilter.today => l.today,
@@ -3580,7 +3717,7 @@ AppointmentDateFilter? _appointmentDateFilter(String? value) {
     'missed' => AppointmentDateFilter.missed,
     'feedback-needed' || 'feedbackNeeded' =>
       AppointmentDateFilter.feedbackNeeded,
-    'all' => AppointmentDateFilter.all,
+    'all' => null,
     _ => null,
   };
 }

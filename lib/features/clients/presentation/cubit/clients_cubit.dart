@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
@@ -46,9 +47,25 @@ class ClientsCubit extends Cubit<ClientsState> {
   final ArchiveClientUseCase _archiveClientUseCase;
   final RestoreClientUseCase _restoreClientUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
 
   StreamSubscription<List<Client>>? _clientsSubscription;
   StreamSubscription<Client?>? _clientSubscription;
+  String? _watchedCompanyId;
+  String? _watchedAssignedTo;
+  String? _watchedManagerId;
+  String? _watchedTeamId;
+  ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'assigned',
+    'unassigned',
+  ];
+  static const int _dashboardWatchLimit = 1000;
+  static const int _filterModeWatchLimit = 500;
   final InitialLoadTimeout _clientsInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _clientInitialLoadTimeout = InitialLoadTimeout();
 
@@ -58,18 +75,39 @@ class ClientsCubit extends Cubit<ClientsState> {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int? limit,
+    bool resetPage = true,
+    bool usePagination = true,
   }) {
+    _watchedCompanyId = companyId;
+    _watchedAssignedTo = assignedTo;
+    _watchedManagerId = managerId;
+    _watchedTeamId = teamId;
+    _watchedArchiveFilter = archiveFilter;
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
+    final watchLimit = usePagination
+        ? _effectiveWatchLimit(pageLimit)
+        : _dashboardWatchLimit;
     emit(
       state.copyWith(
-        status: ClientsStatus.loading,
+        status: resetPage || state.clients.isEmpty
+            ? ClientsStatus.loading
+            : ClientsStatus.loadingMore,
+        pageLimit: pageLimit,
         clearMessage: true,
         clearLastAction: true,
       ),
     );
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _clientsSubscription?.cancel();
     _clientsInitialLoadTimeout.start(() {
       if (isClosed ||
-          state.status != ClientsStatus.loading ||
+          (state.status != ClientsStatus.loading &&
+              state.status != ClientsStatus.loadingMore) ||
           state.clients.isNotEmpty) {
         return;
       }
@@ -86,6 +124,7 @@ class ClientsCubit extends Cubit<ClientsState> {
       managerId: managerId,
       teamId: teamId,
       archiveFilter: archiveFilter,
+      limit: watchLimit,
     ).listen(
       (clients) {
         if (isClosed) {
@@ -102,9 +141,12 @@ class ClientsCubit extends Cubit<ClientsState> {
               assignedToFilter: state.assignedToFilter,
             ),
             archiveFilter: archiveFilter,
+            pageLimit: pageLimit,
             clearMessage: true,
           ),
         );
+        unawaited(_refreshKpiCounts());
+        _debugCheckKpiInvariant();
       },
       onError: (error) {
         if (isClosed) {
@@ -138,6 +180,85 @@ class ClientsCubit extends Cubit<ClientsState> {
       managerId: managerId,
       teamId: teamId,
       archiveFilter: archiveFilter,
+    );
+  }
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    final counts = await _countsDataSource.clientCounts(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+    );
+    if (!isClosed && _watchedCompanyId == companyId) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'clients',
+      loadedRows: state.clients.length,
+      totalCount: state.kpiCounts.valueOrNull('total'),
+      hasLocalFilters: state.hasLocalTableFilters,
+      scopeLabel: state.archiveFilter.name,
+    );
+  }
+
+  int _effectiveWatchLimit(int pageLimit) {
+    return state.hasLocalTableFilters ? _filterModeWatchLimit : pageLimit;
+  }
+
+  void loadMoreClients() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null ||
+        companyId.isEmpty ||
+        state.status == ClientsStatus.loading ||
+        state.status == ClientsStatus.loadingMore) {
+      return;
+    }
+
+    final nextLimit = state.pageLimit + _pageIncrement;
+    if (state.filteredClients.length > state.pageLimit) {
+      emit(state.copyWith(pageLimit: nextLimit));
+      _debugCheckKpiInvariant();
+      return;
+    }
+    if (!state.canLoadMore) {
+      return;
+    }
+
+    watchClients(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      limit: nextLimit,
+      resetPage: false,
+    );
+  }
+
+  void _reloadCurrentClientScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    watchClients(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      resetPage: true,
+      usePagination: !state.hasLocalTableFilters,
     );
   }
 
@@ -200,15 +321,18 @@ class ClientsCubit extends Cubit<ClientsState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredClients: _applyFilters(state.clients, searchQuery: query),
       ),
     );
+    _reloadCurrentClientScopeAfterFilterChange();
   }
 
   void setAssignedToFilter(String? assignedTo) {
     emit(
       state.copyWith(
         assignedToFilter: assignedTo,
+        pageLimit: _defaultPageLimit,
         clearAssignedToFilter: assignedTo == null,
         filteredClients: _applyFilters(
           state.clients,
@@ -217,6 +341,26 @@ class ClientsCubit extends Cubit<ClientsState> {
         ),
       ),
     );
+    _reloadCurrentClientScopeAfterFilterChange();
+  }
+
+
+  void applyKpiFilter(String? assignedToFilter) {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        assignedToFilter: assignedToFilter,
+        pageLimit: _defaultPageLimit,
+        clearAssignedToFilter: assignedToFilter == null,
+        filteredClients: _applyFilters(
+          state.clients,
+          searchQuery: '',
+          assignedToFilter: assignedToFilter,
+          overrideAssignedToFilter: true,
+        ),
+      ),
+    );
+    _reloadCurrentClientScopeAfterFilterChange();
   }
 
   Future<void> createClient({
@@ -263,6 +407,7 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.createClient,
         ),
       );
+      unawaited(_refreshKpiCounts());
     } on ClientException catch (error) {
       if (isClosed) {
         return;
@@ -308,7 +453,7 @@ class ClientsCubit extends Cubit<ClientsState> {
         _writeAuditLog(
           companyId: companyId,
           actorId: updatedClient.updatedBy,
-          action: AuditLogAction.restore,
+          action: AuditLogAction.update,
           recordId: updatedClient.id,
           recordTitle: _clientTitle(updatedClient),
           recordSubtitle: _clientSubtitle(updatedClient),
@@ -343,6 +488,7 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.updateClient,
         ),
       );
+      unawaited(_refreshKpiCounts());
     } on ClientException catch (error) {
       if (isClosed) {
         return;
@@ -422,13 +568,41 @@ class ClientsCubit extends Cubit<ClientsState> {
       if (isClosed) {
         return true;
       }
+      final currentClient = _clientById(clientId);
+      final updatedClient = currentClient == null
+          ? null
+          : _clientWithAssignment(
+              currentClient,
+              assignedTo: assignedTo,
+              assignedToName: assignedToName,
+              assignedToEmail: assignedToEmail,
+              teamId: teamId,
+              teamName: teamName,
+              managerId: managerId,
+              managerName: managerName,
+              updatedBy: updatedBy,
+            );
+      final updatedClients = updatedClient == null
+          ? state.clients
+          : _replaceClientInCurrentList(updatedClient);
       emit(
         state.copyWith(
           status: ClientsStatus.saved,
+          clients: updatedClients,
+          filteredClients: _applyFilters(
+            updatedClients,
+            searchQuery: state.searchQuery,
+            assignedToFilter: state.assignedToFilter,
+            overrideAssignedToFilter: true,
+          ),
+          selectedClient: state.selectedClient?.id == clientId
+              ? updatedClient
+              : state.selectedClient,
           clearMessage: true,
           lastAction: ClientsAction.assignClient,
         ),
       );
+      unawaited(_refreshKpiCounts());
       return true;
     } on ClientException catch (error) {
       if (isClosed) {
@@ -507,6 +681,7 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.archiveClient,
         ),
       );
+      unawaited(_refreshKpiCounts());
       return true;
     } on ClientException catch (error) {
       if (isClosed) {
@@ -584,6 +759,7 @@ class ClientsCubit extends Cubit<ClientsState> {
           lastAction: ClientsAction.restoreClient,
         ),
       );
+      unawaited(_refreshKpiCounts());
       return true;
     } on ClientException catch (error) {
       if (isClosed) {
@@ -679,6 +855,51 @@ class ClientsCubit extends Cubit<ClientsState> {
     return next;
   }
 
+  Client _clientWithAssignment(
+    Client client, {
+    required String assignedTo,
+    required String assignedToName,
+    required String assignedToEmail,
+    required String teamId,
+    required String teamName,
+    required String managerId,
+    required String managerName,
+    required String updatedBy,
+  }) {
+    return Client(
+      id: client.id,
+      companyId: client.companyId,
+      fullName: client.fullName,
+      phone: client.phone,
+      email: client.email,
+      budgetMin: client.budgetMin,
+      budgetMax: client.budgetMax,
+      preferredLocation: client.preferredLocation,
+      preferredPropertyType: client.preferredPropertyType,
+      notes: client.notes,
+      assignedTo: assignedTo.trim(),
+      assignedToName: assignedToName.trim(),
+      assignedToEmail: assignedToEmail.trim(),
+      teamId: teamId.trim(),
+      teamName: teamName.trim(),
+      managerId: managerId.trim(),
+      managerName: managerName.trim(),
+      isActive: client.isActive,
+      createdAt: client.createdAt,
+      updatedAt: DateTime.now(),
+      createdBy: client.createdBy,
+      updatedBy: updatedBy,
+      isArchived: client.isArchived,
+      archivedAt: client.archivedAt,
+      archivedBy: client.archivedBy,
+      archivedByName: client.archivedByName,
+      archiveReason: client.archiveReason,
+      restoredAt: client.restoredAt,
+      restoredBy: client.restoredBy,
+      restoredByName: client.restoredByName,
+    );
+  }
+
   List<Client> _applyFilters(
     List<Client> clients, {
     String? searchQuery,
@@ -698,9 +919,12 @@ class ClientsCubit extends Cubit<ClientsState> {
           client.preferredPropertyType.toLowerCase().contains(query) ||
           client.assignedToName.toLowerCase().contains(query) ||
           client.assignedToEmail.toLowerCase().contains(query);
-      final matchesAssignee =
-          selectedAssignedTo == null ||
+      final matchesAssignee = selectedAssignedTo == null ||
           selectedAssignedTo.isEmpty ||
+          (selectedAssignedTo == '__assigned__' &&
+              client.assignedTo.trim().isNotEmpty) ||
+          (selectedAssignedTo == '__unassigned__' &&
+              client.assignedTo.trim().isEmpty) ||
           client.assignedTo == selectedAssignedTo;
       return matchesSearch && matchesAssignee;
     }).toList();
@@ -717,6 +941,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   Future<void> close() {
     _clientsInitialLoadTimeout.cancel();
     _clientInitialLoadTimeout.cancel();
+    _refreshKpiCounts();
     _clientsSubscription?.cancel();
     _clientSubscription?.cancel();
     return super.close();

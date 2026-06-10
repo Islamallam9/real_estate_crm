@@ -99,6 +99,60 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
     int limit = 40,
+  }) async* {
+    final baseQuery = _dealScopeQuery(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: teamId,
+      archiveFilter: archiveFilter,
+    );
+    final orderedQuery = baseQuery
+        .orderBy('updatedAt', descending: true)
+        .limit(limit);
+
+    try {
+      await for (final snapshot in orderedQuery.snapshots()) {
+        yield _mapDealSnapshot(
+          snapshot,
+          companyId: companyId,
+          archiveFilter: archiveFilter,
+          sortLocally: false,
+        );
+      }
+    } on FirebaseException catch (error) {
+      if (error.code != 'failed-precondition') {
+        throw DealException(_mapFirestoreError(error));
+      }
+
+      // Keep Deals usable while a newly introduced pagination index is still
+      // building. The fallback is the previous safe scoped query plus local
+      // sorting, and it is intentionally only used on missing-index failures.
+      try {
+        await for (final snapshot in baseQuery.limit(limit).snapshots()) {
+          yield _mapDealSnapshot(
+            snapshot,
+            companyId: companyId,
+            archiveFilter: archiveFilter,
+            sortLocally: true,
+          );
+        }
+      } on FirebaseException catch (fallbackError) {
+        throw DealException(_mapFirestoreError(fallbackError));
+      } catch (_) {
+        throw const DealException(AppErrorMessages.unknown);
+      }
+    } catch (_) {
+      throw const DealException(AppErrorMessages.unknown);
+    }
+  }
+
+  Query<Map<String, dynamic>> _dealScopeQuery({
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
   }) {
     Query<Map<String, dynamic>> query = _dealsCollection(companyId);
     if (archiveFilter == ArchiveFilter.archived) {
@@ -119,34 +173,37 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
         role == UserRole.viewer) {
       query = query.where('assignedTo', isEqualTo: currentUserId);
     }
+    return query;
+  }
 
-    return query.limit(limit).snapshots().map((snapshot) {
-      final deals = snapshot.docs.map((document) {
-        final deal = DealModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, deal: deal);
-        return deal;
-      }).where((deal) {
-        if (archiveFilter == ArchiveFilter.archived) {
-          return deal.isArchived || !deal.isActive;
-        }
-        if (archiveFilter == ArchiveFilter.active) {
-          return !deal.isArchived && deal.isActive;
-        }
-        return true;
-      }).toList();
+  List<DealModel> _mapDealSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String companyId,
+    required ArchiveFilter archiveFilter,
+    required bool sortLocally,
+  }) {
+    final deals = snapshot.docs.map((document) {
+      final deal = DealModel.fromFirestore(document);
+      _ensureSameCompany(companyId: companyId, deal: deal);
+      return deal;
+    }).where((deal) {
+      if (archiveFilter == ArchiveFilter.archived) {
+        return deal.isArchived || !deal.isActive;
+      }
+      if (archiveFilter == ArchiveFilter.active) {
+        return !deal.isArchived && deal.isActive;
+      }
+      return true;
+    }).toList();
 
+    if (sortLocally) {
       deals.sort((a, b) {
         final aDate = a.updatedAt ?? a.createdAt ?? DateTime(0);
         final bDate = b.updatedAt ?? b.createdAt ?? DateTime(0);
         return bDate.compareTo(aDate);
       });
-      return deals;
-    }).handleError((Object error) {
-      if (error is FirebaseException) {
-        throw DealException(_mapFirestoreError(error));
-      }
-      throw const DealException(AppErrorMessages.unknown);
-    });
+    }
+    return deals;
   }
 
   @override

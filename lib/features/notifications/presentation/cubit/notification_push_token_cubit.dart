@@ -386,16 +386,7 @@ class NotificationPushTokenCubit extends Cubit<NotificationPushTokenState> {
     String uid = '',
     String role = '',
   }) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint(
-      'MasarFCM: status=$status '
-      'scope=${state.scope.name} '
-      'sessionReady=${uid.trim().isNotEmpty} '
-      'companyReady=${companyId.trim().isNotEmpty} '
-      'role=$role',
-    );
+    return;
   }
 
   String _promptDismissedKey(NotificationPushTokenState state) {

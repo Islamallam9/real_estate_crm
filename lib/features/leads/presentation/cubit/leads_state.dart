@@ -1,11 +1,13 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
+
 import '../../../../core/archive/archive_filter.dart';
 import '../../domain/entities/lead.dart';
 import '../../domain/entities/lead_note.dart';
 import '../../domain/entities/lead_timeline_event.dart';
 
-enum LeadsStatus { initial, loading, loaded, saving, saved, empty, failure }
+enum LeadsStatus { initial, loading, loadingMore, loaded, saving, saved, empty, failure }
 
 enum LeadFollowUpFilter { overdue, dueToday, upcoming, notScheduled }
 
@@ -46,6 +48,9 @@ class LeadsState extends Equatable {
     this.followUpFilter,
     this.workQueueFilter,
     this.archiveFilter = ArchiveFilter.active,
+    this.pageLimit = 15,
+    this.hasExactListScope = true,
+    this.kpiCounts = const ModuleKpiCounts.empty(),
     this.message,
     this.lastAction = LeadsAction.none,
   });
@@ -65,6 +70,9 @@ class LeadsState extends Equatable {
       followUpFilter = null,
       workQueueFilter = null,
       archiveFilter = ArchiveFilter.active,
+      pageLimit = 15,
+      hasExactListScope = true,
+      kpiCounts = const ModuleKpiCounts.empty(),
       message = null,
       lastAction = LeadsAction.none;
 
@@ -82,6 +90,35 @@ class LeadsState extends Equatable {
   final LeadFollowUpFilter? followUpFilter;
   final LeadWorkQueueFilter? workQueueFilter;
   final ArchiveFilter archiveFilter;
+  final int pageLimit;
+  final bool hasExactListScope;
+  final ModuleKpiCounts kpiCounts;
+  bool get hasLocalFilters {
+    return searchQuery.trim().isNotEmpty ||
+        statusFilter != null ||
+        sourceFilter != null ||
+        priorityFilter != null ||
+        followUpFilter != null ||
+        workQueueFilter != null;
+  }
+
+  int? get filteredTotalCount {
+    if (hasLocalFilters || !hasExactListScope) {
+      return null;
+    }
+    return kpiCounts.valueOrNull('total');
+  }
+
+  bool get canLoadMore {
+    if (hasLocalFilters || !hasExactListScope) {
+      return false;
+    }
+    final total = filteredTotalCount;
+    if (total != null) {
+      return filteredLeads.length < total;
+    }
+    return false;
+  }
   final String? message;
   final LeadsAction lastAction;
 
@@ -100,6 +137,9 @@ class LeadsState extends Equatable {
     LeadFollowUpFilter? followUpFilter,
     LeadWorkQueueFilter? workQueueFilter,
     ArchiveFilter? archiveFilter,
+    int? pageLimit,
+    bool? hasExactListScope,
+    ModuleKpiCounts? kpiCounts,
     String? message,
     LeadsAction? lastAction,
     bool clearSelectedLead = false,
@@ -141,6 +181,9 @@ class LeadsState extends Equatable {
           ? null
           : workQueueFilter ?? this.workQueueFilter,
       archiveFilter: archiveFilter ?? this.archiveFilter,
+      pageLimit: pageLimit ?? this.pageLimit,
+      hasExactListScope: hasExactListScope ?? this.hasExactListScope,
+      kpiCounts: kpiCounts ?? this.kpiCounts,
       message: clearMessage ? null : message ?? this.message,
       lastAction: clearLastAction
           ? LeadsAction.none
@@ -164,6 +207,9 @@ class LeadsState extends Equatable {
     followUpFilter,
     workQueueFilter,
     archiveFilter,
+    pageLimit,
+    hasExactListScope,
+    kpiCounts,
     message,
     lastAction,
   ];

@@ -319,11 +319,13 @@ class _DashboardContentState extends State<_DashboardContent> {
         assignedTo: assignedTo,
         managerId: managerId,
         teamId: managerTeamId,
+        usePagination: false,
       );
     }
     if (watchScopeKey.canViewProperties) {
       context.read<PropertiesCubit>().watchProperties(
         companyId: widget.companyId,
+        usePagination: false,
       );
     }
     if (watchScopeKey.canViewClients) {
@@ -332,6 +334,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         assignedTo: assignedTo,
         managerId: managerId,
         teamId: managerTeamId,
+        usePagination: false,
       );
     }
     if (watchScopeKey.canViewTasks) {
@@ -340,6 +343,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         assignedTo: assignedTo,
         managerId: managerId,
         teamId: managerTeamId,
+        usePagination: false,
       );
     }
     if (watchScopeKey.canViewAppointments) {
@@ -348,6 +352,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         assignedTo: assignedTo,
         managerId: managerId,
         teamId: managerTeamId,
+        usePagination: false,
       );
     }
     if (watchScopeKey.canViewDeals) {
@@ -356,6 +361,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         role: role,
         currentUserId: uid,
         teamId: managerTeamId,
+        usePagination: false,
       );
     }
     if (_auditLogsRequested && watchScopeKey.canViewAuditLogs) {
@@ -421,14 +427,15 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   void _watchPlatformPreviewData() {
-    context.read<LeadsCubit>().watchLeads(companyId: widget.companyId);
-    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId);
-    context.read<ClientsCubit>().watchClients(companyId: widget.companyId);
-    context.read<TasksCubit>().watchTasks(companyId: widget.companyId);
+    context.read<LeadsCubit>().watchLeads(companyId: widget.companyId, usePagination: false);
+    context.read<PropertiesCubit>().watchProperties(companyId: widget.companyId, usePagination: false);
+    context.read<ClientsCubit>().watchClients(companyId: widget.companyId, usePagination: false);
+    context.read<TasksCubit>().watchTasks(companyId: widget.companyId, usePagination: false);
     context.read<DealsCubit>().watchDeals(
       companyId: widget.companyId,
       role: UserRole.admin,
       currentUserId: widget.authState.user?.uid ?? '',
+      usePagination: false,
     );
   }
 
@@ -5584,8 +5591,9 @@ class _DashboardData {
   List<Lead> get lostLeads =>
       leads.where((lead) => lead.status == LeadStatus.lost).toList();
 
-  List<Lead> get unassignedLeads =>
-      leads.where((lead) => lead.assignedTo.trim().isEmpty).toList();
+  List<Lead> get unassignedLeads => leads.where((lead) {
+        return !lead.isArchived && lead.assignedTo.trim().isEmpty;
+      }).toList();
 
   List<Lead> get overdueFollowUps => leads.where((lead) {
     final date = lead.nextFollowUpAt;

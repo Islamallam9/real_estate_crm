@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -162,6 +163,16 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
     await Future<void>.delayed(const Duration(milliseconds: 650));
   }
 
+  void _loadMoreNotifications() {
+    _notificationsCubit.loadMoreCenter(
+      companyId: widget.companyId,
+      currentUserId: widget.currentUserId,
+      role: widget.role,
+      managerTeamId: widget.managerTeamId,
+      remindersLimit: 60,
+    );
+  }
+
   @override
   void dispose() {
     _notificationsCubit.releaseAttentionReminders(
@@ -183,6 +194,9 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
       builder: (context, state) {
         final notifications = _filteredNotifications(state.notifications);
         final reminders = _filteredReminders(state.reminders);
+        final canLoadMoreNotifications = _filter == _NotificationFilter.all &&
+            state.canLoadMoreNotifications &&
+            notifications.length >= notificationHistoryPageLimit;
 
         if (state.status == NotificationsStatus.loading &&
             state.notifications.isEmpty) {
@@ -226,6 +240,8 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                       notifications: notifications,
                       reminders: reminders,
                       companyId: widget.companyId,
+                      canLoadMore: canLoadMoreNotifications,
+                      onLoadMore: _loadMoreNotifications,
                     ),
                     ],
                   ),
@@ -242,33 +258,29 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
                 filters,
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(
-                  child: SingleChildScrollView(
-                    physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _NotificationsList(
-                            state: state,
-                            notifications: notifications,
-                            companyId: widget.companyId,
-                            shrinkWrap: true,
-                          ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _NotificationsList(
+                          state: state,
+                          notifications: notifications,
+                          companyId: widget.companyId,
+                          canLoadMore: canLoadMoreNotifications,
+                          onLoadMore: _loadMoreNotifications,
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        SizedBox(
-                          width: 330,
-                          child: _AttentionList(
-                            state: state,
-                            reminders: reminders,
-                            shrinkWrap: true,
-                          ),
-                        ),
-                      ],
                       ),
-                    ),
+                      const SizedBox(width: AppSpacing.md),
+                      SizedBox(
+                        width: 330,
+                        child: _AttentionList(
+                          state: state,
+                          reminders: reminders,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -477,12 +489,16 @@ class _MobileNotificationSections extends StatelessWidget {
     required this.notifications,
     required this.reminders,
     required this.companyId,
+    required this.canLoadMore,
+    required this.onLoadMore,
   });
 
   final NotificationsState state;
   final List<CrmNotification> notifications;
   final List<AttentionReminder> reminders;
   final String companyId;
+  final bool canLoadMore;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -495,6 +511,8 @@ class _MobileNotificationSections extends StatelessWidget {
           state: state,
           notifications: notifications,
           companyId: companyId,
+          canLoadMore: canLoadMore,
+          onLoadMore: onLoadMore,
           shrinkWrap: true,
         ),
       ],
@@ -507,12 +525,16 @@ class _NotificationsList extends StatelessWidget {
     required this.state,
     required this.notifications,
     required this.companyId,
+    required this.canLoadMore,
+    required this.onLoadMore,
     this.shrinkWrap = false,
   });
 
   final NotificationsState state;
   final List<CrmNotification> notifications;
   final String companyId;
+  final bool canLoadMore;
+  final VoidCallback onLoadMore;
   final bool shrinkWrap;
 
   @override
@@ -541,42 +563,68 @@ class _NotificationsList extends StatelessWidget {
         icon: Icons.notifications_none,
       );
     } else {
-      content = ListView.builder(
-            shrinkWrap: shrinkWrap,
-            physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              return NotificationCard(
-                notification: notification,
-                isMarking: state.markingNotificationId == notification.id,
-                onMarkRead: () =>
-                    context.read<NotificationsCubit>().markAsRead(
-                          companyId: companyId,
-                          notification: notification,
-                        ),
-                onResolve: notification.needsAction
-                    ? () => context.read<NotificationsCubit>().markResolved(
-                          companyId: companyId,
-                          notification: notification,
-                        )
-                    : null,
-                onClear: () => context.read<NotificationsCubit>().clearNotification(
+      final list = ListView.builder(
+        shrinkWrap: shrinkWrap,
+        physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+        itemCount: notifications.length,
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          return NotificationCard(
+            notification: notification,
+            isMarking: state.markingNotificationId == notification.id,
+            onMarkRead: () =>
+                context.read<NotificationsCubit>().markAsRead(
                       companyId: companyId,
                       notification: notification,
                     ),
-                onOpen: () async {
-                  await context.read<NotificationsCubit>().markAsRead(
-                        companyId: companyId,
-                        notification: notification,
-                      );
-                  if (context.mounted) {
-                    _openNotificationRoute(context, notification);
-                  }
-                },
-              );
+            onResolve: notification.needsAction
+                ? () => context.read<NotificationsCubit>().markResolved(
+                      companyId: companyId,
+                      notification: notification,
+                    )
+                : null,
+            onClear: () => context.read<NotificationsCubit>().clearNotification(
+                  companyId: companyId,
+                  notification: notification,
+                ),
+            onOpen: () async {
+              await context.read<NotificationsCubit>().markAsRead(
+                    companyId: companyId,
+                    notification: notification,
+                  );
+              if (context.mounted) {
+                _openNotificationRoute(context, notification);
+              }
             },
           );
+        },
+      );
+      final footer = canLoadMore
+          ? Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: AppPaginationFooter(
+                loadedCount: notifications.length,
+                pageSize: notificationHistoryPageLimit,
+                isLoading: state.status == NotificationsStatus.loading,
+                onLoadMore: onLoadMore,
+              ),
+            )
+          : null;
+      content = shrinkWrap
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                list,
+                if (footer != null) footer,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: list),
+                if (footer != null) footer,
+              ],
+            );
     }
     return _SectionCard(
       title: l.notifications,

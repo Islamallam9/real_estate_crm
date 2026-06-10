@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -22,6 +23,7 @@ class TaskForm extends StatefulWidget {
     required this.companyId,
     required this.actorUid,
     required this.onSubmit,
+    this.actorProfile,
     this.task,
     this.users = const [],
     this.canEditAssignment = false,
@@ -42,6 +44,7 @@ class TaskForm extends StatefulWidget {
   final String companyId;
   final String actorUid;
   final ValueChanged<CrmTask> onSubmit;
+  final UserProfile? actorProfile;
   final CrmTask? task;
   final List<UserProfile> users;
   final bool canEditAssignment;
@@ -323,15 +326,54 @@ class _TaskFormState extends State<TaskForm> {
     final relatedTitle = selectedRelatedRecord?.title ?? _relatedTitle;
     final relatedSubtitle = selectedRelatedRecord?.subtitle ?? _relatedSubtitle;
     final selectedAssignee = _selectedAssignee();
-    final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
-    final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
-    final teamId = selectedAssignee?.teamId ?? _teamId;
-    final teamName = selectedAssignee?.teamName ?? _teamName;
-    final managerId = selectedAssignee?.managerId ?? _managerId;
-    final managerName = selectedAssignee?.managerName ?? _managerName;
     final assignedTo = widget.canEditAssignment
         ? _assignedTo
         : previous?.assignedTo ?? widget.assignedTo;
+    final isManagerAssigningSelf = assignedTo.trim() == widget.actorUid &&
+        (widget.actorProfile?.role == UserRole.manager ||
+            selectedAssignee?.role == UserRole.manager);
+    final actorProfile = widget.actorProfile;
+    final actorDisplayName = _firstNonEmptyText([
+      actorProfile?.fullName ?? '',
+      actorProfile?.email ?? '',
+      selectedAssignee?.fullName ?? '',
+      selectedAssignee?.email ?? '',
+      _assignedToName,
+      _assignedToEmail,
+    ]);
+    final actorEmail = _firstNonEmptyText([
+      actorProfile?.email ?? '',
+      selectedAssignee?.email ?? '',
+      _assignedToEmail,
+    ]);
+    final assignedToName = isManagerAssigningSelf
+        ? actorDisplayName
+        : selectedAssignee == null
+            ? _assignedToName
+            : _userDisplayName(selectedAssignee);
+    final assignedToEmail = isManagerAssigningSelf
+        ? actorEmail
+        : selectedAssignee == null
+            ? _assignedToEmail
+            : _userEmail(selectedAssignee, fallback: _assignedToEmail);
+    final selectedTeamId = selectedAssignee?.teamId.trim() ?? '';
+    final selectedTeamName = selectedAssignee?.teamName.trim() ?? '';
+    final actorTeamId = actorProfile?.teamId.trim() ?? '';
+    final actorTeamName = actorProfile?.teamName.trim() ?? '';
+    final teamId = isManagerAssigningSelf
+        ? _firstNonEmptyText([actorTeamId, selectedTeamId])
+        : _firstNonEmptyText([selectedTeamId, _teamId]);
+    final teamName = teamId.isEmpty
+        ? ''
+        : isManagerAssigningSelf
+            ? _firstNonEmptyText([actorTeamName, selectedTeamName])
+            : _firstNonEmptyText([selectedTeamName, _teamName]);
+    final managerId = isManagerAssigningSelf
+        ? widget.actorUid
+        : (selectedAssignee?.managerId ?? _managerId);
+    final managerName = isManagerAssigningSelf
+        ? actorDisplayName
+        : (selectedAssignee?.managerName ?? _managerName);
     widget.onSubmit(
       CrmTask(
         id: previous?.id ?? '',
@@ -341,8 +383,8 @@ class _TaskFormState extends State<TaskForm> {
         assignedTo: assignedTo,
         assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),
         assignedToEmail: assignedTo.trim().isEmpty ? '' : assignedToEmail.trim(),
-        teamId: assignedTo.trim().isEmpty ? '' : teamId.trim(),
-        teamName: assignedTo.trim().isEmpty ? '' : teamName.trim(),
+        teamId: assignedTo.trim().isEmpty ? '' : teamId,
+        teamName: assignedTo.trim().isEmpty ? '' : teamName,
         managerId: assignedTo.trim().isEmpty ? '' : managerId.trim(),
         managerName: assignedTo.trim().isEmpty ? '' : managerName.trim(),
         relatedType: _relatedType,
@@ -411,10 +453,10 @@ class _TaskFormState extends State<TaskForm> {
       }
       return;
     }
-    _assignedToName = user.fullName;
-    _assignedToEmail = user.email;
-    _teamId = user.teamId;
-    _teamName = user.teamName;
+    _assignedToName = _userDisplayName(user);
+    _assignedToEmail = _userEmail(user, fallback: _assignedToEmail);
+    _teamId = user.teamId.trim();
+    _teamName = _teamId.isEmpty ? '' : user.teamName;
     _managerId = user.managerId;
     _managerName = user.managerName;
   }
@@ -687,6 +729,29 @@ String _assigneeLabel(
     }
   }
   return l.assignedUserUnavailable;
+}
+
+String _userDisplayName(UserProfile user) {
+  final fullName = user.fullName.trim();
+  if (fullName.isNotEmpty) {
+    return fullName;
+  }
+  return user.email.trim();
+}
+
+String _userEmail(UserProfile user, {required String fallback}) {
+  final email = user.email.trim();
+  return email.isEmpty ? fallback.trim() : email;
+}
+
+String _firstNonEmptyText(List<String> values) {
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+  }
+  return '';
 }
 
 String _relatedTypeLabel(AppLocalizations l, TaskRelatedType type) {

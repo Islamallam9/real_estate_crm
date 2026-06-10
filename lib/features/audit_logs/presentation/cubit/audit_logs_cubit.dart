@@ -14,6 +14,17 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
   final WatchAuditLogsUseCase _watchAuditLogsUseCase;
 
   StreamSubscription<List<AuditLog>>? _subscription;
+  static const int defaultPageLimit = 15;
+  static const int pageIncrement = 15;
+  String? _companyId;
+  String? _managerId;
+  String? _teamId;
+  AuditLogModule? _module;
+  AuditLogAction? _action;
+  String? _actorId;
+  bool _hasSearchFilter = false;
+  DateTime? _startAt;
+  DateTime? _endAt;
 
   void watchAuditLogs({
     required String companyId,
@@ -25,15 +36,29 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
     bool hasSearchFilter = false,
     DateTime? startAt,
     DateTime? endAt,
-    int limit = 20,
+    int? limit,
+    bool resetPage = false,
   }) {
     if (companyId.trim().isEmpty) {
       return;
     }
+    _companyId = companyId;
+    _managerId = managerId;
+    _teamId = teamId;
+    _module = module;
+    _action = action;
+    _actorId = actorId;
+    _hasSearchFilter = hasSearchFilter;
+    _startAt = startAt;
+    _endAt = endAt;
+
+    final pageLimit = resetPage ? defaultPageLimit : limit ?? state.pageLimit;
+    final isLoadingMore = state.logs.isNotEmpty && pageLimit > state.pageLimit;
 
     emit(
       state.copyWith(
-        status: AuditLogsStatus.loading,
+        status: isLoadingMore ? AuditLogsStatus.loadingMore : AuditLogsStatus.loading,
+        pageLimit: pageLimit,
         clearMessage: true,
       ),
     );
@@ -48,7 +73,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
       hasSearchFilter: hasSearchFilter,
       startAt: startAt,
       endAt: endAt,
-      limit: limit,
+      limit: pageLimit,
     ).listen(
       (logs) {
         if (isClosed) {
@@ -75,6 +100,39 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
           ),
         );
       },
+    );
+  }
+
+  void loadMoreAuditLogs({
+    String? companyId,
+    String? managerId,
+    String? teamId,
+    AuditLogModule? module,
+    AuditLogAction? action,
+    String? actorId,
+    bool hasSearchFilter = false,
+    DateTime? startAt,
+    DateTime? endAt,
+  }) {
+    final effectiveCompanyId = companyId ?? _companyId;
+    if (effectiveCompanyId == null ||
+        effectiveCompanyId.trim().isEmpty ||
+        state.status == AuditLogsStatus.loading ||
+        state.status == AuditLogsStatus.loadingMore ||
+        !state.canLoadMore) {
+      return;
+    }
+    watchAuditLogs(
+      companyId: effectiveCompanyId,
+      managerId: managerId ?? _managerId,
+      teamId: teamId ?? _teamId,
+      module: module ?? _module,
+      action: action ?? _action,
+      actorId: actorId ?? _actorId,
+      hasSearchFilter: hasSearchFilter || _hasSearchFilter,
+      startAt: startAt ?? _startAt,
+      endAt: endAt ?? _endAt,
+      limit: state.pageLimit + pageIncrement,
     );
   }
 

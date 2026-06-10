@@ -4,76 +4,2194 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "recipientUid", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        {
+          "fieldPath": "recipientUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "isArchived", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "assignedTo", "order": "ASCENDING" },
-        { "fieldPath": "isArchived", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isArchived", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isArchived", "order": "ASCENDING" },
-        { "fieldPath": "managerId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "assignedTo", "order": "ASCENDING" },
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "dueDate", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "dueDate", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "managerId", "order": "ASCENDING" },
-        { "fieldPath": "dueDate", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "closingDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "closingDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "closingDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "closingDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "budgetMax",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "budgetMax",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "budgetMax",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "budgetMax",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "managerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

@@ -90,11 +90,8 @@ Future<void> showMasarWebForegroundNotification({
       } catch (_) {}
       navigateMasarWebRoute(cleanRoute);
     });
-    // ignore: avoid_print
-    print('MasarFCM: status=web-foreground-notification-created route=$cleanRoute');
-  } catch (error) {
-    // ignore: avoid_print
-    print('MasarFCM: status=web-foreground-notification-failed ${error.runtimeType}');
+  } catch (_) {
+    // Foreground notification display is best-effort.
   }
 }
 

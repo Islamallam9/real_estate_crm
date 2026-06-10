@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
 import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
@@ -39,10 +40,23 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   final UpdatePropertyUseCase _updatePropertyUseCase;
   final DeactivatePropertyUseCase _deactivatePropertyUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
 
   StreamSubscription<dynamic>? _propertiesSubscription;
+  String? _watchedCompanyId;
   final InitialLoadTimeout _propertiesInitialLoadTimeout =
   InitialLoadTimeout();
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'available',
+    'reserved',
+    'sold',
+    'rented',
+  ];
+  static const int _dashboardWatchLimit = 1000;
   static const Duration _defaultFirebaseTimeout = Duration(seconds: 15);
   static const Duration _imageUploadFirebaseTimeout = Duration(minutes: 4);
 
@@ -69,10 +83,24 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     );
   }
 
-  void watchProperties({required String companyId}) {
+  void watchProperties({
+    required String companyId,
+    int? limit,
+    bool resetPage = false,
+    bool usePagination = true,
+  }) {
+    _watchedCompanyId = companyId;
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
+    final isLoadingMore = state.properties.isNotEmpty && pageLimit > state.pageLimit;
     emit(
       state.copyWith(
-        status: PropertiesStatus.loading,
+        status: isLoadingMore ? PropertiesStatus.loadingMore : PropertiesStatus.loading,
+        pageLimit: pageLimit,
         clearMessage: true,
         clearLastAction: true,
       ),
@@ -91,8 +119,10 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       );
     });
-    _propertiesSubscription = _watchPropertiesUseCase(companyId: companyId)
-        .listen(
+    _propertiesSubscription = _watchPropertiesUseCase(
+      companyId: companyId,
+      limit: usePagination ? pageLimit : _dashboardWatchLimit,
+    ).listen(
           (properties) {
         if (isClosed) {
           return;
@@ -114,6 +144,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
             clearMessage: true,
           ),
         );
+        _debugCheckKpiInvariant();
       },
       onError: (error) {
         if (isClosed) {
@@ -130,6 +161,57 @@ class PropertiesCubit extends Cubit<PropertiesState> {
           ),
         );
       },
+    );
+  }
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    final counts = await _countsDataSource.propertyCounts(companyId: companyId);
+    if (!isClosed && _watchedCompanyId == companyId) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'properties',
+      loadedRows: state.properties.length,
+      totalCount: state.kpiCounts.valueOrNull('total'),
+      hasLocalFilters: state.searchQuery.trim().isNotEmpty ||
+          state.propertyTypeFilter != null ||
+          state.listingTypeFilter != null ||
+          state.statusFilter != null,
+      scopeLabel: 'grid',
+    );
+  }
+
+  void loadMoreProperties({required String companyId}) {
+    if (state.status == PropertiesStatus.loading ||
+        state.status == PropertiesStatus.loadingMore ||
+        state.status == PropertiesStatus.saving ||
+        !state.canLoadMore) {
+      return;
+    }
+    watchProperties(
+      companyId: companyId,
+      limit: state.pageLimit + _pageIncrement,
+    );
+  }
+
+  void _reloadCurrentPropertyScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    watchProperties(
+      companyId: companyId,
+      resetPage: true,
+      usePagination: !state.hasLocalFilters,
     );
   }
 
@@ -203,6 +285,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredProperties: _applyFilters(
           state.properties,
           searchQuery: query,
@@ -212,12 +295,14 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       ),
     );
+    _reloadCurrentPropertyScopeAfterFilterChange();
   }
 
   void setPropertyTypeFilter(PropertyType? propertyType) {
     emit(
       state.copyWith(
         propertyTypeFilter: propertyType,
+        pageLimit: _defaultPageLimit,
         clearPropertyTypeFilter: propertyType == null,
         filteredProperties: _applyFilters(
           state.properties,
@@ -228,12 +313,14 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       ),
     );
+    _reloadCurrentPropertyScopeAfterFilterChange();
   }
 
   void setListingTypeFilter(PropertyListingType? listingType) {
     emit(
       state.copyWith(
         listingTypeFilter: listingType,
+        pageLimit: _defaultPageLimit,
         clearListingTypeFilter: listingType == null,
         filteredProperties: _applyFilters(
           state.properties,
@@ -244,12 +331,14 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       ),
     );
+    _reloadCurrentPropertyScopeAfterFilterChange();
   }
 
   void setStatusFilter(PropertyStatus? status) {
     emit(
       state.copyWith(
         statusFilter: status,
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: status == null,
         filteredProperties: _applyFilters(
           state.properties,
@@ -260,18 +349,43 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         ),
       ),
     );
+    _reloadCurrentPropertyScopeAfterFilterChange();
+  }
+
+
+  void applyKpiFilter(PropertyStatus? status) {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        pageLimit: _defaultPageLimit,
+        clearPropertyTypeFilter: true,
+        clearListingTypeFilter: true,
+        statusFilter: status,
+        clearStatusFilter: status == null,
+        filteredProperties: _applyFilters(
+          state.properties,
+          searchQuery: '',
+          propertyTypeFilter: null,
+          listingTypeFilter: null,
+          statusFilter: status,
+        ),
+      ),
+    );
+    _reloadCurrentPropertyScopeAfterFilterChange();
   }
 
   void clearFilters() {
     emit(
       state.copyWith(
         searchQuery: '',
+        pageLimit: _defaultPageLimit,
         clearPropertyTypeFilter: true,
         clearListingTypeFilter: true,
         clearStatusFilter: true,
         filteredProperties: _applyFilters(state.properties),
       ),
     );
+    _reloadCurrentPropertyScopeAfterFilterChange();
   }
 
   Future<bool> createProperty({

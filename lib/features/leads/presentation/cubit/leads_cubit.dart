@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../../core/archive/archive_filter.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../audit_logs/domain/entities/audit_log.dart';
@@ -61,11 +62,59 @@ class LeadsCubit extends Cubit<LeadsState> {
   final AddLeadTimelineEventUseCase _addLeadTimelineEventUseCase;
   final WatchLeadTimelineUseCase _watchLeadTimelineUseCase;
   final CreateAuditLogUseCase _createAuditLogUseCase;
+  final FirestoreModuleKpiCountsDataSource _countsDataSource =
+      FirestoreModuleKpiCountsDataSource();
+
+  static const int _defaultPageLimit = 15;
+  static const int _pageIncrement = 15;
+  static const List<String> _kpiCountKeys = <String>[
+    'total',
+    'new',
+    'active',
+    'overdue',
+    'upcoming',
+    'unassigned',
+  ];
+  static const int _dashboardWatchLimit = 1000;
+  static const int _localFilterScanLimit = 500;
 
   StreamSubscription<List<Lead>>? _leadsSubscription;
   StreamSubscription<List<LeadNote>>? _notesSubscription;
   StreamSubscription<List<LeadTimelineEvent>>? _timelineSubscription;
   final InitialLoadTimeout _leadsInitialLoadTimeout = InitialLoadTimeout();
+  String? _watchedCompanyId;
+  String? _watchedAssignedTo;
+  String? _watchedManagerId;
+  String? _watchedTeamId;
+  ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+
+  String? get _effectiveAssignedToFilter {
+    final scopeAssignedTo = (_watchedAssignedTo ?? '').trim();
+    if (scopeAssignedTo.isNotEmpty) {
+      return scopeAssignedTo;
+    }
+    final filterAssignedTo = (state.assignedToFilter ?? '').trim();
+    return filterAssignedTo.isEmpty ? null : filterAssignedTo;
+  }
+  bool get _hasLocalLeadFilters {
+    return state.searchQuery.trim().isNotEmpty ||
+        state.statusFilter != null ||
+        state.sourceFilter != null ||
+        state.priorityFilter != null ||
+        state.followUpFilter != null ||
+        state.workQueueFilter != null;
+  }
+
+  bool get _hasExactServerListScope {
+    // Keep the Leads stream index-stable. Role/company/archive/assignee scope
+    // stays server-side, while secondary filters are applied locally to the
+    // loaded scoped page until their Firestore indexes are validated and
+    // deployed one query shape at a time. This prevents filter changes from
+    // turning the whole Leads page into a fatal Firestore missing-index state.
+    return !_hasLocalLeadFilters;
+  }
+
+
   Future<bool> _hasConnection() async {
     final results = await Connectivity().checkConnectivity();
     return results.any((result) => result != ConnectivityResult.none);
@@ -95,11 +144,43 @@ class LeadsCubit extends Cubit<LeadsState> {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    int? limit,
+    bool resetPage = true,
+    bool usePagination = true,
   }) {
-    emit(state.copyWith(status: LeadsStatus.loading, clearMessage: true));
+    _watchedCompanyId = companyId;
+    _watchedAssignedTo = assignedTo;
+    _watchedManagerId = managerId;
+    _watchedTeamId = teamId;
+    _watchedArchiveFilter = archiveFilter;
+    final pageLimit = usePagination
+        ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
+        : state.pageLimit;
+    final effectiveAssignedTo = _effectiveAssignedToFilter;
+    final hasExactListScope = _hasExactServerListScope;
+    final fetchLimit = usePagination
+        ? (hasExactListScope ? pageLimit : _localFilterScanLimit)
+        : _dashboardWatchLimit;
+    emit(
+      state.copyWith(
+        status: resetPage || state.leads.isEmpty
+            ? LeadsStatus.loading
+            : LeadsStatus.loadingMore,
+        pageLimit: pageLimit,
+        hasExactListScope: hasExactListScope,
+        kpiCounts: resetPage ? const ModuleKpiCounts.empty() : state.kpiCounts,
+        clearMessage: true,
+      ),
+    );
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      _refreshKpiCounts();
+    }
     _leadsSubscription?.cancel();
     _leadsInitialLoadTimeout.start(() {
-      if (isClosed || state.status != LeadsStatus.loading || state.leads.isNotEmpty) {
+      if (isClosed ||
+          (state.status != LeadsStatus.loading &&
+              state.status != LeadsStatus.loadingMore) ||
+          state.leads.isNotEmpty) {
         return;
       }
       emit(
@@ -112,10 +193,16 @@ class LeadsCubit extends Cubit<LeadsState> {
     _leadsSubscription =
         _watchLeadsUseCase(
           companyId: companyId,
-          assignedTo: assignedTo,
-          managerId: managerId,
-          teamId: teamId,
+          assignedTo: effectiveAssignedTo,
+          managerId: effectiveAssignedTo == null ? managerId : null,
+          teamId: effectiveAssignedTo == null ? teamId : null,
           archiveFilter: archiveFilter,
+          statusFilter: null,
+          sourceFilter: null,
+          priorityFilter: null,
+          followUpFilter: null,
+          workQueueFilter: null,
+          limit: fetchLimit,
         ).listen(
           (leads) {
             if (isClosed) {
@@ -140,9 +227,12 @@ class LeadsCubit extends Cubit<LeadsState> {
                 leads: leads,
                 filteredLeads: filtered,
                 archiveFilter: archiveFilter,
+                pageLimit: pageLimit,
+                hasExactListScope: hasExactListScope,
                 clearMessage: true,
               ),
             );
+            _debugCheckKpiInvariant();
           },
           onError: (error) {
             if (isClosed) {
@@ -160,6 +250,80 @@ class LeadsCubit extends Cubit<LeadsState> {
             );
           },
         );
+  }
+
+
+  Future<void> _refreshKpiCounts() async {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    final expectedAssignedTo = _effectiveAssignedToFilter;
+    final expectedManagerId = expectedAssignedTo == null ? _watchedManagerId : null;
+    final expectedTeamId = expectedAssignedTo == null ? _watchedTeamId : null;
+    final expectedArchiveFilter = _watchedArchiveFilter;
+    final counts = await _countsDataSource.leadCounts(
+      companyId: companyId,
+      assignedTo: expectedAssignedTo,
+      managerId: expectedManagerId,
+      teamId: expectedTeamId,
+      archiveFilter: expectedArchiveFilter,
+    );
+    if (!isClosed &&
+        _watchedCompanyId == companyId &&
+        _effectiveAssignedToFilter == expectedAssignedTo &&
+        (expectedAssignedTo != null ||
+            (_watchedManagerId == expectedManagerId &&
+                _watchedTeamId == expectedTeamId)) &&
+        _watchedArchiveFilter == expectedArchiveFilter) {
+      emit(state.copyWith(kpiCounts: counts));
+      _debugCheckKpiInvariant();
+    }
+  }
+
+  void _debugCheckKpiInvariant() {
+    debugCheckModuleKpiInvariant(
+      module: 'leads',
+      loadedRows: state.leads.length,
+      totalCount: state.kpiCounts.valueOrNull('total'),
+      hasLocalFilters: _hasLocalLeadFilters ||
+          (state.assignedToFilter ?? '').trim().isNotEmpty,
+      scopeLabel: state.archiveFilter.name,
+    );
+  }
+
+  void loadMoreLeads() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.isEmpty ||
+        state.status == LeadsStatus.loading ||
+        state.status == LeadsStatus.loadingMore ||
+        !state.canLoadMore) {
+      return;
+    }
+    watchLeads(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      limit: state.pageLimit + _pageIncrement,
+      resetPage: false,
+    );
+  }
+
+  void _reloadCurrentLeadScopeAfterFilterChange() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return;
+    }
+    watchLeads(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      resetPage: true,
+    );
   }
 
   void setArchiveFilter(
@@ -183,6 +347,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     emit(
       state.copyWith(
         searchQuery: query,
+        pageLimit: _defaultPageLimit,
         filteredLeads: _applyFilters(
           state.leads,
           searchQuery: query,
@@ -195,18 +360,21 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setStatusFilter(LeadStatus? status) {
     emit(
       state.copyWith(
         statusFilter: status,
+        pageLimit: _defaultPageLimit,
         clearStatusFilter: status == null,
         filteredLeads: _applyFilters(
           state.leads,
           searchQuery: state.searchQuery,
           statusFilter: status,
           sourceFilter: state.sourceFilter,
+          overrideStatusFilter: true,
           priorityFilter: state.priorityFilter,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
@@ -214,12 +382,14 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setSourceFilter(LeadSource? source) {
     emit(
       state.copyWith(
         sourceFilter: source,
+        pageLimit: _defaultPageLimit,
         clearSourceFilter: source == null,
         filteredLeads: _applyFilters(
           state.leads,
@@ -227,18 +397,21 @@ class LeadsCubit extends Cubit<LeadsState> {
           statusFilter: state.statusFilter,
           sourceFilter: source,
           priorityFilter: state.priorityFilter,
+          overrideSourceFilter: true,
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
           workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setPriorityFilter(LeadPriority? priority) {
     emit(
       state.copyWith(
         priorityFilter: priority,
+        pageLimit: _defaultPageLimit,
         clearPriorityFilter: priority == null,
         filteredLeads: _applyFilters(
           state.leads,
@@ -247,17 +420,20 @@ class LeadsCubit extends Cubit<LeadsState> {
           sourceFilter: state.sourceFilter,
           priorityFilter: priority,
           assignedToFilter: state.assignedToFilter,
+          overridePriorityFilter: true,
           followUpFilter: state.followUpFilter,
           workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setAssignedToFilter(String? assignedTo) {
     emit(
       state.copyWith(
         assignedToFilter: assignedTo,
+        pageLimit: _defaultPageLimit,
         clearAssignedToFilter: assignedTo == null,
         filteredLeads: _applyFilters(
           state.leads,
@@ -267,16 +443,19 @@ class LeadsCubit extends Cubit<LeadsState> {
           priorityFilter: state.priorityFilter,
           assignedToFilter: assignedTo,
           followUpFilter: state.followUpFilter,
+          overrideAssignedToFilter: true,
           workQueueFilter: state.workQueueFilter,
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setFollowUpFilter(LeadFollowUpFilter? followUpFilter) {
     emit(
       state.copyWith(
         followUpFilter: followUpFilter,
+        pageLimit: _defaultPageLimit,
         clearFollowUpFilter: followUpFilter == null,
         filteredLeads: _applyFilters(
           state.leads,
@@ -287,15 +466,18 @@ class LeadsCubit extends Cubit<LeadsState> {
           assignedToFilter: state.assignedToFilter,
           followUpFilter: followUpFilter,
           workQueueFilter: state.workQueueFilter,
+          overrideFollowUpFilter: true,
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   void setWorkQueueFilter(LeadWorkQueueFilter? workQueueFilter) {
     emit(
       state.copyWith(
         workQueueFilter: workQueueFilter,
+        pageLimit: _defaultPageLimit,
         clearWorkQueueFilter: workQueueFilter == null,
         filteredLeads: _applyFilters(
           state.leads,
@@ -306,9 +488,88 @@ class LeadsCubit extends Cubit<LeadsState> {
           assignedToFilter: state.assignedToFilter,
           followUpFilter: state.followUpFilter,
           workQueueFilter: workQueueFilter,
+          overrideWorkQueueFilter: true,
         ),
       ),
     );
+    _reloadCurrentLeadScopeAfterFilterChange();
+  }
+
+  void clearFilters() {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        pageLimit: _defaultPageLimit,
+        clearStatusFilter: true,
+        clearSourceFilter: true,
+        clearPriorityFilter: true,
+        clearAssignedToFilter: true,
+        clearFollowUpFilter: true,
+        clearWorkQueueFilter: true,
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: '',
+          statusFilter: null,
+          sourceFilter: null,
+          priorityFilter: null,
+          assignedToFilter: null,
+          followUpFilter: null,
+          workQueueFilter: null,
+          overrideStatusFilter: true,
+          overrideSourceFilter: true,
+          overridePriorityFilter: true,
+          overrideAssignedToFilter: true,
+          overrideFollowUpFilter: true,
+          overrideWorkQueueFilter: true,
+        ),
+      ),
+    );
+    _reloadCurrentLeadScopeAfterFilterChange();
+  }
+
+  void applyKpiFilter({
+    LeadStatus? statusFilter,
+    LeadFollowUpFilter? followUpFilter,
+    LeadWorkQueueFilter? workQueueFilter,
+  }) {
+    final clearAssigneeForUnassigned =
+        workQueueFilter == LeadWorkQueueFilter.unassigned;
+    final effectiveAssignedTo = clearAssigneeForUnassigned
+        ? null
+        : state.assignedToFilter;
+
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        pageLimit: _defaultPageLimit,
+        statusFilter: statusFilter,
+        followUpFilter: followUpFilter,
+        workQueueFilter: workQueueFilter,
+        clearStatusFilter: statusFilter == null,
+        clearSourceFilter: true,
+        clearPriorityFilter: true,
+        clearAssignedToFilter: clearAssigneeForUnassigned,
+        clearFollowUpFilter: followUpFilter == null,
+        clearWorkQueueFilter: workQueueFilter == null,
+        filteredLeads: _applyFilters(
+          state.leads,
+          searchQuery: '',
+          statusFilter: statusFilter,
+          sourceFilter: null,
+          priorityFilter: null,
+          assignedToFilter: effectiveAssignedTo,
+          followUpFilter: followUpFilter,
+          workQueueFilter: workQueueFilter,
+          overrideStatusFilter: true,
+          overrideSourceFilter: true,
+          overridePriorityFilter: true,
+          overrideAssignedToFilter: true,
+          overrideFollowUpFilter: true,
+          overrideWorkQueueFilter: true,
+        ),
+      ),
+    );
+    _reloadCurrentLeadScopeAfterFilterChange();
   }
 
   Future<void> createLead({
@@ -468,6 +729,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         return true;
       }
       final updatedLeads = _replaceLeadInCurrentList(updated);
+      final assignmentChanged = current.assignedTo != updated.assignedTo;
       emit(
         state.copyWith(
           status: LeadsStatus.saved,
@@ -483,14 +745,18 @@ class LeadsCubit extends Cubit<LeadsState> {
             workQueueFilter: state.workQueueFilter,
           ),
           selectedLead: updated,
+          hasExactListScope: _hasExactServerListScope,
           clearMessage: true,
           lastAction:
               successAction ??
-              (current.assignedTo != updated.assignedTo
+              (assignmentChanged && updated.assignedTo.trim().isNotEmpty
                   ? LeadsAction.assignLead
                   : LeadsAction.updateLead),
         ),
       );
+      if (assignmentChanged || current.status != updated.status || current.nextFollowUpAt != updated.nextFollowUpAt) {
+        unawaited(_refreshKpiCounts());
+      }
       return true;
     } on LeadException catch (error) {
       if (isClosed) {
@@ -1129,14 +1395,32 @@ class LeadsCubit extends Cubit<LeadsState> {
     String? assignedToFilter,
     LeadFollowUpFilter? followUpFilter,
     LeadWorkQueueFilter? workQueueFilter,
+    bool overrideStatusFilter = false,
+    bool overrideSourceFilter = false,
+    bool overridePriorityFilter = false,
+    bool overrideAssignedToFilter = false,
+    bool overrideFollowUpFilter = false,
+    bool overrideWorkQueueFilter = false,
   }) {
-    final query = (searchQuery ?? '').trim().toLowerCase();
-    final status = statusFilter;
-    final source = sourceFilter;
-    final priority = priorityFilter;
-    final assignedTo = assignedToFilter;
-    final followUp = followUpFilter;
-    final workQueue = workQueueFilter;
+    final query = (searchQuery ?? state.searchQuery).trim().toLowerCase();
+    final status = overrideStatusFilter
+        ? statusFilter
+        : statusFilter ?? state.statusFilter;
+    final source = overrideSourceFilter
+        ? sourceFilter
+        : sourceFilter ?? state.sourceFilter;
+    final priority = overridePriorityFilter
+        ? priorityFilter
+        : priorityFilter ?? state.priorityFilter;
+    final assignedTo = overrideAssignedToFilter
+        ? assignedToFilter
+        : assignedToFilter ?? state.assignedToFilter;
+    final followUp = overrideFollowUpFilter
+        ? followUpFilter
+        : followUpFilter ?? state.followUpFilter;
+    final workQueue = overrideWorkQueueFilter
+        ? workQueueFilter
+        : workQueueFilter ?? state.workQueueFilter;
 
     final filtered = leads.where((lead) {
       final matchesQuery =
@@ -1202,8 +1486,7 @@ bool _matchesWorkQueueFilter(Lead lead, LeadWorkQueueFilter filter) {
         lead,
         DateTime.now(),
       ),
-    LeadWorkQueueFilter.unassigned =>
-      _isActiveLead(lead) && lead.assignedTo.trim().isEmpty,
+    LeadWorkQueueFilter.unassigned => lead.assignedTo.trim().isEmpty,
   };
 }
 

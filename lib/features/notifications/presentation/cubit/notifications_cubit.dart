@@ -156,6 +156,28 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     );
   }
 
+  void loadMoreCenter({
+    required String companyId,
+    required String currentUserId,
+    required UserRole role,
+    String? managerTeamId,
+    int pageIncrement = notificationHistoryPageLimit,
+    int remindersLimit = 60,
+  }) {
+    if (state.status == NotificationsStatus.loading ||
+        !state.canLoadMoreNotifications) {
+      return;
+    }
+    watchCenter(
+      companyId: companyId,
+      currentUserId: currentUserId,
+      role: role,
+      managerTeamId: managerTeamId,
+      notificationsLimit: state.notificationsLimit + pageIncrement,
+      remindersLimit: remindersLimit,
+    );
+  }
+
   void watchAttentionReminders({
     required String consumerKey,
     required String companyId,
@@ -223,6 +245,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     emit(
       state.copyWith(
         status: NotificationsStatus.loading,
+        notificationsLimit: notificationsLimit,
         clearMessage: true,
         clearedNotificationIds: const <String>{},
       ),

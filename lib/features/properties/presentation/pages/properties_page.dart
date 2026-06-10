@@ -8,15 +8,20 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -127,6 +132,7 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
   void _watchProperties() {
     context.read<PropertiesCubit>().watchProperties(
       companyId: widget.companyId,
+      resetPage: true,
     );
     _applyInitialFiltersIfNeeded();
   }
@@ -188,7 +194,7 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                     child: Text(
                       localizations.propertiesSubtitle,
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryColor(context),
                       ),
@@ -211,10 +217,13 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                 onRetry: () {
                   context.read<PropertiesCubit>().watchProperties(
                     companyId: widget.companyId,
+                    resetPage: true,
                   );
                 },
               )
                   : null;
+
+              final summary = _PropertiesSummaryCards(state: state);
 
               final filters = _PropertiesFilters(state: state);
 
@@ -224,6 +233,9 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                 canEdit: widget.canEdit,
                 canDeactivate: widget.canDeactivate,
                 uid: widget.uid,
+                onLoadMore: () => context
+                    .read<PropertiesCubit>()
+                    .loadMoreProperties(companyId: widget.companyId),
               );
 
               if (isMobile) {
@@ -237,6 +249,8 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                         const SizedBox(height: AppSpacing.sm),
                         failureBanner,
                       ],
+                      const SizedBox(height: AppSpacing.sm),
+                      summary,
                       const SizedBox(height: AppSpacing.sm),
                       filters,
                       const SizedBox(height: AppSpacing.sm),
@@ -256,6 +270,8 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
                     failureBanner,
                   ],
                   const SizedBox(height: AppSpacing.sm),
+                  summary,
+                  const SizedBox(height: AppSpacing.sm),
                   filters,
                   const SizedBox(height: AppSpacing.sm),
                   Expanded(child: body),
@@ -269,6 +285,110 @@ class _PropertiesListContentState extends State<_PropertiesListContent> {
   }
 }
 
+
+class _PropertiesSummaryCards extends StatelessWidget {
+  const _PropertiesSummaryCards({required this.state});
+
+  final PropertiesState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cubit = context.read<PropertiesCubit>();
+    final properties = state.properties;
+    final totalValue = properties.fold<num>(0, (sum, property) => sum + property.price);
+    final cards = <ModuleKpiCardData>[
+      ModuleKpiCardData(
+        label: l.properties,
+        value: state.kpiCounts.display(
+          'total',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.business_outlined,
+        tone: AppStatusTone.info,
+        selected: !_hasActivePropertyFilter(state),
+        onTap: () => cubit.applyKpiFilter(null),
+      ),
+      ModuleKpiCardData(
+        label: l.availableProperties,
+        value: state.kpiCounts.display(
+          'available',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.check_circle_outline,
+        tone: AppStatusTone.success,
+        selected: state.statusFilter == PropertyStatus.available,
+        onTap: () => cubit.applyKpiFilter(PropertyStatus.available),
+      ),
+      ModuleKpiCardData(
+        label: l.reserved,
+        value: state.kpiCounts.display(
+          'reserved',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.pending_actions_outlined,
+        tone: AppStatusTone.warning,
+        selected: state.statusFilter == PropertyStatus.reserved,
+        onTap: () => cubit.applyKpiFilter(PropertyStatus.reserved),
+      ),
+      ModuleKpiCardData(
+        label: l.sold,
+        value: state.kpiCounts.display(
+          'sold',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.sell_outlined,
+        tone: AppStatusTone.success,
+        selected: state.statusFilter == PropertyStatus.sold,
+        onTap: () => cubit.applyKpiFilter(PropertyStatus.sold),
+      ),
+      ModuleKpiCardData(
+        label: l.rented,
+        value: state.kpiCounts.display(
+          'rented',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.real_estate_agent_outlined,
+        tone: AppStatusTone.info,
+        selected: state.statusFilter == PropertyStatus.rented,
+        onTap: () => cubit.applyKpiFilter(PropertyStatus.rented),
+      ),
+      ModuleKpiCardData(
+        label: l.loadedListedValue,
+        value: _compactMoney(totalValue),
+        icon: Icons.payments_outlined,
+        tone: AppStatusTone.neutral,
+        onTap: () => cubit.applyKpiFilter(null),
+      ),
+    ];
+
+    return ModuleKpiStrip(cards: cards);
+  }
+}
+
+
+bool _hasActivePropertyFilter(PropertiesState state) {
+  return state.searchQuery.trim().isNotEmpty ||
+      state.propertyTypeFilter != null ||
+      state.listingTypeFilter != null ||
+      state.statusFilter != null;
+}
+
+String _compactMoney(num value) {
+  if (value.abs() >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(value % 1000000 == 0 ? 0 : 1)}M';
+  }
+  if (value.abs() >= 1000) {
+    return '${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)}K';
+  }
+  return value.toStringAsFixed(value % 1 == 0 ? 0 : 1);
+}
+
 class _PropertiesBody extends StatelessWidget {
   const _PropertiesBody({
     required this.companyId,
@@ -276,6 +396,7 @@ class _PropertiesBody extends StatelessWidget {
     required this.canEdit,
     required this.canDeactivate,
     required this.uid,
+    required this.onLoadMore,
   });
 
   final String companyId;
@@ -283,6 +404,7 @@ class _PropertiesBody extends StatelessWidget {
   final bool canEdit;
   final bool canDeactivate;
   final String uid;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +425,7 @@ class _PropertiesBody extends StatelessWidget {
         onRetry: () {
           context.read<PropertiesCubit>().watchProperties(
             companyId: companyId,
+            resetPage: true,
           );
         },
       );
@@ -324,64 +447,112 @@ class _PropertiesBody extends StatelessWidget {
       );
     }
 
-    return Stack(
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth >= 1080
-                ? 4
-                : constraints.maxWidth >= 760
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= 1080
+            ? 4
+            : constraints.maxWidth >= 760
                 ? 3
                 : 2;
 
-            final cardExtent = constraints.maxWidth >= 1080
-                ? 318.0
-                : constraints.maxWidth >= 760
+        final cardExtent = constraints.maxWidth >= 1080
+            ? 318.0
+            : constraints.maxWidth >= 760
                 ? 312.0
                 : 305.0;
 
-            final isNestedInPageScroll = !constraints.hasBoundedHeight;
-
-            return GridView.builder(
-              shrinkWrap: isNestedInPageScroll,
-              physics: isNestedInPageScroll
-                  ? const NeverScrollableScrollPhysics()
-                  : const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              cacheExtent: 600,
-              itemCount: state.filteredProperties.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: AppSpacing.sm,
-                mainAxisSpacing: AppSpacing.sm,
-                mainAxisExtent: cardExtent,
+        final isNestedInPageScroll = !constraints.hasBoundedHeight;
+        final grid = GridView.builder(
+          shrinkWrap: isNestedInPageScroll,
+          physics: isNestedInPageScroll
+              ? const NeverScrollableScrollPhysics()
+              : const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          cacheExtent: 600,
+          itemCount: state.filteredProperties.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: AppSpacing.sm,
+            mainAxisSpacing: AppSpacing.sm,
+            mainAxisExtent: cardExtent,
+          ),
+          itemBuilder: (context, index) {
+            return PropertyCard(
+              property: state.filteredProperties[index],
+              canEdit: canEdit,
+              canDeactivate: canDeactivate,
+              onDeactivate: (property) => _confirmDeactivate(
+                context,
+                property: property,
+                companyId: companyId,
+                updatedBy: uid,
               ),
-              itemBuilder: (context, index) {
-                return PropertyCard(
-                  property: state.filteredProperties[index],
-                  canEdit: canEdit,
-                  canDeactivate: canDeactivate,
-                  onDeactivate: (property) => _confirmDeactivate(
-                    context,
-                    property: property,
-                    companyId: companyId,
-                    updatedBy: uid,
-                  ),
-                );
-              },
             );
           },
-        ),
-        if (state.status == PropertiesStatus.saving)
-          Positioned.fill(
-            child: ColoredBox(
-              color: AppColors.appBackground(
-                context,
-              ).withValues(alpha: 0.42),
-              child: const Center(child: MasarLogoLoader(size: 42)),
-            ),
-          ),
-      ],
+        );
+
+        final loadMore = state.canLoadMore
+            ? Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: _LoadMorePropertiesButton(
+                  loadedCount: state.filteredProperties.length,
+                  totalCount: state.filteredTotalCount,
+                  pageSize: 15,
+                  isLoading: state.status == PropertiesStatus.loadingMore,
+                  onPressed: onLoadMore,
+                ),
+              )
+            : const SizedBox.shrink();
+
+        final content = isNestedInPageScroll
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [grid, loadMore],
+              )
+            : Column(
+                children: [Expanded(child: grid), loadMore],
+              );
+
+        return Stack(
+          children: [
+            content,
+            if (state.status == PropertiesStatus.saving)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: AppColors.appBackground(context).withValues(alpha: 0.42),
+                  child: const Center(child: MasarLogoLoader(size: 42)),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LoadMorePropertiesButton extends StatelessWidget {
+  const _LoadMorePropertiesButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
+
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
     );
   }
 }

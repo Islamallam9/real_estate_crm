@@ -196,17 +196,17 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
-    return query.orderBy('dueDate').limit(limit).snapshots().map((snapshot) {
+    return query
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
       final tasks = snapshot.docs.map((document) {
         final task = CrmTaskModel.fromFirestore(document);
         _ensureSameCompany(companyId: companyId, task: task);
         return task;
-      }).toList();
-      tasks.sort((a, b) {
-        final aDate = a.dueDate ?? a.updatedAt ?? a.createdAt ?? DateTime(9999);
-        final bDate = b.dueDate ?? b.updatedAt ?? b.createdAt ?? DateTime(9999);
-        return aDate.compareTo(bDate);
-      });
+      }).toList()
+        ..sort(_compareTasksByCreatedAtDesc);
       return tasks;
     }).handleError((Object error) {
       if (error is FirebaseException) {
@@ -521,6 +521,17 @@ String _firstNonEmptyString(List<String> values) {
   return '';
 }
 
+
+
+int _compareTasksByCreatedAtDesc(CrmTaskModel a, CrmTaskModel b) {
+  final aDate = a.createdAt ?? a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final bDate = b.createdAt ?? b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final dateCompare = bDate.compareTo(aDate);
+  if (dateCompare != 0) {
+    return dateCompare;
+  }
+  return b.id.compareTo(a.id);
+}
 
 String _mapFirestoreError(FirebaseException error) {
   switch (error.code) {

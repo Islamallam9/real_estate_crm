@@ -2690,7 +2690,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expectedValueTotal => 'Expected value total';
 
   @override
+  String get loadedExpectedValueTotal => 'Loaded expected value';
+
+  @override
   String get commissionTotal => 'Commission total';
+
+  @override
+  String get loadedCommissionTotal => 'Loaded commission';
 
   @override
   String get dealsByStage => 'Deals by stage';
@@ -2766,6 +2772,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get totalListedValue => 'Total listed value';
+
+  @override
+  String get loadedListedValue => 'Loaded listed value';
 
   @override
   String get averagePrice => 'Average price';
@@ -3585,7 +3594,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appointmentCalendarWeekView => 'Week';
 
   @override
-  String get appointmentCalendarDayView => 'Day';
+  String get appointmentCalendarDayView => 'Specific day';
 
   @override
   String get todayAgenda => 'Today\'s agenda';

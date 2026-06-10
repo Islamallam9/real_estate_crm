@@ -13,6 +13,7 @@ class ClientAssignmentDropdown extends StatelessWidget {
     required this.onChanged,
     this.enabled = true,
     this.includeAllOption = false,
+    this.includeUnassignedOption = false,
     this.label,
   });
 
@@ -21,12 +22,17 @@ class ClientAssignmentDropdown extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final bool enabled;
   final bool includeAllOption;
+  final bool includeUnassignedOption;
   final String? label;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final options = _clientAssigneeOptions(users, includeAllOption);
+    final options = _clientAssigneeOptions(
+      users,
+      includeAllOption: includeAllOption,
+      includeUnassignedOption: includeUnassignedOption,
+    );
 
     return AppDropdown<_ClientAssigneeOption>(
       label: label ?? l.assignedTo,
@@ -65,6 +71,7 @@ class ClientAssignmentField extends StatelessWidget {
         users: users,
         value: value,
         enabled: enabled,
+        includeUnassignedOption: true,
         onChanged: (uid) => onChanged(uid ?? ''),
       ),
     );
@@ -101,14 +108,16 @@ class _ClientAssigneeOption {
 }
 
 List<_ClientAssigneeOption> _clientAssigneeOptions(
-  List<UserProfile> users,
-  bool includeAllOption,
-) {
+  List<UserProfile> users, {
+  required bool includeAllOption,
+  required bool includeUnassignedOption,
+}) {
   final assignableUsers = users.where(_isAssignableUser).toList()
     ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
   return [
-    if (includeAllOption) const _ClientAssigneeOption.all(),
+    if (includeAllOption || includeUnassignedOption)
+      const _ClientAssigneeOption.all(),
     for (final user in assignableUsers) _ClientAssigneeOption.value(user.uid),
   ];
 }

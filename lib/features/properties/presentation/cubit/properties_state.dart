@@ -1,8 +1,10 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
+
 import '../../domain/entities/property.dart';
 
-enum PropertiesStatus { initial, loading, loaded, saving, saved, empty, failure }
+enum PropertiesStatus { initial, loading, loadingMore, loaded, saving, saved, empty, failure }
 
 enum PropertiesAction { none, createProperty, updateProperty, deactivateProperty }
 
@@ -16,6 +18,8 @@ class PropertiesState extends Equatable {
     this.listingTypeFilter,
     this.statusFilter,
     this.message,
+    this.pageLimit = 15,
+    this.kpiCounts = const ModuleKpiCounts.empty(),
     this.lastAction = PropertiesAction.none,
   });
 
@@ -28,6 +32,8 @@ class PropertiesState extends Equatable {
       listingTypeFilter = null,
       statusFilter = null,
       message = null,
+      pageLimit = 15,
+      kpiCounts = const ModuleKpiCounts.empty(),
       lastAction = PropertiesAction.none;
 
   final PropertiesStatus status;
@@ -38,6 +44,44 @@ class PropertiesState extends Equatable {
   final PropertyListingType? listingTypeFilter;
   final PropertyStatus? statusFilter;
   final String? message;
+  final int pageLimit;
+  final ModuleKpiCounts kpiCounts;
+  bool get hasLocalFilters {
+    return searchQuery.trim().isNotEmpty ||
+        propertyTypeFilter != null ||
+        listingTypeFilter != null ||
+        statusFilter != null;
+  }
+
+  int? get filteredTotalCount {
+    if (searchQuery.trim().isNotEmpty ||
+        propertyTypeFilter != null ||
+        listingTypeFilter != null) {
+      return null;
+    }
+    final status = statusFilter;
+    if (status == null) {
+      return kpiCounts.valueOrNull('total');
+    }
+    return switch (status) {
+      PropertyStatus.available => kpiCounts.valueOrNull('available'),
+      PropertyStatus.reserved => kpiCounts.valueOrNull('reserved'),
+      PropertyStatus.sold => kpiCounts.valueOrNull('sold'),
+      PropertyStatus.rented => kpiCounts.valueOrNull('rented'),
+      PropertyStatus.inactive => null,
+    };
+  }
+
+  bool get canLoadMore {
+    if (hasLocalFilters) {
+      return false;
+    }
+    final total = filteredTotalCount;
+    if (total != null) {
+      return filteredProperties.length < total;
+    }
+    return false;
+  }
   final PropertiesAction lastAction;
 
   PropertiesState copyWith({
@@ -49,6 +93,8 @@ class PropertiesState extends Equatable {
     PropertyListingType? listingTypeFilter,
     PropertyStatus? statusFilter,
     String? message,
+    int? pageLimit,
+    ModuleKpiCounts? kpiCounts,
     PropertiesAction? lastAction,
     bool clearMessage = false,
     bool clearLastAction = false,
@@ -69,6 +115,8 @@ class PropertiesState extends Equatable {
           : listingTypeFilter ?? this.listingTypeFilter,
       statusFilter: clearStatusFilter ? null : statusFilter ?? this.statusFilter,
       message: clearMessage ? null : message ?? this.message,
+      pageLimit: pageLimit ?? this.pageLimit,
+      kpiCounts: kpiCounts ?? this.kpiCounts,
       lastAction: clearLastAction
           ? PropertiesAction.none
           : lastAction ?? this.lastAction,
@@ -85,6 +133,8 @@ class PropertiesState extends Equatable {
     listingTypeFilter,
     statusFilter,
     message,
+    pageLimit,
+    kpiCounts,
     lastAction,
   ];
 }

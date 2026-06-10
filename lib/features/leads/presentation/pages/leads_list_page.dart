@@ -9,11 +9,13 @@ import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/masar_refresh_indicator.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -21,6 +23,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -247,7 +250,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                     child: Text(
                       localizations.leadsSubtitle,
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryColor(context),
                       ),
@@ -311,6 +314,7 @@ class _LeadsListContentState extends State<_LeadsListContent> {
                   uid: widget.uid,
                   actorName: widget.actorName,
                   isArchivedView: state.archiveFilter == ArchiveFilter.archived,
+                  onLoadMore: () => context.read<LeadsCubit>().loadMoreLeads(),
                 );
 
                 if (isMobile) {
@@ -440,15 +444,7 @@ class _LeadFilters extends StatelessWidget {
                       AppButton(
                         label: localizations.clearFilters,
                         variant: AppButtonVariant.secondary,
-                        onPressed: () {
-                          cubit.setSearchQuery('');
-                          cubit.setStatusFilter(null);
-                          cubit.setSourceFilter(null);
-                          cubit.setPriorityFilter(null);
-                          cubit.setAssignedToFilter(null);
-                          cubit.setFollowUpFilter(null);
-                          cubit.setWorkQueueFilter(null);
-                        },
+                        onPressed: cubit.clearFilters,
                       ),
                     ],
                   ],
@@ -604,8 +600,8 @@ class _FilterChipPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          softWrap: true,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: AppColors.primaryColor(context),
                 fontWeight: FontWeight.w800,
@@ -1042,6 +1038,7 @@ class _LeadsBody extends StatelessWidget {
     required this.uid,
     required this.actorName,
     required this.isArchivedView,
+    required this.onLoadMore,
   });
 
   final LeadsState state;
@@ -1056,6 +1053,7 @@ class _LeadsBody extends StatelessWidget {
   final String uid;
   final String actorName;
   final bool isArchivedView;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -1117,11 +1115,23 @@ class _LeadsBody extends StatelessWidget {
                 if (index != state.filteredLeads.length - 1)
                   const SizedBox(height: AppSpacing.sm),
               ],
+              if (state.canLoadMore) ...[
+                const SizedBox(height: AppSpacing.md),
+                _LoadMoreLeadsButton(
+                  loadedCount: state.filteredLeads.length,
+                  totalCount: state.filteredTotalCount,
+                  pageSize: 15,
+                  isLoading: state.status == LeadsStatus.loadingMore,
+                  onPressed: onLoadMore,
+                ),
+              ],
             ],
           );
         }
         return _LeadsWebWorkspace(
           leads: state.filteredLeads,
+          kpiCounts: state.kpiCounts,
+          totalCount: state.filteredTotalCount,
           users: users,
           showAssignee: roleName == 'admin' || roleName == 'manager',
           companyId: companyId,
@@ -1134,6 +1144,9 @@ class _LeadsBody extends StatelessWidget {
           isRefreshing: state.status == LeadsStatus.loading,
           isSaving: state.status == LeadsStatus.saving,
           isArchivedView: isArchivedView,
+          canLoadMore: state.canLoadMore,
+          isLoadingMore: state.status == LeadsStatus.loadingMore,
+          onLoadMore: onLoadMore,
         );
       },
     );
@@ -1143,6 +1156,8 @@ class _LeadsBody extends StatelessWidget {
 class _LeadsWebWorkspace extends StatefulWidget {
   const _LeadsWebWorkspace({
     required this.leads,
+    required this.kpiCounts,
+    required this.totalCount,
     required this.users,
     required this.showAssignee,
     required this.companyId,
@@ -1155,9 +1170,14 @@ class _LeadsWebWorkspace extends StatefulWidget {
     required this.isRefreshing,
     required this.isSaving,
     required this.isArchivedView,
+    required this.canLoadMore,
+    required this.isLoadingMore,
+    required this.onLoadMore,
   });
 
   final List<Lead> leads;
+  final ModuleKpiCounts kpiCounts;
+  final int? totalCount;
   final List<UserProfile> users;
   final bool showAssignee;
   final String companyId;
@@ -1170,6 +1190,9 @@ class _LeadsWebWorkspace extends StatefulWidget {
   final bool isRefreshing;
   final bool isSaving;
   final bool isArchivedView;
+  final bool canLoadMore;
+  final bool isLoadingMore;
+  final VoidCallback onLoadMore;
 
   @override
   State<_LeadsWebWorkspace> createState() => _LeadsWebWorkspaceState();
@@ -1188,76 +1211,89 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
 
     return Stack(
       children: [
-        Column(
-          children: [
-            _LeadSummaryCards(
-              leads: widget.leads,
-              showAssignee: widget.showAssignee,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final table = widget.leads.isEmpty
-                      ? AppEmptyState(
-                          title: widget.isArchivedView
-                              ? localizations.noArchivedRecords
-                              : localizations.noLeads,
-                          message: widget.isArchivedView
-                              ? localizations.archivedRecordsHiddenFromActiveLists
-                              : localizations.leadsSubtitle,
-                        )
-                      : _LeadsWebTable(
-                          leads: widget.leads,
-                          users: widget.users,
-                          showAssignee: widget.showAssignee,
-                          companyId: widget.companyId,
-                          roleName: widget.roleName,
-                          currentUserId: widget.uid,
-                          currentTeamId: widget.currentTeamId,
-                          actorName: widget.actorName,
-                          canAssign: widget.canAssign,
-                          isSaving: widget.isSaving,
-                          isArchivedView: widget.isArchivedView,
-                          selectedLeadId: selectedLead?.id,
-                          onLeadSelected: (lead) {
-                            setState(() => _selectedLeadId = lead.id);
-                          },
-                        );
-                  final preview = _LeadPreviewPanel(
-                    lead: selectedLead,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final table = widget.leads.isEmpty
+                ? AppEmptyState(
+                    title: widget.isArchivedView
+                        ? localizations.noArchivedRecords
+                        : localizations.noLeads,
+                    message: widget.isArchivedView
+                        ? localizations.archivedRecordsHiddenFromActiveLists
+                        : localizations.leadsSubtitle,
+                  )
+                : _LeadsWebTable(
+                    leads: widget.leads,
                     users: widget.users,
                     showAssignee: widget.showAssignee,
                     companyId: widget.companyId,
-                    canEdit: widget.canEdit,
-                    canAssign: widget.canAssign,
                     roleName: widget.roleName,
+                    currentUserId: widget.uid,
                     currentTeamId: widget.currentTeamId,
-                    uid: widget.uid,
                     actorName: widget.actorName,
+                    canAssign: widget.canAssign,
                     isSaving: widget.isSaving,
                     isArchivedView: widget.isArchivedView,
+                    selectedLeadId: selectedLead?.id,
+                    onLeadSelected: (lead) {
+                      setState(() => _selectedLeadId = lead.id);
+                    },
                   );
-
-                  if (constraints.maxWidth < 1100) {
-                    return table;
-                  }
-
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: table),
-                      const SizedBox(width: AppSpacing.md),
-                      SizedBox(
-                        width: 390,
-                        child: preview,
-                      ),
-                    ],
-                  );
-                },
+            final preview = _LeadPreviewPanel(
+              lead: selectedLead,
+              users: widget.users,
+              showAssignee: widget.showAssignee,
+              companyId: widget.companyId,
+              canEdit: widget.canEdit,
+              canAssign: widget.canAssign,
+              roleName: widget.roleName,
+              currentTeamId: widget.currentTeamId,
+              uid: widget.uid,
+              actorName: widget.actorName,
+              isSaving: widget.isSaving,
+              isArchivedView: widget.isArchivedView,
+            );
+            final scrollableList = SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _LeadSummaryCards(
+                    kpiCounts: widget.kpiCounts,
+                    showAssignee: widget.showAssignee,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  table,
+                  if (widget.canLoadMore) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    _LoadMoreLeadsButton(
+                      loadedCount: widget.leads.length,
+                      totalCount: widget.totalCount,
+                      pageSize: 15,
+                      isLoading: widget.isLoadingMore,
+                      onPressed: widget.onLoadMore,
+                    ),
+                  ],
+                ],
               ),
-            ),
-          ],
+            );
+
+            if (constraints.maxWidth < 1100) {
+              return scrollableList;
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: scrollableList),
+                const SizedBox(width: AppSpacing.md),
+                SizedBox(
+                  width: 390,
+                  child: preview,
+                ),
+              ],
+            );
+          },
         ),
         if (widget.isRefreshing || widget.isSaving)
           Positioned.fill(
@@ -1277,10 +1313,40 @@ class _LeadsWebWorkspaceState extends State<_LeadsWebWorkspace> {
   }
 }
 
-class _LeadSummaryCards extends StatelessWidget {
-  const _LeadSummaryCards({required this.leads, required this.showAssignee});
+class _LoadMoreLeadsButton extends StatelessWidget {
+  const _LoadMoreLeadsButton({
+    required this.loadedCount,
+    required this.pageSize,
+    required this.isLoading,
+    required this.onPressed,
+    this.totalCount,
+  });
 
-  final List<Lead> leads;
+  final int loadedCount;
+  final int pageSize;
+  final bool isLoading;
+  final VoidCallback onPressed;
+  final int? totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPaginationFooter(
+      loadedCount: loadedCount,
+      pageSize: pageSize,
+      isLoading: isLoading,
+      onLoadMore: onPressed,
+      totalCount: totalCount,
+    );
+  }
+}
+
+class _LeadSummaryCards extends StatelessWidget {
+  const _LeadSummaryCards({
+    required this.kpiCounts,
+    required this.showAssignee,
+  });
+
+  final ModuleKpiCounts kpiCounts;
   final bool showAssignee;
 
   @override
@@ -1289,153 +1355,115 @@ class _LeadSummaryCards extends StatelessWidget {
     if (l == null) {
       return const SizedBox.shrink();
     }
-    final newLeads = leads.where((lead) => lead.status == LeadStatus.newLead);
-    final today = DateTime.now();
-    final activeLeads = leads.where(DashboardTruthRules.isActiveLead);
-    final unassignedLeads = leads.where((lead) {
-      return DashboardTruthRules.isActiveLead(lead) && lead.assignedTo.isEmpty;
-    });
-    final overdueFollowUps = leads.where((lead) {
-      return DashboardTruthRules.isOverdueFollowUpLead(lead, today);
-    });
-    final upcomingFollowUps = leads.where((lead) {
-      return DashboardTruthRules.isUpcomingFollowUpLead(lead, today);
-    });
+    final cubit = context.read<LeadsCubit>();
+    final state = context.watch<LeadsCubit>().state;
+
     final cards = [
-      _LeadSummaryCard(
+      ModuleKpiCardData(
         label: l.totalLeads,
-        value: leads.length,
-        total: leads.isEmpty ? 1 : leads.length,
+        value: kpiCounts.display(
+          'total',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.people_alt_outlined,
         tone: AppStatusTone.info,
+        error: kpiCounts.hasFailed('total'),
+        selected: !_hasActiveLeadFilter(state),
+        onTap: cubit.clearFilters,
       ),
-      _LeadSummaryCard(
+      ModuleKpiCardData(
         label: l.newLeads,
-        value: newLeads.length,
-        total: leads.length,
+        value: kpiCounts.display(
+          'new',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.fiber_new_outlined,
         tone: AppStatusTone.info,
+        error: kpiCounts.hasFailed('new'),
+        selected: state.statusFilter == LeadStatus.newLead &&
+            state.followUpFilter == null &&
+            state.workQueueFilter == null,
+        onTap: () => cubit.applyKpiFilter(
+          statusFilter: LeadStatus.newLead,
+        ),
       ),
-      _LeadSummaryCard(
+      ModuleKpiCardData(
         label: l.activeLeads,
-        value: activeLeads.length,
-        total: leads.length,
+        value: kpiCounts.display(
+          'active',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.trending_up_outlined,
         tone: AppStatusTone.success,
+        error: kpiCounts.hasFailed('active'),
+        selected: state.workQueueFilter == LeadWorkQueueFilter.active,
+        onTap: () => cubit.applyKpiFilter(
+          workQueueFilter: LeadWorkQueueFilter.active,
+        ),
       ),
-      _LeadSummaryCard(
+      ModuleKpiCardData(
         label: l.overdue,
-        value: overdueFollowUps.length,
-        total: leads.length,
+        value: kpiCounts.display(
+          'overdue',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.warning_amber_rounded,
         tone: AppStatusTone.error,
+        error: kpiCounts.hasFailed('overdue'),
+        selected: state.followUpFilter == LeadFollowUpFilter.overdue,
+        onTap: () => cubit.applyKpiFilter(
+          followUpFilter: LeadFollowUpFilter.overdue,
+        ),
       ),
-      _LeadSummaryCard(
+      ModuleKpiCardData(
         label: l.upcoming,
-        value: upcomingFollowUps.length,
-        total: leads.length,
+        value: kpiCounts.display(
+          'upcoming',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.event_available_outlined,
         tone: AppStatusTone.info,
+        error: kpiCounts.hasFailed('upcoming'),
+        selected: state.followUpFilter == LeadFollowUpFilter.upcoming,
+        onTap: () => cubit.applyKpiFilter(
+          followUpFilter: LeadFollowUpFilter.upcoming,
+        ),
       ),
       if (showAssignee)
-        _LeadSummaryCard(
+        ModuleKpiCardData(
           label: l.unassignedLeads,
-          value: unassignedLeads.length,
-          total: leads.length,
+          value: kpiCounts.display(
+            'unassigned',
+            unavailableLabel: l.notAvailable,
+            failureLabel: l.errorOccurred,
+          ),
+          icon: Icons.person_off_outlined,
           tone: AppStatusTone.warning,
+          error: kpiCounts.hasFailed('unassigned'),
+          selected: state.workQueueFilter == LeadWorkQueueFilter.unassigned,
+          onTap: () => cubit.applyKpiFilter(
+            workQueueFilter: LeadWorkQueueFilter.unassigned,
+          ),
         ),
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (var index = 0; index < cards.length; index++) ...[
-            SizedBox(width: 154, child: cards[index]),
-            if (index != cards.length - 1) const SizedBox(width: AppSpacing.sm),
-          ],
-        ],
-      ),
-    );
+    return ModuleKpiStrip(cards: cards, cardHeight: 96, scrollable: false);
   }
 }
 
-class _LeadSummaryCard extends StatelessWidget {
-  const _LeadSummaryCard({
-    required this.label,
-    required this.value,
-    required this.total,
-    required this.tone,
-  });
-
-  final String label;
-  final int value;
-  final int total;
-  final AppStatusTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress =
-        total <= 0 ? 0.0 : (value / total).clamp(0.0, 1.0).toDouble();
-    final accent = _summaryToneColor(context, tone);
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: _LeadListColors.of(context).cardSurface,
-        border: Border.all(color: _LeadListColors.of(context).border),
-        borderRadius: AppRadius.large,
-        boxShadow: Theme.of(context).brightness == Brightness.dark
-            ? null
-            : AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.textSecondaryColor(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value.toString(),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryColor(context),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  minHeight: 5,
-                  value: value,
-                  backgroundColor: AppColors.inputSurface(context),
-                  color: accent,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Color _summaryToneColor(BuildContext context, AppStatusTone tone) {
-  return switch (tone) {
-    AppStatusTone.success => AppColors.successColor(context),
-    AppStatusTone.warning => AppColors.warningColor(context),
-    AppStatusTone.error => AppColors.errorColor(context),
-    AppStatusTone.info => AppColors.infoColor(context),
-    AppStatusTone.neutral => AppColors.primaryColor(context),
-  };
+bool _hasActiveLeadFilter(LeadsState state) {
+  return state.searchQuery.trim().isNotEmpty ||
+      state.statusFilter != null ||
+      state.sourceFilter != null ||
+      state.priorityFilter != null ||
+      (state.assignedToFilter ?? '').trim().isNotEmpty ||
+      state.followUpFilter != null ||
+      state.workQueueFilter != null;
 }
 
 class _LeadsWebTable extends StatelessWidget {
@@ -1476,6 +1504,7 @@ class _LeadsWebTable extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final colors = _LeadListColors.of(context);
+    final bodyHeight = (leads.length * 72.0).clamp(120.0, 520.0);
 
     return Container(
       decoration: BoxDecoration(
@@ -1487,30 +1516,32 @@ class _LeadsWebTable extends StatelessWidget {
             : AppShadows.card,
       ),
       clipBehavior: Clip.antiAlias,
-      child: DataTableTheme(
-        data: Theme.of(context).dataTableTheme.copyWith(
-          decoration: BoxDecoration(color: colors.cardSurface),
-        ),
-        child: ColoredBox(
-          color: colors.cardSurface,
-          child: SingleChildScrollView(
-            child: DataTable(
-              horizontalMargin: 8,
-              columnSpacing: 10,
-              headingRowHeight: 44,
-              dataRowMinHeight: 46,
-              dataRowMaxHeight: 82,
-              columns: [
-                DataColumn(label: _TableText(l.leadName, maxWidth: 180)),
-                DataColumn(label: _TableText(l.status, maxWidth: 84)),
-                DataColumn(label: _TableText(l.priority, maxWidth: 76)),
-                DataColumn(label: _TableText(l.source, maxWidth: 110)),
-                if (showAssignee)
-                  DataColumn(label: _TableText(l.assignedToLabel, maxWidth: 120)),
-                DataColumn(label: _TableText(l.nextFollowUp, maxWidth: 128)),
-                DataColumn(label: _TableText(l.actions, maxWidth: 92)),
-              ],
-              rows: leads.map((lead) {
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LeadTableHeader(
+            showAssignee: showAssignee,
+            leadName: l.leadName,
+            status: l.status,
+            priority: l.priority,
+            source: l.source,
+            assignee: l.assignedToLabel,
+            nextFollowUp: l.nextFollowUp,
+            actions: l.actions,
+          ),
+          SizedBox(
+            height: bodyHeight,
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              physics: const ClampingScrollPhysics(),
+              itemCount: leads.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                thickness: 1,
+                color: colors.border,
+              ),
+              itemBuilder: (context, index) {
+                final lead = leads[index];
                 final selected = lead.id == selectedLeadId;
                 final assignee = _resolvedAssigneeName(
                   l,
@@ -1518,70 +1549,227 @@ class _LeadsWebTable extends StatelessWidget {
                   lead.assignedToName,
                   users,
                 );
-                return DataRow(
-                  selected: false,
-                  color: WidgetStateProperty.resolveWith((states) {
-                    if (selected || states.contains(WidgetState.hovered)) {
-                      return colors.selectedSurface;
-                    }
-                    return null;
-                  }),
-                  cells: [
-                    DataCell(
-                      _LeadNameTableCell(lead: lead),
-                      onTap: () => onLeadSelected(lead),
-                    ),
-                    DataCell(
-                      _TableStatusBadge(
-                        label: _statusLabel(l, lead.status),
-                      ),
-                      onTap: () => onLeadSelected(lead),
-                    ),
-                    DataCell(
-                      _TableStatusBadge(
-                        label: _priorityLabel(l, lead.priority),
-                      ),
-                      onTap: () => onLeadSelected(lead),
-                    ),
-                    DataCell(
-                      _TableText(
-                        _sourceDisplayLabel(l, lead),
-                        maxWidth: 110,
-                      ),
-                      onTap: () => onLeadSelected(lead),
-                    ),
-                    if (showAssignee)
-                      DataCell(
-                        _TableText(
-                          assignee,
-                          maxWidth: 120,
-                        ),
-                        onTap: () => onLeadSelected(lead),
-                      ),
-                    DataCell(
-                      _FollowUpCell(lead: lead),
-                      onTap: () => onLeadSelected(lead),
-                    ),
-                    DataCell(
-                      _LeadAssignActionButton(
-                        lead: lead,
-                        users: users,
-                        companyId: companyId,
-                        roleName: roleName,
-                        currentUserId: currentUserId,
-                        currentTeamId: currentTeamId,
-                        actorName: actorName,
-                        canAssign: canAssign,
-                        isArchivedView: isArchivedView,
-                        isSaving: isSaving,
-                      ),
-                    ),
-                  ],
+                return _LeadTableRow(
+                  lead: lead,
+                  assignee: assignee,
+                  showAssignee: showAssignee,
+                  selected: selected,
+                  colors: colors,
+                  companyId: companyId,
+                  roleName: roleName,
+                  currentUserId: currentUserId,
+                  currentTeamId: currentTeamId,
+                  actorName: actorName,
+                  canAssign: canAssign,
+                  isArchivedView: isArchivedView,
+                  isSaving: isSaving,
+                  users: users,
+                  onTap: () => onLeadSelected(lead),
                 );
-              }).toList(),
+              },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeadTableHeader extends StatelessWidget {
+  const _LeadTableHeader({
+    required this.showAssignee,
+    required this.leadName,
+    required this.status,
+    required this.priority,
+    required this.source,
+    required this.assignee,
+    required this.nextFollowUp,
+    required this.actions,
+  });
+
+  final bool showAssignee;
+  final String leadName;
+  final String status;
+  final String priority;
+  final String source;
+  final String assignee;
+  final String nextFollowUp;
+  final String actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _LeadListColors.of(context);
+    return Container(
+      color: colors.inputSurface,
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
+      child: Row(
+        children: [
+          _LeadTableHeaderCell(label: leadName, flex: 18),
+          _LeadTableHeaderCell(label: status, flex: 11),
+          _LeadTableHeaderCell(label: priority, flex: 10),
+          _LeadTableHeaderCell(label: source, flex: 14),
+          if (showAssignee) _LeadTableHeaderCell(label: assignee, flex: 13),
+          _LeadTableHeaderCell(label: nextFollowUp, flex: 17),
+          _LeadTableHeaderCell(label: actions, flex: 8, centered: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeadTableHeaderCell extends StatelessWidget {
+  const _LeadTableHeaderCell({
+    required this.label,
+    required this.flex,
+    this.centered = false,
+  });
+
+  final String label;
+  final int flex;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Align(
+        alignment: centered
+            ? AlignmentDirectional.center
+            : AlignmentDirectional.centerStart,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.textSecondaryColor(context),
+                fontWeight: FontWeight.w800,
+              ),
         ),
+      ),
+    );
+  }
+}
+
+class _LeadTableRow extends StatelessWidget {
+  const _LeadTableRow({
+    required this.lead,
+    required this.assignee,
+    required this.showAssignee,
+    required this.selected,
+    required this.colors,
+    required this.companyId,
+    required this.roleName,
+    required this.currentUserId,
+    required this.currentTeamId,
+    required this.actorName,
+    required this.canAssign,
+    required this.isArchivedView,
+    required this.isSaving,
+    required this.users,
+    required this.onTap,
+  });
+
+  final Lead lead;
+  final String assignee;
+  final bool showAssignee;
+  final bool selected;
+  final _LeadListColors colors;
+  final String companyId;
+  final String roleName;
+  final String currentUserId;
+  final String currentTeamId;
+  final String actorName;
+  final bool canAssign;
+  final bool isArchivedView;
+  final bool isSaving;
+  final List<UserProfile> users;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    if (l == null) {
+      return const SizedBox.shrink();
+    }
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        color: selected ? colors.selectedSurface : colors.cardSurface,
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        child: Row(
+          children: [
+            _LeadTableCell(flex: 18, child: _LeadNameTableCell(lead: lead)),
+            _LeadTableCell(
+              flex: 11,
+              child: _TableStatusBadge(label: _statusLabel(l, lead.status)),
+            ),
+            _LeadTableCell(
+              flex: 10,
+              child: _TableStatusBadge(
+                label: _priorityLabel(l, lead.priority),
+              ),
+            ),
+            _LeadTableCell(
+              flex: 14,
+              child: _TableText(_sourceDisplayLabel(l, lead), maxWidth: 120),
+            ),
+            if (showAssignee)
+              _LeadTableCell(
+                flex: 13,
+                child: _TableText(assignee, maxWidth: 120),
+              ),
+            _LeadTableCell(flex: 17, child: _FollowUpCell(lead: lead)),
+            _LeadTableCell(
+              flex: 8,
+              centered: true,
+              child: _LeadAssignActionButton(
+                lead: lead,
+                users: users,
+                companyId: companyId,
+                roleName: roleName,
+                currentUserId: currentUserId,
+                currentTeamId: currentTeamId,
+                actorName: actorName,
+                canAssign: canAssign,
+                isArchivedView: isArchivedView,
+                isSaving: isSaving,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeadTableCell extends StatelessWidget {
+  const _LeadTableCell({
+    required this.flex,
+    required this.child,
+    this.centered = false,
+  });
+
+  final int flex;
+  final Widget child;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Align(
+        alignment: centered
+            ? AlignmentDirectional.center
+            : AlignmentDirectional.centerStart,
+        child: child,
       ),
     );
   }
@@ -1667,7 +1855,7 @@ class _LeadPreviewPanel extends StatelessWidget {
                   Text(
                     selectedLead.fullName,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -1889,14 +2077,17 @@ class _LeadPreviewField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: textTheme.labelMedium?.copyWith(
               color: AppColors.textSecondaryColor(context),
               fontWeight: FontWeight.w600,
             ),
@@ -1904,9 +2095,10 @@ class _LeadPreviewField extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            style: textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1962,7 +2154,7 @@ class _LeadCard extends StatelessWidget {
     return InkWell(
       onTap: () => context.go(RouteNames.leadDetails(lead.id)),
       child: Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 8, 6),
         decoration: BoxDecoration(
           color: AppColors.cardSurface(context),
           border: Border.all(color: AppColors.borderColor(context)),
@@ -1988,14 +2180,15 @@ class _LeadCard extends StatelessWidget {
                 AppStatusBadge(label: _statusLabel(localizations, lead.status)),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     contact,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -2008,10 +2201,10 @@ class _LeadCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 4,
+              runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 AppStatusBadge(
@@ -2033,7 +2226,7 @@ class _LeadCard extends StatelessWidget {
               ],
             ),
             if (canAssign && !isArchivedView) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: _LeadAssignActionButton(
@@ -2226,7 +2419,9 @@ Future<void> _showAssignLeadSheet(
                           updatedBy: currentUserId,
                         ),
                         actorName: actorName,
-                        successAction: LeadsAction.assignLead,
+                        successAction: selectedUserId.trim().isEmpty
+                            ? LeadsAction.updateLead
+                            : LeadsAction.assignLead,
                       );
                       if (success && sheetContext.mounted) {
                         Navigator.of(sheetContext).pop();
@@ -2345,48 +2540,46 @@ class _FollowUpCell extends StatelessWidget {
     if (localizations == null) {
       return const SizedBox.shrink();
     }
-    if (lead.nextFollowUpAt == null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _TableStatusBadge(
-            label: _followUpStatusLabel(localizations, lead),
-            tone: _followUpStatusTone(lead),
-          ),
-          if (_needsStaleLeadAttention(lead)) ...[
-            const SizedBox(height: 2),
-            _TableStatusBadge(
-              label: _staleLeadLabel(localizations, lead),
-              tone: AppStatusTone.warning,
-            ),
-          ],
-        ],
-      );
-    }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    final children = <Widget>[];
+    if (lead.nextFollowUpAt != null) {
+      children.add(
         Text(
           _followUpDateLabel(localizations, lead.nextFollowUpAt),
           maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          overflow: TextOverflow.fade,
+          softWrap: false,
         ),
-        const SizedBox(height: 2),
+      );
+      children.add(const SizedBox(height: 2));
+    }
+    children.add(
+      _TableStatusBadge(
+        label: _followUpStatusLabel(localizations, lead),
+        tone: _followUpStatusTone(lead),
+        maxWidth: 210,
+        maxLines: 2,
+      ),
+    );
+    if (lead.nextFollowUpAt == null && _needsStaleLeadAttention(lead)) {
+      children.add(const SizedBox(height: 2));
+      children.add(
         _TableStatusBadge(
-          label: _followUpStatusLabel(localizations, lead),
-          tone: _followUpStatusTone(lead),
+          label: _staleLeadLabel(localizations, lead),
+          tone: AppStatusTone.warning,
+          maxWidth: 210,
+          maxLines: 1,
         ),
-        if (_needsStaleLeadAttention(lead)) ...[
-          const SizedBox(height: 2),
-          _TableStatusBadge(
-            label: _staleLeadLabel(localizations, lead),
-            tone: AppStatusTone.warning,
-          ),
-        ],
-      ],
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 210),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -2395,16 +2588,20 @@ class _TableStatusBadge extends StatelessWidget {
   const _TableStatusBadge({
     required this.label,
     this.tone = AppStatusTone.neutral,
+    this.maxWidth = 132,
+    this.maxLines = 1,
   });
 
   final String label;
   final AppStatusTone tone;
+  final double maxWidth;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
     final colors = _badgeColorsFor(context, tone);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 132),
+      constraints: BoxConstraints(maxWidth: maxWidth),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: colors.background,
@@ -2413,9 +2610,9 @@ class _TableStatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        softWrap: false,
+        maxLines: maxLines,
+        overflow: TextOverflow.visible,
+        softWrap: true,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: colors.foreground,
           fontWeight: FontWeight.w700,

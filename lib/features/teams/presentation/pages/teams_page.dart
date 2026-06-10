@@ -19,6 +19,7 @@ import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
+import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../core/widgets/masar_user_avatar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -529,67 +530,39 @@ class _OverviewGrid extends StatelessWidget {
       return _isOperationalTeamMember(user) && user.teamId.trim().isEmpty;
     }).length;
 
-    final cards = [
-      _Metric(l.teams, state.teams.length, Icons.groups_outlined),
-      _Metric(l.activeTeams, activeTeams, Icons.verified_outlined),
-      _Metric(l.managersWithTeams, managersWithTeams, Icons.manage_accounts),
-      _Metric(l.usersWithoutTeam, usersWithoutTeam, Icons.person_off_outlined),
-      _Metric(l.teamMembers, teamMembers, Icons.badge_outlined),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1050
-            ? 5
-            : constraints.maxWidth >= 720
-                ? 3
-                : 2;
-        final gap = AppSpacing.sm;
-        final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
-
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final card in cards)
-              SizedBox(
-                width: width,
-                child: _Panel(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(card.icon, size: 20, color: AppColors.primaryColor(context)),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              card.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              card.value.toString(),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+    return ModuleKpiStrip(
+      cards: [
+        ModuleKpiCardData(
+          label: l.teams,
+          value: state.teams.length.toString(),
+          icon: Icons.groups_outlined,
+          tone: AppStatusTone.info,
+        ),
+        ModuleKpiCardData(
+          label: l.activeTeams,
+          value: activeTeams.toString(),
+          icon: Icons.verified_outlined,
+          tone: AppStatusTone.success,
+        ),
+        ModuleKpiCardData(
+          label: l.managersWithTeams,
+          value: managersWithTeams.toString(),
+          icon: Icons.manage_accounts,
+          tone: AppStatusTone.info,
+        ),
+        ModuleKpiCardData(
+          label: l.usersWithoutTeam,
+          value: usersWithoutTeam.toString(),
+          icon: Icons.person_off_outlined,
+          tone: AppStatusTone.warning,
+        ),
+        ModuleKpiCardData(
+          label: l.teamMembers,
+          value: teamMembers.toString(),
+          icon: Icons.badge_outlined,
+          tone: AppStatusTone.info,
+        ),
+      ],
     );
   }
 }

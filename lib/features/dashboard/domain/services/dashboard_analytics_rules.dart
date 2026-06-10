@@ -60,8 +60,8 @@ class DashboardAnalyticsRules {
     final wonDealsThisMonth = input.deals.where((deal) {
       return DashboardTruthRules.isDealWonThisMonth(deal, input.now);
     }).toList();
-    final unassignedLeads = activeLeads.where((lead) {
-      return lead.assignedTo.trim().isEmpty;
+    final unassignedLeads = input.leads.where((lead) {
+      return !lead.isArchived && lead.assignedTo.trim().isEmpty;
     }).toList();
     final teamWorkload = activeLeads.length + openTasks.length + openDeals.length;
     final activeProperties = input.properties.where((property) {
@@ -922,34 +922,39 @@ class DashboardAnalyticsRules {
     required int staleLeads,
     required int urgentActions,
   }) {
-    if (contactedTodayStillOverdue > 0) {
-      return DashboardDailyInsight(
-        type: DashboardDailyInsightType.contactedTodayStillOverdue,
-        primaryValue: contactedTodayStillOverdue,
-      );
-    }
-
-    if (noNextFollowUp > 0) {
-      return DashboardDailyInsight(
-        type: DashboardDailyInsightType.noNextFollowUp,
-        primaryValue: noNextFollowUp,
-      );
-    }
-
-    if (staleLeads > 0) {
-      return DashboardDailyInsight(
-        type: DashboardDailyInsightType.staleLeads,
-        primaryValue: staleLeads,
-      );
-    }
+    final candidates = <DashboardDailyInsight>[
+      if (contactedTodayStillOverdue > 0)
+        DashboardDailyInsight(
+          type: DashboardDailyInsightType.contactedTodayStillOverdue,
+          primaryValue: contactedTodayStillOverdue,
+        ),
+      if (noNextFollowUp > 0)
+        DashboardDailyInsight(
+          type: DashboardDailyInsightType.noNextFollowUp,
+          primaryValue: noNextFollowUp,
+        ),
+      if (staleLeads > 0)
+        DashboardDailyInsight(
+          type: DashboardDailyInsightType.staleLeads,
+          primaryValue: staleLeads,
+        ),
+    ];
 
     final currentRate = _conversionRate(input, current: true);
     final previousRate = _conversionRate(input, current: false);
     if (currentRate != null && previousRate != null && currentRate > previousRate) {
-      return DashboardDailyInsight(
-        type: DashboardDailyInsightType.conversionUp,
-        percent: ((currentRate - previousRate) * 100).round(),
+      candidates.add(
+        DashboardDailyInsight(
+          type: DashboardDailyInsightType.conversionUp,
+          percent: ((currentRate - previousRate) * 100).round(),
+        ),
       );
+    }
+
+    if (candidates.isNotEmpty) {
+      final slot = input.now.toLocal().millisecondsSinceEpoch ~/
+          const Duration(hours: 2).inMilliseconds;
+      return candidates[slot % candidates.length];
     }
 
     if (input.leads.isNotEmpty || input.deals.isNotEmpty || input.appointments.isNotEmpty) {

@@ -35,6 +35,37 @@ class CompanyUsersCubit extends Cubit<CompanyUsersState> {
     emit(state.copyWith(query: query, clearMessage: true));
   }
 
+  void applyRoleFilter(String? role) {
+    emit(
+      state.copyWith(
+        roleFilter: role?.trim() ?? '',
+        clearRoleFilter: role == null || role.trim().isEmpty,
+        clearMessage: true,
+      ),
+    );
+  }
+
+  void applyActiveFilter(bool? isActive) {
+    emit(
+      state.copyWith(
+        activeFilter: isActive,
+        clearActiveFilter: isActive == null,
+        clearMessage: true,
+      ),
+    );
+  }
+
+  void clearFilters() {
+    emit(
+      state.copyWith(
+        query: '',
+        clearRoleFilter: true,
+        clearActiveFilter: true,
+        clearMessage: true,
+      ),
+    );
+  }
+
   void clearCreatedResult() {
     emit(state.copyWith(clearCreatedResult: true));
   }

@@ -13,6 +13,11 @@ class WatchLeadsUseCase {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    LeadStatus? statusFilter,
+    LeadSource? sourceFilter,
+    LeadPriority? priorityFilter,
+    String? followUpFilter,
+    String? workQueueFilter,
     int limit = 30,
   }) {
     return _repository.watchLeads(
@@ -21,6 +26,11 @@ class WatchLeadsUseCase {
       managerId: managerId,
       teamId: teamId,
       archiveFilter: archiveFilter,
+      statusFilter: statusFilter,
+      sourceFilter: sourceFilter,
+      priorityFilter: priorityFilter,
+      followUpFilter: followUpFilter,
+      workQueueFilter: workQueueFilter,
       limit: limit,
     );
   }
