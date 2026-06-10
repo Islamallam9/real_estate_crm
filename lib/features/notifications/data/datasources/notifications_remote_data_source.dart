@@ -66,11 +66,12 @@ class FirestoreNotificationsRemoteDataSource
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
-  final Map<String, DateTime> _lastTimingRefreshAt = <String, DateTime>{};
-  final Set<String> _timingRefreshInFlightKeys = <String>{};
+  final Map<String, DateTime> _lastAppointmentTimingRefreshAt =
+      <String, DateTime>{};
+  final Set<String> _appointmentTimingRefreshInFlightKeys = <String>{};
 
-  static const Duration _timingRefreshThrottle = Duration(minutes: 2);
-
+  static const Duration _appointmentTimingRefreshThrottle =
+      Duration(seconds: 55);
   @override
   Stream<List<CrmNotificationModel>> watchNotifications({
     required String companyId,
@@ -194,6 +195,10 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
+    unawaited(_refreshAppointmentTimingNotificationsThrottled(
+      companyId: companyId,
+    ));
+
     controller.onCancel = () async {
       await orderedSub?.cancel();
       await recipientSub?.cancel();
@@ -281,13 +286,6 @@ class FirestoreNotificationsRemoteDataSource
           controller.addError(NotificationException(_mapFirestoreError(error)));
         }
       },
-    );
-
-    unawaited(
-      _refreshTimingNotifications(
-        companyId: companyId,
-        includeActionableReminders: true,
-      ),
     );
 
     controller.onCancel = () async {
@@ -420,12 +418,16 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
-    unawaited(_refreshTimingNotifications(companyId: companyId));
+    unawaited(_refreshAppointmentTimingNotificationsThrottled(
+      companyId: companyId,
+    ));
 
     appointmentTicker = Timer.periodic(
       const Duration(minutes: 1),
       (_) {
-        unawaited(_refreshTimingNotifications(companyId: companyId));
+        unawaited(_refreshAppointmentTimingNotificationsThrottled(
+          companyId: companyId,
+        ));
         refreshAppointmentReminders();
       },
     );
@@ -786,86 +788,53 @@ class FirestoreNotificationsRemoteDataSource
     return reminders;
   }
 
-  Future<void> _refreshTimingNotifications({
-    required String companyId,
-    bool includeActionableReminders = false,
-    bool force = false,
-  }) async {
-    await _runThrottledTimingRefresh(
-      key: '$companyId:appointments',
-      force: force,
-      refresh: () => _refreshAppointmentTimingNotifications(companyId: companyId),
-    );
-    if (includeActionableReminders) {
-      await _runThrottledTimingRefresh(
-        key: '$companyId:actionable',
-        force: force,
-        refresh: () =>
-            _refreshActionableReminderNotifications(companyId: companyId),
-      );
-    }
-  }
 
-  Future<void> _runThrottledTimingRefresh({
-    required String key,
-    required Future<void> Function() refresh,
+
+
+  Future<void> _refreshAppointmentTimingNotificationsThrottled({
+    required String companyId,
     bool force = false,
   }) async {
+    final key = '$companyId:appointments';
     final now = DateTime.now();
-    final lastRefresh = _lastTimingRefreshAt[key];
+    final lastRefresh = _lastAppointmentTimingRefreshAt[key];
     if (!force &&
         lastRefresh != null &&
-        now.difference(lastRefresh) < _timingRefreshThrottle) {
+        now.difference(lastRefresh) < _appointmentTimingRefreshThrottle) {
       return;
     }
-    if (_timingRefreshInFlightKeys.contains(key)) {
+    if (_appointmentTimingRefreshInFlightKeys.contains(key)) {
       return;
     }
-    _timingRefreshInFlightKeys.add(key);
+
+    _appointmentTimingRefreshInFlightKeys.add(key);
     try {
-      await refresh();
-      _lastTimingRefreshAt[key] = DateTime.now();
+      final callable = _functions.httpsCallable(
+        'refreshAppointmentTimingNotifications',
+      );
+      await callable.call(<String, Object?>{
+        'companyId': companyId,
+      });
+      _lastAppointmentTimingRefreshAt[key] = DateTime.now();
     } on FirebaseFunctionsException catch (error) {
       if (kDebugMode) {
         debugPrint(
           'MasarDiagnostics feature=notifications '
-          'operation=refreshTimingNotifications code=${error.code}',
+          'operation=refreshAppointmentTimingNotifications code=${error.code}',
         );
       }
     } catch (error) {
       if (kDebugMode) {
         debugPrint(
           'MasarDiagnostics feature=notifications '
-          'operation=refreshTimingNotifications error=${error.runtimeType}',
+          'operation=refreshAppointmentTimingNotifications '
+          'error=${error.runtimeType}',
         );
       }
     } finally {
-      _timingRefreshInFlightKeys.remove(key);
+      _appointmentTimingRefreshInFlightKeys.remove(key);
     }
   }
-
-  Future<void> _refreshAppointmentTimingNotifications({
-    required String companyId,
-  }) async {
-    final callable = _functions.httpsCallable(
-      'refreshAppointmentTimingNotifications',
-    );
-    await callable.call(<String, Object?>{
-      'companyId': companyId,
-    });
-  }
-
-  Future<void> _refreshActionableReminderNotifications({
-    required String companyId,
-  }) async {
-    final callable = _functions.httpsCallable(
-      'refreshActionableReminderNotifications',
-    );
-    await callable.call(<String, Object?>{
-      'companyId': companyId,
-    });
-  }
-
 
   CollectionReference<Map<String, dynamic>> _notificationsCollection(
     String companyId,

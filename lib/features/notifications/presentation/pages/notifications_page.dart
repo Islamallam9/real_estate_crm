@@ -220,66 +220,68 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
               onSelected: (filter) => setState(() => _filter = filter),
             );
 
-            if (narrow) {
-              return SingleChildScrollView(
-                physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+            Widget scrollableMainColumn({required bool includeMobileAttention}) {
+              return MasarRefreshIndicator(
+                onRefresh: _refresh,
+                child: SingleChildScrollView(
+                  physics: const MasarRefreshPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.only(bottom: 96),
                   child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    header,
-                    const SizedBox(height: 8),
-                    const NotificationPushStatusCard(),
-                    const SizedBox(height: 8),
-                    filters,
-                    const SizedBox(height: AppSpacing.sm),
-                    _MobileNotificationSections(
-                      state: state,
-                      notifications: notifications,
-                      reminders: reminders,
-                      companyId: widget.companyId,
-                      canLoadMore: canLoadMoreNotifications,
-                      onLoadMore: _loadMoreNotifications,
-                    ),
-                    ],
-                  ),
-                );
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                header,
-                const SizedBox(height: 8),
-                const NotificationPushStatusCard(),
-                const SizedBox(height: 8),
-                filters,
-                const SizedBox(height: AppSpacing.sm),
-                Expanded(
-                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        flex: 3,
-                        child: _NotificationsList(
-                          state: state,
-                          notifications: notifications,
-                          companyId: widget.companyId,
-                          canLoadMore: canLoadMoreNotifications,
-                          onLoadMore: _loadMoreNotifications,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      SizedBox(
-                        width: 330,
-                        child: _AttentionList(
+                      header,
+                      const SizedBox(height: 8),
+                      const NotificationPushStatusCard(),
+                      const SizedBox(height: 8),
+                      filters,
+                      const SizedBox(height: AppSpacing.sm),
+                      if (includeMobileAttention) ...[
+                        _AttentionList(
                           state: state,
                           reminders: reminders,
+                          shrinkWrap: true,
                         ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                      _NotificationsList(
+                        state: state,
+                        notifications: notifications,
+                        companyId: widget.companyId,
+                        canLoadMore: canLoadMoreNotifications,
+                        onLoadMore: _loadMoreNotifications,
+                        shrinkWrap: true,
                       ),
                     ],
+                  ),
+                ),
+              );
+            }
+
+            if (narrow) {
+              return scrollableMainColumn(includeMobileAttention: true);
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: scrollableMainColumn(includeMobileAttention: false),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                SizedBox(
+                  width: 330,
+                  height: constraints.maxHeight.isFinite
+                      ? constraints.maxHeight
+                      : null,
+                  child: _AttentionList(
+                    state: state,
+                    reminders: reminders,
+                    shrinkWrap: false,
                   ),
                 ),
               ],
