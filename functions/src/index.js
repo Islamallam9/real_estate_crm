@@ -6304,19 +6304,14 @@ exports.refreshActionableReminderNotifications = onCall(
   },
 );
 
-exports.createActionableReminderNotifications = onSchedule(
-  {
-    schedule: '*/5 * * * *',
-    timeZone: 'Africa/Cairo',
-    region: 'us-east1',
-  },
-  async () => {
-    await refreshActionableReminderWindow({
-      nowDate: new Date(),
-      limit: 400,
-    });
-  },
-);
+// Phase 1 cost reduction:
+// The scheduled actionable-reminder sweep was removed because
+// refreshActionableReminderWindow currently returns liveAttentionOnly and does
+// not create persistent notification documents. Keeping it scheduled would keep
+// recurring Cloud Functions invocations with no useful business work.
+// The callable refreshActionableReminderNotifications stays for backward
+// compatibility with older clients.
+
 
 async function refreshActionableReminderWindow({ companyId, actorUid, actor, nowDate, limit }) {
   // Live attention reminders are now shown from scoped CRM queries in the app.
