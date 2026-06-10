@@ -6661,9 +6661,52 @@ exports.createDueAppointmentNotifications = onSchedule(
     region: 'us-east1',
   },
   async () => {
-    await refreshAppointmentTimingWindow({
-      nowDate: new Date(),
-      limit: 500,
+    const startedAt = Date.now();
+    const nowDate = new Date();
+    const companiesSnapshot = await db.collection('companies')
+      .where('isActive', '==', true)
+      .limit(500)
+      .get();
+
+    let scannedCompanies = 0;
+    let checked = 0;
+    let processed = 0;
+    let failedCompanies = 0;
+
+    for (const companyDoc of companiesSnapshot.docs) {
+      const companyId = companyDoc.id;
+      const company = companyDoc.data() || {};
+      const status = optionalString(company.status);
+      if (status === 'inactive' || status === 'trialExpired') {
+        continue;
+      }
+
+      try {
+        const result = await refreshAppointmentTimingWindow({
+          companyId,
+          nowDate,
+          limit: 120,
+        });
+        scannedCompanies += 1;
+        checked += Number(result.checked || 0);
+        processed += Number(result.processed || 0);
+      } catch (error) {
+        failedCompanies += 1;
+        console.error('due_appointment_company_sweep_failed', {
+          companyId,
+          code: error && error.code ? error.code : '',
+          message: error && error.message ? error.message : String(error),
+        });
+      }
+    }
+
+    console.info('due_appointment_notification_sweep_completed', {
+      activeCompanyCandidates: companiesSnapshot.size,
+      scannedCompanies,
+      checked,
+      processed,
+      failedCompanies,
+      durationMs: Date.now() - startedAt,
     });
   },
 );
