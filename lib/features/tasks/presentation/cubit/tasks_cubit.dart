@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
@@ -16,6 +17,13 @@ import '../../domain/usecases/update_task_usecase.dart';
 import '../../domain/usecases/watch_task_usecase.dart';
 import '../../domain/usecases/watch_tasks_usecase.dart';
 import 'tasks_state.dart';
+
+void _masarTasksCubitDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarTasksCubitDebug $message');
+}
 
 class TasksCubit extends Cubit<TasksState> {
   TasksCubit({
@@ -84,6 +92,14 @@ class TasksCubit extends Cubit<TasksState> {
     final queryLimit = usePagination
         ? (hasLocalFilters ? _filterScanLimit : pageLimit)
         : _dashboardWatchLimit;
+    _masarTasksCubitDebug(
+      'watchTasks start company=$companyId assignedTo=$assignedTo '
+      'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
+      'teamId=$teamId usePagination=$usePagination resetPage=$resetPage '
+      'pageLimit=$pageLimit queryLimit=$queryLimit '
+      'hasLocalFilters=$hasLocalFilters currentRows=${state.tasks.length} '
+      'kpi=${_debugKpiCounts(state.kpiCounts)}',
+    );
     emit(
       state.copyWith(
         status: resetPage || state.tasks.isEmpty
@@ -105,6 +121,12 @@ class TasksCubit extends Cubit<TasksState> {
           state.tasks.isNotEmpty) {
         return;
       }
+      _masarTasksCubitDebug(
+        'watchTasks timeout company=$companyId assignedTo=$assignedTo '
+        'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
+        'teamId=$teamId queryLimit=$queryLimit rows=${state.tasks.length} '
+        'status=${state.status} kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
       emit(
         state.copyWith(
           status: TasksStatus.failure,
@@ -123,6 +145,11 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _masarTasksCubitDebug(
+          'watchTasks data company=$companyId count=${tasks.length} '
+          'assignedTo=$assignedTo effectiveAssignedTo=$effectiveAssignedTo '
+          'managerId=$managerId teamId=$teamId queryLimit=$queryLimit',
+        );
         _tasksInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -140,6 +167,12 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        _masarTasksCubitDebug(
+          'watchTasks error company=$companyId assignedTo=$assignedTo '
+          'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
+          'teamId=$teamId queryLimit=$queryLimit '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _tasksInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -166,10 +199,20 @@ class TasksCubit extends Cubit<TasksState> {
         teamId: _watchedTeamId,
       );
       if (!isClosed && _watchedCompanyId == companyId) {
+        _masarTasksCubitDebug(
+          'kpi success company=$companyId assignedTo=${_effectiveAssignedToScope()} '
+          'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+          'kpi=${_debugKpiCounts(counts)}',
+        );
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
       }
-    } catch (_) {
+    } catch (error) {
+      _masarTasksCubitDebug(
+        'kpi error company=$companyId assignedTo=${_effectiveAssignedToScope()} '
+        'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+        'errorType=${error.runtimeType} error=$error',
+      );
       if (!isClosed && _watchedCompanyId == companyId) {
         emit(
           state.copyWith(
@@ -181,6 +224,14 @@ class TasksCubit extends Cubit<TasksState> {
         );
       }
     }
+  }
+
+  String _debugKpiCounts(ModuleKpiCounts counts) {
+    final values = counts.values.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(',');
+    final failed = counts.failedKeys.join(',');
+    return 'values={$values} failed=[$failed]';
   }
 
   void _debugCheckKpiInvariant() {

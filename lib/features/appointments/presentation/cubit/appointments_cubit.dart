@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/error_mapper.dart';
@@ -15,6 +16,13 @@ import '../../domain/usecases/save_appointment_usecase.dart';
 import '../../domain/usecases/watch_appointment_usecase.dart';
 import '../../domain/usecases/watch_appointments_usecase.dart';
 import 'appointments_state.dart';
+
+void _masarAppointmentsCubitDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarAppointmentsCubitDebug $message');
+}
 
 class AppointmentsCubit extends Cubit<AppointmentsState> {
   AppointmentsCubit({
@@ -88,6 +96,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     final watchLimit = usePagination
         ? _effectiveWatchLimit(pageLimit)
         : _dashboardWatchLimit;
+    _masarAppointmentsCubitDebug(
+      'watchAppointments start company=$companyId assignedTo=$assignedTo '
+      'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+      'rangeEnd=$rangeEnd usePagination=$usePagination resetPage=$resetPage '
+      'pageLimit=$pageLimit watchLimit=$watchLimit '
+      'currentRows=${state.appointments.length} '
+      'kpi=${_debugKpiCounts(state.kpiCounts)}',
+    );
     emit(
       state.copyWith(
         status: resetPage || state.appointments.isEmpty
@@ -109,6 +125,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           state.appointments.isNotEmpty) {
         return;
       }
+      _masarAppointmentsCubitDebug(
+        'watchAppointments timeout company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+        'rangeEnd=$rangeEnd watchLimit=$watchLimit rows=${state.appointments.length} '
+        'status=${state.status} kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
       emit(
         state.copyWith(
           status: AppointmentsStatus.failure,
@@ -129,6 +151,11 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         if (isClosed) {
           return;
         }
+        _masarAppointmentsCubitDebug(
+          'watchAppointments data company=$companyId count=${appointments.length} '
+          'assignedTo=$assignedTo managerId=$managerId teamId=$teamId '
+          'rangeStart=$rangeStart rangeEnd=$rangeEnd watchLimit=$watchLimit',
+        );
         _appointmentsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -148,6 +175,12 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         if (isClosed) {
           return;
         }
+        _masarAppointmentsCubitDebug(
+          'watchAppointments error company=$companyId assignedTo=$assignedTo '
+          'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+          'rangeEnd=$rangeEnd watchLimit=$watchLimit '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _appointmentsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -175,10 +208,22 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         rangeEnd: _watchedRangeEnd,
       );
       if (!isClosed && _watchedCompanyId == companyId) {
+        _masarAppointmentsCubitDebug(
+          'kpi success company=$companyId assignedTo=$_watchedAssignedTo '
+          'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+          'rangeStart=$_watchedRangeStart rangeEnd=$_watchedRangeEnd '
+          'kpi=${_debugKpiCounts(counts)}',
+        );
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
       }
-    } catch (_) {
+    } catch (error) {
+      _masarAppointmentsCubitDebug(
+        'kpi error company=$companyId assignedTo=$_watchedAssignedTo '
+        'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+        'rangeStart=$_watchedRangeStart rangeEnd=$_watchedRangeEnd '
+        'errorType=${error.runtimeType} error=$error',
+      );
       if (!isClosed && _watchedCompanyId == companyId) {
         emit(
           state.copyWith(
@@ -190,6 +235,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         );
       }
     }
+  }
+
+  String _debugKpiCounts(ModuleKpiCounts counts) {
+    final values = counts.values.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(',');
+    final failed = counts.failedKeys.join(',');
+    return 'values={$values} failed=[$failed]';
   }
 
   void _debugCheckKpiInvariant() {

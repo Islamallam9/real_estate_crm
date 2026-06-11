@@ -65,30 +65,34 @@ class CrmTaskModel extends CrmTask {
       throw StateError('Task data was not found.');
     }
 
+    final pathCompanyId = document.reference.parent.parent?.id ?? '';
+
     return CrmTaskModel(
-      id: data['id'] as String? ?? document.id,
-      companyId: data['companyId'] as String? ?? '',
-      title: data['title'] as String? ?? '',
-      description: data['description'] as String? ?? '',
-      assignedTo: data['assignedTo'] as String? ?? '',
-      assignedToName: data['assignedToName'] as String? ?? '',
-      assignedToEmail: data['assignedToEmail'] as String? ?? '',
-      teamId: data['teamId'] as String? ?? '',
-      teamName: data['teamName'] as String? ?? '',
-      managerId: data['managerId'] as String? ?? '',
-      managerName: data['managerName'] as String? ?? '',
+      id: _stringFromValue(data['id'], fallback: document.id),
+      companyId: pathCompanyId.isNotEmpty
+          ? pathCompanyId
+          : _stringFromValue(data['companyId']),
+      title: _stringFromValue(data['title']),
+      description: _stringFromValue(data['description']),
+      assignedTo: _stringFromValue(data['assignedTo']),
+      assignedToName: _stringFromValue(data['assignedToName']),
+      assignedToEmail: _stringFromValue(data['assignedToEmail']),
+      teamId: _stringFromValue(data['teamId']),
+      teamName: _stringFromValue(data['teamName']),
+      managerId: _stringFromValue(data['managerId']),
+      managerName: _stringFromValue(data['managerName']),
       relatedType: _relatedTypeFromValue(data['relatedType']),
-      relatedId: data['relatedId'] as String? ?? '',
-      relatedTitle: data['relatedTitle'] as String? ?? '',
-      relatedSubtitle: data['relatedSubtitle'] as String? ?? '',
+      relatedId: _stringFromValue(data['relatedId']),
+      relatedTitle: _stringFromValue(data['relatedTitle']),
+      relatedSubtitle: _stringFromValue(data['relatedSubtitle']),
       dueDate: _dateTimeFromValue(data['dueDate']),
       status: _statusFromValue(data['status']),
       priority: _priorityFromValue(data['priority']),
       createdAt: _dateTimeFromValue(data['createdAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
-      createdBy: data['createdBy'] as String? ?? '',
-      updatedBy: data['updatedBy'] as String? ?? '',
-      isActive: data['isActive'] as bool? ?? true,
+      createdBy: _stringFromValue(data['createdBy']),
+      updatedBy: _stringFromValue(data['updatedBy']),
+      isActive: _boolFromValue(data['isActive'], fallback: true),
     );
   }
 
@@ -121,8 +125,39 @@ class CrmTaskModel extends CrmTask {
   }
 }
 
+
+String _stringFromValue(Object? value, {String fallback = ''}) {
+  if (value == null) {
+    return fallback;
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : value;
+  }
+  return value.toString();
+}
+
+bool _boolFromValue(Object? value, {required bool fallback}) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true') {
+      return true;
+    }
+    if (normalized == 'false') {
+      return false;
+    }
+  }
+  return fallback;
+}
+
 TaskRelatedType _relatedTypeFromValue(Object? value) {
-  final name = value as String? ?? TaskRelatedType.general.name;
+  final name = _stringFromValue(
+    value,
+    fallback: TaskRelatedType.general.name,
+  );
   return TaskRelatedType.values.firstWhere(
     (type) => type.name == name,
     orElse: () => TaskRelatedType.general,
@@ -130,7 +165,10 @@ TaskRelatedType _relatedTypeFromValue(Object? value) {
 }
 
 TaskStatus _statusFromValue(Object? value) {
-  final name = value as String? ?? TaskStatus.pending.name;
+  final name = _stringFromValue(
+    value,
+    fallback: TaskStatus.pending.name,
+  );
   return TaskStatus.values.firstWhere(
     (status) => status.name == name,
     orElse: () => TaskStatus.pending,
@@ -138,7 +176,10 @@ TaskStatus _statusFromValue(Object? value) {
 }
 
 TaskPriority _priorityFromValue(Object? value) {
-  final name = value as String? ?? TaskPriority.medium.name;
+  final name = _stringFromValue(
+    value,
+    fallback: TaskPriority.medium.name,
+  );
   return TaskPriority.values.firstWhere(
     (priority) => priority.name == name,
     orElse: () => TaskPriority.medium,

@@ -92,41 +92,45 @@ class AppointmentModel extends Appointment {
     if (data == null) {
       throw StateError('Appointment data was not found.');
     }
+    final pathCompanyId = document.reference.parent.parent?.id ?? '';
+
     return AppointmentModel(
-      id: data['id'] as String? ?? document.id,
-      companyId: data['companyId'] as String? ?? '',
-      title: data['title'] as String? ?? '',
+      id: _stringFromValue(data['id'], fallback: document.id),
+      companyId: pathCompanyId.isNotEmpty
+          ? pathCompanyId
+          : _stringFromValue(data['companyId']),
+      title: _stringFromValue(data['title']),
       type: _typeFromValue(data['type']),
       status: _statusFromValue(data['status']),
       scheduledAt: _dateTimeFromValue(data['scheduledAt']),
       endAt: _dateTimeFromValue(data['endAt']),
-      durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 30,
-      assignedTo: data['assignedTo'] as String? ?? '',
-      assignedToName: data['assignedToName'] as String? ?? '',
-      assignedToEmail: data['assignedToEmail'] as String? ?? '',
-      teamId: data['teamId'] as String? ?? '',
-      teamName: data['teamName'] as String? ?? '',
-      managerId: data['managerId'] as String? ?? '',
-      managerName: data['managerName'] as String? ?? '',
+      durationMinutes: _intFromValue(data['durationMinutes'], fallback: 30),
+      assignedTo: _stringFromValue(data['assignedTo']),
+      assignedToName: _stringFromValue(data['assignedToName']),
+      assignedToEmail: _stringFromValue(data['assignedToEmail']),
+      teamId: _stringFromValue(data['teamId']),
+      teamName: _stringFromValue(data['teamName']),
+      managerId: _stringFromValue(data['managerId']),
+      managerName: _stringFromValue(data['managerName']),
       relatedType: _relatedTypeFromValue(data['relatedType']),
-      relatedId: data['relatedId'] as String? ?? '',
-      relatedTitle: data['relatedTitle'] as String? ?? '',
-      relatedSubtitle: data['relatedSubtitle'] as String? ?? '',
-      location: data['location'] as String? ?? '',
-      notes: data['notes'] as String? ?? '',
+      relatedId: _stringFromValue(data['relatedId']),
+      relatedTitle: _stringFromValue(data['relatedTitle']),
+      relatedSubtitle: _stringFromValue(data['relatedSubtitle']),
+      location: _stringFromValue(data['location']),
+      notes: _stringFromValue(data['notes']),
       outcome: _outcomeFromValue(data['outcome']),
-      outcomeNotes: data['outcomeNotes'] as String? ?? '',
-      cancellationReason: data['cancellationReason'] as String? ?? '',
+      outcomeNotes: _stringFromValue(data['outcomeNotes']),
+      cancellationReason: _stringFromValue(data['cancellationReason']),
       createdAt: _dateTimeFromValue(data['createdAt']),
-      createdBy: data['createdBy'] as String? ?? '',
+      createdBy: _stringFromValue(data['createdBy']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
-      updatedBy: data['updatedBy'] as String? ?? '',
+      updatedBy: _stringFromValue(data['updatedBy']),
       completedAt: _dateTimeFromValue(data['completedAt']),
-      completedBy: data['completedBy'] as String? ?? '',
+      completedBy: _stringFromValue(data['completedBy']),
       cancelledAt: _dateTimeFromValue(data['cancelledAt']),
-      cancelledBy: data['cancelledBy'] as String? ?? '',
+      cancelledBy: _stringFromValue(data['cancelledBy']),
       missedAt: _dateTimeFromValue(data['missedAt']),
-      missedBy: data['missedBy'] as String? ?? '',
+      missedBy: _stringFromValue(data['missedBy']),
       rescheduledFrom: _dateTimeFromValue(data['rescheduledFrom']),
       previousScheduledAt: _dateTimeFromValue(data['previousScheduledAt']),
       previousEndAt: _dateTimeFromValue(data['previousEndAt']),
@@ -158,8 +162,36 @@ class AppointmentModel extends Appointment {
   }
 }
 
+
+String _stringFromValue(Object? value, {String fallback = ''}) {
+  if (value == null) {
+    return fallback;
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : value;
+  }
+  return value.toString();
+}
+
+int _intFromValue(Object? value, {required int fallback}) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value.trim()) ?? fallback;
+  }
+  return fallback;
+}
+
 AppointmentType _typeFromValue(Object? value) {
-  final name = value as String? ?? AppointmentType.other.name;
+  final name = _stringFromValue(
+    value,
+    fallback: AppointmentType.other.name,
+  );
   return AppointmentType.values.firstWhere(
     (type) => type.name == name,
     orElse: () => AppointmentType.other,
@@ -167,7 +199,10 @@ AppointmentType _typeFromValue(Object? value) {
 }
 
 AppointmentStatus _statusFromValue(Object? value) {
-  final name = value as String? ?? AppointmentStatus.scheduled.name;
+  final name = _stringFromValue(
+    value,
+    fallback: AppointmentStatus.scheduled.name,
+  );
   return AppointmentStatus.values.firstWhere(
     (status) => status.name == name,
     orElse: () => AppointmentStatus.scheduled,
@@ -175,7 +210,7 @@ AppointmentStatus _statusFromValue(Object? value) {
 }
 
 AppointmentOutcome? _outcomeFromValue(Object? value) {
-  final name = (value as String? ?? '').trim();
+  final name = _stringFromValue(value).trim();
   if (name.isEmpty) {
     return null;
   }
@@ -186,7 +221,10 @@ AppointmentOutcome? _outcomeFromValue(Object? value) {
 }
 
 AppointmentRelatedType _relatedTypeFromValue(Object? value) {
-  final name = value as String? ?? AppointmentRelatedType.general.name;
+  final name = _stringFromValue(
+    value,
+    fallback: AppointmentRelatedType.general.name,
+  );
   return AppointmentRelatedType.values.firstWhere(
     (type) => type.name == name,
     orElse: () => AppointmentRelatedType.general,

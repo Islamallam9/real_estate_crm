@@ -164,12 +164,27 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       if (!snapshot.exists) {
         return null;
       }
-      final task = CrmTaskModel.fromFirestore(snapshot);
-      _ensureSameCompany(companyId: companyId, task: task);
-      return task;
+      try {
+        final task = CrmTaskModel.fromFirestore(snapshot);
+        _ensureSameCompany(companyId: companyId, task: task);
+        return task;
+      } catch (error, stackTrace) {
+        _debugTaskDocumentError(
+          label: 'watchTask.map',
+          companyId: companyId,
+          document: snapshot,
+          error: error,
+          stackTrace: stackTrace,
+        );
+        rethrow;
+      }
     }).handleError((Object error) {
+      _debugTaskStreamError(label: 'watchTask.stream', error: error);
       if (error is FirebaseException) {
         throw TaskException(_mapFirestoreError(error));
+      }
+      if (error is TaskException) {
+        throw error;
       }
       throw const TaskException(AppErrorMessages.unknown);
     });
@@ -196,25 +211,47 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
       query = query.where('assignedTo', isEqualTo: assignedTo.trim());
     }
 
-    return query
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-      final tasks = snapshot.docs.map((document) {
-        final task = CrmTaskModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, task: task);
-        return task;
-      }).toList()
-        ..sort(_compareTasksByCreatedAtDesc);
-      return tasks;
-    }).handleError((Object error) {
-      if (error is FirebaseException) {
-        throw TaskException(_mapFirestoreError(error));
+    final unorderedQuery = query.limit(limit);
+    final orderedQuery = query.orderBy('createdAt', descending: true).limit(limit);
+
+    return (() async* {
+      try {
+        await for (final snapshot in orderedQuery.snapshots()) {
+          yield _tasksFromSnapshot(
+            companyId: companyId,
+            snapshot: snapshot,
+            label: 'watchTasks.ordered',
+          );
+        }
+      } on FirebaseException catch (error) {
+        _debugTaskStreamError(label: 'watchTasks.ordered', error: error);
+        if (error.code != 'failed-precondition') {
+          throw TaskException(_mapFirestoreError(error));
+        }
+        print(
+          'MasarTasksRemoteDebug watchTasks fallback unordered '
+          'company=$companyId assignedTo=${assignedTo ?? ''} '
+          'managerId=${managerId ?? ''} teamId=${teamId ?? ''} '
+          'limit=$limit reason=${error.code} '
+          'indexLink=${_firebaseIndexLink(error) ?? ''}',
+        );
+        await for (final snapshot in unorderedQuery.snapshots()) {
+          yield _tasksFromSnapshot(
+            companyId: companyId,
+            snapshot: snapshot,
+            label: 'watchTasks.unorderedFallback',
+          );
+        }
+      } on TaskException catch (error) {
+        _debugTaskStreamError(label: 'watchTasks.taskException', error: error);
+        throw error;
+      } catch (error) {
+        _debugTaskStreamError(label: 'watchTasks.unknown', error: error);
+        throw const TaskException(AppErrorMessages.unknown);
       }
-      throw const TaskException(AppErrorMessages.unknown);
-    });
+    })();
   }
+
 
   @override
   Future<List<TaskRelatedRecordOption>> getRelatedRecordOptions({
@@ -451,6 +488,161 @@ class FirestoreTasksRemoteDataSource implements TasksRemoteDataSource {
   CollectionReference<Map<String, dynamic>> _tasksCollection(String companyId) {
     return _firestore.collection(FirebasePaths.companyTasks(companyId));
   }
+}
+
+
+
+List<CrmTaskModel> _tasksFromSnapshot({
+  required String companyId,
+  required QuerySnapshot<Map<String, dynamic>> snapshot,
+  required String label,
+}) {
+  final tasks = <CrmTaskModel>[];
+  final skippedDocumentIds = <String>[];
+  for (final document in snapshot.docs) {
+    try {
+      final task = CrmTaskModel.fromFirestore(document);
+      _ensureSameCompany(companyId: companyId, task: task);
+      tasks.add(task);
+    } on TaskException catch (error, stackTrace) {
+      _debugTaskDocumentError(
+        label: '$label.companyGuard',
+        companyId: companyId,
+        document: document,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    } catch (error, stackTrace) {
+      skippedDocumentIds.add(document.id);
+      _debugTaskDocumentError(
+        label: '$label.documentSkipped',
+        companyId: companyId,
+        document: document,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+  if (skippedDocumentIds.isNotEmpty) {
+    print(
+      'MasarTasksRemoteDebug $label skipped corrupt docs '
+      'company=$companyId count=${skippedDocumentIds.length} '
+      'ids=${skippedDocumentIds.join(',')}',
+    );
+  }
+  tasks.sort(_compareTasksByCreatedAtDesc);
+  return tasks;
+}
+
+void _debugTaskDocumentError({
+  required String label,
+  required String companyId,
+  required DocumentSnapshot<Map<String, dynamic>> document,
+  required Object error,
+  required StackTrace stackTrace,
+}) {
+  final data = document.data() ?? const <String, dynamic>{};
+  print(
+    'MasarTasksRemoteDebug $label '
+    'company=$companyId doc=${document.id} path=${document.reference.path} '
+    'errorType=${error.runtimeType} error=$error '
+    'fields=${_debugTaskFieldShapes(data)}',
+  );
+  print('MasarTasksRemoteDebug $label stack=$stackTrace');
+}
+
+void _debugTaskStreamError({
+  required String label,
+  required Object error,
+}) {
+  if (error is FirebaseException) {
+    final indexLink = _firebaseIndexLink(error);
+    print(
+      'MasarTasksRemoteDebug $label firebase '
+      'code=${error.code} indexLink=${indexLink ?? ''} '
+      'message=${error.message}',
+    );
+    if (indexLink != null && indexLink.isNotEmpty) {
+      print('MasarFirebaseIndexDebug $label missingIndexLink=$indexLink');
+    }
+    return;
+  }
+  print('MasarTasksRemoteDebug $label errorType=${error.runtimeType} error=$error');
+}
+
+
+String? _firebaseIndexLink(FirebaseException error) {
+  final message = error.message;
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  final match = RegExp(r'https://console\.firebase\.google\.com/\S+').firstMatch(message);
+  if (match == null) {
+    return null;
+  }
+  var link = match.group(0);
+  if (link == null || link.isEmpty) {
+    return null;
+  }
+  while (link!.endsWith('.') || link.endsWith(',') || link.endsWith(')')) {
+    link = link.substring(0, link.length - 1);
+  }
+  return link;
+}
+
+String _debugTaskFieldShapes(Map<String, dynamic> data) {
+  const fields = <String>[
+    'id',
+    'companyId',
+    'title',
+    'description',
+    'assignedTo',
+    'assignedToName',
+    'assignedToEmail',
+    'teamId',
+    'teamName',
+    'managerId',
+    'managerName',
+    'relatedType',
+    'relatedId',
+    'relatedTitle',
+    'relatedSubtitle',
+    'dueDate',
+    'status',
+    'priority',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+    'isActive',
+  ];
+  return fields
+      .where(data.containsKey)
+      .map((field) => '$field=${_debugValueShape(data[field])}')
+      .join(';');
+}
+
+String _debugValueShape(Object? value) {
+  if (value == null) {
+    return 'null';
+  }
+  if (value is String) {
+    return 'String(len=${value.length},empty=${value.trim().isEmpty})';
+  }
+  if (value is Timestamp) {
+    return 'Timestamp';
+  }
+  if (value is DateTime) {
+    return 'DateTime';
+  }
+  if (value is num) {
+    return value.runtimeType.toString();
+  }
+  if (value is bool) {
+    return 'bool';
+  }
+  return value.runtimeType.toString();
 }
 
 void _ensureSameCompany({

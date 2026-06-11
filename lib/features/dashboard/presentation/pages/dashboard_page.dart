@@ -75,6 +75,21 @@ import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 
+void _masarDashboardDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarDashboardDebug $message');
+}
+
+String _dashboardKpiDebug(ModuleKpiCounts counts) {
+  final values = counts.values.entries
+      .map((entry) => '${entry.key}=${entry.value}')
+      .join(',');
+  final failed = counts.failedKeys.join(',');
+  return 'values={$values} failed=[$failed]';
+}
+
 class DashboardPage extends StatelessWidget {
   const DashboardPage({
     super.key,
@@ -250,6 +265,7 @@ class _DashboardContentState extends State<_DashboardContent>
   bool _activeUsersRequested = false;
   bool _auditLogsRequested = false;
   int _initialFailureRetryCount = 0;
+  String? _lastDashboardDebugSignature;
 
   @override
   void initState() {
@@ -304,6 +320,12 @@ class _DashboardContentState extends State<_DashboardContent>
       platformPreview: widget.platformPreview,
     );
     if (watchScopeKey == null) {
+      _masarDashboardDebug(
+        'watch skipped missing scope company=${widget.companyId} '
+        'platformPreview=${widget.platformPreview} '
+        'hasSession=${widget.authState.protectedCompanySession != null} '
+        'uid=${widget.authState.user?.uid ?? ''}',
+      );
       _watchScopeKey = null;
       _activeUsersRequested = false;
       _auditLogsRequested = false;
@@ -312,8 +334,24 @@ class _DashboardContentState extends State<_DashboardContent>
     }
     final scopeChanged = _watchScopeKey != watchScopeKey;
     if (!force && !scopeChanged) {
+      _masarDashboardDebug(
+        'watch skipped unchanged scope company=${watchScopeKey.companyId} '
+        'role=${watchScopeKey.role} uid=${watchScopeKey.uid} '
+        'team=${watchScopeKey.managerTeamId}',
+      );
       return;
     }
+
+    _masarDashboardDebug(
+      'watch start company=${watchScopeKey.companyId} force=$force '
+      'scopeChanged=$scopeChanged platformPreview=${watchScopeKey.platformPreview} '
+      'role=${watchScopeKey.role} uid=${watchScopeKey.uid} '
+      'team=${watchScopeKey.managerTeamId} '
+      'canView=leads:${watchScopeKey.canViewLeads},properties:${watchScopeKey.canViewProperties},'
+      'clients:${watchScopeKey.canViewClients},tasks:${watchScopeKey.canViewTasks},'
+      'appointments:${watchScopeKey.canViewAppointments},deals:${watchScopeKey.canViewDeals},'
+      'audit:${watchScopeKey.canViewAuditLogs}',
+    );
 
     if (scopeChanged) {
       _activeUsersRequested = false;
@@ -342,6 +380,10 @@ class _DashboardContentState extends State<_DashboardContent>
     }
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
+    _masarDashboardDebug(
+      'watch filters assignedTo=${assignedTo ?? ''} '
+      'managerId=${managerId ?? ''} teamId=${managerTeamId ?? ''}',
+    );
 
     if (watchScopeKey.canViewLeads) {
       context.read<LeadsCubit>().watchLeads(
@@ -403,6 +445,7 @@ class _DashboardContentState extends State<_DashboardContent>
   }
 
   void _retry() {
+    _masarDashboardDebug('manual retry tapped company=${widget.companyId}');
     _initialFailureRetryTimer?.cancel();
     _initialFailureRetryTimer = null;
     _initialFailureRetryCount = 0;
@@ -416,6 +459,10 @@ class _DashboardContentState extends State<_DashboardContent>
       return;
     }
     final delay = Duration(seconds: 2 + (_initialFailureRetryCount * 2));
+    _masarDashboardDebug(
+      'schedule initial failure retry count=$_initialFailureRetryCount '
+      'delay=${delay.inSeconds}s message=${message ?? ''}',
+    );
     _initialFailureRetryTimer = Timer(delay, () {
       _initialFailureRetryTimer = null;
       _initialFailureRetryCount += 1;
@@ -445,6 +492,10 @@ class _DashboardContentState extends State<_DashboardContent>
     }
 
     _activeUsersRequested = true;
+    _masarDashboardDebug(
+      'active users requested company=${watchScopeKey.companyId} '
+      'role=${watchScopeKey.role} uid=${watchScopeKey.uid}',
+    );
     final stream = watchScopeKey.platformPreview
         ? Stream<List<UserProfile>>.value(const <UserProfile>[])
         : _watchDashboardActiveUsers(widget.companyId);
@@ -471,6 +522,11 @@ class _DashboardContentState extends State<_DashboardContent>
     }
 
     _auditLogsRequested = true;
+    _masarDashboardDebug(
+      'recent activity requested company=${watchScopeKey.companyId} '
+      'force=$force role=${watchScopeKey.role} uid=${watchScopeKey.uid} '
+      'team=${watchScopeKey.managerTeamId}',
+    );
     _watchDashboardAuditLogs(watchScopeKey, force: force);
   }
 
@@ -478,6 +534,11 @@ class _DashboardContentState extends State<_DashboardContent>
     _DashboardWatchScopeKey watchScopeKey, {
     bool force = false,
   }) {
+    _masarDashboardDebug(
+      'watch recent activity company=${widget.companyId} '
+      'managerId=${watchScopeKey.role == UserRole.manager ? watchScopeKey.uid : ''} '
+      'teamId=${watchScopeKey.managerTeamId} force=$force',
+    );
     context.read<AuditLogsCubit>().watchDashboardRecentActivity(
       companyId: widget.companyId,
       managerId: watchScopeKey.role == UserRole.manager ? watchScopeKey.uid : null,
@@ -536,6 +597,11 @@ class _DashboardContentState extends State<_DashboardContent>
                               Stream<List<UserProfile>>.value(const <UserProfile>[]),
                           initialData: const <UserProfile>[],
                           builder: (context, activeUsersSnapshot) {
+                            if (activeUsersSnapshot.hasError) {
+                              _masarDashboardDebug(
+                                'active users stream error=${activeUsersSnapshot.error}',
+                              );
+                            }
                             final data = _DashboardData(
                               leads: leadsState.leads,
                               properties: propertiesState.properties,
@@ -570,7 +636,7 @@ class _DashboardContentState extends State<_DashboardContent>
                                 dealsState.status == DealsStatus.loading &&
                                 dealsState.deals.isEmpty;
 
-                        final hasInitialFailure =
+                        final rawInitialFailure =
                             leadsState.status == LeadsStatus.failure &&
                                 leadsState.leads.isEmpty ||
                             propertiesState.status ==
@@ -587,6 +653,23 @@ class _DashboardContentState extends State<_DashboardContent>
                             dealsAllowed &&
                                 dealsState.status == DealsStatus.failure &&
                                 dealsState.deals.isEmpty;
+                        final hasRenderableDashboardData =
+                            leadsState.leads.isNotEmpty ||
+                            !leadsState.kpiCounts.isEmpty ||
+                            propertiesState.properties.isNotEmpty ||
+                            !propertiesState.kpiCounts.isEmpty ||
+                            clientsState.clients.isNotEmpty ||
+                            !clientsState.kpiCounts.isEmpty ||
+                            tasksState.tasks.isNotEmpty ||
+                            !tasksState.kpiCounts.isEmpty ||
+                            appointmentsState.appointments.isNotEmpty ||
+                            !appointmentsState.kpiCounts.isEmpty ||
+                            (dealsAllowed && dealsState.deals.isNotEmpty) ||
+                            (dealsAllowed && !dealsState.kpiCounts.isEmpty);
+                        final hasInitialFailure =
+                            rawInitialFailure && !hasRenderableDashboardData;
+                        final hasPartialModuleFailure =
+                            rawInitialFailure && hasRenderableDashboardData;
 
                         final failureMessage =
                             leadsState.message ??
@@ -602,6 +685,48 @@ class _DashboardContentState extends State<_DashboardContent>
                           _scheduleInitialFailureRecovery(failureMessage);
                         } else if (!hasInitialFailure && !isLoading) {
                           _clearInitialFailureRecovery();
+                        }
+
+                        final debugSignature = <String>[
+                          'loading=$isLoading',
+                          'initialFailure=$hasInitialFailure',
+                          'rawInitialFailure=$rawInitialFailure',
+                          'partialModuleFailure=$hasPartialModuleFailure',
+                          'recoverInitialFailure=$recoverInitialFailure',
+                          'failureMessage=${failureMessage ?? ''}',
+                          'leads=${leadsState.status}/${leadsState.leads.length}/${leadsState.message ?? ''}/${_dashboardKpiDebug(leadsState.kpiCounts)}',
+                          'properties=${propertiesState.status}/${propertiesState.properties.length}/${propertiesState.message ?? ''}/${_dashboardKpiDebug(propertiesState.kpiCounts)}',
+                          'clients=${clientsState.status}/${clientsState.clients.length}/${clientsState.message ?? ''}/${_dashboardKpiDebug(clientsState.kpiCounts)}',
+                          'tasks=${tasksState.status}/${tasksState.tasks.length}/${tasksState.message ?? ''}/${_dashboardKpiDebug(tasksState.kpiCounts)}',
+                          'appointmentsEnabled=$appointmentsEnabled',
+                          'appointments=${appointmentsState.status}/${appointmentsState.appointments.length}/${appointmentsState.message ?? ''}/${_dashboardKpiDebug(appointmentsState.kpiCounts)}',
+                          'dealsAllowed=$dealsAllowed',
+                          'deals=${dealsState.status}/${dealsState.deals.length}/${dealsState.message ?? ''}/${_dashboardKpiDebug(dealsState.kpiCounts)}',
+                          'activeUsers=${activeUsersSnapshot.data?.length ?? 0}',
+                        ].join(' | ');
+                        if (_lastDashboardDebugSignature != debugSignature ||
+                            hasInitialFailure ||
+                            recoverInitialFailure) {
+                          _lastDashboardDebugSignature = debugSignature;
+                          _masarDashboardDebug('state $debugSignature');
+                        }
+                        if (rawInitialFailure) {
+                          _masarDashboardDebug(
+                            'initial failure flags '
+                            'leads=${leadsState.status == LeadsStatus.failure && leadsState.leads.isEmpty} '
+                            'properties=${propertiesState.status == PropertiesStatus.failure && propertiesState.properties.isEmpty} '
+                            'clients=${clientsState.status == ClientsStatus.failure && clientsState.clients.isEmpty} '
+                            'tasks=${tasksState.status == TasksStatus.failure && tasksState.tasks.isEmpty} '
+                            'appointments=${appointmentsEnabled && appointmentsState.status == AppointmentsStatus.failure && appointmentsState.appointments.isEmpty} '
+                            'deals=${dealsAllowed && dealsState.status == DealsStatus.failure && dealsState.deals.isEmpty} '
+                            'renderableData=$hasRenderableDashboardData',
+                          );
+                        }
+                        if (hasPartialModuleFailure) {
+                          _masarDashboardDebug(
+                            'render partial dashboard despite module failure '
+                            'message=${failureMessage ?? ''}',
+                          );
                         }
 
                             return _DashboardView(
@@ -1401,6 +1526,9 @@ class _DashboardViewState extends State<_DashboardView> {
     }
 
     if (widget.hasInitialFailure) {
+      _masarDashboardDebug(
+        'render AppErrorView failureMessage=${widget.failureMessage ?? ''}',
+      );
       return AppErrorView(
         message: localizeErrorMessage(l, widget.failureMessage),
         onRetry: widget.onRetry,
