@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/routing/route_names.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -56,6 +58,21 @@ import '../../../users/domain/entities/user_profile.dart';
 import '../../../users/domain/usecases/watch_active_users_usecase.dart';
 
 enum _ReportPeriod { allTime, today, thisWeek, thisMonth }
+
+void _masarReportsDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarReportsDebug $message');
+}
+
+String _reportsKpiDebug(ModuleKpiCounts counts) {
+  final values = counts.values.entries
+      .map((entry) => '${entry.key}=${entry.value}')
+      .join(',');
+  final failed = counts.failedKeys.join(',');
+  return 'values={$values} failed=[$failed]';
+}
 
 class ReportsPage extends StatelessWidget {
   const ReportsPage({super.key});
@@ -158,6 +175,7 @@ class _ReportsContentState extends State<_ReportsContent> {
   Stream<List<UserProfile>>? _activeUsersStream;
   String _activeUsersStreamKey = '';
   bool _overviewStreamsStarted = false;
+  String? _lastReportsDebugSignature;
 
   bool get _canFilterAssignee =>
       widget.role == UserRole.admin || widget.role == UserRole.manager;
@@ -197,6 +215,12 @@ class _ReportsContentState extends State<_ReportsContent> {
     final managerTeamId = widget.role == UserRole.manager
         ? widget.profile.teamId.trim()
         : null;
+    _masarReportsDebug(
+      'watchAll company=${widget.companyId} role=${widget.role} '
+      'uid=${widget.currentUserId} assignedTo=${assignedTo ?? ''} '
+      'managerId=${managerId ?? ''} teamId=${managerTeamId ?? ''} '
+      'usePagination=false',
+    );
     context.read<LeadsCubit>().watchLeads(
       companyId: widget.companyId,
       assignedTo: assignedTo,
@@ -228,6 +252,7 @@ class _ReportsContentState extends State<_ReportsContent> {
     if (_overviewStreamsStarted || !mounted) {
       return;
     }
+    _masarReportsDebug('overview streams requested company=${widget.companyId}');
     setState(() => _overviewStreamsStarted = true);
     _watchAll();
   }
@@ -240,6 +265,10 @@ class _ReportsContentState extends State<_ReportsContent> {
       return;
     }
     _activeUsersStreamKey = key;
+    _masarReportsDebug(
+      'activeUsers stream ${_canFilterAssignee ? 'prepared' : 'disabled'} '
+      'company=${widget.companyId} role=${widget.role} uid=${widget.currentUserId}',
+    );
     _activeUsersStream = _canFilterAssignee
         ? _watchActiveUsers(widget.companyId).asBroadcastStream()
         : null;
@@ -265,7 +294,7 @@ class _ReportsContentState extends State<_ReportsContent> {
                                 tasksState.tasks.isEmpty ||
                             dealsState.status == DealsStatus.loading &&
                                 dealsState.deals.isEmpty;
-                    final hasFailure =
+                    final rawModuleFailure =
                         leadsState.status == LeadsStatus.failure &&
                             leadsState.leads.isEmpty ||
                             propertiesState.status ==
@@ -275,10 +304,59 @@ class _ReportsContentState extends State<_ReportsContent> {
                                 tasksState.tasks.isEmpty ||
                             dealsState.status == DealsStatus.failure &&
                                 dealsState.deals.isEmpty;
+                    final hasRenderableReportsData =
+                        leadsState.leads.isNotEmpty ||
+                            !leadsState.kpiCounts.isEmpty ||
+                            propertiesState.properties.isNotEmpty ||
+                            !propertiesState.kpiCounts.isEmpty ||
+                            tasksState.tasks.isNotEmpty ||
+                            !tasksState.kpiCounts.isEmpty ||
+                            dealsState.deals.isNotEmpty ||
+                            !dealsState.kpiCounts.isEmpty;
+                    final hasFailure =
+                        rawModuleFailure && !hasRenderableReportsData;
+                    final hasPartialModuleFailure =
+                        rawModuleFailure && hasRenderableReportsData;
                     final message = leadsState.message ??
                         propertiesState.message ??
                         tasksState.message ??
                         dealsState.message;
+
+                    final debugSignature = <String>[
+                      'loading=$isLoading',
+                      'failure=$hasFailure',
+                      'rawModuleFailure=$rawModuleFailure',
+                      'partialModuleFailure=$hasPartialModuleFailure',
+                      'overviewStarted=$_overviewStreamsStarted',
+                      'period=${_period.name}',
+                      'assignedTo=$_assignedTo',
+                      'search=${_searchQuery.trim().isEmpty ? 0 : _searchQuery.trim().length}',
+                      'leads=${leadsState.status}/${leadsState.leads.length}/${leadsState.message ?? ''}/${_reportsKpiDebug(leadsState.kpiCounts)}',
+                      'properties=${propertiesState.status}/${propertiesState.properties.length}/${propertiesState.message ?? ''}/${_reportsKpiDebug(propertiesState.kpiCounts)}',
+                      'tasks=${tasksState.status}/${tasksState.tasks.length}/${tasksState.message ?? ''}/${_reportsKpiDebug(tasksState.kpiCounts)}',
+                      'deals=${dealsState.status}/${dealsState.deals.length}/${dealsState.message ?? ''}/${_reportsKpiDebug(dealsState.kpiCounts)}',
+                    ].join(' | ');
+                    if (_lastReportsDebugSignature != debugSignature ||
+                        rawModuleFailure) {
+                      _lastReportsDebugSignature = debugSignature;
+                      _masarReportsDebug('state $debugSignature');
+                    }
+                    if (rawModuleFailure) {
+                      _masarReportsDebug(
+                        'failure flags '
+                        'leads=${leadsState.status == LeadsStatus.failure && leadsState.leads.isEmpty} '
+                        'properties=${propertiesState.status == PropertiesStatus.failure && propertiesState.properties.isEmpty} '
+                        'tasks=${tasksState.status == TasksStatus.failure && tasksState.tasks.isEmpty} '
+                        'deals=${dealsState.status == DealsStatus.failure && dealsState.deals.isEmpty} '
+                        'renderableData=$hasRenderableReportsData',
+                      );
+                    }
+                    if (hasPartialModuleFailure) {
+                      _masarReportsDebug(
+                        'render partial reports despite module failure '
+                        'message=${message ?? ''}',
+                      );
+                    }
 
                     if (isLoading) {
                       return const AppLoading();
@@ -708,6 +786,9 @@ class _ReportsActiveUsersScopeState extends State<_ReportsActiveUsersScope> {
       stream: widget.stream,
       initialData: _lastUsers,
       builder: (context, usersSnapshot) {
+        if (usersSnapshot.hasError) {
+          _masarReportsDebug('activeUsers stream error=${usersSnapshot.error}');
+        }
         final users = usersSnapshot.data ?? _lastUsers;
         if (usersSnapshot.hasData) {
           _lastUsers = users;
