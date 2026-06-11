@@ -64,7 +64,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     'assigned',
     'unassigned',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   static const int _filterModeWatchLimit = 500;
   final InitialLoadTimeout _clientsInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _clientInitialLoadTimeout = InitialLoadTimeout();

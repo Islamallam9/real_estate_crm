@@ -46,6 +46,9 @@ import 'dashboard_chart_palette.dart';
 
 const double _kCockpitGap = 10;
 const double _kRailWidth = 304;
+const Duration _kHandledSalesCommandTtl = Duration(minutes: 15);
+final Map<String, DateTime> _handledSalesCommandItems = <String, DateTime>{};
+
 
 class DashboardCockpitBody extends StatelessWidget {
   const DashboardCockpitBody({
@@ -281,9 +284,7 @@ class _DashboardGuidanceOverlayState extends State<_DashboardGuidanceOverlay> {
       return;
     }
 
-    final delay = initial
-        ? const Duration(seconds: 8)
-        : Duration(seconds: 28 + _random.nextInt(28));
+    final delay = Duration(minutes: 10 + _random.nextInt(31));
     _showTimer = Timer(delay, _showSuggestion);
   }
 
@@ -3631,10 +3632,11 @@ class _InlineEmptyMessage extends StatelessWidget {
 
 List<SalesCommandItem> _topCommandItems(SalesCommandSummary summary) {
   final used = <String>{};
+  _purgeHandledSalesCommandItems();
   final items = [
     for (final section in summary.sections)
       for (final item in section.items)
-        if (used.add(item.recordKey)) item,
+        if (!_isHandledSalesCommandItem(item) && used.add(item.recordKey)) item,
   ]..sort((a, b) {
       final priority = _commandPriorityRank(b.priority).compareTo(
         _commandPriorityRank(a.priority),
@@ -3651,6 +3653,32 @@ List<SalesCommandItem> _topCommandItems(SalesCommandSummary summary) {
       return aDate.compareTo(bDate);
     });
   return items;
+}
+
+String _salesCommandHandleKey(SalesCommandItem item) {
+  return '${item.module.name}:${item.recordId}:${item.reason.name}';
+}
+
+void _rememberHandledSalesCommandItem(SalesCommandItem item) {
+  _handledSalesCommandItems[_salesCommandHandleKey(item)] =
+      DateTime.now().add(_kHandledSalesCommandTtl);
+}
+
+bool _isHandledSalesCommandItem(SalesCommandItem item) {
+  final expiresAt = _handledSalesCommandItems[_salesCommandHandleKey(item)];
+  if (expiresAt == null) {
+    return false;
+  }
+  if (expiresAt.isAfter(DateTime.now())) {
+    return true;
+  }
+  _handledSalesCommandItems.remove(_salesCommandHandleKey(item));
+  return false;
+}
+
+void _purgeHandledSalesCommandItems() {
+  final now = DateTime.now();
+  _handledSalesCommandItems.removeWhere((_, expiresAt) => !expiresAt.isAfter(now));
 }
 
 String _commandModuleLabel(AppLocalizations l, DashboardCommandModule module) {
@@ -4339,6 +4367,33 @@ class _DrawerDetailRow extends StatelessWidget {
 
 enum _LeadDrawerOutcome { contacted, noAnswer, interested, notInterested }
 
+Map<String, Object?> _salesCommandAuditScopeExtras(AuthState authState) {
+  final session = authState.protectedCompanySession;
+  final profile = session?.profile;
+  if (session == null || profile == null) {
+    return const <String, Object?>{};
+  }
+  final extras = <String, Object?>{};
+  if (profile.role == UserRole.manager) {
+    extras['managerId'] = session.uid;
+    extras['managerName'] = profile.fullName;
+    if (profile.teamId.trim().isNotEmpty) {
+      extras['teamId'] = profile.teamId.trim();
+      extras['teamName'] = profile.teamName.trim();
+    }
+  } else {
+    if (profile.managerId.trim().isNotEmpty) {
+      extras['managerId'] = profile.managerId.trim();
+      extras['managerName'] = profile.managerName.trim();
+    }
+    if (profile.teamId.trim().isNotEmpty) {
+      extras['teamId'] = profile.teamId.trim();
+      extras['teamName'] = profile.teamName.trim();
+    }
+  }
+  return extras;
+}
+
 Future<bool> _applyLeadDrawerOutcome(
   BuildContext context, {
   required SalesCommandItem item,
@@ -4395,21 +4450,30 @@ Future<bool> _applyLeadDrawerOutcome(
   };
 
   final cubit = context.read<LeadsCubit>();
-  await cubit.updateLead(
+  final success = await cubit.updateLead(
     companyId: companyId,
     lead: updated,
     actorName: actorName,
+    auditMetadataExtras: {
+      ..._salesCommandAuditScopeExtras(authState),
+      'source': 'salesCommand',
+      'quickAction': outcome.name,
+      'quickActionLabel': _leadOutcomeNote(l, outcome),
+    },
+    requireAudit: true,
   );
-  if (cubit.state.status != LeadsStatus.saved) {
+  if (!success) {
     AppFeedback.error(context, l.dashboardActionFailed);
     return false;
   }
+  _rememberHandledSalesCommandItem(item);
   await cubit.addNote(
     companyId: companyId,
     leadId: lead.id,
     text: _leadOutcomeNote(l, outcome),
     createdBy: actorId,
     actorName: actorName,
+    silentFailure: true,
   );
   AppFeedback.success(context, l.dashboardActionSaved);
   return true;
@@ -4447,7 +4511,7 @@ Future<bool> _scheduleLeadFollowUpFromDrawer(
 
   final followUpAt = DateTime(picked.year, picked.month, picked.day, 10);
   final cubit = context.read<LeadsCubit>();
-  await cubit.updateLead(
+  final success = await cubit.updateLead(
     companyId: companyId,
     lead: lead.copyWith(
       nextFollowUpAt: followUpAt,
@@ -4455,11 +4519,19 @@ Future<bool> _scheduleLeadFollowUpFromDrawer(
       updatedBy: actorId,
     ),
     actorName: actorName,
+    auditMetadataExtras: {
+      ..._salesCommandAuditScopeExtras(authState),
+      'source': 'salesCommand',
+      'quickAction': 'scheduleFollowUp',
+      'quickActionLabel': l.scheduleFollowUp,
+    },
+    requireAudit: true,
   );
-  if (cubit.state.status != LeadsStatus.saved) {
+  if (!success) {
     AppFeedback.error(context, l.dashboardActionFailed);
     return false;
   }
+  _rememberHandledSalesCommandItem(item);
   await cubit.addNote(
     companyId: companyId,
     leadId: lead.id,
@@ -4468,6 +4540,7 @@ Future<bool> _scheduleLeadFollowUpFromDrawer(
     ),
     createdBy: actorId,
     actorName: actorName,
+    silentFailure: true,
   );
   AppFeedback.success(context, l.dashboardActionSaved);
   return true;
@@ -4495,11 +4568,19 @@ Future<bool> _markTaskCompletedFromDrawer(
         companyId: companyId,
         task: task,
         updatedBy: actorId,
+        auditMetadataExtras: {
+          ..._salesCommandAuditScopeExtras(authState),
+          'source': 'salesCommand',
+          'quickAction': 'markTaskCompleted',
+          'quickActionLabel': l.dashboardActionMarkTaskCompleted,
+        },
+        requireAudit: true,
       );
   if (!success) {
     AppFeedback.error(context, l.dashboardActionFailed);
     return false;
   }
+  _rememberHandledSalesCommandItem(item);
   AppFeedback.success(context, l.dashboardActionSaved);
   return true;
 }
@@ -4633,7 +4714,12 @@ String _commandTimeLabel(BuildContext context, SalesCommandItem item) {
     );
   }
   final age = item.ageDays ?? 0;
-  return age > 0 ? l.salesCommandAgeDays(age) : l.salesCommandUpdatedNow;
+  if (age > 0) {
+    return l.salesCommandAgeDays(age);
+  }
+  return l.localeName.toLowerCase().startsWith('ar')
+      ? 'تحتاج إلى متابعة الآن'
+      : 'Needs attention now';
 }
 
 Color _commandPriorityColor(BuildContext context, DashboardPriority priority) {
@@ -4794,7 +4880,7 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
   }
 }
 
-class DashboardRecentActivityRailCard extends StatelessWidget {
+class DashboardRecentActivityRailCard extends StatefulWidget {
   const DashboardRecentActivityRailCard({
     super.key,
     required this.authState,
@@ -4807,17 +4893,24 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
   final VoidCallback onRecentActivityNeeded;
 
   @override
+  State<DashboardRecentActivityRailCard> createState() =>
+      _DashboardRecentActivityRailCardState();
+}
+
+class _DashboardRecentActivityRailCardState
+    extends State<DashboardRecentActivityRailCard> {
+  @override
   Widget build(BuildContext context) {
-    final role = authState.protectedCompanySession?.profile.role;
-    final canView = platformPreview || role == UserRole.admin || role == UserRole.manager;
+    final role = widget.authState.protectedCompanySession?.profile.role;
+    final canView = widget.platformPreview || role == UserRole.admin || role == UserRole.manager;
     if (!canView) {
       return const SizedBox.shrink();
     }
 
     final l = AppLocalizations.of(context)!;
     return _DashboardLowerStreamTrigger(
-      id: 'dashboard-recent-activity-${_dashboardLowerScopeId(authState, platformPreview)}',
-      onVisible: onRecentActivityNeeded,
+      id: 'dashboard-recent-activity-${_dashboardLowerScopeId(widget.authState, widget.platformPreview)}',
+      onVisible: widget.onRecentActivityNeeded,
       child: Container(
       padding: const EdgeInsetsDirectional.fromSTEB(10, 9, 10, 9),
       decoration: BoxDecoration(
@@ -4836,26 +4929,33 @@ class DashboardRecentActivityRailCard extends StatelessWidget {
           const SizedBox(height: 7),
           BlocBuilder<AuditLogsCubit, AuditLogsState>(
             builder: (context, state) {
-              if ((state.status == AuditLogsStatus.initial ||
-                      state.status == AuditLogsStatus.loading) &&
-                  state.logs.isEmpty) {
+              final recentStatus = state.recentStatus;
+              final recentLogs = state.recentLogs;
+              if ((recentStatus == AuditLogsStatus.initial ||
+                      recentStatus == AuditLogsStatus.loading) &&
+                  recentLogs.isEmpty) {
                 return const SizedBox(
                   height: 42,
                   child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                 );
               }
-              if (state.status == AuditLogsStatus.failure) {
+              if (recentStatus == AuditLogsStatus.failure && recentLogs.isEmpty) {
                 return _RailEmpty(message: l.dashboardUnableToLoadRecentActivity);
               }
-              final logs = state.logs.take(5).toList();
-              if (logs.isEmpty) {
+              final logs = recentLogs.toList()
+                ..sort((a, b) {
+                  final timeCompare = b.createdAt.compareTo(a.createdAt);
+                  return timeCompare != 0 ? timeCompare : b.id.compareTo(a.id);
+                });
+              final visibleLogs = logs.take(6).toList();
+              if (visibleLogs.isEmpty) {
                 return _RailEmpty(message: l.dashboardNoRecentActivity);
               }
               return Column(
                 children: [
-                  for (var index = 0; index < logs.length; index++) ...[
-                    _RailAuditItem(log: logs[index], platformPreview: platformPreview),
-                    if (index != logs.length - 1) const SizedBox(height: 6),
+                  for (var index = 0; index < visibleLogs.length; index++) ...[
+                    _RailAuditItem(log: visibleLogs[index], platformPreview: widget.platformPreview),
+                    if (index != visibleLogs.length - 1) const SizedBox(height: 7),
                   ],
                 ],
               );
@@ -4878,69 +4978,258 @@ class _RailAuditItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final color = _auditToneColor(context, log.action);
-    final title = _fallback(log.recordTitle, _auditModuleLabel(l, log.module));
+    final module = _auditModuleLabel(l, log.module);
+    final action = _auditActionLabel(l, log.action);
+    final title = _fallback(log.recordTitle, module);
     final actor = _fallback(log.actorName, _fallback(log.actorEmail, l.unknownUser));
-    final subtitle = log.recordSubtitle.trim();
+    final details = _auditRailDetails(l, log);
     final route = platformPreview ? null : _auditRoute(log);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: route == null ? null : () => context.go(route),
-        borderRadius: AppRadius.medium,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+    final relative = _compactRelativeTime(context, log.createdAt);
+    final absolute = _activityAbsoluteTime(context, log.createdAt);
+
+    return _HoverLiftPanel(
+      borderRadius: AppRadius.medium,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: route == null ? null : () => context.go(route),
+          borderRadius: AppRadius.medium,
+          child: Container(
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface(context).withValues(alpha: 0.58),
+            borderRadius: AppRadius.medium,
+            border: Border.all(color: color.withValues(alpha: 0.13)),
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.11),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_auditModuleIcon(log.module), color: color, size: 16),
               ),
-              const SizedBox(width: 7),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l.dashboardAuditActionLabel(module, action),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: color,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.1,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          relative,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: AppColors.textMutedColor(context),
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w900,
                             height: 1.15,
                           ),
                     ),
-                    if (subtitle.isNotEmpty)
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        subtitle,
-                        maxLines: 1,
+                        details,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.textMutedColor(context),
-                              fontWeight: FontWeight.w400,
-                              height: 1.1,
+                              color: AppColors.textSecondaryColor(context),
+                              fontWeight: FontWeight.w600,
+                              height: 1.18,
                             ),
                       ),
-                    Text(
-                      '${_auditActionLabel(l, log.action)} • ${_auditModuleLabel(l, log.module)} • $actor • ${_compactRelativeTime(context, log.createdAt)}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondaryColor(context),
-                            fontWeight: FontWeight.w400,
-                            height: 1.15,
-                          ),
+                    ],
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: [
+                        _RailAuditChip(icon: Icons.person_outline_rounded, label: actor),
+                        _RailAuditChip(icon: Icons.schedule_rounded, label: absolute),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          ),
         ),
       ),
     );
   }
 }
+
+
+class _HoverLiftPanel extends StatefulWidget {
+  const _HoverLiftPanel({required this.child, this.borderRadius});
+
+  final Widget child;
+  final BorderRadius? borderRadius;
+
+  @override
+  State<_HoverLiftPanel> createState() => _HoverLiftPanelState();
+}
+
+class _HoverLiftPanelState extends State<_HoverLiftPanel> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedScale(
+        scale: _hovered ? 1.012 : 1,
+        alignment: Alignment.center,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            boxShadow: _hovered && Theme.of(context).brightness == Brightness.light
+                ? AppShadows.card
+                : null,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _RailAuditChip extends StatelessWidget {
+  const _RailAuditChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 2, 6, 2),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context).withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: AppColors.textMutedColor(context)),
+          const SizedBox(width: 3),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 122),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMutedColor(context),
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _auditRailDetails(AppLocalizations l, AuditLog log) {
+  final quickActionLabel = (log.metadata['quickActionLabel'] ?? '').toString().trim();
+  if (quickActionLabel.isNotEmpty) {
+    return _localizedAuditText(l, quickActionLabel);
+  }
+  final changedFields = log.metadata['changedFields'];
+  if (changedFields is Iterable) {
+    final details = <String>[];
+    for (final entry in changedFields) {
+      if (entry is! Map) {
+        continue;
+      }
+      final field = (entry['field'] ?? '').toString();
+      final oldValue = (entry['oldValue'] ?? '').toString();
+      final newValue = (entry['newValue'] ?? '').toString();
+      if (field.isEmpty || oldValue == newValue) {
+        continue;
+      }
+      details.add('${_auditFieldLabel(l, field)}: ${_auditChangeLabel(l, field, oldValue, newValue)}');
+    }
+    if (details.isNotEmpty) {
+      return details.take(2).join(' • ');
+    }
+  }
+
+  final assignedToName = (log.metadata['assignedToName'] ?? '').toString().trim();
+  if (assignedToName.isNotEmpty) {
+    return '${l.assignedToLabel}: $assignedToName';
+  }
+  return _localizedAuditText(l, log.recordSubtitle.trim());
+}
+
+String _localizedAuditText(AppLocalizations l, String value) {
+  var text = value.trim();
+  if (text.isEmpty || !l.localeName.toLowerCase().startsWith('ar')) {
+    return text;
+  }
+  const replacements = <String, String>{
+    'newLead': 'جديد',
+    'contacted': 'تم التواصل',
+    'interested': 'مهتم',
+    'visitScheduled': 'تم تحديد زيارة',
+    'negotiation': 'تفاوض',
+    'won': 'مكتسب',
+    'lost': 'مفقود',
+    'pending': 'معلّقة',
+    'inProgress': 'قيد التنفيذ',
+    'completed': 'مكتملة',
+    'cancelled': 'ملغاة',
+    'canceled': 'ملغاة',
+    'scheduled': 'مجدولة',
+    'rescheduled': 'أُعيدت جدولته',
+    'missed': 'فائتة',
+    'high': 'عالية',
+    'medium': 'متوسطة',
+    'low': 'منخفضة',
+  };
+  replacements.forEach((key, label) {
+    text = text.replaceAll(key, label);
+  });
+  return text;
+}
+
 
 Future<DateTime?> _showDashboardCalendarPicker(
   BuildContext context, {
@@ -4980,6 +5269,131 @@ Future<DateTime?> _showDashboardCalendarPicker(
       );
     },
   );
+}
+
+
+String _auditFieldLabel(AppLocalizations l, String field) {
+  return switch (field) {
+    'fullName' => l.fullNameUpdated,
+    'phone' => l.phoneUpdated,
+    'email' => l.emailUpdated,
+    'status' => l.statusUpdated,
+    'priority' => l.priorityUpdated,
+    'assignedTo' => l.assignedToLabel,
+    'teamId' || 'teamName' => l.team,
+    'managerId' || 'managerName' => l.manager,
+    'lastContactAt' => l.lastContact,
+    'nextFollowUpAt' => l.nextFollowUp,
+    'scheduledAt' => l.filterByDate,
+    'dueDate' => l.dueDate,
+    'stage' => l.stage,
+    _ => field,
+  };
+}
+
+String _auditChangeLabel(
+  AppLocalizations l,
+  String field,
+  String oldValue,
+  String newValue,
+) {
+  final oldLabel = _auditDisplayValue(l, field, oldValue);
+  final newLabel = _auditDisplayValue(l, field, newValue);
+  if (l.localeName.toLowerCase().startsWith('ar')) {
+    return 'من ${_directionalAuditValue(oldLabel)} إلى ${_directionalAuditValue(newLabel)}';
+  }
+  return '${_directionalAuditValue(oldLabel)} → ${_directionalAuditValue(newLabel)}';
+}
+
+String _auditDisplayValue(AppLocalizations l, String field, String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '—';
+  }
+  if (field == 'lastContactAt' ||
+      field == 'nextFollowUpAt' ||
+      field == 'scheduledAt' ||
+      field == 'dueDate') {
+    final parsed = DateTime.tryParse(trimmed) ??
+        DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+    if (parsed != null) {
+      final local = parsed.toLocal();
+      final sameDay = _dateOnly(local) == _dateOnly(DateTime.now());
+      final formatter = sameDay
+          ? intl.DateFormat.jm(l.localeName)
+          : intl.DateFormat.yMMMd(l.localeName).add_jm();
+      return formatter.format(local);
+    }
+  }
+  return switch (field) {
+    'status' => _auditStatusValueLabel(l, trimmed),
+    'source' => _auditSourceValueLabel(l, trimmed),
+    'priority' => _auditPriorityValueLabel(l, trimmed),
+    'stage' => _auditStageValueLabel(l, trimmed),
+    _ => trimmed,
+  };
+}
+
+String _auditStatusValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'newLead' || 'new' => l.newLeadStatus,
+    'contacted' => l.contactedLeadStatus,
+    'interested' => l.interestedLeadStatus,
+    'visitScheduled' => l.visitScheduledLeadStatus,
+    'negotiation' => l.negotiationLeadStatus,
+    'won' => l.wonLeadStatus,
+    'lost' => l.lostLeadStatus,
+    'pending' => l.pending,
+    'inProgress' => l.inProgress,
+    'completed' => l.completed,
+    'cancelled' || 'canceled' => l.cancelled,
+    'scheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'مجدولة' : 'Scheduled',
+    'rescheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'أُعيدت جدولته' : 'Rescheduled',
+    'missed' => l.localeName.toLowerCase().startsWith('ar') ? 'فائتة' : 'Missed',
+    _ => value,
+  };
+}
+
+String _auditSourceValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'facebook' => l.facebook,
+    'website' => l.website,
+    'phoneCall' => l.phoneCall,
+    'whatsapp' => l.whatsapp,
+    'referral' => l.referral,
+    'walkIn' => l.walkIn,
+    'other' => l.other,
+    _ => value,
+  };
+}
+
+String _auditPriorityValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'low' => l.low,
+    'medium' => l.medium,
+    'high' => l.high,
+    _ => value,
+  };
+}
+
+String _auditStageValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'new' => l.newDealStage,
+    'qualified' => l.qualified,
+    'proposal' => l.proposal,
+    'negotiation' => l.negotiation,
+    'won' => l.wonLeadStatus,
+    'lost' => l.lostLeadStatus,
+    _ => value,
+  };
+}
+
+String _directionalAuditValue(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '—';
+  }
+  return '⁨$trimmed⁩';
 }
 
 String _auditModuleLabel(AppLocalizations l, AuditLogModule module) {
@@ -5038,6 +5452,24 @@ String? _auditRoute(AuditLog log) {
   };
 }
 
+
+IconData _auditModuleIcon(AuditLogModule module) {
+  return switch (module) {
+    AuditLogModule.leads => Icons.person_search_outlined,
+    AuditLogModule.clients => Icons.person_outline_rounded,
+    AuditLogModule.properties => Icons.business_outlined,
+    AuditLogModule.tasks => Icons.checklist_rtl_rounded,
+    AuditLogModule.deals => Icons.handshake_outlined,
+    AuditLogModule.appointments => Icons.event_note_outlined,
+    AuditLogModule.users => Icons.manage_accounts_outlined,
+    AuditLogModule.teams => Icons.groups_outlined,
+    AuditLogModule.reports => Icons.file_download_outlined,
+    AuditLogModule.exports => Icons.ios_share_outlined,
+    AuditLogModule.auditLogs => Icons.manage_search_outlined,
+    AuditLogModule.other => Icons.history_toggle_off_outlined,
+  };
+}
+
 Color _auditToneColor(BuildContext context, AuditLogAction action) {
   return switch (action) {
     AuditLogAction.create ||
@@ -5057,9 +5489,25 @@ Color _auditToneColor(BuildContext context, AuditLogAction action) {
   };
 }
 
+
+String _activityAbsoluteTime(BuildContext context, DateTime date) {
+  final l = AppLocalizations.of(context)!;
+  final local = date.toLocal();
+  final now = DateTime.now();
+  final safe = local.isAfter(now.add(const Duration(seconds: 45))) ? now : local;
+  final sameDay = safe.year == now.year && safe.month == now.month && safe.day == now.day;
+  final formatter = sameDay
+      ? intl.DateFormat.jm(l.localeName)
+      : intl.DateFormat.MMMd(l.localeName).add_jm();
+  return formatter.format(safe);
+}
+
 String _compactRelativeTime(BuildContext context, DateTime date) {
   final l = AppLocalizations.of(context)!;
-  final diff = DateTime.now().difference(date.toLocal());
+  final now = DateTime.now();
+  final local = date.toLocal();
+  final safe = local.isAfter(now.add(const Duration(seconds: 45))) ? now : local;
+  final diff = now.difference(safe);
   final ar = l.localeName.toLowerCase().startsWith('ar');
   if (diff.inMinutes < 1) {
     return ar ? 'الآن' : 'now';

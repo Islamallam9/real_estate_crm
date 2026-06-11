@@ -6,6 +6,8 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/utils/initial_load_timeout.dart';
 import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
+import '../../../audit_logs/domain/entities/audit_log.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/errors/appointment_exception.dart';
 import '../../domain/usecases/get_appointment_related_record_options_usecase.dart';
@@ -19,17 +21,20 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     required WatchAppointmentsUseCase watchAppointmentsUseCase,
     required WatchAppointmentUseCase watchAppointmentUseCase,
     required SaveAppointmentUseCase saveAppointmentUseCase,
+    required CreateAuditLogUseCase createAuditLogUseCase,
     required GetAppointmentRelatedRecordOptionsUseCase
         getRelatedRecordOptionsUseCase,
   })  : _watchAppointmentsUseCase = watchAppointmentsUseCase,
         _watchAppointmentUseCase = watchAppointmentUseCase,
         _saveAppointmentUseCase = saveAppointmentUseCase,
+        _createAuditLogUseCase = createAuditLogUseCase,
         _getRelatedRecordOptionsUseCase = getRelatedRecordOptionsUseCase,
         super(const AppointmentsState.initial());
 
   final WatchAppointmentsUseCase _watchAppointmentsUseCase;
   final WatchAppointmentUseCase _watchAppointmentUseCase;
   final SaveAppointmentUseCase _saveAppointmentUseCase;
+  final CreateAuditLogUseCase _createAuditLogUseCase;
   final GetAppointmentRelatedRecordOptionsUseCase
       _getRelatedRecordOptionsUseCase;
   final FirestoreModuleKpiCountsDataSource _countsDataSource =
@@ -53,7 +58,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     'missed',
     'completed',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   static const int _filterModeWatchLimit = 500;
   final InitialLoadTimeout _appointmentsInitialLoadTimeout =
       InitialLoadTimeout();
@@ -160,17 +165,30 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     if (companyId == null || companyId.trim().isEmpty) {
       return;
     }
-    final counts = await _countsDataSource.appointmentCounts(
-      companyId: companyId,
-      assignedTo: _watchedAssignedTo,
-      managerId: _watchedManagerId,
-      teamId: _watchedTeamId,
-      rangeStart: _watchedRangeStart,
-      rangeEnd: _watchedRangeEnd,
-    );
-    if (!isClosed && _watchedCompanyId == companyId) {
-      emit(state.copyWith(kpiCounts: counts));
-      _debugCheckKpiInvariant();
+    try {
+      final counts = await _countsDataSource.appointmentCounts(
+        companyId: companyId,
+        assignedTo: _watchedAssignedTo,
+        managerId: _watchedManagerId,
+        teamId: _watchedTeamId,
+        rangeStart: _watchedRangeStart,
+        rangeEnd: _watchedRangeEnd,
+      );
+      if (!isClosed && _watchedCompanyId == companyId) {
+        emit(state.copyWith(kpiCounts: counts));
+        _debugCheckKpiInvariant();
+      }
+    } catch (_) {
+      if (!isClosed && _watchedCompanyId == companyId) {
+        emit(
+          state.copyWith(
+            kpiCounts: ModuleKpiCounts(
+              const <String, int>{},
+              failedKeys: _kpiCountKeys.toSet(),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -452,10 +470,31 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       ),
     );
     try {
-      await _saveAppointmentUseCase(
+      final previous = operation == 'update' && appointment.id.isNotEmpty
+          ? await _loadAppointmentForAudit(companyId, appointment.id)
+          : null;
+      final savedAppointment = await _saveAppointmentUseCase(
         companyId: companyId,
         operation: operation,
         appointment: appointment,
+      );
+      unawaited(
+        _writeAuditLog(
+          companyId: companyId,
+          actorId: savedAppointment.updatedBy.isNotEmpty
+              ? savedAppointment.updatedBy
+              : savedAppointment.createdBy,
+          action: _appointmentAuditAction(
+            operation: operation,
+            previous: previous,
+            next: savedAppointment,
+            fallbackAction: action,
+          ),
+          recordId: savedAppointment.id,
+          recordTitle: _appointmentTitle(savedAppointment),
+          recordSubtitle: _appointmentSubtitle(savedAppointment),
+          metadata: _appointmentAuditMetadata(previous, savedAppointment),
+        ),
       );
       if (isClosed) {
         return false;
@@ -759,6 +798,151 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   bool _isOpenScheduledStatus(AppointmentStatus status) {
     return status == AppointmentStatus.scheduled ||
         status == AppointmentStatus.rescheduled;
+  }
+
+  Future<Appointment?> _loadAppointmentForAudit(
+    String companyId,
+    String appointmentId,
+  ) async {
+    try {
+      return await _watchAppointmentUseCase(
+        companyId: companyId,
+        appointmentId: appointmentId,
+      ).first.timeout(const Duration(seconds: 2));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeAuditLog({
+    required String companyId,
+    required String actorId,
+    required AuditLogAction action,
+    required String recordId,
+    required String recordTitle,
+    required String recordSubtitle,
+    required Map<String, Object?> metadata,
+  }) async {
+    try {
+      await _createAuditLogUseCase(
+        companyId: companyId,
+        auditLog: AuditLog(
+          id: '',
+          companyId: companyId,
+          actorId: actorId,
+          actorName: '',
+          actorEmail: '',
+          actorRole: '',
+          action: action,
+          module: AuditLogModule.appointments,
+          recordId: recordId,
+          recordTitle: recordTitle,
+          recordSubtitle: recordSubtitle,
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
+    } catch (_) {
+      // Audit logging is best-effort and must not block appointment workflows.
+    }
+  }
+
+  AuditLogAction _appointmentAuditAction({
+    required String operation,
+    required Appointment? previous,
+    required Appointment next,
+    required AppointmentAction fallbackAction,
+  }) {
+    if (operation == 'create') {
+      return AuditLogAction.create;
+    }
+    if (previous != null && previous.assignedTo != next.assignedTo) {
+      return AuditLogAction.assign;
+    }
+    if (previous != null && previous.status != next.status) {
+      return switch (next.status) {
+        AppointmentStatus.completed => AuditLogAction.complete,
+        AppointmentStatus.cancelled => AuditLogAction.cancel,
+        AppointmentStatus.missed => AuditLogAction.statusChange,
+        AppointmentStatus.rescheduled => AuditLogAction.statusChange,
+        AppointmentStatus.scheduled => AuditLogAction.statusChange,
+      };
+    }
+    return switch (fallbackAction) {
+      AppointmentAction.create => AuditLogAction.create,
+      AppointmentAction.complete => AuditLogAction.complete,
+      AppointmentAction.cancel => AuditLogAction.cancel,
+      AppointmentAction.markMissed || AppointmentAction.reschedule =>
+        AuditLogAction.statusChange,
+      AppointmentAction.update => AuditLogAction.update,
+    };
+  }
+
+  Map<String, Object?> _appointmentAuditMetadata(
+    Appointment? previous,
+    Appointment next,
+  ) {
+    final changedFields = <Map<String, String>>[];
+    void addChange(String field, String oldValue, String newValue) {
+      if (oldValue == newValue) {
+        return;
+      }
+      changedFields.add({
+        'field': field,
+        'oldValue': oldValue,
+        'newValue': newValue,
+      });
+    }
+
+    if (previous != null) {
+      addChange('status', previous.status.name, next.status.name);
+      addChange('assignedTo', previous.assignedToName, next.assignedToName);
+      addChange(
+        'scheduledAt',
+        previous.scheduledAt?.toIso8601String() ?? '',
+        next.scheduledAt?.toIso8601String() ?? '',
+      );
+      addChange('location', previous.location, next.location);
+    }
+
+    return {
+      'status': next.status.name,
+      'assignedTo': next.assignedTo,
+      'assignedToName': next.assignedToName,
+      'teamId': next.teamId,
+      'teamName': next.teamName,
+      'managerId': next.managerId,
+      'managerName': next.managerName,
+      'scheduledAt': next.scheduledAt?.toIso8601String() ?? '',
+      'relatedType': next.relatedType.name,
+      'relatedId': next.relatedId,
+      'relatedTitle': next.relatedTitle,
+      if (changedFields.isNotEmpty) 'changedFields': changedFields,
+    };
+  }
+
+  String _appointmentTitle(Appointment appointment) {
+    final title = appointment.title.trim();
+    if (title.isNotEmpty) {
+      return title;
+    }
+    final related = appointment.relatedTitle.trim();
+    if (related.isNotEmpty) {
+      return related;
+    }
+    return appointment.id;
+  }
+
+  String _appointmentSubtitle(Appointment appointment) {
+    final parts = <String>[
+      appointment.type.name,
+      appointment.status.name,
+      if (appointment.assignedToName.trim().isNotEmpty)
+        appointment.assignedToName.trim(),
+      if (appointment.scheduledAt != null)
+        appointment.scheduledAt!.toLocal().toIso8601String(),
+    ];
+    return parts.join(' • ');
   }
 
   String _errorMessage(Object error) {

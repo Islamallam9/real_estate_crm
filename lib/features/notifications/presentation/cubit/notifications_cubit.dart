@@ -64,8 +64,6 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   }) {
     _notificationsKey = '';
     _unreadCountKey = '';
-    _locallyReadNotificationIds.clear();
-    _suppressUnreadCountUntil = null;
     watchShell(
       companyId: companyId,
       currentUserId: currentUserId,
@@ -86,8 +84,6 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     _notificationsKey = '';
     _unreadCountKey = '';
     _remindersKey = '';
-    _locallyReadNotificationIds.clear();
-    _suppressUnreadCountUntil = null;
     emit(
       state.copyWith(
         clearReminderMessage: true,
@@ -434,6 +430,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     required String companyId,
     required CrmNotification notification,
   }) async {
+    _locallyReadNotificationIds.add(notification.id);
     final clearedIds = <String>{...state.clearedNotificationIds, notification.id};
     emit(
       state.copyWith(
@@ -538,7 +535,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         .map((notification) => notification.id)
         .toSet();
     _locallyReadNotificationIds.addAll(unreadIds);
-    _suppressUnreadCountUntil = DateTime.now().add(const Duration(seconds: 10));
+    _suppressUnreadCountUntil = DateTime.now().add(const Duration(minutes: 5));
     emit(
       state.copyWith(
         markingAllRead: true,

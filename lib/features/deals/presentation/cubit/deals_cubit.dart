@@ -68,7 +68,7 @@ class DealsCubit extends Cubit<DealsState> {
     'wonThisMonth',
     'lost',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   final InitialLoadTimeout _dealsInitialLoadTimeout = InitialLoadTimeout();
 
   void watchDeal({

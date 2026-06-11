@@ -59,7 +59,7 @@ class TasksCubit extends Cubit<TasksState> {
     'completed',
     'cancelled',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   final InitialLoadTimeout _tasksInitialLoadTimeout = InitialLoadTimeout();
   final InitialLoadTimeout _taskInitialLoadTimeout = InitialLoadTimeout();
 
@@ -158,15 +158,28 @@ class TasksCubit extends Cubit<TasksState> {
     if (companyId == null || companyId.trim().isEmpty) {
       return;
     }
-    final counts = await _countsDataSource.taskCounts(
-      companyId: companyId,
-      assignedTo: _effectiveAssignedToScope(),
-      managerId: _watchedManagerId,
-      teamId: _watchedTeamId,
-    );
-    if (!isClosed && _watchedCompanyId == companyId) {
-      emit(state.copyWith(kpiCounts: counts));
-      _debugCheckKpiInvariant();
+    try {
+      final counts = await _countsDataSource.taskCounts(
+        companyId: companyId,
+        assignedTo: _effectiveAssignedToScope(),
+        managerId: _watchedManagerId,
+        teamId: _watchedTeamId,
+      );
+      if (!isClosed && _watchedCompanyId == companyId) {
+        emit(state.copyWith(kpiCounts: counts));
+        _debugCheckKpiInvariant();
+      }
+    } catch (_) {
+      if (!isClosed && _watchedCompanyId == companyId) {
+        emit(
+          state.copyWith(
+            kpiCounts: ModuleKpiCounts(
+              const <String, int>{},
+              failedKeys: _kpiCountKeys.toSet(),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -481,6 +494,8 @@ class TasksCubit extends Cubit<TasksState> {
     required String companyId,
     required CrmTask task,
     TasksAction action = TasksAction.updateTask,
+    Map<String, Object?> auditMetadataExtras = const <String, Object?>{},
+    bool requireAudit = false,
   }) async {
     emit(
       state.copyWith(
@@ -500,28 +515,31 @@ class TasksCubit extends Cubit<TasksState> {
         TasksAction.cancelTask => AuditLogAction.cancel,
         _ => AuditLogAction.update,
       };
-      unawaited(
-        _writeAuditLog(
-          companyId: companyId,
-          actorId: updatedTask.updatedBy,
-          action: auditAction,
-          recordId: updatedTask.id,
-          recordTitle: _taskTitle(updatedTask),
-          recordSubtitle: _taskSubtitle(updatedTask),
-          metadata: {
-            if (previousTask != null) ...{
-              'previousStatus': _taskStatusValue(previousTask.status),
-              'newStatus': _taskStatusValue(updatedTask.status),
-            },
-            'assignedTo': updatedTask.assignedTo,
-            'assignedToName': updatedTask.assignedToName,
-            'teamId': updatedTask.teamId,
-            'teamName': updatedTask.teamName,
-            'managerId': updatedTask.managerId,
-            'managerName': updatedTask.managerName,
-            'relatedType': updatedTask.relatedType.name,
-          },
-        ),
+      final auditMetadata = <String, Object?>{
+        if (previousTask != null) ...{
+          'previousStatus': _taskStatusValue(previousTask.status),
+          'newStatus': _taskStatusValue(updatedTask.status),
+        },
+        'assignedTo': updatedTask.assignedTo,
+        'assignedToName': updatedTask.assignedToName,
+        'teamId': updatedTask.teamId,
+        'teamName': updatedTask.teamName,
+        'managerId': updatedTask.managerId,
+        'managerName': updatedTask.managerName,
+        'relatedType': updatedTask.relatedType.name,
+      };
+      if (auditMetadataExtras.isNotEmpty) {
+        auditMetadata.addAll(auditMetadataExtras);
+      }
+      await _writeAuditLog(
+        companyId: companyId,
+        actorId: updatedTask.updatedBy,
+        action: auditAction,
+        recordId: updatedTask.id,
+        recordTitle: _taskTitle(updatedTask),
+        recordSubtitle: _taskSubtitle(updatedTask),
+        metadata: auditMetadata,
+        requireAudit: requireAudit,
       );
       if (isClosed) {
         return false;
@@ -579,11 +597,15 @@ class TasksCubit extends Cubit<TasksState> {
     required String companyId,
     required CrmTask task,
     required String updatedBy,
+    Map<String, Object?> auditMetadataExtras = const <String, Object?>{},
+    bool requireAudit = false,
   }) {
     return updateTask(
       companyId: companyId,
       task: task.copyWith(status: TaskStatus.completed, updatedBy: updatedBy),
       action: TasksAction.markCompleted,
+      auditMetadataExtras: auditMetadataExtras,
+      requireAudit: requireAudit,
     );
   }
 
@@ -851,6 +873,7 @@ class TasksCubit extends Cubit<TasksState> {
     required String recordTitle,
     required String recordSubtitle,
     required Map<String, Object?> metadata,
+    bool requireAudit = false,
   }) async {
     try {
       await _createAuditLogUseCase(
@@ -872,6 +895,9 @@ class TasksCubit extends Cubit<TasksState> {
         ),
       );
     } catch (_) {
+      if (requireAudit) {
+        rethrow;
+      }
       // Audit logging is best-effort and must not block task workflows.
     }
   }

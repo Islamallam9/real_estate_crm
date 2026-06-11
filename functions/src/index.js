@@ -5579,11 +5579,44 @@ exports.saveLeadRecord = onCall(async (request) => {
     throw new HttpsError('already-exists', 'Lead already exists.');
   }
 
+  const auditRef = db.collection(`companies/${companyId}/audit_logs`).doc();
+  const batch = db.batch();
   if (operation === 'create') {
-    await leadRef.set(payload);
+    batch.set(leadRef, payload);
   } else {
-    await leadRef.set(payload, { merge: true });
+    batch.set(leadRef, payload, { merge: true });
   }
+  const auditPayload = leadAuditPayload({
+    auditId: auditRef.id,
+    companyId,
+    actorUid,
+    actor,
+    operation,
+    leadId,
+    previousLead: existingLead,
+    nextLead: payload,
+    now,
+  });
+  console.info('saveLeadRecord audit batch prepared', {
+    companyId,
+    leadId,
+    auditId: auditRef.id,
+    operation,
+    actorUid,
+    actorRole: optionalString(actor.role),
+    action: auditPayload.action,
+    managerId: auditPayload.managerId,
+    teamId: auditPayload.teamId,
+    assignedTo: auditPayload.assignedTo,
+  });
+  batch.set(auditRef, auditPayload);
+  await batch.commit();
+  console.info('saveLeadRecord audit batch committed', {
+    companyId,
+    leadId,
+    auditId: auditRef.id,
+    operation,
+  });
 
   // Lead assignment notifications are emitted by the Firestore write trigger below.
   // Keeping assignment notifications in one trigger covers both callable saves and
@@ -5600,6 +5633,7 @@ exports.saveLeadRecord = onCall(async (request) => {
 
   return { companyId, leadId };
 });
+
 
 exports.checkDuplicateLead = onCall(async (request) => {
   if (!request.auth || !request.auth.uid) {
@@ -9587,6 +9621,168 @@ async function deleteSpoofedImageAndLog({
 }
 
 
+
+
+
+function leadAuditPayload({
+  auditId,
+  companyId,
+  actorUid,
+  actor,
+  operation,
+  leadId,
+  previousLead,
+  nextLead,
+  now,
+}) {
+  const actorRole = optionalString(actor.role);
+  const actorName = optionalString(actor.fullName) || optionalString(actor.email) || actorRole;
+  const action = leadAuditAction({
+    operation,
+    previousLead,
+    nextLead,
+  });
+  const scopedManagerId = optionalString(nextLead.managerId) ||
+    (actorRole === 'manager' ? actorUid : '');
+  const scopedManagerName = optionalString(nextLead.managerName) ||
+    (actorRole === 'manager' ? actorName : '');
+  return {
+    id: auditId,
+    companyId,
+    actorId: actorUid,
+    actorName,
+    actorEmail: optionalString(actor.email),
+    actorRole,
+    action,
+    module: 'leads',
+    recordId: leadId,
+    recordTitle: leadAuditTitle(nextLead, leadId),
+    recordSubtitle: leadAuditSubtitle(nextLead),
+    assignedTo: optionalString(nextLead.assignedTo),
+    teamId: optionalString(nextLead.teamId),
+    teamName: optionalString(nextLead.teamName),
+    managerId: scopedManagerId,
+    managerName: scopedManagerName,
+    createdAt: now,
+    metadata: leadAuditMetadata({
+      operation,
+      previousLead,
+      nextLead,
+      managerId: scopedManagerId,
+      managerName: scopedManagerName,
+    }),
+  };
+}
+
+function leadAuditAction({ operation, previousLead, nextLead }) {
+  if (operation === 'create') {
+    return 'create';
+  }
+  if (optionalString(previousLead && previousLead.assignedTo) !== optionalString(nextLead.assignedTo)) {
+    return 'assign';
+  }
+  if (optionalString(previousLead && previousLead.status) !== optionalString(nextLead.status)) {
+    return 'statusChange';
+  }
+  return 'update';
+}
+
+function leadAuditMetadata({
+  operation,
+  previousLead,
+  nextLead,
+  managerId,
+  managerName,
+}) {
+  const changes = leadAuditChangedFields(previousLead || {}, nextLead || {});
+  const metadata = {
+    assignedTo: optionalString(nextLead.assignedTo),
+    assignedToName: optionalString(nextLead.assignedToName),
+    teamId: optionalString(nextLead.teamId),
+    teamName: optionalString(nextLead.teamName),
+    managerId: optionalString(managerId),
+    managerName: optionalString(managerName),
+    status: optionalString(nextLead.status),
+    source: 'saveLeadRecord',
+  };
+  if (operation !== 'create' && optionalString(previousLead && previousLead.status) !== optionalString(nextLead.status)) {
+    metadata.previousStatus = optionalString(previousLead && previousLead.status);
+    metadata.newStatus = optionalString(nextLead.status);
+  }
+  if (changes.length > 0) {
+    metadata.changedFields = changes;
+    metadata.changesSummary = changes
+      .map((change) => optionalString(change.field))
+      .filter((field) => field.length > 0)
+      .join(', ');
+  }
+  return metadata;
+}
+
+function leadAuditChangedFields(previousLead, nextLead) {
+  const fields = [
+    'fullName',
+    'phone',
+    'email',
+    'source',
+    'sourceDetails',
+    'status',
+    'priority',
+    'budgetMin',
+    'budgetMax',
+    'preferredLocation',
+    'preferredPropertyType',
+    'assignedTo',
+    'lastContactAt',
+    'nextFollowUpAt',
+    'notes',
+  ];
+  const changes = [];
+  for (const field of fields) {
+    const oldValue = leadAuditValue(previousLead[field]);
+    const newValue = leadAuditValue(nextLead[field]);
+    if (oldValue !== newValue) {
+      changes.push({ field, oldValue, newValue });
+    }
+  }
+  return changes;
+}
+
+function leadAuditValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toDate().toISOString();
+  }
+  if (value && typeof value.toDate === 'function') {
+    const date = value.toDate();
+    if (date instanceof Date && !Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : '';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  return optionalString(value);
+}
+
+function leadAuditTitle(lead, leadId) {
+  return sanitizePlainString(
+    optionalString(lead.fullName) || optionalString(lead.phone) || leadId || 'Lead',
+    240,
+  );
+}
+
+function leadAuditSubtitle(lead) {
+  return sanitizePlainString(
+    optionalString(lead.phone) || optionalString(lead.status) || optionalString(lead.source),
+    240,
+  );
+}
 
 function buildLeadPayload({
   companyId,

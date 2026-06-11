@@ -310,7 +310,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     );
   }
 
-  void _watchLogs() {
+  void _watchLogs({bool force = false}) {
     if (!mounted || widget.companyId.trim().isEmpty) {
       return;
     }
@@ -331,7 +331,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
       _actorId,
       searchAffectsFetchLimit && hasSearchFilter ? 'search' : '',
     ].join('|');
-    if (_watchKey == key) {
+    if (!force && _watchKey == key) {
       return;
     }
     _watchKey = key;
@@ -590,7 +590,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
           return AppErrorView(
             title: l.auditLogs,
             message: l.auditLogsLoadFailed,
-            onRetry: _watchLogs,
+            onRetry: () => _watchLogs(force: true),
           );
         }
 
@@ -1700,7 +1700,38 @@ String _detailsSummary(AppLocalizations l, AuditLog log) {
     return '${l.assignedToLabel}: $assignedToName';
   }
 
-  return log.recordSubtitle;
+  return _localizedAuditText(l, log.recordSubtitle);
+}
+
+String _localizedAuditText(AppLocalizations l, String value) {
+  var text = value.trim();
+  if (text.isEmpty || !l.localeName.toLowerCase().startsWith('ar')) {
+    return text;
+  }
+  const replacements = <String, String>{
+    'newLead': 'جديد',
+    'contacted': 'تم التواصل',
+    'interested': 'مهتم',
+    'visitScheduled': 'تم تحديد زيارة',
+    'negotiation': 'تفاوض',
+    'won': 'مكتسب',
+    'lost': 'مفقود',
+    'pending': 'معلّقة',
+    'inProgress': 'قيد التنفيذ',
+    'completed': 'مكتملة',
+    'cancelled': 'ملغاة',
+    'canceled': 'ملغاة',
+    'scheduled': 'مجدولة',
+    'rescheduled': 'أُعيدت جدولته',
+    'missed': 'فائتة',
+    'high': 'عالية',
+    'medium': 'متوسطة',
+    'low': 'منخفضة',
+  };
+  replacements.forEach((key, label) {
+    text = text.replaceAll(key, label);
+  });
+  return text;
 }
 
 String? _relatedRoute(AuditLog log, {required bool isAdmin}) {
@@ -1880,14 +1911,23 @@ String _fieldLabel(AppLocalizations l, String field) {
 }
 
 String _valueLabel(AppLocalizations l, String field, String value) {
-  if (value.trim().isEmpty) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
     return l.notAvailable;
   }
+  if (field == 'lastContactAt' || field == 'nextFollowUpAt') {
+    final parsed = DateTime.tryParse(trimmed) ??
+        DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+    if (parsed != null) {
+      return DateFormat.yMMMd(l.localeName).add_jm().format(parsed.toLocal());
+    }
+  }
   return switch (field) {
-    'status' => _statusValueLabel(l, value),
-    'source' => _sourceValueLabel(l, value),
-    'priority' => _priorityValueLabel(l, value),
-    _ => value,
+    'status' || 'stage' || 'taskStatus' || 'appointmentStatus' =>
+      _statusValueLabel(l, trimmed),
+    'source' => _sourceValueLabel(l, trimmed),
+    'priority' => _priorityValueLabel(l, trimmed),
+    _ => _genericAuditValueLabel(l, trimmed),
   };
 }
 
@@ -1900,7 +1940,14 @@ String _statusValueLabel(AppLocalizations l, String value) {
     'negotiation' => l.negotiationLeadStatus,
     'won' => l.wonLeadStatus,
     'lost' => l.lostLeadStatus,
-    _ => value,
+    'pending' => l.pending,
+    'inProgress' => l.inProgress,
+    'completed' => l.completed,
+    'cancelled' || 'canceled' => l.cancelled,
+    'scheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'مجدولة' : 'Scheduled',
+    'rescheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'أُعيدت جدولته' : 'Rescheduled',
+    'missed' => l.localeName.toLowerCase().startsWith('ar') ? 'فائتة' : 'Missed',
+    _ => _genericAuditValueLabel(l, value),
   };
 }
 
@@ -1919,6 +1966,41 @@ String _sourceValueLabel(AppLocalizations l, String value) {
 
 String _priorityValueLabel(AppLocalizations l, String value) {
   return switch (value) {
+    'low' => l.low,
+    'medium' => l.medium,
+    'high' => l.high,
+    _ => value,
+  };
+}
+
+String _genericAuditValueLabel(AppLocalizations l, String value) {
+  if (!l.localeName.toLowerCase().startsWith('ar')) {
+    return value;
+  }
+  return switch (value) {
+    'newLead' || 'new' => 'جديد',
+    'contacted' => 'تم التواصل',
+    'interested' => 'مهتم',
+    'visitScheduled' => 'تم تحديد زيارة',
+    'negotiation' => 'تفاوض',
+    'won' => 'مكتسب',
+    'lost' => 'مفقود',
+    'qualified' => 'مؤهل',
+    'proposal' => 'عرض',
+    'pending' => 'معلّقة',
+    'inProgress' => 'قيد التنفيذ',
+    'completed' => 'مكتملة',
+    'cancelled' || 'canceled' => 'ملغاة',
+    'scheduled' => 'مجدولة',
+    'rescheduled' => 'أُعيدت جدولته',
+    'missed' => 'فائتة',
+    'facebook' => l.facebook,
+    'website' => l.website,
+    'phoneCall' => l.phoneCall,
+    'whatsapp' => l.whatsapp,
+    'referral' => l.referral,
+    'walkIn' => l.walkIn,
+    'other' => l.other,
     'low' => l.low,
     'medium' => l.medium,
     'high' => l.high,

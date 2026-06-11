@@ -7,6 +7,9 @@ import '../../domain/usecases/get_appointment_related_record_options_usecase.dar
 import '../../domain/usecases/save_appointment_usecase.dart';
 import '../../domain/usecases/watch_appointment_usecase.dart';
 import '../../domain/usecases/watch_appointments_usecase.dart';
+import '../../../audit_logs/data/datasources/audit_logs_remote_data_source.dart';
+import '../../../audit_logs/data/repositories/audit_log_repository_impl.dart';
+import '../../../audit_logs/domain/usecases/create_audit_log_usecase.dart';
 import '../cubit/appointments_cubit.dart';
 
 class AppointmentsScope extends StatelessWidget {
@@ -19,12 +22,16 @@ class AppointmentsScope extends StatelessWidget {
     final repository = AppointmentRepositoryImpl(
       remoteDataSource: FirebaseAppointmentsRemoteDataSource(),
     );
+    final auditLogRepository = AuditLogRepositoryImpl(
+      remoteDataSource: FirestoreAuditLogsRemoteDataSource(),
+    );
 
     return BlocProvider(
       create: (_) => AppointmentsCubit(
         watchAppointmentsUseCase: WatchAppointmentsUseCase(repository),
         watchAppointmentUseCase: WatchAppointmentUseCase(repository),
         saveAppointmentUseCase: SaveAppointmentUseCase(repository),
+        createAuditLogUseCase: CreateAuditLogUseCase(auditLogRepository),
         getRelatedRecordOptionsUseCase:
             GetAppointmentRelatedRecordOptionsUseCase(repository),
       ),

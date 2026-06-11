@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/datasources/user_profile_remote_data_source.dart';
@@ -35,6 +37,8 @@ class _ActiveUsersStreamBuilderState extends State<ActiveUsersStreamBuilder> {
   Stream<List<UserProfile>>? _stream;
   List<UserProfile> _latestUsers = const <UserProfile>[];
   Object? _latestError;
+  Timer? _loadingFallbackTimer;
+  bool _allowEmptyFallbackAfterTimeout = false;
 
   @override
   void initState() {
@@ -52,7 +56,9 @@ class _ActiveUsersStreamBuilderState extends State<ActiveUsersStreamBuilder> {
   }
 
   void _configureStream() {
+    _loadingFallbackTimer?.cancel();
     _latestError = null;
+    _allowEmptyFallbackAfterTimeout = false;
     if (!widget.enabled || widget.companyId.trim().isEmpty) {
       _stream = null;
       _latestUsers = const <UserProfile>[];
@@ -62,6 +68,20 @@ class _ActiveUsersStreamBuilderState extends State<ActiveUsersStreamBuilder> {
       remoteDataSource: FirestoreUserProfileRemoteDataSource(),
     );
     _stream = WatchActiveUsersUseCase(repository)(companyId: widget.companyId);
+    _loadingFallbackTimer = Timer(const Duration(seconds: 8), () {
+      if (!mounted || _latestUsers.isNotEmpty || _latestError != null) {
+        return;
+      }
+      setState(() {
+        _allowEmptyFallbackAfterTimeout = true;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _loadingFallbackTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -76,6 +96,7 @@ class _ActiveUsersStreamBuilderState extends State<ActiveUsersStreamBuilder> {
         if (snapshot.hasData) {
           _latestUsers = snapshot.data ?? const <UserProfile>[];
           _latestError = null;
+          _loadingFallbackTimer?.cancel();
         } else if (snapshot.hasError) {
           _latestError = snapshot.error;
         }
@@ -88,7 +109,8 @@ class _ActiveUsersStreamBuilderState extends State<ActiveUsersStreamBuilder> {
         }
 
         if (_latestUsers.isEmpty &&
-            snapshot.connectionState == ConnectionState.waiting) {
+            snapshot.connectionState == ConnectionState.waiting &&
+            !_allowEmptyFallbackAfterTimeout) {
           final loadingBuilder = widget.loadingBuilder;
           if (loadingBuilder != null) {
             return loadingBuilder(context);

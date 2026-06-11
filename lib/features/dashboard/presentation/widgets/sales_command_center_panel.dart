@@ -69,7 +69,7 @@ class SalesCommandCenterPanel extends StatelessWidget {
           if (priorityItems.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              l.salesCommandUpdatedNow,
+              _salesCommandFooterLabel(l),
               textAlign: TextAlign.end,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: AppColors.textSecondaryColor(context),
@@ -678,4 +678,11 @@ Color _priorityColor(BuildContext context, DashboardPriority priority) {
 String _fallback(String value, String fallback) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? fallback.trim() : trimmed;
+}
+
+
+String _salesCommandFooterLabel(AppLocalizations l) {
+  return l.localeName.toLowerCase().startsWith('ar')
+      ? 'تحتاج إلى متابعة الآن'
+      : 'Needs attention now';
 }

@@ -1105,7 +1105,9 @@ class _TimelineItem extends StatelessWidget {
 
 
 String _timelineDateTimeLabel(DateTime value) {
-  final local = value.toLocal();
+  final now = DateTime.now();
+  final safeValue = value.isAfter(now.add(const Duration(minutes: 5))) ? now : value;
+  final local = safeValue.toLocal();
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
   final hour = local.hour.toString().padLeft(2, '0');

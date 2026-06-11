@@ -63,13 +63,36 @@ class FirestoreAuditLogsRemoteDataSource
         auditLog.assignedTo,
       ),
     );
+    final actorName = actor.found
+        ? actor.name
+        : _firstNonEmpty(actor.name, auditLog.actorName);
+    final actorEmail = actor.found
+        ? actor.email
+        : _firstNonEmpty(actor.email, auditLog.actorEmail);
+    final actorRole = actor.found
+        ? actor.role
+        : _firstNonEmpty(actor.role, auditLog.actorRole);
+    final scopedManagerId = _firstNonEmpty(
+      _firstNonEmpty(
+        _metadataString(auditLog.metadata, 'managerId', auditLog.managerId),
+        assignedUser.managerId,
+      ),
+      actorRole == 'manager' ? auditLog.actorId : '',
+    );
+    final scopedManagerName = _firstNonEmpty(
+      _firstNonEmpty(
+        _metadataString(auditLog.metadata, 'managerName', auditLog.managerName),
+        assignedUser.managerName,
+      ),
+      actorRole == 'manager' ? actorName : '',
+    );
     final logToSave = AuditLogModel(
       id: document.id,
       companyId: companyId,
       actorId: auditLog.actorId,
-      actorName: _firstNonEmpty(actor.name, auditLog.actorName),
-      actorEmail: _firstNonEmpty(actor.email, auditLog.actorEmail),
-      actorRole: _firstNonEmpty(actor.role, auditLog.actorRole),
+      actorName: actorName,
+      actorEmail: actorEmail,
+      actorRole: actorRole,
       action: auditLog.action,
       module: auditLog.module,
       recordId: auditLog.recordId,
@@ -84,25 +107,28 @@ class FirestoreAuditLogsRemoteDataSource
         _metadataString(auditLog.metadata, 'teamName', auditLog.teamName),
         assignedUser.teamName,
       ),
-      managerId: _firstNonEmpty(
-        _metadataString(auditLog.metadata, 'managerId', auditLog.managerId),
-        assignedUser.managerId,
-      ),
-      managerName: _firstNonEmpty(
-        _metadataString(auditLog.metadata, 'managerName', auditLog.managerName),
-        assignedUser.managerName,
-      ),
+      managerId: scopedManagerId,
+      managerName: scopedManagerName,
       createdAt: auditLog.createdAt,
       metadata: auditLog.metadata,
     );
 
     try {
-      await document.set(logToSave.toFirestore());
+      // Keep the audit timestamp tied to the actual user action, not to a later
+      // cache flush / delayed best-effort write. Firestore rules only allow the
+      // audit schema fields, so do not add auxiliary client/server timestamp
+      // fields here.
+      final payload = logToSave.toFirestore();
+      payload['createdAt'] = Timestamp.fromDate(
+        _safeAuditEventTime(auditLog.createdAt),
+      );
+      await document.set(payload);
     } catch (error, stackTrace) {
       debugPrint(
         'Masar audit log write failed for $companyId/${document.id}: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
+      rethrow;
     }
   }
 
@@ -121,7 +147,6 @@ class FirestoreAuditLogsRemoteDataSource
   }) {
     final cleanManagerId = managerId?.trim() ?? '';
     final cleanTeamId = teamId?.trim() ?? '';
-
     if (cleanManagerId.isNotEmpty) {
       return _watchManagerScopedAuditLogs(
         companyId: companyId,
@@ -152,8 +177,13 @@ class FirestoreAuditLogsRemoteDataSource
         )
         .limit(queryLimit)
         .snapshots()
-        .map(
-          (snapshot) => _filterAuditLogs(
+        .map((snapshot) {
+          _debugAudit(
+            'admin/company snapshot company=$companyId docs=${snapshot.docs.length} '
+            'limit=$queryLimit fromCache=${snapshot.metadata.isFromCache} '
+            'pending=${snapshot.metadata.hasPendingWrites} ids=${_debugSnapshotIds(snapshot)}',
+          );
+          return _filterAuditLogs(
             _mapAuditLogSnapshot(snapshot, companyId, queryLimit),
             module: module,
             action: action,
@@ -162,8 +192,17 @@ class FirestoreAuditLogsRemoteDataSource
             endAt: endAt,
             limit: limit,
             hideManagerRestrictedLogs: false,
-          ),
-        );
+          );
+        }).handleError((Object error, StackTrace stackTrace) {
+          _debugAudit(
+            'admin/company stream error company=$companyId '
+            'module=${module?.name ?? ''} action=${action?.name ?? ''} '
+            'actorId=${actorId ?? ''} startAt=${startAt?.toIso8601String() ?? ''} '
+            'endAt=${endAt?.toIso8601String() ?? ''}: $error',
+            stackTrace,
+          );
+          throw error;
+        });
   }
 
   Stream<List<AuditLogModel>> _watchManagerScopedAuditLogs({
@@ -177,22 +216,51 @@ class FirestoreAuditLogsRemoteDataSource
     DateTime? endAt,
     required int limit,
   }) {
+    // Keep Manager audit/recent activity on the central company audit log
+    // collection, but do not collapse the scope to only managerId. Some valid
+    // team audit rows are scoped by teamId, while other rows are scoped directly
+    // by managerId. Query both scoped branches with createdAt ordering, merge
+    // them locally, and never fall back to an unordered limited query because
+    // that is what made Recent Activity look stuck on old rows.
     final collection = _auditLogsCollection(companyId);
-    // Keep manager reads scoped in Firestore, but avoid composite-index-heavy
-    // order/filter combinations. The result is over-fetched, merged, filtered,
-    // and sorted locally inside this safe manager/team scope.
     final queryLimit = _auditOverfetchQueryLimit(limit);
-    final queries = <Query<Map<String, dynamic>>>[
-      collection.where('managerId', isEqualTo: managerId).limit(queryLimit),
+    final queries = <_AuditScopedQuery>[
+      _AuditScopedQuery(
+        label: 'managerId',
+        query: _applyAuditDateWindow(
+          collection.where('managerId', isEqualTo: managerId),
+          startAt: startAt,
+          endAt: endAt,
+        ).limit(queryLimit),
+      ),
     ];
-
     if (teamId.isNotEmpty) {
-      queries.add(collection.where('teamId', isEqualTo: teamId).limit(queryLimit));
+      queries.add(
+        _AuditScopedQuery(
+          label: 'teamId',
+          query: _applyAuditDateWindow(
+            collection.where('teamId', isEqualTo: teamId),
+            startAt: startAt,
+            endAt: endAt,
+          ).limit(queryLimit),
+        ),
+      );
     }
+
+    _debugAudit(
+      'manager scoped watch start company=$companyId managerId=$managerId '
+      'teamId=$teamId queryCount=${queries.length} limit=$limit '
+      'queryLimit=$queryLimit module=${module?.name ?? ''} '
+      'action=${action?.name ?? ''} actorId=${actorId ?? ''} '
+      'startAt=${startAt?.toIso8601String() ?? ''} '
+      'endAt=${endAt?.toIso8601String() ?? ''}',
+    );
 
     final controller = StreamController<List<AuditLogModel>>();
     final latest = <int, List<AuditLogModel>>{};
-    final subscriptions = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    final queryErrors = <int, Object>{};
+    final subscriptions =
+        <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
     var isClosed = false;
 
     void emitMerged() {
@@ -205,15 +273,36 @@ class FirestoreAuditLogsRemoteDataSource
           byId[log.id] = log;
         }
       }
-      final merged = byId.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final merged = byId.values.toList()..sort(_compareAuditLogs);
+      _debugAudit(
+        'manager scoped merged company=$companyId managerId=$managerId '
+        'teamId=$teamId docs=${merged.length} errors=${queryErrors.length} '
+        'ids=${merged.take(8).map((log) => log.id).join(',')}',
+      );
+      if (merged.isEmpty && latest.isEmpty && queryErrors.length == queries.length) {
+        controller.addError(
+          queryErrors.values.first,
+          StackTrace.current,
+        );
+        return;
+      }
       controller.add(List<AuditLogModel>.unmodifiable(merged.take(limit)));
     }
 
-    for (var i = 0; i < queries.length; i++) {
-      final index = i;
-      final subscription = queries[index].snapshots().listen(
+    for (var index = 0; index < queries.length; index++) {
+      final scopedQuery = queries[index];
+      late final StreamSubscription<QuerySnapshot<Map<String, dynamic>>>
+          subscription;
+      subscription = scopedQuery.query.snapshots().listen(
         (snapshot) {
+          queryErrors.remove(index);
+          _debugAudit(
+            'manager ${scopedQuery.label} snapshot company=$companyId '
+            'managerId=$managerId teamId=$teamId docs=${snapshot.docs.length} '
+            'limit=$queryLimit fromCache=${snapshot.metadata.isFromCache} '
+            'pending=${snapshot.metadata.hasPendingWrites} '
+            'ids=${_debugSnapshotIds(snapshot)}',
+          );
           final mapped = _mapAuditLogSnapshot(snapshot, companyId, queryLimit);
           latest[index] = _filterAuditLogs(
             mapped,
@@ -228,9 +317,14 @@ class FirestoreAuditLogsRemoteDataSource
           emitMerged();
         },
         onError: (Object error, StackTrace stackTrace) {
-          if (!isClosed && !controller.isClosed) {
-            controller.addError(error, stackTrace);
-          }
+          queryErrors[index] = error;
+          latest.remove(index);
+          _debugAudit(
+            'manager ${scopedQuery.label} stream error company=$companyId '
+            'managerId=$managerId teamId=$teamId limit=$queryLimit: $error',
+            stackTrace,
+          );
+          emitMerged();
         },
       );
       subscriptions.add(subscription);
@@ -329,7 +423,7 @@ class FirestoreAuditLogsRemoteDataSource
       }
       return true;
     }).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort(_compareAuditLogs);
     return List<AuditLogModel>.unmodifiable(filtered.take(limit));
   }
 
@@ -365,16 +459,36 @@ class FirestoreAuditLogsRemoteDataSource
     String companyId,
     int limit,
   ) {
-    final logs = snapshot.docs.map((document) {
-      final auditLog = AuditLogModel.fromFirestore(document);
-      if (auditLog.companyId != companyId) {
-        throw StateError('Audit log company mismatch.');
+    final logs = <AuditLogModel>[];
+    for (final document in snapshot.docs) {
+      if (document.metadata.hasPendingWrites) {
+        // Do not render local latency-compensated audit rows. If Firestore rules
+        // reject the write, those rows vanish on the next server snapshot and
+        // the UI looks like recent activity is flickering or reverting.
+        continue;
       }
-      return auditLog;
-    }).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      try {
+        final auditLog = AuditLogModel.fromFirestore(document);
+        if (auditLog.companyId != companyId) {
+          continue;
+        }
+        logs.add(auditLog);
+      } catch (error, stackTrace) {
+        debugPrint('Masar audit log read skipped for ${document.id}: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+    logs.sort(_compareAuditLogs);
 
     return List<AuditLogModel>.unmodifiable(logs.take(limit));
+  }
+
+  int _compareAuditLogs(AuditLogModel a, AuditLogModel b) {
+    final timeCompare = b.createdAt.compareTo(a.createdAt);
+    if (timeCompare != 0) {
+      return timeCompare;
+    }
+    return b.id.compareTo(a.id);
   }
 
   CollectionReference<Map<String, dynamic>> _auditLogsCollection(
@@ -459,18 +573,54 @@ class _AssignedUserSnapshot {
   final String managerName;
 }
 
+
+class _AuditScopedQuery {
+  const _AuditScopedQuery({required this.label, required this.query});
+
+  final String label;
+  final Query<Map<String, dynamic>> query;
+}
+
+void _debugAudit(String message, [StackTrace? stackTrace]) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarAuditDebug $message');
+  if (stackTrace != null) {
+    debugPrintStack(stackTrace: stackTrace);
+  }
+}
+
+String _debugSnapshotIds(QuerySnapshot<Map<String, dynamic>> snapshot) {
+  if (!kDebugMode) {
+    return '';
+  }
+  return snapshot.docs.take(8).map((doc) {
+    final data = doc.data();
+    final createdAt = data['createdAt'];
+    final managerId = data['managerId'];
+    final teamId = data['teamId'];
+    final module = data['module'];
+    final action = data['action'];
+    return '${doc.id}($module/$action m=$managerId t=$teamId at=$createdAt)';
+  }).join(',');
+}
+
 class _AuditActorSnapshot {
   const _AuditActorSnapshot({
     required this.name,
     required this.email,
     required this.role,
+    this.found = true,
   });
 
-  const _AuditActorSnapshot.empty() : this(name: '', email: '', role: '');
+  const _AuditActorSnapshot.empty()
+      : this(name: '', email: '', role: '', found: false);
 
   final String name;
   final String email;
   final String role;
+  final bool found;
 }
 
 String _firstNonEmpty(String primary, String fallback) {
@@ -491,4 +641,17 @@ String _metadataString(
     return value.trim();
   }
   return fallback.trim();
+}
+
+
+DateTime _safeAuditEventTime(DateTime value) {
+  final now = DateTime.now();
+  final local = value.toLocal();
+  if (local.isAfter(now.add(const Duration(minutes: 5)))) {
+    return now;
+  }
+  if (local.isBefore(now.subtract(const Duration(days: 366)))) {
+    return now;
+  }
+  return local;
 }

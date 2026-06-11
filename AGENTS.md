@@ -30,6 +30,129 @@ Core stack:
 
 ---
 
+## Latest handoff checkpoint — 2026-06-11 later update
+
+Treat this as the active project baseline. It supersedes older handoff sections where they conflict.
+
+Current confirmed checkpoint:
+- Branch: `dev`.
+- Project path: `C:\Users\islam\Desktop\real_estate_crm`.
+- Firebase project: `real-escrm-ia`.
+- Live Hosting: `https://masarcrm.web.app`.
+- Confirmed prior pushed checkpoint: `13eaaf4 Add settings update checks and owner usage metrics`.
+- Several later local patches/debug changes may exist in the user's working tree. Do not assume current repo state without inspecting `git status --short` and exact diffs.
+- The Dashboard Recent Activity / Audit Logs / Sales Command audit blocker was confirmed solved by the user after adding the required Firestore index.
+
+Resolved critical issue — Dashboard Recent Activity / Audit Logs / Sales Command:
+- Original symptoms:
+  - Dashboard Recent Activity for Manager/Admin got stuck on old audit rows.
+  - New audit rows sometimes appeared briefly then disappeared.
+  - Audit Logs page sometimes failed for Manager.
+  - Sales Command actions updated records but did not reliably appear in Audit Logs or Recent Activity.
+  - Normal Lead Details updates were also affected at one point.
+- The issue appeared after dashboard/recent activity optimization, KPI refresh/listener changes, and removal/reworking of some function/listener paths.
+- Final confirmed root cause: a missing Firestore index. The user added the required index and confirmed the problem is solved.
+- Treat this blocker as resolved unless the user reports a new failure.
+
+Important audit architecture decision:
+- Keep one central audit source of truth:
+  `companies/{companyId}/audit_logs/{auditLogId}`
+- Correct pattern:
+  `CRM action → central audit log → Audit Logs page listens to central audit → Dashboard Recent Activity listens to central audit`
+- Do not create or use:
+  `companies/{companyId}/users/{managerId}/audit_feed/{auditLogId}`
+- Do not introduce `audit_feed`, `mirrorAuditLogToManagerFeeds`, or per-manager audit collections unless the user explicitly approves a product architecture change.
+- Do not split Sales Command, Dashboard, and Audit Logs into different audit sources.
+- Dashboard Recent Activity and Audit Logs must use the same central audit source.
+
+Manager audit/recent activity expectations:
+- Manager audit visibility should stay on central `companies/{companyId}/audit_logs`.
+- Manager should read only safe scoped audit rows using manager/team fields and proper Firestore indexes.
+- Do not query broad company audit data for a restricted role and filter client-side.
+- If Audit Logs or Recent Activity fails, inspect the exact Firestore/browser console error first:
+  - `failed-precondition` usually means missing index.
+  - `permission-denied` usually means rules/query proof problem.
+  - Empty snapshot usually means query fields/scope mismatch.
+- Do not hide real Firestore errors during debugging behind only a generic localized UI message.
+
+Relevant files for audit/recent activity if a new issue appears:
+- `lib/features/audit_logs/data/datasources/audit_logs_remote_data_source.dart`
+- `lib/features/audit_logs/data/models/audit_log_model.dart`
+- `lib/features/audit_logs/presentation/cubit/audit_logs_cubit.dart`
+- `lib/features/audit_logs/presentation/cubit/audit_logs_state.dart`
+- `lib/features/audit_logs/presentation/pages/audit_logs_page.dart`
+- `lib/features/dashboard/presentation/pages/dashboard_page.dart`
+- `lib/features/dashboard/presentation/widgets/dashboard_cockpit_body.dart`
+- `lib/features/dashboard/presentation/widgets/sales_command_center_panel.dart`
+- `lib/features/leads/presentation/cubit/leads_cubit.dart`
+- `lib/features/tasks/presentation/cubit/tasks_cubit.dart`
+- `functions/src/index.js`
+- `firestore.rules`
+- `firestore.indexes.json`
+
+Checks to run before changing audit/recent activity again, only with user approval for commands that modify state:
+```powershell
+git status --short
+
+git diff --stat
+
+Get-ChildItem . -Recurse -File -Include *.dart,*.js,*.rules,*.json |
+  Select-String -Pattern "audit_feed|mirrorAuditLogToManagerFeeds" |
+  Select-Object Path,LineNumber,Line
+
+git diff -- firestore.indexes.json firestore.rules functions/src/index.js `
+lib/features/audit_logs/data/datasources/audit_logs_remote_data_source.dart `
+lib/features/audit_logs/presentation/cubit/audit_logs_cubit.dart `
+lib/features/audit_logs/presentation/pages/audit_logs_page.dart `
+lib/features/dashboard/presentation/pages/dashboard_page.dart `
+lib/features/dashboard/presentation/widgets/dashboard_cockpit_body.dart
+```
+
+Recent completed/mostly accepted work before the resolved blocker:
+- Cloud Functions cost/performance phases completed and user said “all good”:
+  - Phase 1 removed wasteful scheduled actionable reminder function while keeping callable behavior.
+  - Due-now appointment backend hotfix was accepted.
+  - Phase 3A restored callable function regions to `us-central1` after accidental `us-east1` region move caused internal errors.
+  - Phase 3B added guardrails/throttling/logs around release/device/heartbeat/error functions and user said “all good”.
+- Platform Overview UI fix accepted:
+  - Removed duplicate lower company selector.
+  - Recent Activity and Workspace Summary auto-load on overview.
+- Settings update/check work:
+  - Added Settings “Check for updates” for Android and owner/company accounts.
+  - Added Android native external notification reminder every 6 hours for available update using existing native `MainActivity.kt`, no new dependency.
+  - Existing forced update flow should not be touched.
+  - Later user requested removing “Check for updates” from Web version; Android should keep it.
+- Owner Release Center usage metrics tab added:
+  - Owner-only Usage metrics tab in Release Center.
+  - Not public, because counts are currently low.
+- Phase 4 dashboard cost optimization started:
+  - Phase 4A bounded dashboard appointment window and resume recovery was accepted.
+  - Phase 4B reduced dashboard stream caps and removed web renderer startup message was accepted.
+
+Important product decisions from the recent chat:
+- Users should never need to clear browser/app cache manually after every update.
+- Add post-update cache hygiene: compare stored app version/build on startup, clear only temporary UI/session caches, refresh streams, never delete user data, locale, theme, device ID, login, or push token.
+- Overlay smart suggestion timing should be random between 10 and 40 minutes.
+- Notification bell count should not return after pull-to-refresh when notifications were marked read/cleared.
+- `Check for updates` should not be visible on Web; keep it for Android.
+- Sales Command subtitle should be action-focused: “Needs attention now” / “تحتاج إلى متابعة الآن”.
+
+Current next recommended step:
+1. Stabilize and clean up after the resolved audit/index issue.
+2. Inspect `git status --short` and exact diffs before changing anything.
+3. Confirm no temporary debug prints remain unless the user wants to keep them.
+4. Confirm no `audit_feed` / `mirrorAuditLogToManagerFeeds` references exist.
+5. Confirm `firestore.indexes.json` includes the required audit index and deployed indexes match local source.
+6. After user approval, commit a clean stabilization checkpoint with exact staging only.
+7. Resume performance/cost optimization carefully. Do not optimize Dashboard/Audit streams in a way that changes business correctness.
+
+Command/worktree hygiene reminders:
+- Local/noise files seen recently: `.metadata`, `android.zip`, `config.zip`, `devtools_options.yaml`. Do not stage them unless the user explicitly asks.
+- Prefer exact staging only. Do not use `git add .`.
+- If Firestore rules/indexes need deployment, say it clearly and do not claim deployed unless the command actually ran or the user confirms.
+- Firebase CLI auth can expire; if deploy says credentials invalid, instruct `firebase login --reauth`, then retry.
+
+---
 ## Latest handoff checkpoint — 2026-06-08
 
 Treat this as the active project baseline unless the user provides a newer handoff.

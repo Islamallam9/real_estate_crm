@@ -1669,7 +1669,8 @@ service cloud.firestore {
           'clients',
           'properties',
           'tasks',
-          'deals'
+          'deals',
+          'appointments'
         ]
         && request.resource.data.recordId is string
         && request.resource.data.recordTitle is string

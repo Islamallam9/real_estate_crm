@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'app.dart';
+import 'core/constants/app_constants.dart';
 import 'core/firebase/firebase_initializer.dart';
 import 'core/localization/locale_cubit.dart';
 import 'core/observability/app_error_reporter.dart';
@@ -90,6 +91,7 @@ class _MasarBootstrapAppState extends State<_MasarBootstrapApp> {
   Future<Locale?> _startApp() async {
     final initialLocale = await _loadInitialLocale();
     _startupLocale = initialLocale;
+    await _runPostUpdateCacheHygiene();
     await FirebaseInitializer.initialize();
     return initialLocale;
   }
@@ -317,3 +319,29 @@ Future<Locale?> _loadInitialLocale() async {
 
   return null;
 }
+
+Future<void> _runPostUpdateCacheHygiene() async {
+  try {
+    final preferences = await SharedPreferences.getInstance();
+    const markerKey = 'masar_last_opened_version_build';
+    final currentMarker = '${AppConstants.appVersion}+${AppConstants.appBuildNumber}';
+    final previousMarker = preferences.getString(markerKey);
+    if (previousMarker == currentMarker) {
+      return;
+    }
+
+    final keys = preferences.getKeys().toList(growable: false);
+    for (final key in keys) {
+      if (key.startsWith('masar_data_health_report_') ||
+          key.startsWith('masar_dashboard_transient_') ||
+          key.startsWith('masar_notification_ui_')) {
+        await preferences.remove(key);
+      }
+    }
+    await preferences.setString(markerKey, currentMarker);
+  } catch (error, stackTrace) {
+    debugPrint('Masar post-update cache hygiene skipped: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+}
+

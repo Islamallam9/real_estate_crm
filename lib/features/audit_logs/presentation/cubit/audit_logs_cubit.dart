@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/audit_log.dart';
@@ -14,6 +15,8 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
   final WatchAuditLogsUseCase _watchAuditLogsUseCase;
 
   StreamSubscription<List<AuditLog>>? _subscription;
+  StreamSubscription<List<AuditLog>>? _recentActivitySubscription;
+  String? _recentActivityWatchKey;
   static const int defaultPageLimit = 15;
   static const int pageIncrement = 15;
   String? _companyId;
@@ -52,7 +55,9 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
     _startAt = startAt;
     _endAt = endAt;
 
-    final pageLimit = resetPage ? defaultPageLimit : limit ?? state.pageLimit;
+    final pageLimit = resetPage
+        ? (limit ?? defaultPageLimit)
+        : limit ?? state.pageLimit;
     final isLoadingMore = state.logs.isNotEmpty && pageLimit > state.pageLimit;
 
     emit(
@@ -63,6 +68,12 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
       ),
     );
     _subscription?.cancel();
+    _debugAuditCubit(
+      'watchAuditLogs start company=$companyId managerId=${managerId ?? ''} '
+      'teamId=${teamId ?? ''} module=${module?.name ?? ''} '
+      'action=${action?.name ?? ''} actorId=${actorId ?? ''} '
+      'limit=$pageLimit resetPage=$resetPage',
+    );
     _subscription = _watchAuditLogsUseCase(
       companyId: companyId,
       managerId: managerId,
@@ -79,6 +90,11 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
         if (isClosed) {
           return;
         }
+        _debugAuditCubit(
+          'watchAuditLogs data company=$companyId managerId=${managerId ?? ''} '
+          'teamId=${teamId ?? ''} count=${logs.length} '
+          'ids=${logs.take(8).map((log) => log.id).join(',')}',
+        );
         emit(
           state.copyWith(
             status: logs.isEmpty
@@ -89,14 +105,105 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
           ),
         );
       },
-      onError: (_) {
+      onError: (Object error, StackTrace stackTrace) {
         if (isClosed) {
           return;
         }
+        _debugAuditCubit(
+          'watchAuditLogs error company=$companyId managerId=${managerId ?? ''} '
+          'teamId=${teamId ?? ''}: $error',
+          stackTrace,
+        );
         emit(
           state.copyWith(
             status: AuditLogsStatus.failure,
             logs: const <AuditLog>[],
+          ),
+        );
+      },
+    );
+  }
+
+
+  void watchDashboardRecentActivity({
+    required String companyId,
+    String? managerId,
+    String? teamId,
+    int limit = 8,
+    bool force = false,
+  }) {
+    if (companyId.trim().isEmpty) {
+      return;
+    }
+
+    final watchKey = [
+      companyId.trim(),
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      limit.toString(),
+    ].join('|');
+    if (!force &&
+        _recentActivityWatchKey == watchKey &&
+        _recentActivitySubscription != null) {
+      return;
+    }
+    _recentActivityWatchKey = watchKey;
+
+    emit(
+      state.copyWith(
+        recentStatus: state.recentLogs.isEmpty
+            ? AuditLogsStatus.loading
+            : AuditLogsStatus.loaded,
+        clearMessage: true,
+      ),
+    );
+    _recentActivitySubscription?.cancel();
+    _debugAuditCubit(
+      'recentActivity start company=$companyId managerId=${managerId ?? ''} '
+      'teamId=${teamId ?? ''} limit=$limit force=$force',
+    );
+    _recentActivitySubscription = _watchAuditLogsUseCase(
+      companyId: companyId,
+      managerId: managerId,
+      teamId: teamId,
+      limit: limit,
+    ).listen(
+      (logs) {
+        if (isClosed) {
+          return;
+        }
+        _debugAuditCubit(
+          'recentActivity data company=$companyId managerId=${managerId ?? ''} '
+          'teamId=${teamId ?? ''} count=${logs.length} '
+          'ids=${logs.take(8).map((log) => log.id).join(',')}',
+        );
+        emit(
+          state.copyWith(
+            recentStatus: logs.isEmpty
+                ? AuditLogsStatus.empty
+                : AuditLogsStatus.loaded,
+            recentLogs: logs,
+            clearMessage: true,
+          ),
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (isClosed) {
+          return;
+        }
+        _debugAuditCubit(
+          'recentActivity error company=$companyId managerId=${managerId ?? ''} '
+          'teamId=${teamId ?? ''}: $error',
+          stackTrace,
+        );
+        _recentActivityWatchKey = null;
+        _recentActivitySubscription?.cancel();
+        _recentActivitySubscription = null;
+        emit(
+          state.copyWith(
+            recentStatus: state.recentLogs.isEmpty
+                ? AuditLogsStatus.failure
+                : AuditLogsStatus.loaded,
           ),
         );
       },
@@ -139,6 +246,17 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
   @override
   Future<void> close() {
     _subscription?.cancel();
+    _recentActivitySubscription?.cancel();
     return super.close();
+  }
+}
+
+void _debugAuditCubit(String message, [StackTrace? stackTrace]) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarAuditCubitDebug $message');
+  if (stackTrace != null) {
+    debugPrintStack(stackTrace: stackTrace);
   }
 }

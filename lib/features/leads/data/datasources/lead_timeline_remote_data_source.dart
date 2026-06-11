@@ -48,8 +48,10 @@ class FirestoreLeadTimelineRemoteDataSource
       final eventToSave = LeadTimelineEventModel.fromEntity(
         event.copyWith(id: document.id),
       );
-      await document.set(eventToSave.toFirestore());
-      return eventToSave;
+      final payload = eventToSave.toFirestore();
+      payload['createdAt'] = FieldValue.serverTimestamp();
+      await document.set(payload);
+      return eventToSave.copyWith(createdAt: DateTime.now());
     } on FirebaseException catch (error) {
       throw LeadException(_mapFirestoreError(error));
     } catch (_) {
@@ -104,7 +106,7 @@ String _mapFirestoreError(FirebaseException error) {
 }
 
 extension on LeadTimelineEventModel {
-  LeadTimelineEventModel copyWith({String? id}) {
+  LeadTimelineEventModel copyWith({String? id, DateTime? createdAt}) {
     return LeadTimelineEventModel(
       id: id ?? this.id,
       leadId: leadId,
@@ -114,7 +116,7 @@ extension on LeadTimelineEventModel {
       description: description,
       oldValue: oldValue,
       newValue: newValue,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy,
       createdByName: createdByName,
       metadata: metadata,

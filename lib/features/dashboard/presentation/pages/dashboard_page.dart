@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' as intl;
@@ -12,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/stats/module_kpi_counts_data_source.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/company_feature_gate.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -238,10 +240,12 @@ class _DashboardContent extends StatefulWidget {
   State<_DashboardContent> createState() => _DashboardContentState();
 }
 
-class _DashboardContentState extends State<_DashboardContent> {
+class _DashboardContentState extends State<_DashboardContent>
+    with WidgetsBindingObserver {
   _DashboardWatchScopeKey? _watchScopeKey;
   Timer? _clockTicker;
   Timer? _initialFailureRetryTimer;
+  DateTime? _lastLifecycleRefreshAt;
   Stream<List<UserProfile>>? _activeUsersStream;
   bool _activeUsersRequested = false;
   bool _auditLogsRequested = false;
@@ -250,6 +254,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _watchScopedDashboardData();
     _clockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
@@ -266,9 +271,30 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _clockTicker?.cancel();
     _initialFailureRetryTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+    final now = DateTime.now();
+    final lastRefreshAt = _lastLifecycleRefreshAt;
+    if (lastRefreshAt != null &&
+        now.difference(lastRefreshAt) < const Duration(minutes: 5)) {
+      return;
+    }
+    _lastLifecycleRefreshAt = now;
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _watchScopedDashboardData(force: true);
+      }
+    });
   }
 
   void _watchScopedDashboardData({bool force = false}) {
@@ -293,6 +319,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       _activeUsersRequested = false;
       _auditLogsRequested = false;
       _activeUsersStream = null;
+      _lastLifecycleRefreshAt = null;
     }
     _watchScopeKey = watchScopeKey;
     if (widget.platformPreview) {
@@ -301,7 +328,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _activeUsersStream = Stream<List<UserProfile>>.value(const <UserProfile>[]);
       }
       if (_auditLogsRequested) {
-        _watchDashboardAuditLogs(watchScopeKey);
+        _watchDashboardAuditLogs(watchScopeKey, force: force);
       }
       return;
     }
@@ -350,11 +377,14 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     if (watchScopeKey.canViewAppointments) {
+      final appointmentWindow = _dashboardAppointmentWindow(DateTime.now());
       context.read<AppointmentsCubit>().watchAppointments(
         companyId: widget.companyId,
         assignedTo: assignedTo,
         managerId: managerId,
         teamId: managerTeamId,
+        rangeStart: appointmentWindow.start,
+        rangeEnd: appointmentWindow.end,
         usePagination: false,
       );
     }
@@ -368,7 +398,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     if (_auditLogsRequested && watchScopeKey.canViewAuditLogs) {
-      _watchDashboardAuditLogs(watchScopeKey);
+      _watchDashboardAuditLogs(watchScopeKey, force: force);
     }
   }
 
@@ -427,7 +457,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     });
   }
 
-  void _requestRecentActivity() {
+  void _requestRecentActivity({bool force = false}) {
     final watchScopeKey = _watchScopeKey ??
         _dashboardWatchScopeKey(
           companyId: widget.companyId,
@@ -435,22 +465,27 @@ class _DashboardContentState extends State<_DashboardContent> {
           platformPreview: widget.platformPreview,
         );
     if (watchScopeKey == null ||
-        _auditLogsRequested ||
+        (!force && _auditLogsRequested) ||
         !watchScopeKey.canViewAuditLogs) {
       return;
     }
 
     _auditLogsRequested = true;
-    _watchDashboardAuditLogs(watchScopeKey);
+    _watchDashboardAuditLogs(watchScopeKey, force: force);
   }
 
-  void _watchDashboardAuditLogs(_DashboardWatchScopeKey watchScopeKey) {
-    context.read<AuditLogsCubit>().watchAuditLogs(
+  void _watchDashboardAuditLogs(
+    _DashboardWatchScopeKey watchScopeKey, {
+    bool force = false,
+  }) {
+    context.read<AuditLogsCubit>().watchDashboardRecentActivity(
       companyId: widget.companyId,
       managerId: watchScopeKey.role == UserRole.manager ? watchScopeKey.uid : null,
       teamId: watchScopeKey.managerTeamId.isEmpty
           ? null
           : watchScopeKey.managerTeamId,
+      limit: 8,
+      force: force,
     );
   }
 
@@ -510,6 +545,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                               deals: dealsAllowed ? dealsState.deals : const <Deal>[],
                               activeUsers:
                                   activeUsersSnapshot.data ?? const <UserProfile>[],
+                              leadCounts: leadsState.kpiCounts,
+                              propertyCounts: propertiesState.kpiCounts,
+                              taskCounts: tasksState.kpiCounts,
+                              appointmentCounts: appointmentsState.kpiCounts,
+                              dealCounts: dealsState.kpiCounts,
                             );
 
                             final isLoading =
@@ -606,6 +646,24 @@ bool _isRecoverableDashboardInitialFailure(String? message) {
   return true;
 }
 
+class _DashboardDateWindow {
+  const _DashboardDateWindow({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
+}
+
+_DashboardDateWindow _dashboardAppointmentWindow(DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  return _DashboardDateWindow(
+    // Keeps recent missed/completed appointments and the near-future calendar
+    // visible while avoiding a full appointment collection listener on the
+    // dashboard. Other app flows are not affected.
+    start: today.subtract(const Duration(days: 45)),
+    end: today.add(const Duration(days: 90)),
+  );
+}
+
 class _RecentActivityPanel extends StatelessWidget {
   const _RecentActivityPanel({
     required this.authState,
@@ -647,19 +705,26 @@ class _RecentActivityPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           BlocBuilder<AuditLogsCubit, AuditLogsState>(
             builder: (context, state) {
-              if (state.status == AuditLogsStatus.loading &&
-                  state.logs.isEmpty) {
+              final recentStatus = state.recentStatus;
+              final recentLogs = state.recentLogs;
+              if (recentStatus == AuditLogsStatus.loading &&
+                  recentLogs.isEmpty) {
                 return const Center(child: MasarLogoLoader(size: 40));
               }
 
-              if (state.status == AuditLogsStatus.failure) {
+              if (recentStatus == AuditLogsStatus.failure && recentLogs.isEmpty) {
                 return _CompactEmpty(
                   message: l.dashboardUnableToLoadRecentActivity,
                 );
               }
 
               final limit = MediaQuery.sizeOf(context).width >= 900 ? 3 : 4;
-              final items = state.logs
+              final logs = recentLogs.toList()
+                ..sort((a, b) {
+                  final timeCompare = b.createdAt.compareTo(a.createdAt);
+                  return timeCompare != 0 ? timeCompare : b.id.compareTo(a.id);
+                });
+              final items = logs
                   .take(limit)
                   .map(
                     (log) => _auditLogActivityItem(
@@ -678,20 +743,14 @@ class _RecentActivityPanel extends StatelessWidget {
                 );
               }
 
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 140),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: Column(
-                  key: ValueKey(items.map((item) => item.id).join('|')),
-                  children: [
-                    for (var index = 0; index < items.length; index++) ...[
-                      _RecentActivityTile(item: items[index]),
-                      if (index != items.length - 1)
-                        const SizedBox(height: AppSpacing.sm),
-                    ],
+              return Column(
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    _RecentActivityTile(item: items[index]),
+                    if (index != items.length - 1)
+                      const SizedBox(height: AppSpacing.sm),
                   ],
-                ),
+                ],
               );
             },
           ),
@@ -838,14 +897,28 @@ String _auditFieldLabel(AppLocalizations l, String field) {
 }
 
 String _auditValueLabel(AppLocalizations l, String field, String value) {
-  if (value.trim().isEmpty) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
     return l.notAvailable;
   }
+  if (field == 'lastContactAt' || field == 'nextFollowUpAt') {
+    final parsed = DateTime.tryParse(trimmed) ??
+        DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+    if (parsed != null) {
+      final local = parsed.toLocal();
+      final today = _dateOnly(DateTime.now());
+      final sameDay = _dateOnly(local) == today;
+      final formatter = sameDay
+          ? intl.DateFormat.jm(l.localeName)
+          : intl.DateFormat.yMMMd(l.localeName).add_jm();
+      return formatter.format(local);
+    }
+  }
   return switch (field) {
-    'status' => _auditStatusValueLabel(l, value),
-    'source' => _auditSourceValueLabel(l, value),
-    'priority' => _auditPriorityValueLabel(l, value),
-    _ => value,
+    'status' => _auditStatusValueLabel(l, trimmed),
+    'source' => _auditSourceValueLabel(l, trimmed),
+    'priority' => _auditPriorityValueLabel(l, trimmed),
+    _ => trimmed,
   };
 }
 
@@ -991,70 +1064,78 @@ class _RecentActivityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final color = _toneColor(context, item.tone);
-    final meta = item.subtitle.trim().isEmpty
-        ? '${l.byUser(item.actorName)} • ${item.timeLabel}'
-        : '${item.subtitle} • ${l.byUser(item.actorName)} • ${item.timeLabel}';
+    final subtitle = item.subtitle.trim();
+    final actor = item.actorName.trim().isEmpty ? l.unknownUser : item.actorName.trim();
+    final time = _activityAbsoluteTime(context, item.time);
 
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(item.id),
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 14 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: _HoverLiftPanel(
-        borderRadius: AppRadius.large,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: item.onTap == null ? null : () => item.onTap!(context),
-            borderRadius: AppRadius.large,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.inputSurface(context),
-                borderRadius: AppRadius.large,
+    return _HoverLiftPanel(
+      borderRadius: AppRadius.large,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: item.onTap == null ? null : () => item.onTap!(context),
+          borderRadius: AppRadius.large,
+          child: Container(
+            padding: const EdgeInsetsDirectional.fromSTEB(10, 9, 10, 9),
+            decoration: BoxDecoration(
+              color: AppColors.inputSurface(context),
+              borderRadius: AppRadius.large,
+              border: Border.all(
+                color: color.withValues(alpha: 0.16),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Icon(item.icon, size: 18, color: color),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  child: Icon(item.icon, size: 18, color: color),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.action,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            item.timeLabel,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: color,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
                         Text(
-                          item.action,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          meta,
+                          subtitle,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelSmall
@@ -1063,16 +1144,90 @@ class _RecentActivityTile extends StatelessWidget {
                               ),
                         ),
                       ],
-                    ),
+                      const SizedBox(height: 5),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _ActivityMiniChip(
+                            icon: Icons.person_outline_rounded,
+                            label: l.byUser(actor),
+                          ),
+                          _ActivityMiniChip(
+                            icon: Icons.schedule_rounded,
+                            label: time,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    )
+        .animate(key: ValueKey(item.id))
+        .fadeIn(duration: 180.ms, curve: Curves.easeOutCubic)
+        .slideY(begin: 0.08, end: 0, duration: 180.ms, curve: Curves.easeOutCubic);
+  }
+}
+
+class _ActivityMiniChip extends StatelessWidget {
+  const _ActivityMiniChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(7, 3, 7, 3),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context).withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.borderColor(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: AppColors.textMutedColor(context),
+          ),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMutedColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+
+
+String _activityAbsoluteTime(BuildContext context, DateTime date) {
+  final l = AppLocalizations.of(context)!;
+  final local = date.toLocal();
+  final now = DateTime.now();
+  final safe = local.isAfter(now.add(const Duration(seconds: 45))) ? now : local;
+  final sameDay = safe.year == now.year && safe.month == now.month && safe.day == now.day;
+  final formatter = sameDay
+      ? intl.DateFormat.jm(l.localeName)
+      : intl.DateFormat.MMMd(l.localeName).add_jm();
+  return formatter.format(safe);
 }
 
 _DashboardWatchScopeKey? _dashboardWatchScopeKey({
@@ -1229,6 +1384,7 @@ class _DashboardViewState extends State<_DashboardView> {
 
   Future<void> _handleRefresh() async {
     widget.onRetry();
+    widget.onRecentActivityNeeded();
     await Future<void>.delayed(const Duration(milliseconds: 650));
   }
 
@@ -1404,6 +1560,7 @@ class _DashboardViewState extends State<_DashboardView> {
           includeAppointments ? data.appointments : const <Appointment>[],
       deals: includeDeals ? data.deals : const <Deal>[],
       activeUsers: data.activeUsers,
+      countsFingerprint: _dashboardCountsFingerprint(data),
       includeLeads: includeLeads,
       includeProperties: includeProperties,
       includeTasks: includeTasks,
@@ -1417,8 +1574,9 @@ class _DashboardViewState extends State<_DashboardView> {
       return cached.analytics;
     }
 
-    final analytics = const BuildDashboardAnalyticsUseCase()(
-      DashboardAnalyticsInput(
+    final analytics = _withCountBackedKpis(
+      const BuildDashboardAnalyticsUseCase()(
+        DashboardAnalyticsInput(
         role: role,
         now: now,
         leads: key.leads,
@@ -1432,8 +1590,10 @@ class _DashboardViewState extends State<_DashboardView> {
         includeTasks: includeTasks,
         includeAppointments: includeAppointments,
         includeDeals: includeDeals,
-        canViewUnassignedLeads: canViewUnassignedLeads,
+          canViewUnassignedLeads: canViewUnassignedLeads,
+        ),
       ),
+      data,
     );
     _analyticsCache = _DashboardAnalyticsCache(
       key: key,
@@ -1542,6 +1702,110 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 }
 
+
+DashboardAnalytics _withCountBackedKpis(
+  DashboardAnalytics analytics,
+  _DashboardData data,
+) {
+  final replacements = <DashboardKpiType, int>{};
+
+  void put(DashboardKpiType type, int? value) {
+    if (value != null && value >= 0) {
+      replacements[type] = value;
+    }
+  }
+
+  final leadActive = data.leadCounts.valueOrNull('active');
+  final leadOverdue = data.leadCounts.valueOrNull('overdue');
+  final leadUnassigned = data.leadCounts.valueOrNull('unassigned');
+  final taskOverdue = data.taskCounts.valueOrNull('overdue');
+  final taskTotal = data.taskCounts.valueOrNull('total');
+  final taskCompleted = data.taskCounts.valueOrNull('completed');
+  final taskCancelled = data.taskCounts.valueOrNull('cancelled');
+  final appointmentToday = data.appointmentCounts.valueOrNull('today');
+  final appointmentMissed = data.appointmentCounts.valueOrNull('missed');
+  final dealOpen = data.dealCounts.valueOrNull('open');
+  final dealAtRisk = data.dealCounts.valueOrNull('atRisk');
+  final dealWonThisMonth = data.dealCounts.valueOrNull('wonThisMonth');
+  final propertyAvailable = data.propertyCounts.valueOrNull('available');
+
+  put(DashboardKpiType.activeLeads, leadActive);
+  put(DashboardKpiType.overdueFollowUps, leadOverdue);
+  put(DashboardKpiType.unassignedLeads, leadUnassigned);
+  put(DashboardKpiType.overdueTasks, taskOverdue);
+  put(DashboardKpiType.appointmentsToday, appointmentToday);
+  put(DashboardKpiType.missedAppointments, appointmentMissed);
+  put(DashboardKpiType.pipelineDeals, dealOpen);
+  put(DashboardKpiType.stuckDeals, dealAtRisk);
+  put(DashboardKpiType.wonDealsThisMonth, dealWonThisMonth);
+  put(DashboardKpiType.activeProperties, propertyAvailable);
+
+  if (leadOverdue != null && taskOverdue != null) {
+    put(DashboardKpiType.overdueActions, leadOverdue + taskOverdue);
+  }
+  if (leadActive != null && taskTotal != null && dealOpen != null) {
+    final openTasks = taskTotal - (taskCompleted ?? 0) - (taskCancelled ?? 0);
+    final boundedOpenTasks = openTasks.clamp(0, taskTotal).toInt();
+    put(DashboardKpiType.teamWorkload, leadActive + boundedOpenTasks + dealOpen);
+  }
+
+  var changed = false;
+  final metrics = analytics.metrics.map((metric) {
+    final replacement = replacements[metric.type];
+    if (replacement == null || metric.value == replacement) {
+      return metric;
+    }
+    changed = true;
+    return DashboardKpiMetric(
+      type: metric.type,
+      value: replacement,
+      valueLabel: replacement.toString(),
+      sparkline: metric.sparkline,
+      trendPercent: metric.trendPercent,
+    );
+  }).toList(growable: false);
+
+  if (!changed) {
+    return analytics;
+  }
+
+  return DashboardAnalytics(
+    role: analytics.role,
+    metrics: metrics,
+    leadTrend: analytics.leadTrend,
+    followUpBars: analytics.followUpBars,
+    appointmentBars: analytics.appointmentBars,
+    dealStages: analytics.dealStages,
+    leadSources: analytics.leadSources,
+    todayItems: analytics.todayItems,
+    calendarItems: analytics.calendarItems,
+    performanceSeries: analytics.performanceSeries,
+    teamPerformance: analytics.teamPerformance,
+    teamRows: analytics.teamRows,
+    importantOpportunities: analytics.importantOpportunities,
+    dailyInsight: analytics.dailyInsight,
+  );
+}
+
+String _dashboardCountsFingerprint(_DashboardData data) {
+  return [
+    _moduleCountsFingerprint(data.leadCounts),
+    _moduleCountsFingerprint(data.propertyCounts),
+    _moduleCountsFingerprint(data.taskCounts),
+    _moduleCountsFingerprint(data.appointmentCounts),
+    _moduleCountsFingerprint(data.dealCounts),
+  ].join('|');
+}
+
+String _moduleCountsFingerprint(ModuleKpiCounts counts) {
+  final keys = counts.values.keys.toList()..sort();
+  final failed = counts.failedKeys.toList()..sort();
+  return [
+    for (final key in keys) '$key:${counts.values[key] ?? 0}',
+    if (failed.isNotEmpty) 'failed:${failed.join(',')}',
+  ].join(',');
+}
+
 class _DashboardAnalyticsCache {
   const _DashboardAnalyticsCache({
     required this.key,
@@ -1582,6 +1846,7 @@ class _DashboardAnalyticsKey {
     required this.appointments,
     required this.deals,
     required this.activeUsers,
+    required this.countsFingerprint,
     required this.includeLeads,
     required this.includeProperties,
     required this.includeTasks,
@@ -1598,6 +1863,7 @@ class _DashboardAnalyticsKey {
   final List<Appointment> appointments;
   final List<Deal> deals;
   final List<UserProfile> activeUsers;
+  final String countsFingerprint;
   final bool includeLeads;
   final bool includeProperties;
   final bool includeTasks;
@@ -1617,6 +1883,7 @@ class _DashboardAnalyticsKey {
             identical(appointments, other.appointments) &&
             identical(deals, other.deals) &&
             identical(activeUsers, other.activeUsers) &&
+            countsFingerprint == other.countsFingerprint &&
             includeLeads == other.includeLeads &&
             includeProperties == other.includeProperties &&
             includeTasks == other.includeTasks &&
@@ -1635,6 +1902,7 @@ class _DashboardAnalyticsKey {
         identityHashCode(appointments),
         identityHashCode(deals),
         identityHashCode(activeUsers),
+        countsFingerprint,
         includeLeads,
         includeProperties,
         includeTasks,
@@ -5614,6 +5882,11 @@ class _DashboardData {
     required this.appointments,
     required this.deals,
     required this.activeUsers,
+    required this.leadCounts,
+    required this.propertyCounts,
+    required this.taskCounts,
+    required this.appointmentCounts,
+    required this.dealCounts,
   });
 
   final List<Lead> leads;
@@ -5623,6 +5896,11 @@ class _DashboardData {
   final List<Appointment> appointments;
   final List<Deal> deals;
   final List<UserProfile> activeUsers;
+  final ModuleKpiCounts leadCounts;
+  final ModuleKpiCounts propertyCounts;
+  final ModuleKpiCounts taskCounts;
+  final ModuleKpiCounts appointmentCounts;
+  final ModuleKpiCounts dealCounts;
 
   List<Lead> get newLeads =>
       leads.where((lead) => lead.status == LeadStatus.newLead).toList();
@@ -6100,7 +6378,8 @@ String _formatTrialRemaining(AppLocalizations l, Duration remaining) {
 String _relativeTimeLabel(BuildContext context, DateTime time) {
   final l = AppLocalizations.of(context)!;
   final now = DateTime.now();
-  final localTime = time.toLocal();
+  final local = time.toLocal();
+  final localTime = local.isAfter(now.add(const Duration(seconds: 45))) ? now : local;
   final diff = now.difference(localTime);
 
   if (diff.inMinutes < 1) {

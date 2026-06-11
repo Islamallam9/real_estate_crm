@@ -72,10 +72,8 @@ class AuditLogModel extends AuditLog {
       teamName: data['teamName'] as String? ?? '',
       managerId: data['managerId'] as String? ?? '',
       managerName: data['managerName'] as String? ?? '',
-      createdAt: _dateTimeFromValue(data['createdAt']),
-      metadata: Map<String, Object?>.from(
-        data['metadata'] as Map<String, dynamic>? ?? const {},
-      ),
+      createdAt: _dateTimeFromAuditData(data),
+      metadata: _metadataFromValue(data['metadata']),
     );
   }
 
@@ -148,12 +146,56 @@ String auditLogModuleToValue(AuditLogModule module) {
   return module.name;
 }
 
-DateTime _dateTimeFromValue(Object? value) {
+DateTime _dateTimeFromAuditData(Map<String, dynamic> data) {
+  final createdAt = _dateTimeFromValue(data['createdAt']);
+  final clientCreatedAt = _dateTimeFromValue(data['clientCreatedAt']);
+  final serverCreatedAt = _dateTimeFromValue(data['serverCreatedAt']);
+  final updatedAt = _dateTimeFromValue(data['updatedAt']);
+
+  // Never fall back to DateTime.now() for audit documents. During offline/cache
+  // reconciliation, pending server timestamps can be temporarily missing. Showing
+  // those records as "now" makes old rows jump to the current laptop time every
+  // time the audit stream refreshes. Invalid/pending audit rows are skipped by
+  // the data source until Firestore returns a real timestamp.
+  final candidate = createdAt ?? clientCreatedAt ?? serverCreatedAt ?? updatedAt;
+  if (candidate == null) {
+    throw StateError('Audit log timestamp is missing or invalid.');
+  }
+  return candidate;
+}
+
+DateTime? _dateTimeFromValue(Object? value) {
+  DateTime? parsed;
   if (value is Timestamp) {
-    return value.toDate();
+    parsed = value.toDate();
+  } else if (value is DateTime) {
+    parsed = value;
+  } else if (value is int) {
+    parsed = DateTime.fromMillisecondsSinceEpoch(value);
+  } else if (value is double) {
+    parsed = DateTime.fromMillisecondsSinceEpoch(value.toInt());
+  } else if (value is String && value.trim().isNotEmpty) {
+    parsed = DateTime.tryParse(value.trim());
   }
-  if (value is DateTime) {
-    return value;
+  if (parsed == null) {
+    return null;
   }
-  return DateTime.fromMillisecondsSinceEpoch(0);
+  final local = parsed.toLocal();
+  final now = DateTime.now();
+  if (local.isAfter(now.add(const Duration(minutes: 10)))) {
+    return null;
+  }
+  if (local.isBefore(DateTime(now.year - 5))) {
+    return null;
+  }
+  return local;
+}
+
+Map<String, Object?> _metadataFromValue(Object? value) {
+  if (value is Map) {
+    return value.map(
+      (key, item) => MapEntry(key.toString(), item),
+    );
+  }
+  return const <String, Object?>{};
 }

@@ -457,9 +457,12 @@ class _AboutSection extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const _CheckForUpdatesTile(),
-          const SizedBox(height: AppSpacing.sm),
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
+            const SizedBox(height: AppSpacing.md),
+            const _CheckForUpdatesTile(),
+            const SizedBox(height: AppSpacing.sm),
+          ] else
+            const SizedBox(height: AppSpacing.sm),
           Divider(color: AppColors.borderColor(context)),
           const SizedBox(height: AppSpacing.xs),
           Text(

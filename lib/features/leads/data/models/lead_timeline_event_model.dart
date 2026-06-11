@@ -75,11 +75,17 @@ class LeadTimelineEventModel extends LeadTimelineEvent {
 }
 
 DateTime _dateTimeFromValue(Object? value) {
+  DateTime parsed;
   if (value is Timestamp) {
-    return value.toDate();
+    parsed = value.toDate();
+  } else if (value is DateTime) {
+    parsed = value;
+  } else {
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
-  if (value is DateTime) {
-    return value;
+  final now = DateTime.now();
+  if (parsed.isAfter(now.add(const Duration(minutes: 5)))) {
+    return now;
   }
-  return DateTime.fromMillisecondsSinceEpoch(0);
+  return parsed;
 }

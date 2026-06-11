@@ -75,7 +75,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     'upcoming',
     'unassigned',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   static const int _localFilterScanLimit = 500;
 
   StreamSubscription<List<Lead>>? _leadsSubscription;
@@ -688,6 +688,8 @@ class LeadsCubit extends Cubit<LeadsState> {
     required Lead lead,
     required String actorName,
     LeadsAction? successAction,
+    Map<String, Object?> auditMetadataExtras = const <String, Object?>{},
+    bool requireAudit = false,
   }) async {
     emit(state.copyWith(status: LeadsStatus.saving, clearMessage: true));
     try {
@@ -713,17 +715,19 @@ class LeadsCubit extends Cubit<LeadsState> {
           ? AuditLogAction.assign
           : AuditLogAction.update;
       final auditMetadata = _leadChangeAuditMetadata(current, updated);
-      unawaited(
-        _writeAuditLog(
-          companyId: companyId,
-          actorId: updated.updatedBy,
-          actorName: actorName,
-          action: auditAction,
-          recordId: updated.id,
-          recordTitle: _leadTitle(updated),
-          recordSubtitle: _leadSubtitle(updated),
-          metadata: auditMetadata,
-        ),
+      if (auditMetadataExtras.isNotEmpty) {
+        auditMetadata.addAll(auditMetadataExtras);
+      }
+      await _writeAuditLog(
+        companyId: companyId,
+        actorId: updated.updatedBy,
+        actorName: actorName,
+        action: auditAction,
+        recordId: updated.id,
+        recordTitle: _leadTitle(updated),
+        recordSubtitle: _leadSubtitle(updated),
+        metadata: auditMetadata,
+        requireAudit: requireAudit,
       );
       if (isClosed) {
         return true;
@@ -1051,6 +1055,7 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String text,
     required String createdBy,
     required String actorName,
+    bool silentFailure = false,
   }) async {
     if (text.trim().isEmpty) {
       return;
@@ -1095,12 +1100,12 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
     } on LeadException catch (error) {
-      if (isClosed) {
+      if (isClosed || silentFailure) {
         return;
       }
       emit(state.copyWith(status: LeadsStatus.failure, message: error.message));
     } catch (error) {
-      if (isClosed) {
+      if (isClosed || silentFailure) {
         return;
       }
       emit(
@@ -1352,29 +1357,13 @@ class LeadsCubit extends Cubit<LeadsState> {
     required String recordTitle,
     required String recordSubtitle,
     required Map<String, Object?> metadata,
+    bool requireAudit = false,
   }) async {
-    try {
-      await _createAuditLogUseCase(
-        companyId: companyId,
-        auditLog: AuditLog(
-          id: '',
-          companyId: companyId,
-          actorId: actorId,
-          actorName: actorName,
-          actorEmail: '',
-          actorRole: '',
-          action: action,
-          module: AuditLogModule.leads,
-          recordId: recordId,
-          recordTitle: recordTitle,
-          recordSubtitle: recordSubtitle,
-          createdAt: DateTime.now(),
-          metadata: metadata,
-        ),
-      );
-    } catch (_) {
-      // Audit logging is best-effort and must not block lead workflows.
-    }
+    // Lead audit rows are now written by the backend callable that mutates the
+    // lead record (`saveLeadRecord`) and by archive/restore callables. Keeping
+    // lead mutation + audit persistence in one server-side batch prevents the
+    // old bug where the lead changed but Audit Logs / Recent Activity did not.
+    return;
   }
 
   Lead? _leadById(String leadId) {

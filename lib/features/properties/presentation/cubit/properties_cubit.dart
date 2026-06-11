@@ -56,7 +56,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     'sold',
     'rented',
   ];
-  static const int _dashboardWatchLimit = 1000;
+  static const int _dashboardWatchLimit = 500;
   static const Duration _defaultFirebaseTimeout = Duration(seconds: 15);
   static const Duration _imageUploadFirebaseTimeout = Duration(minutes: 4);
 

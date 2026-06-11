@@ -1087,18 +1087,32 @@ class _LeadsBody extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 720;
         if (compact) {
+          final summary = _LeadSummaryCards(
+            kpiCounts: state.kpiCounts,
+            showAssignee: roleName == 'admin' || roleName == 'manager',
+          );
           if (state.filteredLeads.isEmpty) {
-            return AppEmptyState(
-              title: isArchivedView
-                  ? localizations.noArchivedRecords
-                  : localizations.noLeads,
-              message: isArchivedView
-                  ? localizations.archivedRecordsHiddenFromActiveLists
-                  : localizations.leadsSubtitle,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                summary,
+                const SizedBox(height: AppSpacing.sm),
+                AppEmptyState(
+                  title: isArchivedView
+                      ? localizations.noArchivedRecords
+                      : localizations.noLeads,
+                  message: isArchivedView
+                      ? localizations.archivedRecordsHiddenFromActiveLists
+                      : localizations.leadsSubtitle,
+                ),
+              ],
             );
           }
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              summary,
+              const SizedBox(height: AppSpacing.sm),
               for (var index = 0; index < state.filteredLeads.length; index++) ...[
                 _LeadCard(
                   lead: state.filteredLeads[index],
@@ -1113,7 +1127,7 @@ class _LeadsBody extends StatelessWidget {
                   isArchivedView: isArchivedView,
                 ),
                 if (index != state.filteredLeads.length - 1)
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.xs),
               ],
               if (state.canLoadMore) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -1452,7 +1466,17 @@ class _LeadSummaryCards extends StatelessWidget {
         ),
     ];
 
-    return ModuleKpiStrip(cards: cards, cardHeight: 96, scrollable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        return ModuleKpiStrip(
+          cards: cards,
+          cardHeight: compact ? 86 : 96,
+          cardWidth: compact ? 154 : 172,
+          scrollable: compact,
+        );
+      },
+    );
   }
 }
 
