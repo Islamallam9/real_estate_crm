@@ -826,22 +826,18 @@ class FirestoreModuleKpiCountsDataSource {
         label: 'leads.active.countQuery',
         diagnostics: diagnostics,
       ),
-      _safeCount(
-        _rangeQuery(
-          activeBase,
-          'nextFollowUpAt',
-          isLessThan: Timestamp.fromDate(today),
-        ),
-        label: 'leads.overdue.countQuery',
+      _safeLeadFollowUpSnapshotCount(
+        base,
+        activeStatuses: cleanStatuses,
+        isLessThan: Timestamp.fromDate(today),
+        label: 'leads.overdue.countQueryFallback',
         diagnostics: diagnostics,
       ),
-      _safeCount(
-        _rangeQuery(
-          activeBase,
-          'nextFollowUpAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(tomorrow),
-        ),
-        label: 'leads.upcoming.countQuery',
+      _safeLeadFollowUpSnapshotCount(
+        base,
+        activeStatuses: cleanStatuses,
+        isGreaterThanOrEqualTo: Timestamp.fromDate(tomorrow),
+        label: 'leads.upcoming.countQueryFallback',
         diagnostics: diagnostics,
       ),
       unassignedFuture,
