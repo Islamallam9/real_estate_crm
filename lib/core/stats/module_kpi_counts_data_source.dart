@@ -586,64 +586,44 @@ class FirestoreModuleKpiCountsDataSource {
       managerId: managerId,
       teamId: teamId,
     );
+    final includeUnassigned = _isBlank(assignedTo);
     final scopedFallback = !_isBlank(assignedTo) ||
         !_isBlank(managerId) ||
         !_isBlank(teamId);
     final values = <String, int>{};
     final failedKeys = <String>{};
-    if (scopedFallback) {
-      final snapshotCounts = await _safeClientSnapshotCounts(
-        base,
-        includeUnassigned: _isBlank(assignedTo),
-        diagnostics: diagnostics,
-        useOrderedSnapshot: false,
-      );
-      if (snapshotCounts == null) {
+
+    final countQueryCounts = await _safeClientCountQueryCounts(
+      base,
+      includeUnassigned: includeUnassigned,
+      diagnostics: diagnostics,
+    );
+    if (countQueryCounts != null) {
+      values.addAll(countQueryCounts);
+      return ModuleKpiCounts(values, failedKeys: failedKeys);
+    }
+
+    final snapshotCounts = await _safeClientSnapshotCounts(
+      base,
+      includeUnassigned: includeUnassigned,
+      diagnostics: diagnostics,
+      useOrderedSnapshot: !scopedFallback,
+    );
+    if (snapshotCounts == null) {
+      if (scopedFallback) {
         values.addAll(const <String, int>{
           'total': 0,
           'assigned': 0,
           'unassigned': 0,
         });
-      } else {
-        values.addAll(snapshotCounts);
-      }
-      return ModuleKpiCounts(values, failedKeys: failedKeys);
-    }
-
-    final total = await _safeCount(
-      base,
-      label: 'clients.total',
-      diagnostics: diagnostics,
-    );
-    final unassigned = _isBlank(assignedTo)
-        ? await _safeBlankOrNullStringCount(
-            base,
-            field: 'assignedTo',
-            label: 'clients.unassigned',
-            diagnostics: diagnostics,
-          )
-        : 0;
-    if (total == null || unassigned == null) {
-      final snapshotCounts = await _safeClientSnapshotCounts(
-        base,
-        includeUnassigned: _isBlank(assignedTo),
-        diagnostics: diagnostics,
-      );
-      if (snapshotCounts != null) {
-        values.addAll(snapshotCounts);
         return ModuleKpiCounts(values, failedKeys: failedKeys);
       }
+      failedKeys.addAll(const <String>['total', 'assigned', 'unassigned']);
+      return ModuleKpiCounts(values, failedKeys: failedKeys);
     }
-    _putCount(values, failedKeys, 'total', total);
-    if (total != null && unassigned != null) {
-      values['assigned'] = total - unassigned;
-    } else {
-      failedKeys.add('assigned');
-    }
-    _putCount(values, failedKeys, 'unassigned', unassigned);
+    values.addAll(snapshotCounts);
     return ModuleKpiCounts(values, failedKeys: failedKeys);
   }
-
   Future<ModuleKpiCounts> propertyCounts({required String companyId}) async {
     final collectionPath = FirebasePaths.companyProperties(companyId);
     final diagnostics = _CountDiagnostics(
@@ -926,6 +906,38 @@ class FirestoreModuleKpiCountsDataSource {
     }
   }
 
+  Future<Map<String, int>?> _safeClientCountQueryCounts(
+    Query<Map<String, dynamic>> base, {
+    required bool includeUnassigned,
+    _CountDiagnostics? diagnostics,
+  }) async {
+    final unassignedFuture = includeUnassigned
+        ? _safeBlankOrNullStringCount(
+            base,
+            field: 'assignedTo',
+            label: 'clients.unassigned.countQuery',
+            diagnostics: diagnostics,
+          )
+        : Future<int?>.value(0);
+    final results = await Future.wait<int?>([
+      _safeCount(
+        base,
+        label: 'clients.total.countQuery',
+        diagnostics: diagnostics,
+      ),
+      unassignedFuture,
+    ]);
+    if (results.any((value) => value == null)) {
+      return null;
+    }
+    final total = results[0] ?? 0;
+    final unassigned = results[1] ?? 0;
+    return <String, int>{
+      'total': total,
+      'assigned': total - unassigned,
+      'unassigned': unassigned,
+    };
+  }
   Future<Map<String, int>?> _safeClientSnapshotCounts(
     Query<Map<String, dynamic>> base, {
     required bool includeUnassigned,
