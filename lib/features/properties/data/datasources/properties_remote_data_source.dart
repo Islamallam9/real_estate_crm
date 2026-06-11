@@ -228,19 +228,47 @@ class FirestorePropertiesRemoteDataSource
     required String companyId,
     int limit = 30,
   }) {
-    return _propertiesCollection(companyId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-      final properties = snapshot.docs.map((document) {
-        final property = PropertyModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, property: property);
-        return property;
-      }).toList();
+    final collection = _propertiesCollection(companyId);
+    final unorderedQuery = collection.limit(limit);
+    final orderedQuery = collection.orderBy('createdAt', descending: true).limit(limit);
 
-      return properties;
-    });
+    return (() async* {
+      try {
+        await for (final snapshot in orderedQuery.snapshots()) {
+          yield _propertiesFromSnapshot(
+            companyId: companyId,
+            snapshot: snapshot,
+            label: 'watchProperties.ordered',
+          );
+        }
+      } on FirebaseException catch (error) {
+        _debugPropertyStreamError(label: 'watchProperties.ordered', error: error);
+        if (error.code != 'failed-precondition') {
+          throw PropertyException(_mapFirebaseError(error));
+        }
+        print(
+          'MasarPropertiesRemoteDebug watchProperties fallback unordered '
+          'company=$companyId limit=$limit reason=${error.code} '
+          'indexLink=${_firebaseIndexLink(error) ?? ''}',
+        );
+        await for (final snapshot in unorderedQuery.snapshots()) {
+          yield _propertiesFromSnapshot(
+            companyId: companyId,
+            snapshot: snapshot,
+            label: 'watchProperties.unorderedFallback',
+          );
+        }
+      } on PropertyException catch (error) {
+        _debugPropertyStreamError(
+          label: 'watchProperties.propertyException',
+          error: error,
+        );
+        throw error;
+      } catch (error) {
+        _debugPropertyStreamError(label: 'watchProperties.unknown', error: error);
+        throw const PropertyException(AppErrorMessages.unknown);
+      }
+    })();
   }
 
   CollectionReference<Map<String, dynamic>> _propertiesCollection(
@@ -248,6 +276,41 @@ class FirestorePropertiesRemoteDataSource
       ) {
     return _firestore.collection(FirebasePaths.companyProperties(companyId));
   }
+
+  List<PropertyModel> _propertiesFromSnapshot({
+    required String companyId,
+    required QuerySnapshot<Map<String, dynamic>> snapshot,
+    required String label,
+  }) {
+    final properties = <PropertyModel>[];
+    final skippedDocumentIds = <String>[];
+    for (final document in snapshot.docs) {
+      try {
+        final property = PropertyModel.fromFirestore(document);
+        _ensureSameCompany(companyId: companyId, property: property);
+        properties.add(property);
+      } catch (error, stackTrace) {
+        skippedDocumentIds.add(document.id);
+        _debugPropertyDocumentError(
+          label: label,
+          companyId: companyId,
+          document: document,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    if (skippedDocumentIds.isNotEmpty) {
+      print(
+        'MasarPropertiesRemoteDebug $label skipped corrupt docs '
+        'company=$companyId count=${skippedDocumentIds.length} '
+        'ids=${skippedDocumentIds.join(',')}',
+      );
+    }
+    properties.sort(_comparePropertiesByCreatedAtDesc);
+    return properties;
+  }
+
 
   Future<List<_UploadedPropertyImage>> _uploadImages({
     required String companyId,
@@ -320,6 +383,92 @@ class FirestorePropertiesRemoteDataSource
       }
     }
   }
+}
+
+
+int _comparePropertiesByCreatedAtDesc(PropertyModel a, PropertyModel b) {
+  final createdComparison = b.createdAt.compareTo(a.createdAt);
+  if (createdComparison != 0) {
+    return createdComparison;
+  }
+  return b.id.compareTo(a.id);
+}
+
+void _debugPropertyDocumentError({
+  required String label,
+  required String companyId,
+  required DocumentSnapshot<Map<String, dynamic>> document,
+  required Object error,
+  required StackTrace stackTrace,
+}) {
+  final data = document.data() ?? const <String, dynamic>{};
+  print(
+    'MasarPropertiesRemoteDebug $label '
+    'company=$companyId doc=${document.id} path=${document.reference.path} '
+    'errorType=${error.runtimeType} error=$error '
+    'fields=${_debugPropertyFieldShapes(data)}',
+  );
+  print('MasarPropertiesRemoteDebug $label stack=$stackTrace');
+}
+
+void _debugPropertyStreamError({
+  required String label,
+  required Object error,
+}) {
+  if (error is FirebaseException) {
+    final indexLink = _firebaseIndexLink(error);
+    print(
+      'MasarPropertiesRemoteDebug $label firebase '
+      'code=${error.code} indexLink=${indexLink ?? ''} '
+      'message=${error.message}',
+    );
+    if (indexLink != null && indexLink.isNotEmpty) {
+      print('MasarFirebaseIndexDebug $label missingIndexLink=$indexLink');
+    }
+    return;
+  }
+  print(
+    'MasarPropertiesRemoteDebug $label '
+    'errorType=${error.runtimeType} error=$error',
+  );
+}
+
+String? _firebaseIndexLink(FirebaseException error) {
+  final message = error.message;
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  final match = RegExp(r'https://console\.firebase\.google\.com/\S+')
+      .firstMatch(message);
+  final rawLink = match?.group(0);
+  if (rawLink == null || rawLink.isEmpty) {
+    return null;
+  }
+  var link = rawLink;
+  while (link.endsWith('.') || link.endsWith(',') || link.endsWith(')')) {
+    link = link.substring(0, link.length - 1);
+  }
+  return link;
+}
+
+String _debugPropertyFieldShapes(Map<String, dynamic> data) {
+  const fields = <String>[
+    'id',
+    'companyId',
+    'title',
+    'propertyType',
+    'listingType',
+    'price',
+    'area',
+    'status',
+    'assignedTo',
+    'createdAt',
+    'updatedAt',
+    'isArchived',
+  ];
+  return fields
+      .map((field) => '$field:${data[field].runtimeType}')
+      .join('|');
 }
 
 class _UploadedPropertyImage {

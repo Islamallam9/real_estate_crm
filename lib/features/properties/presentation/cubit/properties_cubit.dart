@@ -96,7 +96,15 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     final pageLimit = usePagination
         ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
         : state.pageLimit;
+    final queryLimit = usePagination ? pageLimit : _dashboardWatchLimit;
     final isLoadingMore = state.properties.isNotEmpty && pageLimit > state.pageLimit;
+    print(
+      'MasarPropertiesCubitDebug watchProperties start '
+      'company=$companyId usePagination=$usePagination resetPage=$resetPage '
+      'pageLimit=$pageLimit queryLimit=$queryLimit '
+      'hasLocalFilters=${state.hasLocalFilters} currentRows=${state.properties.length} '
+      'kpi=${state.kpiCounts}',
+    );
     emit(
       state.copyWith(
         status: isLoadingMore ? PropertiesStatus.loadingMore : PropertiesStatus.loading,
@@ -121,12 +129,16 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     });
     _propertiesSubscription = _watchPropertiesUseCase(
       companyId: companyId,
-      limit: usePagination ? pageLimit : _dashboardWatchLimit,
+      limit: queryLimit,
     ).listen(
           (properties) {
         if (isClosed) {
           return;
         }
+        print(
+          'MasarPropertiesCubitDebug watchProperties data '
+          'company=$companyId count=${properties.length} queryLimit=$queryLimit',
+        );
         _propertiesInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -150,7 +162,28 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         if (isClosed) {
           return;
         }
+        print(
+          'MasarPropertiesCubitDebug watchProperties error '
+          'company=$companyId queryLimit=$queryLimit '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _propertiesInitialLoadTimeout.complete();
+        if (state.properties.isNotEmpty) {
+          print(
+            'MasarPropertiesCubitDebug non-blocking watch failure suppressed '
+            'company=$companyId rows=${state.properties.length} error=$error',
+          );
+          emit(
+            state.copyWith(
+              status: PropertiesStatus.loaded,
+              message: _propertyErrorMessage(
+                error,
+                AppErrorMessages.connectionTimeout,
+              ),
+            ),
+          );
+          return;
+        }
         emit(
           state.copyWith(
             status: PropertiesStatus.failure,
@@ -170,10 +203,21 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     if (companyId == null || companyId.trim().isEmpty) {
       return;
     }
-    final counts = await _countsDataSource.propertyCounts(companyId: companyId);
-    if (!isClosed && _watchedCompanyId == companyId) {
-      emit(state.copyWith(kpiCounts: counts));
-      _debugCheckKpiInvariant();
+    try {
+      final counts = await _countsDataSource.propertyCounts(companyId: companyId);
+      if (!isClosed && _watchedCompanyId == companyId) {
+        print(
+          'MasarPropertiesCubitDebug kpi success '
+          'company=$companyId kpi=$counts',
+        );
+        emit(state.copyWith(kpiCounts: counts));
+        _debugCheckKpiInvariant();
+      }
+    } catch (error) {
+      print(
+        'MasarPropertiesCubitDebug kpi error '
+        'company=$companyId errorType=${error.runtimeType} error=$error',
+      );
     }
   }
 
@@ -267,6 +311,11 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         if (isClosed) {
           return;
         }
+        print(
+          'MasarPropertiesCubitDebug watchProperty error '
+          'company=$companyId propertyId=$propertyId '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _propertiesInitialLoadTimeout.complete();
         emit(
           state.copyWith(

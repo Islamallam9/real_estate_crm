@@ -82,26 +82,31 @@ class PropertyModel extends Property {
     }
 
     return PropertyModel(
-      id: data['id'] as String? ?? document.id,
-      companyId: data['companyId'] as String? ?? '',
-      title: data['title'] as String? ?? '',
-      description: data['description'] as String? ?? '',
+      id: _stringFromValue(data['id'], fallback: document.id),
+      companyId: _companyIdFromDataOrPath(
+        data['companyId'],
+        document.reference.path,
+      ),
+      title: _stringFromValue(data['title']),
+      description: _stringFromValue(data['description']),
       propertyType: propertyTypeFromValue(
-        data['propertyType'] as String? ?? 'apartment',
+        _stringFromValue(data['propertyType'], fallback: 'apartment'),
       ),
       listingType: propertyListingTypeFromValue(
-        data['listingType'] as String? ?? 'sale',
+        _stringFromValue(data['listingType'], fallback: 'sale'),
       ),
-      price: data['price'] as num? ?? 0,
-      area: data['area'] as num? ?? 0,
+      price: _numFromValue(data['price']),
+      area: _numFromValue(data['area']),
       bedrooms: _intFromValue(data['bedrooms']),
       bathrooms: _intFromValue(data['bathrooms']),
-      location: data['location'] as String? ?? '',
-      compound: data['compound'] as String? ?? '',
-      status: propertyStatusFromValue(data['status'] as String? ?? 'available'),
-      ownerName: data['ownerName'] as String? ?? '',
-      ownerPhone: data['ownerPhone'] as String? ?? '',
-      assignedTo: data['assignedTo'] as String? ?? '',
+      location: _stringFromValue(data['location']),
+      compound: _stringFromValue(data['compound']),
+      status: propertyStatusFromValue(
+        _stringFromValue(data['status'], fallback: 'available'),
+      ),
+      ownerName: _stringFromValue(data['ownerName']),
+      ownerPhone: _stringFromValue(data['ownerPhone']),
+      assignedTo: _stringFromValue(data['assignedTo']),
       imageUrls: _stringListFromValue(data['imageUrls']),
       coverImageUrl: _coverImageUrlFromValue(
         data['coverImageUrl'],
@@ -110,16 +115,16 @@ class PropertyModel extends Property {
       imageStoragePaths: _stringListFromValue(data['imageStoragePaths']),
       createdAt: _dateTimeFromValue(data['createdAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
-      createdBy: data['createdBy'] as String? ?? '',
-      updatedBy: data['updatedBy'] as String? ?? '',
-      isArchived: data['isArchived'] as bool? ?? false,
+      createdBy: _stringFromValue(data['createdBy']),
+      updatedBy: _stringFromValue(data['updatedBy']),
+      isArchived: _boolFromValue(data['isArchived']),
       archivedAt: _nullableDateTimeFromValue(data['archivedAt']),
-      archivedBy: data['archivedBy'] as String? ?? '',
-      archivedByName: data['archivedByName'] as String? ?? '',
-      archiveReason: data['archiveReason'] as String? ?? '',
+      archivedBy: _stringFromValue(data['archivedBy']),
+      archivedByName: _stringFromValue(data['archivedByName']),
+      archiveReason: _stringFromValue(data['archiveReason']),
       restoredAt: _nullableDateTimeFromValue(data['restoredAt']),
-      restoredBy: data['restoredBy'] as String? ?? '',
-      restoredByName: data['restoredByName'] as String? ?? '',
+      restoredBy: _stringFromValue(data['restoredBy']),
+      restoredByName: _stringFromValue(data['restoredByName']),
     );
   }
 
@@ -254,6 +259,59 @@ String propertyStatusToValue(PropertyStatus status) {
     case PropertyStatus.inactive:
       return 'inactive';
   }
+}
+
+String _stringFromValue(Object? value, {String fallback = ''}) {
+  if (value is String) {
+    return value.trim();
+  }
+
+  return fallback;
+}
+
+String _companyIdFromDataOrPath(Object? value, String path) {
+  final companyId = _stringFromValue(value);
+  if (companyId.isNotEmpty) {
+    return companyId;
+  }
+
+  final segments = path.split('/');
+  final companySegmentIndex = segments.indexOf('companies');
+  if (companySegmentIndex >= 0 && companySegmentIndex + 1 < segments.length) {
+    return segments[companySegmentIndex + 1];
+  }
+
+  return '';
+}
+
+num _numFromValue(Object? value) {
+  if (value is num) {
+    return value;
+  }
+
+  if (value is String) {
+    return num.tryParse(value.trim()) ?? 0;
+  }
+
+  return 0;
+}
+
+bool _boolFromValue(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true') {
+      return true;
+    }
+    if (normalized == 'false') {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 DateTime _dateTimeFromValue(Object? value) {
