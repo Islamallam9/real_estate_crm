@@ -123,6 +123,22 @@ class FirestoreModuleKpiCountsDataSource {
     final scopedFallback = !_isBlank(assignedTo) ||
         !_isBlank(managerId) ||
         !_isBlank(teamId);
+    final values = <String, int>{};
+    final failedKeys = <String>{};
+
+    final countQueryCounts = await _safeLeadCountQueryCounts(
+      base,
+      activeStatuses: activeStatuses,
+      today: startToday,
+      tomorrow: startTomorrow,
+      includeUnassigned: _isBlank(assignedTo),
+      diagnostics: diagnostics,
+    );
+    if (countQueryCounts != null) {
+      values.addAll(countQueryCounts);
+      return ModuleKpiCounts(values, failedKeys: failedKeys);
+    }
+
     if (scopedFallback) {
       final snapshotCounts = await _safeLeadSnapshotCounts(
         base,
@@ -132,8 +148,6 @@ class FirestoreModuleKpiCountsDataSource {
         includeUnassigned: _isBlank(assignedTo),
         diagnostics: diagnostics,
       );
-      final values = <String, int>{};
-      final failedKeys = <String>{};
       if (snapshotCounts == null) {
         values.addAll(const <String, int>{
           'total': 0,
@@ -182,8 +196,6 @@ class FirestoreModuleKpiCountsDataSource {
       ),
       unassignedFuture,
     ]);
-    final values = <String, int>{};
-    final failedKeys = <String>{};
     _putCount(values, failedKeys, 'total', results[0]);
     _putCount(values, failedKeys, 'new', results[1]);
     _putCount(values, failedKeys, 'active', results[2]);
@@ -771,6 +783,80 @@ class FirestoreModuleKpiCountsDataSource {
       return null;
     }
     return results.fold<int>(0, (sum, value) => sum + (value ?? 0));
+  }
+
+  Future<Map<String, int>?> _safeLeadCountQueryCounts(
+    Query<Map<String, dynamic>> base, {
+    required Iterable<String> activeStatuses,
+    required DateTime today,
+    required DateTime tomorrow,
+    required bool includeUnassigned,
+    _CountDiagnostics? diagnostics,
+  }) async {
+    final cleanStatuses = activeStatuses
+        .map((status) => status.trim())
+        .where((status) => status.isNotEmpty)
+        .toList(growable: false);
+    if (cleanStatuses.isEmpty || cleanStatuses.length > 10) {
+      return null;
+    }
+
+    final activeBase = base.where('status', whereIn: cleanStatuses);
+    final unassignedFuture = includeUnassigned
+        ? _safeBlankOrNullStringCount(
+            base,
+            field: 'assignedTo',
+            label: 'leads.unassigned.countQuery',
+            diagnostics: diagnostics,
+          )
+        : Future<int?>.value(0);
+    final results = await Future.wait<int?>([
+      _safeCount(
+        base,
+        label: 'leads.total.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        base.where('status', isEqualTo: 'new'),
+        label: 'leads.new.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        activeBase,
+        label: 'leads.active.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        _rangeQuery(
+          activeBase,
+          'nextFollowUpAt',
+          isLessThan: Timestamp.fromDate(today),
+        ),
+        label: 'leads.overdue.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        _rangeQuery(
+          activeBase,
+          'nextFollowUpAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(tomorrow),
+        ),
+        label: 'leads.upcoming.countQuery',
+        diagnostics: diagnostics,
+      ),
+      unassignedFuture,
+    ]);
+    if (results.any((value) => value == null)) {
+      return null;
+    }
+    return <String, int>{
+      'total': results[0] ?? 0,
+      'new': results[1] ?? 0,
+      'active': results[2] ?? 0,
+      'overdue': results[3] ?? 0,
+      'upcoming': results[4] ?? 0,
+      'unassigned': results[5] ?? 0,
+    };
   }
 
   Future<Map<String, int>?> _safeLeadSnapshotCounts(
