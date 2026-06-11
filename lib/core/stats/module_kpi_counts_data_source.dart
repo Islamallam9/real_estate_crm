@@ -224,6 +224,16 @@ class FirestoreModuleKpiCountsDataSource {
     final values = <String, int>{};
     final failedKeys = <String>{};
 
+    final countQueryCounts = await _safeTaskCountQueryCounts(
+      base,
+      today: today,
+      diagnostics: diagnostics,
+    );
+    if (countQueryCounts != null) {
+      values.addAll(countQueryCounts);
+      return ModuleKpiCounts(values, failedKeys: failedKeys);
+    }
+
     if (scopedFallback) {
       final snapshotCounts = await _safeTaskSnapshotCounts(
         base,
@@ -1152,6 +1162,70 @@ class FirestoreModuleKpiCountsDataSource {
       return false;
     }
     return true;
+  }
+
+  Future<Map<String, int>?> _safeTaskCountQueryCounts(
+    Query<Map<String, dynamic>> base, {
+    required DateTime today,
+    _CountDiagnostics? diagnostics,
+  }) async {
+    final tomorrow = today.add(const Duration(days: 1));
+    final openBase = base.where(
+      'status',
+      whereIn: const <String>['pending', 'inProgress'],
+    );
+    final results = await Future.wait<int?>([
+      _safeCount(base, label: 'tasks.total', diagnostics: diagnostics),
+      _safeCount(
+        _rangeQuery(
+          openBase,
+          'dueDate',
+          isLessThan: Timestamp.fromDate(today),
+        ),
+        label: 'tasks.overdue.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        _rangeQuery(
+          openBase,
+          'dueDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(today),
+          isLessThan: Timestamp.fromDate(tomorrow),
+        ),
+        label: 'tasks.today.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        _rangeQuery(
+          openBase,
+          'dueDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(tomorrow),
+        ),
+        label: 'tasks.upcoming.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        base.where('status', isEqualTo: 'completed'),
+        label: 'tasks.completed.countQuery',
+        diagnostics: diagnostics,
+      ),
+      _safeCount(
+        base.where('status', isEqualTo: 'cancelled'),
+        label: 'tasks.cancelled.countQuery',
+        diagnostics: diagnostics,
+      ),
+    ]);
+    if (results.any((value) => value == null)) {
+      return null;
+    }
+    return <String, int>{
+      'total': results[0] ?? 0,
+      'overdue': results[1] ?? 0,
+      'today': results[2] ?? 0,
+      'upcoming': results[3] ?? 0,
+      'completed': results[4] ?? 0,
+      'cancelled': results[5] ?? 0,
+    };
   }
 
   Future<Map<String, int>?> _safeTaskSnapshotCounts(
