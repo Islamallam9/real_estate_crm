@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -7,6 +8,20 @@ import '../../domain/entities/appointment.dart';
 import '../../domain/entities/appointment_related_record_option.dart';
 import '../../domain/errors/appointment_exception.dart';
 import '../models/appointment_model.dart';
+
+void _masarAppointmentsRemoteDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarAppointmentsRemoteDebug $message');
+}
+
+void _masarFirebaseIndexDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarFirebaseIndexDebug $message');
+}
 
 abstract interface class AppointmentsRemoteDataSource {
   Stream<List<AppointmentModel>> watchAppointments({
@@ -61,30 +76,69 @@ class FirebaseAppointmentsRemoteDataSource
     DateTime? rangeEnd,
     int limit = 80,
   }) {
-    Query<Map<String, dynamic>> query = _appointmentsCollection(companyId);
-    query = _applyScope(
-      query,
+    Query<Map<String, dynamic>> scopedQuery = _appointmentsCollection(companyId);
+    scopedQuery = _applyScope(
+      scopedQuery,
       assignedTo: assignedTo,
       managerId: managerId,
       teamId: teamId,
     );
-    query = _applyScheduledRange(
-      query,
+    final rangedQuery = _applyScheduledRange(
+      scopedQuery,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
     );
+    final fallbackQuery = scopedQuery.limit(limit);
 
-    return query.limit(limit).snapshots().map((snapshot) {
-      final appointments = snapshot.docs.map((document) {
-        final appointment = AppointmentModel.fromFirestore(document);
-        _ensureSameCompany(companyId: companyId, appointment: appointment);
-        return appointment;
-      }).toList()
-        ..sort(_compareAppointments);
-      return appointments;
-    }).handleError((Object error) {
-      throw AppointmentException(_mapError(error));
-    });
+    return (() async* {
+      try {
+        await for (final snapshot in rangedQuery.limit(limit).snapshots()) {
+          yield _appointmentsFromSnapshot(
+            companyId: companyId,
+            snapshot: snapshot,
+            label: 'watchAppointments.ranged',
+          );
+        }
+      } on FirebaseException catch (error) {
+        _debugAppointmentStreamError(
+          label: 'watchAppointments.ranged',
+          error: error,
+        );
+        if (error.code != 'failed-precondition') {
+          throw AppointmentException(_mapFirestoreError(error));
+        }
+        _masarAppointmentsRemoteDebug(
+          'watchAppointments fallback unordered company=$companyId '
+          'assignedTo=${assignedTo ?? ''} managerId=${managerId ?? ''} '
+          'teamId=${teamId ?? ''} limit=$limit rangeStart=$rangeStart '
+          'rangeEnd=$rangeEnd reason=${error.code} '
+          'indexLink=${_firebaseIndexLink(error) ?? ''}',
+        );
+        await for (final snapshot in fallbackQuery.snapshots()) {
+          yield _filterAppointmentRange(
+            _appointmentsFromSnapshot(
+              companyId: companyId,
+              snapshot: snapshot,
+              label: 'watchAppointments.unorderedFallback',
+            ),
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+          );
+        }
+      } on AppointmentException catch (error) {
+        _debugAppointmentStreamError(
+          label: 'watchAppointments.appointmentException',
+          error: error,
+        );
+        throw error;
+      } catch (error) {
+        _debugAppointmentStreamError(
+          label: 'watchAppointments.unknown',
+          error: error,
+        );
+        throw const AppointmentException(AppErrorMessages.unknown);
+      }
+    })();
   }
 
   @override
@@ -97,11 +151,23 @@ class FirebaseAppointmentsRemoteDataSource
         if (!snapshot.exists) {
           return null;
         }
-        final appointment = AppointmentModel.fromFirestore(snapshot);
-        _ensureSameCompany(companyId: companyId, appointment: appointment);
-        return appointment;
+        try {
+          final appointment = AppointmentModel.fromFirestore(snapshot);
+          _ensureSameCompany(companyId: companyId, appointment: appointment);
+          return appointment;
+        } catch (error, stackTrace) {
+          _debugAppointmentDocumentError(
+            label: 'watchAppointment.map',
+            companyId: companyId,
+            document: snapshot,
+            error: error,
+            stackTrace: stackTrace,
+          );
+          rethrow;
+        }
       },
     ).handleError((Object error) {
+      _debugAppointmentStreamError(label: 'watchAppointment.stream', error: error);
       throw AppointmentException(_mapError(error));
     });
   }
@@ -389,6 +455,188 @@ class FirebaseAppointmentsRemoteDataSource
   ) {
     return _firestore.collection(FirebasePaths.companyAppointments(companyId));
   }
+}
+
+List<AppointmentModel> _appointmentsFromSnapshot({
+  required String companyId,
+  required QuerySnapshot<Map<String, dynamic>> snapshot,
+  required String label,
+}) {
+  final appointments = <AppointmentModel>[];
+  final skippedDocumentIds = <String>[];
+  for (final document in snapshot.docs) {
+    try {
+      final appointment = AppointmentModel.fromFirestore(document);
+      _ensureSameCompany(companyId: companyId, appointment: appointment);
+      appointments.add(appointment);
+    } on AppointmentException catch (error, stackTrace) {
+      _debugAppointmentDocumentError(
+        label: '$label.companyGuard',
+        companyId: companyId,
+        document: document,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    } catch (error, stackTrace) {
+      skippedDocumentIds.add(document.id);
+      _debugAppointmentDocumentError(
+        label: '$label.documentSkipped',
+        companyId: companyId,
+        document: document,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+  if (skippedDocumentIds.isNotEmpty) {
+    _masarAppointmentsRemoteDebug(
+      '$label skipped corrupt docs company=$companyId '
+      'count=${skippedDocumentIds.length} ids=${skippedDocumentIds.join(',')}',
+    );
+  }
+  appointments.sort(_compareAppointments);
+  return appointments;
+}
+
+List<AppointmentModel> _filterAppointmentRange(
+  List<AppointmentModel> appointments, {
+  required DateTime? rangeStart,
+  required DateTime? rangeEnd,
+}) {
+  if (rangeStart == null && rangeEnd == null) {
+    return appointments;
+  }
+  final start = rangeStart?.toUtc();
+  final end = rangeEnd?.toUtc();
+  final filtered = appointments.where((appointment) {
+    final scheduledAt = appointment.scheduledAt?.toUtc();
+    if (scheduledAt == null) {
+      return false;
+    }
+    if (start != null && scheduledAt.isBefore(start)) {
+      return false;
+    }
+    if (end != null && !scheduledAt.isBefore(end)) {
+      return false;
+    }
+    return true;
+  }).toList()
+    ..sort(_compareAppointments);
+  return filtered;
+}
+
+void _debugAppointmentDocumentError({
+  required String label,
+  required String companyId,
+  required DocumentSnapshot<Map<String, dynamic>> document,
+  required Object error,
+  required StackTrace stackTrace,
+}) {
+  final data = document.data() ?? const <String, dynamic>{};
+  _masarAppointmentsRemoteDebug(
+    '$label company=$companyId doc=${document.id} '
+    'path=${document.reference.path} errorType=${error.runtimeType} '
+    'error=$error fields=${_debugAppointmentFieldShapes(data)}',
+  );
+  _masarAppointmentsRemoteDebug('$label stack=$stackTrace');
+}
+
+void _debugAppointmentStreamError({
+  required String label,
+  required Object error,
+}) {
+  if (error is FirebaseException) {
+    final indexLink = _firebaseIndexLink(error);
+    _masarAppointmentsRemoteDebug(
+      '$label firebase code=${error.code} indexLink=${indexLink ?? ''} '
+      'message=${error.message}',
+    );
+    if (indexLink != null && indexLink.isNotEmpty) {
+      _masarFirebaseIndexDebug('$label missingIndexLink=$indexLink');
+    }
+    return;
+  }
+  _masarAppointmentsRemoteDebug(
+    '$label errorType=${error.runtimeType} error=$error',
+  );
+}
+
+String? _firebaseIndexLink(FirebaseException error) {
+  final message = error.message;
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  final match = RegExp(r'https://console\.firebase\.google\.com/\S+').firstMatch(message);
+  if (match == null) {
+    return null;
+  }
+  final rawLink = match.group(0);
+  if (rawLink == null || rawLink.isEmpty) {
+    return null;
+  }
+  var link = rawLink;
+  while (link.endsWith('.') || link.endsWith(',') || link.endsWith(')')) {
+    link = link.substring(0, link.length - 1);
+  }
+  return link;
+}
+
+String _debugAppointmentFieldShapes(Map<String, dynamic> data) {
+  const fields = <String>[
+    'id',
+    'companyId',
+    'title',
+    'type',
+    'status',
+    'scheduledAt',
+    'endAt',
+    'durationMinutes',
+    'assignedTo',
+    'assignedToName',
+    'assignedToEmail',
+    'teamId',
+    'teamName',
+    'managerId',
+    'managerName',
+    'relatedType',
+    'relatedId',
+    'relatedTitle',
+    'relatedSubtitle',
+    'location',
+    'notes',
+    'outcome',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+  ];
+  return fields
+      .where(data.containsKey)
+      .map((field) => '$field=${_debugValueShape(data[field])}')
+      .join(';');
+}
+
+String _debugValueShape(Object? value) {
+  if (value == null) {
+    return 'null';
+  }
+  if (value is String) {
+    return 'String(len=${value.length},empty=${value.trim().isEmpty})';
+  }
+  if (value is Timestamp) {
+    return 'Timestamp';
+  }
+  if (value is DateTime) {
+    return 'DateTime';
+  }
+  if (value is num) {
+    return value.runtimeType.toString();
+  }
+  if (value is bool) {
+    return 'bool';
+  }
+  return value.runtimeType.toString();
 }
 
 void _ensureSameCompany({

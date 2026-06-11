@@ -182,6 +182,20 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           'errorType=${error.runtimeType} error=$error',
         );
         _appointmentsInitialLoadTimeout.complete();
+        if (state.appointments.isNotEmpty) {
+          _masarAppointmentsCubitDebug(
+            'watchAppointments nonBlockingErrorSuppressed '
+            'company=$companyId rows=${state.appointments.length} '
+            'message=${_errorMessage(error)}',
+          );
+          emit(
+            state.copyWith(
+              status: AppointmentsStatus.loaded,
+              clearMessage: true,
+            ),
+          );
+          return;
+        }
         emit(
           state.copyWith(
             status: AppointmentsStatus.failure,
