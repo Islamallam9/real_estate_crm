@@ -56,6 +56,10 @@ class TasksCubit extends Cubit<TasksState> {
   String? _watchedAssignedTo;
   String? _watchedManagerId;
   String? _watchedTeamId;
+  String? _activeTasksWatchKey;
+  DateTime? _activeTasksWatchStartedAt;
+  int? _activeTasksWatchQueryLimit;
+  int _tasksWatchGeneration = 0;
   Future<void>? _inFlightKpiRefresh;
   String? _inFlightKpiRefreshKey;
   String? _lastSuccessfulKpiRefreshKey;
@@ -63,6 +67,8 @@ class TasksCubit extends Cubit<TasksState> {
   int _kpiRefreshSerial = 0;
   bool _isClosing = false;
   static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
+  static const Duration _duplicateWatchStartDebounce =
       Duration(milliseconds: 1500);
   static const int _defaultPageLimit = 15;
   static const int _pageIncrement = 15;
@@ -100,13 +106,46 @@ class TasksCubit extends Cubit<TasksState> {
     final queryLimit = usePagination
         ? (hasLocalFilters ? _filterScanLimit : pageLimit)
         : _dashboardWatchLimit;
+    final watchKey = _tasksWatchKey(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      effectiveAssignedTo: effectiveAssignedTo,
+      managerId: managerId,
+      teamId: teamId,
+      pageLimit: pageLimit,
+      queryLimit: queryLimit,
+      usePagination: usePagination,
+    );
+    final now = DateTime.now();
+    final activeStartedAt = _activeTasksWatchStartedAt;
+    final isRecentDuplicate = _activeTasksWatchKey == watchKey &&
+        activeStartedAt != null &&
+        now.difference(activeStartedAt) < _duplicateWatchStartDebounce;
+    if (resetPage && _tasksSubscription != null && isRecentDuplicate) {
+      _masarTasksCubitDebug(
+        'watchTasks skipped duplicate active company=$companyId '
+        'assignedTo=$assignedTo effectiveAssignedTo=$effectiveAssignedTo '
+        'managerId=$managerId teamId=$teamId usePagination=$usePagination '
+        'resetPage=$resetPage pageLimit=$pageLimit queryLimit=$queryLimit '
+        'status=${state.status} rows=${state.tasks.length} key=$watchKey '
+        'kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
+      if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
+        unawaited(_refreshKpiCounts(reason: 'watch-duplicate-missing-kpi'));
+      }
+      return;
+    }
+    final watchGeneration = ++_tasksWatchGeneration;
+    _activeTasksWatchKey = watchKey;
+    _activeTasksWatchStartedAt = now;
+    _activeTasksWatchQueryLimit = queryLimit;
     _masarTasksCubitDebug(
-      'watchTasks start company=$companyId assignedTo=$assignedTo '
-      'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
-      'teamId=$teamId usePagination=$usePagination resetPage=$resetPage '
-      'pageLimit=$pageLimit queryLimit=$queryLimit '
+      'watchTasks start gen=$watchGeneration company=$companyId '
+      'assignedTo=$assignedTo effectiveAssignedTo=$effectiveAssignedTo '
+      'managerId=$managerId teamId=$teamId usePagination=$usePagination '
+      'resetPage=$resetPage pageLimit=$pageLimit queryLimit=$queryLimit '
       'hasLocalFilters=$hasLocalFilters currentRows=${state.tasks.length} '
-      'kpi=${_debugKpiCounts(state.kpiCounts)}',
+      'key=$watchKey kpi=${_debugKpiCounts(state.kpiCounts)}',
     );
     emit(
       state.copyWith(
@@ -153,10 +192,20 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _tasksWatchGeneration ||
+            _activeTasksWatchKey != watchKey) {
+          _masarTasksCubitDebug(
+            'watchTasks data ignored stale gen=$watchGeneration '
+            'latestGen=$_tasksWatchGeneration company=$companyId '
+            'count=${tasks.length} key=$watchKey activeKey=$_activeTasksWatchKey',
+          );
+          return;
+        }
         _masarTasksCubitDebug(
-          'watchTasks data company=$companyId count=${tasks.length} '
-          'assignedTo=$assignedTo effectiveAssignedTo=$effectiveAssignedTo '
-          'managerId=$managerId teamId=$teamId queryLimit=$queryLimit',
+          'watchTasks data gen=$watchGeneration company=$companyId '
+          'count=${tasks.length} assignedTo=$assignedTo '
+          'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
+          'teamId=$teamId queryLimit=$queryLimit key=$watchKey',
         );
         _tasksInitialLoadTimeout.complete();
         emit(
@@ -175,11 +224,21 @@ class TasksCubit extends Cubit<TasksState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _tasksWatchGeneration ||
+            _activeTasksWatchKey != watchKey) {
+          _masarTasksCubitDebug(
+            'watchTasks error ignored stale gen=$watchGeneration '
+            'latestGen=$_tasksWatchGeneration company=$companyId key=$watchKey '
+            'activeKey=$_activeTasksWatchKey errorType=${error.runtimeType} '
+            'error=$error',
+          );
+          return;
+        }
         _masarTasksCubitDebug(
-          'watchTasks error company=$companyId assignedTo=$assignedTo '
-          'effectiveAssignedTo=$effectiveAssignedTo managerId=$managerId '
-          'teamId=$teamId queryLimit=$queryLimit '
-          'errorType=${error.runtimeType} error=$error',
+          'watchTasks error gen=$watchGeneration company=$companyId '
+          'assignedTo=$assignedTo effectiveAssignedTo=$effectiveAssignedTo '
+          'managerId=$managerId teamId=$teamId queryLimit=$queryLimit '
+          'key=$watchKey errorType=${error.runtimeType} error=$error',
         );
         _tasksInitialLoadTimeout.complete();
         emit(
@@ -274,10 +333,12 @@ class TasksCubit extends Cubit<TasksState> {
         managerId: managerId,
         teamId: teamId,
       );
-      if (!_isClosing &&
+      final currentKey = _currentKpiScopeKey();
+      final shouldApply = !_isClosing &&
           !isClosed &&
           _kpiRefreshSerial == refreshSerial &&
-          _currentKpiScopeKey() == scopeKey) {
+          currentKey == scopeKey;
+      if (shouldApply) {
         _lastSuccessfulKpiRefreshKey = scopeKey;
         _lastSuccessfulKpiRefreshAt = DateTime.now();
         _masarTasksCubitDebug(
@@ -288,10 +349,18 @@ class TasksCubit extends Cubit<TasksState> {
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
       } else {
+        final discardReason = _isClosing || isClosed
+            ? 'cubitClosed'
+            : _kpiRefreshSerial != refreshSerial
+                ? 'serialChanged'
+                : currentKey != scopeKey
+                    ? 'scopeChanged'
+                    : 'unknown';
         _masarTasksCubitDebug(
-          'kpi discarded stale reason=$reason company=$companyId key=$scopeKey '
-          'serial=$refreshSerial latestSerial=$_kpiRefreshSerial '
-          'currentKey=${_currentKpiScopeKey()}',
+          'kpi discarded stale reason=$reason discardReason=$discardReason '
+          'company=$companyId key=$scopeKey serial=$refreshSerial '
+          'latestSerial=$_kpiRefreshSerial currentKey=$currentKey '
+          'isClosing=$_isClosing isClosed=$isClosed',
         );
       }
     } catch (error) {
@@ -300,10 +369,11 @@ class TasksCubit extends Cubit<TasksState> {
         'managerId=$managerId teamId=$teamId '
         'errorType=${error.runtimeType} error=$error',
       );
+      final currentKey = _currentKpiScopeKey();
       if (!_isClosing &&
           !isClosed &&
           _kpiRefreshSerial == refreshSerial &&
-          _currentKpiScopeKey() == scopeKey) {
+          currentKey == scopeKey) {
         emit(
           state.copyWith(
             kpiCounts: ModuleKpiCounts(
@@ -340,6 +410,28 @@ class TasksCubit extends Cubit<TasksState> {
       assignedTo?.trim() ?? '',
       managerId?.trim() ?? '',
       teamId?.trim() ?? '',
+    ].join('|');
+  }
+
+  String _tasksWatchKey({
+    required String companyId,
+    required String? assignedTo,
+    required String? effectiveAssignedTo,
+    required String? managerId,
+    required String? teamId,
+    required int pageLimit,
+    required int queryLimit,
+    required bool usePagination,
+  }) {
+    return <String>[
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      effectiveAssignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      pageLimit.toString(),
+      queryLimit.toString(),
+      usePagination.toString(),
     ].join('|');
   }
 
@@ -396,6 +488,17 @@ class TasksCubit extends Cubit<TasksState> {
     if (companyId == null || companyId.trim().isEmpty) {
       return;
     }
+    if (state.hasLocalFilters &&
+        _tasksSubscription != null &&
+        state.tasks.isNotEmpty &&
+        (_activeTasksWatchQueryLimit ?? 0) >= _filterScanLimit) {
+      _masarTasksCubitDebug(
+        'watchTasks skipped filter reload broad active company=$companyId '
+        'activeQueryLimit=$_activeTasksWatchQueryLimit rows=${state.tasks.length} '
+        'status=${state.status} activeKey=$_activeTasksWatchKey',
+      );
+      return;
+    }
     watchTasks(
       companyId: companyId,
       assignedTo: _watchedAssignedTo,
@@ -406,6 +509,10 @@ class TasksCubit extends Cubit<TasksState> {
   }
 
   void watchTask({required String companyId, required String taskId}) {
+    _activeTasksWatchKey = null;
+    _activeTasksWatchStartedAt = null;
+    _activeTasksWatchQueryLimit = null;
+    _tasksWatchGeneration++;
     emit(
       state.copyWith(
         status: TasksStatus.loading,

@@ -67,6 +67,11 @@ class DealsCubit extends Cubit<DealsState> {
   String? _watchedCurrentUserId;
   String? _watchedTeamId;
   ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+  String? _activeDealsWatchKey;
+  String? _activeDealsWatchFamilyKey;
+  DateTime? _activeDealsWatchStartedAt;
+  int? _activeDealsWatchLimit;
+  int _dealsWatchGeneration = 0;
   Future<void>? _inFlightKpiRefresh;
   String? _inFlightKpiRefreshKey;
   String? _lastSuccessfulKpiRefreshKey;
@@ -74,6 +79,8 @@ class DealsCubit extends Cubit<DealsState> {
   int _kpiRefreshSerial = 0;
   bool _isClosing = false;
   static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
+  static const Duration _duplicateWatchStartDebounce =
       Duration(milliseconds: 1500);
   static const int _defaultPageLimit = 15;
   static const int _pageIncrement = 15;
@@ -91,6 +98,11 @@ class DealsCubit extends Cubit<DealsState> {
     required String companyId,
     required String dealId,
   }) {
+    _activeDealsWatchKey = null;
+    _activeDealsWatchFamilyKey = null;
+    _activeDealsWatchStartedAt = null;
+    _activeDealsWatchLimit = null;
+    _dealsWatchGeneration++;
     emit(
       state.copyWith(
         status: DealsStatus.loading,
@@ -173,12 +185,95 @@ class DealsCubit extends Cubit<DealsState> {
         ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
         : state.pageLimit;
     final watchLimit = usePagination ? pageLimit : _dashboardWatchLimit;
+    final watchFamilyKey = _dealsWatchFamilyKey(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: teamId,
+      archiveFilter: archiveFilter,
+    );
+    final watchKey = _dealsWatchKey(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: teamId,
+      archiveFilter: archiveFilter,
+      pageLimit: pageLimit,
+      watchLimit: watchLimit,
+      usePagination: usePagination,
+    );
+    final activeWatchLimit = _activeDealsWatchLimit;
+    final hasReusableActiveWatch = resetPage &&
+        _dealsSubscription != null &&
+        _activeDealsWatchFamilyKey == watchFamilyKey &&
+        activeWatchLimit != null &&
+        activeWatchLimit >= watchLimit &&
+        state.status != DealsStatus.failure &&
+        (state.deals.isNotEmpty ||
+            state.status == DealsStatus.loaded ||
+            state.status == DealsStatus.saved ||
+            state.status == DealsStatus.empty);
+    if (hasReusableActiveWatch) {
+      _masarDealsCubitDebug(
+        'watchDeals skipped covered active company=$companyId '
+        'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
+        'archive=${archiveFilter.name} usePagination=$usePagination '
+        'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
+        'activeWatchLimit=$activeWatchLimit status=${state.status} '
+        'rows=${state.deals.length} key=$watchKey activeKey=$_activeDealsWatchKey '
+        'family=$watchFamilyKey kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
+      if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
+        unawaited(_refreshKpiCounts(reason: 'watch-covered-missing-kpi'));
+      }
+      return;
+    }
+    if (state.hasLocalFilters &&
+        usePagination &&
+        _dealsSubscription != null &&
+        state.deals.isNotEmpty &&
+        (_activeDealsWatchLimit ?? 0) >= _dashboardWatchLimit) {
+      _masarDealsCubitDebug(
+        'watchDeals skipped narrow reload while local filters active '
+        'company=$companyId role=${role.name} currentUserId=$currentUserId '
+        'teamId=$teamId archive=${archiveFilter.name} pageLimit=$pageLimit '
+        'watchLimit=$watchLimit activeWatchLimit=$_activeDealsWatchLimit '
+        'rows=${state.deals.length} status=${state.status} '
+        'activeKey=$_activeDealsWatchKey family=$watchFamilyKey',
+      );
+      return;
+    }
+    final now = DateTime.now();
+    final activeStartedAt = _activeDealsWatchStartedAt;
+    final isRecentDuplicate = _activeDealsWatchKey == watchKey &&
+        activeStartedAt != null &&
+        now.difference(activeStartedAt) < _duplicateWatchStartDebounce;
+    if (resetPage && _dealsSubscription != null && isRecentDuplicate) {
+      _masarDealsCubitDebug(
+        'watchDeals skipped duplicate active company=$companyId '
+        'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
+        'archive=${archiveFilter.name} usePagination=$usePagination '
+        'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
+        'status=${state.status} rows=${state.deals.length} key=$watchKey '
+        'family=$watchFamilyKey kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
+      if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
+        unawaited(_refreshKpiCounts(reason: 'watch-duplicate-missing-kpi'));
+      }
+      return;
+    }
+    final watchGeneration = ++_dealsWatchGeneration;
+    _activeDealsWatchKey = watchKey;
+    _activeDealsWatchFamilyKey = watchFamilyKey;
+    _activeDealsWatchStartedAt = now;
+    _activeDealsWatchLimit = watchLimit;
     _masarDealsCubitDebug(
-      'watchDeals start company=$companyId role=${role.name} '
-      'currentUserId=$currentUserId teamId=$teamId '
+      'watchDeals start gen=$watchGeneration company=$companyId '
+      'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
       'archive=${archiveFilter.name} usePagination=$usePagination '
       'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
-      'currentRows=${state.deals.length} kpi=${_debugKpiCounts(state.kpiCounts)}',
+      'currentRows=${state.deals.length} key=$watchKey '
+      'kpi=${_debugKpiCounts(state.kpiCounts)}',
     );
     emit(
       state.copyWith(
@@ -220,10 +315,20 @@ class DealsCubit extends Cubit<DealsState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _dealsWatchGeneration ||
+            _activeDealsWatchKey != watchKey) {
+          _masarDealsCubitDebug(
+            'watchDeals data ignored stale gen=$watchGeneration '
+            'latestGen=$_dealsWatchGeneration company=$companyId '
+            'count=${deals.length} key=$watchKey activeKey=$_activeDealsWatchKey',
+          );
+          return;
+        }
         _masarDealsCubitDebug(
-          'watchDeals data company=$companyId count=${deals.length} '
-          'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
-          'archive=${archiveFilter.name} watchLimit=$watchLimit',
+          'watchDeals data gen=$watchGeneration company=$companyId '
+          'count=${deals.length} role=${role.name} '
+          'currentUserId=$currentUserId teamId=$teamId '
+          'archive=${archiveFilter.name} watchLimit=$watchLimit key=$watchKey',
         );
         _dealsInitialLoadTimeout.complete();
         emit(
@@ -243,10 +348,20 @@ class DealsCubit extends Cubit<DealsState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _dealsWatchGeneration ||
+            _activeDealsWatchKey != watchKey) {
+          _masarDealsCubitDebug(
+            'watchDeals error ignored stale gen=$watchGeneration '
+            'latestGen=$_dealsWatchGeneration company=$companyId key=$watchKey '
+            'activeKey=$_activeDealsWatchKey errorType=${error.runtimeType} '
+            'error=$error',
+          );
+          return;
+        }
         _masarDealsCubitDebug(
-          'watchDeals error company=$companyId role=${role.name} '
-          'currentUserId=$currentUserId teamId=$teamId '
-          'archive=${archiveFilter.name} watchLimit=$watchLimit '
+          'watchDeals error gen=$watchGeneration company=$companyId '
+          'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
+          'archive=${archiveFilter.name} watchLimit=$watchLimit key=$watchKey '
           'errorType=${error.runtimeType} error=$error',
         );
         _dealsInitialLoadTimeout.complete();
@@ -351,10 +466,12 @@ class DealsCubit extends Cubit<DealsState> {
         teamId: teamId,
         archiveFilter: archiveFilter,
       );
-      if (!_isClosing &&
+      final currentKey = _currentKpiScopeKey();
+      final shouldApply = !_isClosing &&
           !isClosed &&
           _kpiRefreshSerial == refreshSerial &&
-          _currentKpiScopeKey() == scopeKey) {
+          currentKey == scopeKey;
+      if (shouldApply) {
         _lastSuccessfulKpiRefreshKey = scopeKey;
         _lastSuccessfulKpiRefreshAt = DateTime.now();
         _masarDealsCubitDebug(
@@ -365,10 +482,18 @@ class DealsCubit extends Cubit<DealsState> {
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
       } else {
+        final discardReason = _isClosing || isClosed
+            ? 'cubitClosed'
+            : _kpiRefreshSerial != refreshSerial
+                ? 'serialChanged'
+                : currentKey != scopeKey
+                    ? 'scopeChanged'
+                    : 'unknown';
         _masarDealsCubitDebug(
-          'kpi discarded stale reason=$reason company=$companyId key=$scopeKey '
-          'serial=$refreshSerial latestSerial=$_kpiRefreshSerial '
-          'currentKey=${_currentKpiScopeKey()}',
+          'kpi discarded stale reason=$reason discardReason=$discardReason '
+          'company=$companyId key=$scopeKey serial=$refreshSerial '
+          'latestSerial=$_kpiRefreshSerial currentKey=$currentKey '
+          'isClosing=$_isClosing isClosed=$isClosed',
         );
       }
     } catch (error) {
@@ -378,10 +503,11 @@ class DealsCubit extends Cubit<DealsState> {
         'archive=${archiveFilter.name} errorType=${error.runtimeType} '
         'error=$error',
       );
+      final currentKey = _currentKpiScopeKey();
       if (!_isClosing &&
           !isClosed &&
           _kpiRefreshSerial == refreshSerial &&
-          _currentKpiScopeKey() == scopeKey) {
+          currentKey == scopeKey) {
         emit(
           state.copyWith(
             kpiCounts: ModuleKpiCounts(
@@ -427,6 +553,44 @@ class DealsCubit extends Cubit<DealsState> {
       currentUserId.trim(),
       teamId?.trim() ?? '',
       archiveFilter.name,
+    ].join('|');
+  }
+
+  String _dealsWatchFamilyKey({
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+  }) {
+    return <String>[
+      companyId.trim(),
+      role.name,
+      currentUserId.trim(),
+      teamId?.trim() ?? '',
+      archiveFilter.name,
+    ].join('|');
+  }
+
+  String _dealsWatchKey({
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+    required int pageLimit,
+    required int watchLimit,
+    required bool usePagination,
+  }) {
+    return <String>[
+      companyId.trim(),
+      role.name,
+      currentUserId.trim(),
+      teamId?.trim() ?? '',
+      archiveFilter.name,
+      pageLimit.toString(),
+      watchLimit.toString(),
+      usePagination.toString(),
     ].join('|');
   }
 
@@ -496,6 +660,18 @@ class DealsCubit extends Cubit<DealsState> {
         role == null ||
         currentUserId == null ||
         currentUserId.trim().isEmpty) {
+      return;
+    }
+    if (state.hasLocalFilters &&
+        _dealsSubscription != null &&
+        state.deals.isNotEmpty &&
+        (_activeDealsWatchLimit ?? 0) >= _dashboardWatchLimit) {
+      _masarDealsCubitDebug(
+        'watchDeals skipped filter reload broad active company=$companyId '
+        'role=${role.name} currentUserId=$currentUserId '
+        'activeWatchLimit=$_activeDealsWatchLimit rows=${state.deals.length} '
+        'status=${state.status} activeKey=$_activeDealsWatchKey',
+      );
       return;
     }
     watchDeals(

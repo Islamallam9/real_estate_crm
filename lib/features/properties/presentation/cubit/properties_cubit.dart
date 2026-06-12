@@ -45,6 +45,16 @@ class PropertiesCubit extends Cubit<PropertiesState> {
 
   StreamSubscription<dynamic>? _propertiesSubscription;
   String? _watchedCompanyId;
+  String? _activePropertiesWatchKey;
+  DateTime? _activePropertiesWatchStartedAt;
+  int? _activePropertiesWatchQueryLimit;
+  int _propertiesWatchGeneration = 0;
+  Future<void>? _inFlightKpiRefresh;
+  String? _inFlightKpiRefreshKey;
+  String? _lastSuccessfulKpiRefreshKey;
+  DateTime? _lastSuccessfulKpiRefreshAt;
+  int _kpiRefreshSerial = 0;
+  bool _isClosing = false;
   final InitialLoadTimeout _propertiesInitialLoadTimeout =
   InitialLoadTimeout();
   static const int _defaultPageLimit = 15;
@@ -57,6 +67,10 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     'rented',
   ];
   static const int _dashboardWatchLimit = 500;
+  static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
+  static const Duration _duplicateWatchStartDebounce =
+      Duration(milliseconds: 1500);
   static const Duration _defaultFirebaseTimeout = Duration(seconds: 15);
   static const Duration _imageUploadFirebaseTimeout = Duration(minutes: 4);
 
@@ -90,20 +104,47 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     bool usePagination = true,
   }) {
     _watchedCompanyId = companyId;
-    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
-    }
     final pageLimit = usePagination
         ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
         : state.pageLimit;
     final queryLimit = usePagination ? pageLimit : _dashboardWatchLimit;
+    final watchKey = _propertiesWatchKey(
+      companyId: companyId,
+      pageLimit: pageLimit,
+      queryLimit: queryLimit,
+      usePagination: usePagination,
+    );
+    final now = DateTime.now();
+    final activeStartedAt = _activePropertiesWatchStartedAt;
+    final isRecentDuplicate = _activePropertiesWatchKey == watchKey &&
+        activeStartedAt != null &&
+        now.difference(activeStartedAt) < _duplicateWatchStartDebounce;
+    if (resetPage && _propertiesSubscription != null && isRecentDuplicate) {
+      print(
+        'MasarPropertiesCubitDebug watchProperties skipped duplicate active '
+        'company=$companyId usePagination=$usePagination resetPage=$resetPage '
+        'pageLimit=$pageLimit queryLimit=$queryLimit status=${state.status} '
+        'rows=${state.properties.length} key=$watchKey kpi=${state.kpiCounts}',
+      );
+      if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
+        unawaited(_refreshKpiCounts(reason: 'watch-duplicate-missing-kpi'));
+      }
+      return;
+    }
+    final watchGeneration = ++_propertiesWatchGeneration;
+    _activePropertiesWatchKey = watchKey;
+    _activePropertiesWatchStartedAt = now;
+    _activePropertiesWatchQueryLimit = queryLimit;
+    if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
+      unawaited(_refreshKpiCounts(reason: 'watch-start'));
+    }
     final isLoadingMore = state.properties.isNotEmpty && pageLimit > state.pageLimit;
     print(
-      'MasarPropertiesCubitDebug watchProperties start '
+      'MasarPropertiesCubitDebug watchProperties start gen=$watchGeneration '
       'company=$companyId usePagination=$usePagination resetPage=$resetPage '
       'pageLimit=$pageLimit queryLimit=$queryLimit '
       'hasLocalFilters=${state.hasLocalFilters} currentRows=${state.properties.length} '
-      'kpi=${state.kpiCounts}',
+      'key=$watchKey kpi=${state.kpiCounts}',
     );
     emit(
       state.copyWith(
@@ -135,9 +176,20 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _propertiesWatchGeneration ||
+            _activePropertiesWatchKey != watchKey) {
+          print(
+            'MasarPropertiesCubitDebug watchProperties data ignored stale '
+            'gen=$watchGeneration latestGen=$_propertiesWatchGeneration '
+            'company=$companyId count=${properties.length} key=$watchKey '
+            'activeKey=$_activePropertiesWatchKey',
+          );
+          return;
+        }
         print(
-          'MasarPropertiesCubitDebug watchProperties data '
-          'company=$companyId count=${properties.length} queryLimit=$queryLimit',
+          'MasarPropertiesCubitDebug watchProperties data gen=$watchGeneration '
+          'company=$companyId count=${properties.length} queryLimit=$queryLimit '
+          'key=$watchKey',
         );
         _propertiesInitialLoadTimeout.complete();
         emit(
@@ -162,9 +214,19 @@ class PropertiesCubit extends Cubit<PropertiesState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _propertiesWatchGeneration ||
+            _activePropertiesWatchKey != watchKey) {
+          print(
+            'MasarPropertiesCubitDebug watchProperties error ignored stale '
+            'gen=$watchGeneration latestGen=$_propertiesWatchGeneration '
+            'company=$companyId key=$watchKey activeKey=$_activePropertiesWatchKey '
+            'errorType=${error.runtimeType} error=$error',
+          );
+          return;
+        }
         print(
-          'MasarPropertiesCubitDebug watchProperties error '
-          'company=$companyId queryLimit=$queryLimit '
+          'MasarPropertiesCubitDebug watchProperties error gen=$watchGeneration '
+          'company=$companyId queryLimit=$queryLimit key=$watchKey '
           'errorType=${error.runtimeType} error=$error',
         );
         _propertiesInitialLoadTimeout.complete();
@@ -198,27 +260,110 @@ class PropertiesCubit extends Cubit<PropertiesState> {
   }
 
 
-  Future<void> _refreshKpiCounts() async {
+  Future<void> _refreshKpiCounts({
+    required String reason,
+    bool force = false,
+  }) {
+    if (_isClosing || isClosed) {
+      return Future<void>.value();
+    }
     final companyId = _watchedCompanyId;
     if (companyId == null || companyId.trim().isEmpty) {
-      return;
+      return Future<void>.value();
     }
+
+    final scopeKey = companyId.trim();
+    final inFlight = _inFlightKpiRefresh;
+    if (!force && inFlight != null && _inFlightKpiRefreshKey == scopeKey) {
+      print(
+        'MasarPropertiesCubitDebug kpi skipped duplicate inFlight '
+        'reason=$reason key=$scopeKey',
+      );
+      return inFlight;
+    }
+
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (!force &&
+        reason == 'stream-data' &&
+        _lastSuccessfulKpiRefreshKey == scopeKey &&
+        lastAt != null &&
+        DateTime.now().difference(lastAt) < _streamKpiRefreshDebounce) {
+      print(
+        'MasarPropertiesCubitDebug kpi skipped recent stream-data '
+        'key=$scopeKey',
+      );
+      return Future<void>.value();
+    }
+
+    final refreshSerial = ++_kpiRefreshSerial;
+    final refresh = _runKpiRefresh(
+      companyId: companyId,
+      scopeKey: scopeKey,
+      reason: reason,
+      refreshSerial: refreshSerial,
+    );
+    _inFlightKpiRefresh = refresh;
+    _inFlightKpiRefreshKey = scopeKey;
+    refresh.whenComplete(() {
+      if (identical(_inFlightKpiRefresh, refresh)) {
+        _inFlightKpiRefresh = null;
+        _inFlightKpiRefreshKey = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _runKpiRefresh({
+    required String companyId,
+    required String scopeKey,
+    required String reason,
+    required int refreshSerial,
+  }) async {
     try {
+      print(
+        'MasarPropertiesCubitDebug kpi start reason=$reason '
+        'company=$companyId key=$scopeKey',
+      );
       final counts = await _countsDataSource.propertyCounts(companyId: companyId);
-      if (!isClosed && _watchedCompanyId == companyId) {
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _watchedCompanyId == companyId) {
+        _lastSuccessfulKpiRefreshKey = scopeKey;
+        _lastSuccessfulKpiRefreshAt = DateTime.now();
         print(
-          'MasarPropertiesCubitDebug kpi success '
+          'MasarPropertiesCubitDebug kpi success reason=$reason '
           'company=$companyId kpi=$counts',
         );
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
+      } else {
+        print(
+          'MasarPropertiesCubitDebug kpi discarded stale reason=$reason '
+          'company=$companyId key=$scopeKey serial=$refreshSerial '
+          'latestSerial=$_kpiRefreshSerial currentCompany=$_watchedCompanyId',
+        );
       }
     } catch (error) {
       print(
-        'MasarPropertiesCubitDebug kpi error '
+        'MasarPropertiesCubitDebug kpi error reason=$reason '
         'company=$companyId errorType=${error.runtimeType} error=$error',
       );
     }
+  }
+
+  String _propertiesWatchKey({
+    required String companyId,
+    required int pageLimit,
+    required int queryLimit,
+    required bool usePagination,
+  }) {
+    return <String>[
+      companyId.trim(),
+      pageLimit.toString(),
+      queryLimit.toString(),
+      usePagination.toString(),
+    ].join('|');
   }
 
   void _debugCheckKpiInvariant() {
@@ -252,6 +397,18 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     if (companyId == null || companyId.trim().isEmpty) {
       return;
     }
+    if (state.hasLocalFilters &&
+        _propertiesSubscription != null &&
+        state.properties.isNotEmpty &&
+        (_activePropertiesWatchQueryLimit ?? 0) >= _dashboardWatchLimit) {
+      print(
+        'MasarPropertiesCubitDebug watchProperties skipped filter reload broad active '
+        'company=$companyId activeQueryLimit=$_activePropertiesWatchQueryLimit '
+        'rows=${state.properties.length} status=${state.status} '
+        'activeKey=$_activePropertiesWatchKey',
+      );
+      return;
+    }
     watchProperties(
       companyId: companyId,
       resetPage: true,
@@ -263,6 +420,10 @@ class PropertiesCubit extends Cubit<PropertiesState> {
     required String companyId,
     required String propertyId,
   }) {
+    _activePropertiesWatchKey = null;
+    _activePropertiesWatchStartedAt = null;
+    _activePropertiesWatchQueryLimit = null;
+    _propertiesWatchGeneration++;
     emit(
       state.copyWith(
         status: PropertiesStatus.loading,
@@ -815,6 +976,7 @@ class PropertiesCubit extends Cubit<PropertiesState> {
 
   @override
   Future<void> close() {
+    _isClosing = true;
     _propertiesInitialLoadTimeout.cancel();
     _propertiesSubscription?.cancel();
     return super.close();
