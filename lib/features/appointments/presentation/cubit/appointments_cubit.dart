@@ -56,6 +56,8 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   String? _watchedTeamId;
   DateTime? _watchedRangeStart;
   DateTime? _watchedRangeEnd;
+  String? _activeAppointmentsWatchKey;
+  int _appointmentsWatchGeneration = 0;
   Future<void>? _inFlightKpiRefresh;
   String? _inFlightKpiRefreshKey;
   String? _lastSuccessfulKpiRefreshKey;
@@ -92,24 +94,54 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     bool resetPage = true,
     bool usePagination = true,
   }) {
-    _watchedCompanyId = companyId;
-    _watchedAssignedTo = assignedTo;
-    _watchedManagerId = managerId;
-    _watchedTeamId = teamId;
-    _watchedRangeStart = rangeStart;
-    _watchedRangeEnd = rangeEnd;
     final pageLimit = usePagination
         ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
         : state.pageLimit;
     final watchLimit = usePagination
         ? _effectiveWatchLimit(pageLimit)
         : _dashboardWatchLimit;
+    final watchKey = _appointmentsWatchScopeKey(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      pageLimit: pageLimit,
+      watchLimit: watchLimit,
+      usePagination: usePagination,
+    );
+    final hasRecoverableExistingData =
+        state.status != AppointmentsStatus.failure || state.appointments.isNotEmpty;
+    if (resetPage &&
+        _appointmentsSubscription != null &&
+        _activeAppointmentsWatchKey == watchKey &&
+        hasRecoverableExistingData) {
+      _masarAppointmentsCubitDebug(
+        'watchAppointments skipped duplicate active company=$companyId '
+        'assignedTo=$assignedTo managerId=$managerId teamId=$teamId '
+        'rangeStart=$rangeStart rangeEnd=$rangeEnd usePagination=$usePagination '
+        'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
+        'status=${state.status} rows=${state.appointments.length} '
+        'key=$watchKey kpi=${_debugKpiCounts(state.kpiCounts)}',
+      );
+      return;
+    }
+
+    _watchedCompanyId = companyId;
+    _watchedAssignedTo = assignedTo;
+    _watchedManagerId = managerId;
+    _watchedTeamId = teamId;
+    _watchedRangeStart = rangeStart;
+    _watchedRangeEnd = rangeEnd;
+    _activeAppointmentsWatchKey = watchKey;
+    final watchGeneration = ++_appointmentsWatchGeneration;
     _masarAppointmentsCubitDebug(
-      'watchAppointments start company=$companyId assignedTo=$assignedTo '
-      'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
-      'rangeEnd=$rangeEnd usePagination=$usePagination resetPage=$resetPage '
-      'pageLimit=$pageLimit watchLimit=$watchLimit '
-      'currentRows=${state.appointments.length} '
+      'watchAppointments start gen=$watchGeneration company=$companyId '
+      'assignedTo=$assignedTo managerId=$managerId teamId=$teamId '
+      'rangeStart=$rangeStart rangeEnd=$rangeEnd usePagination=$usePagination '
+      'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
+      'currentRows=${state.appointments.length} key=$watchKey '
       'kpi=${_debugKpiCounts(state.kpiCounts)}',
     );
     emit(
@@ -159,10 +191,20 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _appointmentsWatchGeneration ||
+            _activeAppointmentsWatchKey != watchKey) {
+          _masarAppointmentsCubitDebug(
+            'watchAppointments data ignored stale gen=$watchGeneration '
+            'latestGen=$_appointmentsWatchGeneration company=$companyId '
+            'key=$watchKey activeKey=$_activeAppointmentsWatchKey',
+          );
+          return;
+        }
         _masarAppointmentsCubitDebug(
-          'watchAppointments data company=$companyId count=${appointments.length} '
-          'assignedTo=$assignedTo managerId=$managerId teamId=$teamId '
-          'rangeStart=$rangeStart rangeEnd=$rangeEnd watchLimit=$watchLimit',
+          'watchAppointments data gen=$watchGeneration company=$companyId '
+          'count=${appointments.length} assignedTo=$assignedTo '
+          'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+          'rangeEnd=$rangeEnd watchLimit=$watchLimit key=$watchKey',
         );
         _appointmentsInitialLoadTimeout.complete();
         emit(
@@ -183,11 +225,21 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         if (isClosed) {
           return;
         }
+        if (watchGeneration != _appointmentsWatchGeneration ||
+            _activeAppointmentsWatchKey != watchKey) {
+          _masarAppointmentsCubitDebug(
+            'watchAppointments error ignored stale gen=$watchGeneration '
+            'latestGen=$_appointmentsWatchGeneration company=$companyId '
+            'key=$watchKey activeKey=$_activeAppointmentsWatchKey '
+            'errorType=${error.runtimeType} error=$error',
+          );
+          return;
+        }
         _masarAppointmentsCubitDebug(
-          'watchAppointments error company=$companyId assignedTo=$assignedTo '
-          'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
-          'rangeEnd=$rangeEnd watchLimit=$watchLimit '
-          'errorType=${error.runtimeType} error=$error',
+          'watchAppointments error gen=$watchGeneration company=$companyId '
+          'assignedTo=$assignedTo managerId=$managerId teamId=$teamId '
+          'rangeStart=$rangeStart rangeEnd=$rangeEnd watchLimit=$watchLimit '
+          'key=$watchKey errorType=${error.runtimeType} error=$error',
         );
         _appointmentsInitialLoadTimeout.complete();
         if (state.appointments.isNotEmpty) {
@@ -343,6 +395,30 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         );
       }
     }
+  }
+
+  String _appointmentsWatchScopeKey({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required DateTime? rangeStart,
+    required DateTime? rangeEnd,
+    required int pageLimit,
+    required int watchLimit,
+    required bool usePagination,
+  }) {
+    return <String>[
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      rangeStart?.toUtc().millisecondsSinceEpoch.toString() ?? '',
+      rangeEnd?.toUtc().millisecondsSinceEpoch.toString() ?? '',
+      pageLimit.toString(),
+      watchLimit.toString(),
+      usePagination.toString(),
+    ].join('|');
   }
 
   String? _currentKpiScopeKey() {
@@ -1152,6 +1228,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     _isClosing = true;
     _appointmentsInitialLoadTimeout.cancel();
     _appointmentInitialLoadTimeout.cancel();
+    _activeAppointmentsWatchKey = null;
     _appointmentsSubscription?.cancel();
     _appointmentSubscription?.cancel();
     return super.close();
