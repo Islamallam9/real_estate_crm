@@ -472,6 +472,8 @@ class FirestoreModuleKpiCountsDataSource {
         role == UserRole.marketing ||
         role == UserRole.viewer;
     if (scopedFallback) {
+      final values = <String, int>{};
+      final failedKeys = <String>{};
       final snapshotCounts = await _safeDealSnapshotCounts(
         base,
         tomorrow: tomorrow,
@@ -482,8 +484,6 @@ class FirestoreModuleKpiCountsDataSource {
         diagnostics: diagnostics,
         useOrderedSnapshot: false,
       );
-      final values = <String, int>{};
-      final failedKeys = <String>{};
       if (snapshotCounts == null) {
         values.addAll(const <String, int>{
           'total': 0,
@@ -938,6 +938,7 @@ class FirestoreModuleKpiCountsDataSource {
       'unassigned': unassigned,
     };
   }
+
   Future<Map<String, int>?> _safeClientSnapshotCounts(
     Query<Map<String, dynamic>> base, {
     required bool includeUnassigned,
@@ -1512,7 +1513,15 @@ class FirestoreModuleKpiCountsDataSource {
     Query<Map<String, dynamic>>? fallback,
   }) async {
     try {
-      return await query.get();
+      final snapshot = await query.get();
+      _logSnapshotSuccess(
+        query: query,
+        label: label,
+        diagnostics: diagnostics,
+        docs: snapshot.docs.length,
+        source: 'primary',
+      );
+      return snapshot;
     } on FirebaseException catch (error) {
       if (fallback == null) {
         _logCountFailure(
@@ -1524,8 +1533,23 @@ class FirestoreModuleKpiCountsDataSource {
         );
         return null;
       }
+      _logSnapshotFallback(
+        query: query,
+        label: label,
+        diagnostics: diagnostics,
+        code: error.code,
+        message: error.message ?? '',
+      );
       try {
-        return await fallback.get();
+        final fallbackSnapshot = await fallback.get();
+        _logSnapshotSuccess(
+          query: fallback,
+          label: '$label.fallback',
+          diagnostics: diagnostics,
+          docs: fallbackSnapshot.docs.length,
+          source: 'fallback',
+        );
+        return fallbackSnapshot;
       } on FirebaseException catch (fallbackError) {
         _logCountFailure(
           query: query,
@@ -1577,7 +1601,14 @@ class FirestoreModuleKpiCountsDataSource {
   }) async {
     try {
       final snapshot = await query.count().get();
-      return snapshot.count ?? 0;
+      final count = snapshot.count ?? 0;
+      _logCountSuccess(
+        query: query,
+        label: label,
+        diagnostics: diagnostics,
+        count: count,
+      );
+      return count;
     } on FirebaseException catch (error) {
       _logCountFailure(
         query: query,
@@ -1603,6 +1634,75 @@ class FirestoreModuleKpiCountsDataSource {
     } else {
       failedKeys.add(key);
     }
+  }
+
+  void _logCountSuccess({
+    required Query<Map<String, dynamic>> query,
+    required String label,
+    required _CountDiagnostics? diagnostics,
+    required int count,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final collectionPath = diagnostics?.collectionPath ?? 'unknown';
+    final module = diagnostics?.module ?? 'unknown';
+    final roleScope = diagnostics?.roleScope ?? 'unknown';
+    final archiveScope = diagnostics?.archiveScope ?? 'unknown';
+    final querySignature = _querySignature(query, collectionPath);
+    debugPrint(
+      'MasarKpiCountDebug: module=$module label=$label status=success '
+      'count=$count role=$roleScope archive=$archiveScope '
+      'query=$querySignature',
+    );
+  }
+
+  void _logSnapshotSuccess({
+    required Query<Map<String, dynamic>> query,
+    required String label,
+    required _CountDiagnostics? diagnostics,
+    required int docs,
+    required String source,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final collectionPath = diagnostics?.collectionPath ?? 'unknown';
+    final module = diagnostics?.module ?? 'unknown';
+    final roleScope = diagnostics?.roleScope ?? 'unknown';
+    final archiveScope = diagnostics?.archiveScope ?? 'unknown';
+    final querySignature = _querySignature(query, collectionPath);
+    debugPrint(
+      'MasarKpiCountDebug: module=$module label=$label '
+      'status=snapshotSuccess source=$source docs=$docs '
+      'role=$roleScope archive=$archiveScope query=$querySignature',
+    );
+  }
+
+  void _logSnapshotFallback({
+    required Query<Map<String, dynamic>> query,
+    required String label,
+    required _CountDiagnostics? diagnostics,
+    required String code,
+    required String message,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final collectionPath = diagnostics?.collectionPath ?? 'unknown';
+    final module = diagnostics?.module ?? 'unknown';
+    final roleScope = diagnostics?.roleScope ?? 'unknown';
+    final archiveScope = diagnostics?.archiveScope ?? 'unknown';
+    final querySignature = _querySignature(query, collectionPath);
+    final sanitizedMessage = message
+        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    debugPrint(
+      'MasarKpiCountDebug: module=$module label=$label '
+      'status=snapshotFallback code=$code role=$roleScope '
+      'archive=$archiveScope query=$querySignature message=$sanitizedMessage',
+    );
   }
 
   void _logCountFailure({

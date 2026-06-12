@@ -56,6 +56,14 @@ class TasksCubit extends Cubit<TasksState> {
   String? _watchedAssignedTo;
   String? _watchedManagerId;
   String? _watchedTeamId;
+  Future<void>? _inFlightKpiRefresh;
+  String? _inFlightKpiRefreshKey;
+  String? _lastSuccessfulKpiRefreshKey;
+  DateTime? _lastSuccessfulKpiRefreshAt;
+  int _kpiRefreshSerial = 0;
+  bool _isClosing = false;
+  static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
   static const int _defaultPageLimit = 15;
   static const int _pageIncrement = 15;
   static const int _filterScanLimit = 500;
@@ -111,7 +119,7 @@ class TasksCubit extends Cubit<TasksState> {
       ),
     );
     if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
+      unawaited(_refreshKpiCounts(reason: 'watch-start'));
     }
     _tasksSubscription?.cancel();
     _tasksInitialLoadTimeout.start(() {
@@ -160,7 +168,7 @@ class TasksCubit extends Cubit<TasksState> {
             clearMessage: true,
           ),
         );
-        unawaited(_refreshKpiCounts());
+        unawaited(_refreshKpiCounts(reason: 'stream-data'));
         _debugCheckKpiInvariant();
       },
       onError: (error) {
@@ -186,34 +194,116 @@ class TasksCubit extends Cubit<TasksState> {
 
 
 
-  Future<void> _refreshKpiCounts() async {
+  Future<void> _refreshKpiCounts({
+    required String reason,
+    bool force = false,
+  }) {
+    if (_isClosing || isClosed) {
+      return Future<void>.value();
+    }
     final companyId = _watchedCompanyId;
     if (companyId == null || companyId.trim().isEmpty) {
-      return;
+      return Future<void>.value();
     }
+
+    final effectiveAssignedTo = _effectiveAssignedToScope();
+    final scopeKey = _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: effectiveAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+    );
+    final inFlight = _inFlightKpiRefresh;
+    if (!force && inFlight != null && _inFlightKpiRefreshKey == scopeKey) {
+      _masarTasksCubitDebug(
+        'kpi skipped duplicate inFlight reason=$reason key=$scopeKey',
+      );
+      return inFlight;
+    }
+
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (!force &&
+        reason == 'stream-data' &&
+        _lastSuccessfulKpiRefreshKey == scopeKey &&
+        lastAt != null &&
+        DateTime.now().difference(lastAt) < _streamKpiRefreshDebounce) {
+      _masarTasksCubitDebug(
+        'kpi skipped recent stream-data key=$scopeKey',
+      );
+      return Future<void>.value();
+    }
+
+    final refreshSerial = ++_kpiRefreshSerial;
+    final refresh = _runKpiRefresh(
+      companyId: companyId,
+      assignedTo: effectiveAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      scopeKey: scopeKey,
+      reason: reason,
+      refreshSerial: refreshSerial,
+    );
+    _inFlightKpiRefresh = refresh;
+    _inFlightKpiRefreshKey = scopeKey;
+    refresh.whenComplete(() {
+      if (identical(_inFlightKpiRefresh, refresh)) {
+        _inFlightKpiRefresh = null;
+        _inFlightKpiRefreshKey = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _runKpiRefresh({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required String scopeKey,
+    required String reason,
+    required int refreshSerial,
+  }) async {
     try {
+      _masarTasksCubitDebug(
+        'kpi start reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId key=$scopeKey',
+      );
       final counts = await _countsDataSource.taskCounts(
         companyId: companyId,
-        assignedTo: _effectiveAssignedToScope(),
-        managerId: _watchedManagerId,
-        teamId: _watchedTeamId,
+        assignedTo: assignedTo,
+        managerId: managerId,
+        teamId: teamId,
       );
-      if (!isClosed && _watchedCompanyId == companyId) {
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
+        _lastSuccessfulKpiRefreshKey = scopeKey;
+        _lastSuccessfulKpiRefreshAt = DateTime.now();
         _masarTasksCubitDebug(
-          'kpi success company=$companyId assignedTo=${_effectiveAssignedToScope()} '
-          'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+          'kpi success reason=$reason company=$companyId assignedTo=$assignedTo '
+          'managerId=$managerId teamId=$teamId '
           'kpi=${_debugKpiCounts(counts)}',
         );
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
+      } else {
+        _masarTasksCubitDebug(
+          'kpi discarded stale reason=$reason company=$companyId key=$scopeKey '
+          'serial=$refreshSerial latestSerial=$_kpiRefreshSerial '
+          'currentKey=${_currentKpiScopeKey()}',
+        );
       }
     } catch (error) {
       _masarTasksCubitDebug(
-        'kpi error company=$companyId assignedTo=${_effectiveAssignedToScope()} '
-        'managerId=$_watchedManagerId teamId=$_watchedTeamId '
+        'kpi error reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId '
         'errorType=${error.runtimeType} error=$error',
       );
-      if (!isClosed && _watchedCompanyId == companyId) {
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
         emit(
           state.copyWith(
             kpiCounts: ModuleKpiCounts(
@@ -225,6 +315,34 @@ class TasksCubit extends Cubit<TasksState> {
       }
     }
   }
+
+  String? _currentKpiScopeKey() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return null;
+    }
+    return _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: _effectiveAssignedToScope(),
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+    );
+  }
+
+  String _kpiScopeKey({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+  }) {
+    return <String>[
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+    ].join('|');
+  }
+
 
   String _debugKpiCounts(ModuleKpiCounts counts) {
     final values = counts.values.entries
@@ -505,7 +623,7 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) {
         return false;
       }
-      unawaited(_refreshKpiCounts());
+      unawaited(_refreshKpiCounts(reason: 'create', force: true));
       emit(
         state.copyWith(
           status: TasksStatus.saved,
@@ -595,7 +713,7 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) {
         return false;
       }
-      unawaited(_refreshKpiCounts());
+      unawaited(_refreshKpiCounts(reason: 'update', force: true));
       final updatedTasks = _replaceTaskInCurrentList(updatedTask);
       emit(
         state.copyWith(
@@ -967,9 +1085,9 @@ class TasksCubit extends Cubit<TasksState> {
 
   @override
   Future<void> close() {
+    _isClosing = true;
     _tasksInitialLoadTimeout.cancel();
     _taskInitialLoadTimeout.cancel();
-    _refreshKpiCounts();
     _tasksSubscription?.cancel();
     _taskSubscription?.cancel();
     return super.close();
