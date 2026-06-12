@@ -266,12 +266,16 @@ class _DashboardContentState extends State<_DashboardContent>
   bool _auditLogsRequested = false;
   int _initialFailureRetryCount = 0;
   String? _lastDashboardDebugSignature;
+  String? _lastDashboardModuleWatchKey;
+  DateTime? _lastDashboardModuleWatchAt;
+  int _dashboardModuleWatchGeneration = 0;
+  String? _activeUsersStreamKey;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _watchScopedDashboardData();
+    _watchScopedDashboardData(reason: 'init');
     _clockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
         setState(() {});
@@ -282,7 +286,7 @@ class _DashboardContentState extends State<_DashboardContent>
   @override
   void didUpdateWidget(covariant _DashboardContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _watchScopedDashboardData();
+    _watchScopedDashboardData(reason: 'didUpdateWidget');
   }
 
   @override
@@ -308,12 +312,15 @@ class _DashboardContentState extends State<_DashboardContent>
     _lastLifecycleRefreshAt = now;
     Future<void>.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
-        _watchScopedDashboardData(force: true);
+        _watchScopedDashboardData(force: true, reason: 'lifecycle-resume');
       }
     });
   }
 
-  void _watchScopedDashboardData({bool force = false}) {
+  void _watchScopedDashboardData({
+    bool force = false,
+    String reason = 'auto',
+  }) {
     final watchScopeKey = _dashboardWatchScopeKey(
       companyId: widget.companyId,
       authState: widget.authState,
@@ -321,7 +328,7 @@ class _DashboardContentState extends State<_DashboardContent>
     );
     if (watchScopeKey == null) {
       _masarDashboardDebug(
-        'watch skipped missing scope company=${widget.companyId} '
+        'watch skipped missing scope reason=$reason company=${widget.companyId} '
         'platformPreview=${widget.platformPreview} '
         'hasSession=${widget.authState.protectedCompanySession != null} '
         'uid=${widget.authState.user?.uid ?? ''}',
@@ -330,20 +337,46 @@ class _DashboardContentState extends State<_DashboardContent>
       _activeUsersRequested = false;
       _auditLogsRequested = false;
       _activeUsersStream = null;
+      _activeUsersStreamKey = null;
+      _lastDashboardModuleWatchKey = null;
+      _lastDashboardModuleWatchAt = null;
       return;
     }
     final scopeChanged = _watchScopeKey != watchScopeKey;
+    final moduleWatchKey = _dashboardModuleWatchKey(watchScopeKey);
+    final lastModuleWatchAt = _lastDashboardModuleWatchAt;
+    final rapidDuplicateForce = force &&
+        !scopeChanged &&
+        _lastDashboardModuleWatchKey == moduleWatchKey &&
+        lastModuleWatchAt != null &&
+        DateTime.now().difference(lastModuleWatchAt) <
+            const Duration(seconds: 2) &&
+        reason != 'manual-retry' &&
+        reason != 'initial-failure-recovery';
     if (!force && !scopeChanged) {
       _masarDashboardDebug(
-        'watch skipped unchanged scope company=${watchScopeKey.companyId} '
+        'watch skipped unchanged scope reason=$reason company=${watchScopeKey.companyId} '
         'role=${watchScopeKey.role} uid=${watchScopeKey.uid} '
         'team=${watchScopeKey.managerTeamId}',
       );
       return;
     }
+    if (rapidDuplicateForce) {
+      _masarDashboardDebug(
+        'watch skipped rapid duplicate force reason=$reason '
+        'company=${watchScopeKey.companyId} role=${watchScopeKey.role} '
+        'uid=${watchScopeKey.uid} team=${watchScopeKey.managerTeamId} '
+        'ageMs=${DateTime.now().difference(lastModuleWatchAt).inMilliseconds}',
+      );
+      return;
+    }
 
+    _dashboardModuleWatchGeneration += 1;
+    _lastDashboardModuleWatchKey = moduleWatchKey;
+    _lastDashboardModuleWatchAt = DateTime.now();
     _masarDashboardDebug(
-      'watch start company=${watchScopeKey.companyId} force=$force '
+      'watch start gen=$_dashboardModuleWatchGeneration reason=$reason '
+      'company=${watchScopeKey.companyId} force=$force '
       'scopeChanged=$scopeChanged platformPreview=${watchScopeKey.platformPreview} '
       'role=${watchScopeKey.role} uid=${watchScopeKey.uid} '
       'team=${watchScopeKey.managerTeamId} '
@@ -357,6 +390,7 @@ class _DashboardContentState extends State<_DashboardContent>
       _activeUsersRequested = false;
       _auditLogsRequested = false;
       _activeUsersStream = null;
+      _activeUsersStreamKey = null;
       _lastLifecycleRefreshAt = null;
     }
     _watchScopeKey = watchScopeKey;
@@ -376,7 +410,10 @@ class _DashboardContentState extends State<_DashboardContent>
     final managerTeamId =
         watchScopeKey.managerTeamId.isEmpty ? null : watchScopeKey.managerTeamId;
     if (_activeUsersRequested && _canRequestDashboardActiveUsers(watchScopeKey)) {
-      _activeUsersStream = _watchDashboardActiveUsers(widget.companyId);
+      _syncDashboardActiveUsersStream(
+        watchScopeKey,
+        reason: 'watch:$reason',
+      );
     }
     final assignedTo = _assignedOnlyScope(role) ? uid : null;
     final managerId = role == UserRole.manager ? uid : null;
@@ -449,7 +486,7 @@ class _DashboardContentState extends State<_DashboardContent>
     _initialFailureRetryTimer?.cancel();
     _initialFailureRetryTimer = null;
     _initialFailureRetryCount = 0;
-    _watchScopedDashboardData(force: true);
+    _watchScopedDashboardData(force: true, reason: 'manual-retry');
   }
 
   void _scheduleInitialFailureRecovery(String? message) {
@@ -467,7 +504,10 @@ class _DashboardContentState extends State<_DashboardContent>
       _initialFailureRetryTimer = null;
       _initialFailureRetryCount += 1;
       if (mounted) {
-        _watchScopedDashboardData(force: true);
+        _watchScopedDashboardData(
+          force: true,
+          reason: 'initial-failure-recovery',
+        );
       }
     });
   }
@@ -496,16 +536,40 @@ class _DashboardContentState extends State<_DashboardContent>
       'active users requested company=${watchScopeKey.companyId} '
       'role=${watchScopeKey.role} uid=${watchScopeKey.uid}',
     );
+    _syncDashboardActiveUsersStream(
+      watchScopeKey,
+      reason: 'visibility-request',
+      notify: true,
+    );
+  }
+
+  void _syncDashboardActiveUsersStream(
+    _DashboardWatchScopeKey watchScopeKey, {
+    required String reason,
+    bool notify = false,
+  }) {
+    final streamKey = _dashboardActiveUsersStreamKey(watchScopeKey);
+    if (_activeUsersStreamKey == streamKey && _activeUsersStream != null) {
+      _masarDashboardDebug(
+        'active users watch skipped duplicate reason=$reason '
+        'key=$streamKey',
+      );
+      return;
+    }
+    _activeUsersStreamKey = streamKey;
+    _masarDashboardDebug(
+      'active users watch created reason=$reason key=$streamKey',
+    );
     final stream = watchScopeKey.platformPreview
         ? Stream<List<UserProfile>>.value(const <UserProfile>[])
         : _watchDashboardActiveUsers(widget.companyId);
-    if (!mounted) {
-      _activeUsersStream = stream;
+    if (notify && mounted) {
+      setState(() {
+        _activeUsersStream = stream;
+      });
       return;
     }
-    setState(() {
-      _activeUsersStream = stream;
-    });
+    _activeUsersStream = stream;
   }
 
   void _requestRecentActivity({bool force = false}) {
@@ -515,9 +579,26 @@ class _DashboardContentState extends State<_DashboardContent>
           authState: widget.authState,
           platformPreview: widget.platformPreview,
         );
-    if (watchScopeKey == null ||
-        (!force && _auditLogsRequested) ||
-        !watchScopeKey.canViewAuditLogs) {
+    if (watchScopeKey == null) {
+      _masarDashboardDebug(
+        'recent activity skipped missing scope force=$force '
+        'company=${widget.companyId}',
+      );
+      return;
+    }
+    if (!watchScopeKey.canViewAuditLogs) {
+      _masarDashboardDebug(
+        'recent activity skipped permission company=${watchScopeKey.companyId} '
+        'role=${watchScopeKey.role} uid=${watchScopeKey.uid}',
+      );
+      return;
+    }
+    if (!force && _auditLogsRequested) {
+      _masarDashboardDebug(
+        'recent activity skipped duplicate request '
+        'company=${watchScopeKey.companyId} role=${watchScopeKey.role} '
+        'uid=${watchScopeKey.uid} team=${watchScopeKey.managerTeamId}',
+      );
       return;
     }
 
@@ -758,6 +839,34 @@ class _DashboardContentState extends State<_DashboardContent>
   }
 }
 
+
+
+String _dashboardModuleWatchKey(_DashboardWatchScopeKey watchScopeKey) {
+  return <String>[
+    watchScopeKey.companyId,
+    watchScopeKey.platformPreview.toString(),
+    watchScopeKey.role.name,
+    watchScopeKey.uid,
+    watchScopeKey.managerTeamId,
+    watchScopeKey.canViewLeads.toString(),
+    watchScopeKey.canViewProperties.toString(),
+    watchScopeKey.canViewClients.toString(),
+    watchScopeKey.canViewTasks.toString(),
+    watchScopeKey.canViewAppointments.toString(),
+    watchScopeKey.canViewDeals.toString(),
+    watchScopeKey.canViewAuditLogs.toString(),
+  ].join('|');
+}
+
+String _dashboardActiveUsersStreamKey(_DashboardWatchScopeKey watchScopeKey) {
+  return <String>[
+    watchScopeKey.companyId,
+    watchScopeKey.platformPreview.toString(),
+    watchScopeKey.role.name,
+    watchScopeKey.uid,
+    watchScopeKey.managerTeamId,
+  ].join('|');
+}
 
 bool _isRecoverableDashboardInitialFailure(String? message) {
   final normalized = (message ?? '').toLowerCase();

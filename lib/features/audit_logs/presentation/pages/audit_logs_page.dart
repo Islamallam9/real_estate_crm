@@ -347,6 +347,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
           endAt: window?.end,
           limit: AuditLogsCubit.defaultPageLimit,
           resetPage: true,
+          force: force,
         );
   }
 

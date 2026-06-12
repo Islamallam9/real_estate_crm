@@ -16,6 +16,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
 
   StreamSubscription<List<AuditLog>>? _subscription;
   StreamSubscription<List<AuditLog>>? _recentActivitySubscription;
+  String? _auditLogsWatchKey;
   String? _recentActivityWatchKey;
   static const int defaultPageLimit = 15;
   static const int pageIncrement = 15;
@@ -41,6 +42,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
     DateTime? endAt,
     int? limit,
     bool resetPage = false,
+    bool force = false,
   }) {
     if (companyId.trim().isEmpty) {
       return;
@@ -59,6 +61,31 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
         ? (limit ?? defaultPageLimit)
         : limit ?? state.pageLimit;
     final isLoadingMore = state.logs.isNotEmpty && pageLimit > state.pageLimit;
+    final watchKey = [
+      companyId.trim(),
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      module?.name ?? '',
+      action?.name ?? '',
+      actorId?.trim() ?? '',
+      hasSearchFilter ? 'search' : '',
+      startAt?.toIso8601String() ?? '',
+      endAt?.toIso8601String() ?? '',
+      pageLimit.toString(),
+    ].join('|');
+    if (!force &&
+        _auditLogsWatchKey == watchKey &&
+        _subscription != null &&
+        state.status != AuditLogsStatus.failure) {
+      _debugAuditCubit(
+        'watchAuditLogs skipped duplicate company=$companyId '
+        'managerId=${managerId ?? ''} teamId=${teamId ?? ''} '
+        'module=${module?.name ?? ''} action=${action?.name ?? ''} '
+        'actorId=${actorId ?? ''} limit=$pageLimit',
+      );
+      return;
+    }
+    _auditLogsWatchKey = watchKey;
 
     emit(
       state.copyWith(
@@ -72,7 +99,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
       'watchAuditLogs start company=$companyId managerId=${managerId ?? ''} '
       'teamId=${teamId ?? ''} module=${module?.name ?? ''} '
       'action=${action?.name ?? ''} actorId=${actorId ?? ''} '
-      'limit=$pageLimit resetPage=$resetPage',
+      'limit=$pageLimit resetPage=$resetPage force=$force',
     );
     _subscription = _watchAuditLogsUseCase(
       companyId: companyId,
@@ -114,6 +141,7 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
           'teamId=${teamId ?? ''}: $error',
           stackTrace,
         );
+        _auditLogsWatchKey = null;
         emit(
           state.copyWith(
             status: AuditLogsStatus.failure,
@@ -145,6 +173,10 @@ class AuditLogsCubit extends Cubit<AuditLogsState> {
     if (!force &&
         _recentActivityWatchKey == watchKey &&
         _recentActivitySubscription != null) {
+      _debugAuditCubit(
+        'recentActivity skipped duplicate company=$companyId '
+        'managerId=${managerId ?? ''} teamId=${teamId ?? ''} limit=$limit',
+      );
       return;
     }
     _recentActivityWatchKey = watchKey;

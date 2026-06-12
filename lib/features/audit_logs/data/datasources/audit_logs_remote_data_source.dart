@@ -194,12 +194,15 @@ class FirestoreAuditLogsRemoteDataSource
             hideManagerRestrictedLogs: false,
           );
         }).handleError((Object error, StackTrace stackTrace) {
-          _debugAudit(
-            'admin/company stream error company=$companyId '
-            'module=${module?.name ?? ''} action=${action?.name ?? ''} '
-            'actorId=${actorId ?? ''} startAt=${startAt?.toIso8601String() ?? ''} '
-            'endAt=${endAt?.toIso8601String() ?? ''}: $error',
-            stackTrace,
+          _debugAuditStreamError(
+            label: 'audit.adminCompany',
+            companyId: companyId,
+            error: error,
+            stackTrace: stackTrace,
+            context:
+                'module=${module?.name ?? ''} action=${action?.name ?? ''} '
+                'actorId=${actorId ?? ''} startAt=${startAt?.toIso8601String() ?? ''} '
+                'endAt=${endAt?.toIso8601String() ?? ''} limit=$queryLimit',
           );
           throw error;
         });
@@ -319,10 +322,16 @@ class FirestoreAuditLogsRemoteDataSource
         onError: (Object error, StackTrace stackTrace) {
           queryErrors[index] = error;
           latest.remove(index);
-          _debugAudit(
-            'manager ${scopedQuery.label} stream error company=$companyId '
-            'managerId=$managerId teamId=$teamId limit=$queryLimit: $error',
-            stackTrace,
+          _debugAuditStreamError(
+            label: 'audit.manager.${scopedQuery.label}',
+            companyId: companyId,
+            error: error,
+            stackTrace: stackTrace,
+            context:
+                'managerId=$managerId teamId=$teamId limit=$queryLimit '
+                'module=${module?.name ?? ''} action=${action?.name ?? ''} '
+                'actorId=${actorId ?? ''} startAt=${startAt?.toIso8601String() ?? ''} '
+                'endAt=${endAt?.toIso8601String() ?? ''}',
           );
           emitMerged();
         },
@@ -579,6 +588,59 @@ class _AuditScopedQuery {
 
   final String label;
   final Query<Map<String, dynamic>> query;
+}
+
+
+void _debugAuditStreamError({
+  required String label,
+  required String companyId,
+  required Object error,
+  StackTrace? stackTrace,
+  String context = '',
+}) {
+  if (error is FirebaseException) {
+    final indexLink = _firebaseIndexLink(error);
+    _debugAudit(
+      '$label firebase company=$companyId code=${error.code} '
+      'indexLink=${indexLink ?? ''} context=$context '
+      'message=${error.message}',
+      stackTrace,
+    );
+    if (indexLink != null && indexLink.isNotEmpty) {
+      _masarFirebaseIndexDebug('$label missingIndexLink=$indexLink');
+    }
+    return;
+  }
+  _debugAudit(
+    '$label error company=$companyId type=${error.runtimeType} '
+    'context=$context error=$error',
+    stackTrace,
+  );
+}
+
+void _masarFirebaseIndexDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarFirebaseIndexDebug $message');
+}
+
+String? _firebaseIndexLink(FirebaseException error) {
+  final message = error.message;
+  if (message == null || message.isEmpty) {
+    return null;
+  }
+  final match = RegExp(r'https://console\.firebase\.google\.com/\S+')
+      .firstMatch(message);
+  final rawLink = match?.group(0);
+  if (rawLink == null || rawLink.isEmpty) {
+    return null;
+  }
+  var link = rawLink;
+  while (link.endsWith('.') || link.endsWith(',') || link.endsWith(')')) {
+    link = link.substring(0, link.length - 1);
+  }
+  return link;
 }
 
 void _debugAudit(String message, [StackTrace? stackTrace]) {
