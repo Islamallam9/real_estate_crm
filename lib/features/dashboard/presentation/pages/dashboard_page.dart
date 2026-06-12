@@ -3599,6 +3599,15 @@ class _TrialNoticeGateState extends State<_TrialNoticeGate> {
       return;
     }
 
+    final trialEndsAt = company.trialEndsAt!;
+    if (!serverNow.isBefore(trialEndsAt)) {
+      // Once the trial has ended, the access gate owns the blocking UI.
+      // Showing or closing a reminder dialog during the same frame that the
+      // router/dashboard tree is being replaced can trip Navigator/GlobalKey
+      // assertions on Flutter Web.
+      return;
+    }
+
     final milestone = _trialMilestone(company, serverNow);
     if (milestone == null) {
       return;
@@ -3613,27 +3622,36 @@ class _TrialNoticeGateState extends State<_TrialNoticeGate> {
     }
     _lastDialogKey = key;
     final l = AppLocalizations.of(context)!;
-    final remaining = company.trialEndsAt!.difference(serverNow);
+    final remaining = trialEndsAt.difference(serverNow);
     final remainingText = _formatTrialRemaining(l, remaining);
     final milestoneText = _trialMilestoneText(l, milestone);
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(l.trialReminderTitle),
           content: Text(
             '$milestoneText\n\n'
             '${l.trialRemaining}: $remainingText\n'
-            '${l.trialEndsAt}: ${_formatTrialEndDate(dialogContext, company.trialEndsAt!)}',
+            '${l.trialEndsAt}: ${_formatTrialEndDate(dialogContext, trialEndsAt)}',
           ),
           actions: [
             TextButton(
-              onPressed: () async {
-                await prefs.setBool(key, true);
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
+              onPressed: () {
+                // Close the dialog synchronously before writing preferences so
+                // an auth/company refresh cannot dispose the routed dashboard
+                // while this callback awaits. This avoids Navigator lock and
+                // duplicate GlobalKey assertions when the trial expires.
+                final navigator = Navigator.maybeOf(
+                  dialogContext,
+                  rootNavigator: true,
+                );
+                if (navigator?.canPop() ?? false) {
+                  navigator!.pop();
                 }
+                unawaited(prefs.setBool(key, true));
               },
               child: Text(l.done),
             ),
