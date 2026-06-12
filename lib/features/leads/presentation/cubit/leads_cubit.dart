@@ -87,6 +87,15 @@ class LeadsCubit extends Cubit<LeadsState> {
   String? _watchedManagerId;
   String? _watchedTeamId;
   ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+  Future<void>? _inFlightKpiRefresh;
+  String? _inFlightKpiRefreshKey;
+  String? _lastSuccessfulKpiRefreshKey;
+  DateTime? _lastSuccessfulKpiRefreshAt;
+  ModuleKpiCounts? _lastSuccessfulKpiCounts;
+  int _kpiRefreshSerial = 0;
+  bool _isClosing = false;
+  static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
 
   String? get _effectiveAssignedToFilter {
     final scopeAssignedTo = (_watchedAssignedTo ?? '').trim();
@@ -161,6 +170,16 @@ class LeadsCubit extends Cubit<LeadsState> {
     final fetchLimit = usePagination
         ? (hasExactListScope ? pageLimit : _localFilterScanLimit)
         : _dashboardWatchLimit;
+    final kpiScopeKey = _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: effectiveAssignedTo,
+      managerId: effectiveAssignedTo == null ? managerId : null,
+      teamId: effectiveAssignedTo == null ? teamId : null,
+      archiveFilter: archiveFilter,
+    );
+    final cachedKpiCounts = resetPage
+        ? _cachedKpiCountsFor(scopeKey: kpiScopeKey)
+        : null;
     emit(
       state.copyWith(
         status: resetPage || state.leads.isEmpty
@@ -168,12 +187,14 @@ class LeadsCubit extends Cubit<LeadsState> {
             : LeadsStatus.loadingMore,
         pageLimit: pageLimit,
         hasExactListScope: hasExactListScope,
-        kpiCounts: resetPage ? const ModuleKpiCounts.empty() : state.kpiCounts,
+        kpiCounts: resetPage
+            ? cachedKpiCounts ?? const ModuleKpiCounts.empty()
+            : state.kpiCounts,
         clearMessage: true,
       ),
     );
     if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
+      unawaited(_refreshKpiCounts(reason: 'watch-start'));
     }
     _leadsSubscription?.cancel();
     _leadsInitialLoadTimeout.start(() {
@@ -232,6 +253,7 @@ class LeadsCubit extends Cubit<LeadsState> {
                 clearMessage: true,
               ),
             );
+            unawaited(_refreshKpiCounts(reason: 'stream-data'));
             _debugCheckKpiInvariant();
           },
           onError: (error) {
@@ -253,32 +275,228 @@ class LeadsCubit extends Cubit<LeadsState> {
   }
 
 
-  Future<void> _refreshKpiCounts() async {
+  Future<void> _refreshKpiCounts({
+    required String reason,
+    bool force = false,
+  }) {
+    if (_isClosing || isClosed) {
+      return Future<void>.value();
+    }
     final companyId = _watchedCompanyId;
     if (companyId == null || companyId.trim().isEmpty) {
-      return;
+      return Future<void>.value();
     }
+
     final expectedAssignedTo = _effectiveAssignedToFilter;
     final expectedManagerId = expectedAssignedTo == null ? _watchedManagerId : null;
     final expectedTeamId = expectedAssignedTo == null ? _watchedTeamId : null;
     final expectedArchiveFilter = _watchedArchiveFilter;
-    final counts = await _countsDataSource.leadCounts(
+    final scopeKey = _kpiScopeKey(
       companyId: companyId,
       assignedTo: expectedAssignedTo,
       managerId: expectedManagerId,
       teamId: expectedTeamId,
       archiveFilter: expectedArchiveFilter,
     );
-    if (!isClosed &&
-        _watchedCompanyId == companyId &&
-        _effectiveAssignedToFilter == expectedAssignedTo &&
-        (expectedAssignedTo != null ||
-            (_watchedManagerId == expectedManagerId &&
-                _watchedTeamId == expectedTeamId)) &&
-        _watchedArchiveFilter == expectedArchiveFilter) {
-      emit(state.copyWith(kpiCounts: counts));
-      _debugCheckKpiInvariant();
+
+    final inFlight = _inFlightKpiRefresh;
+    if (!force && inFlight != null && _inFlightKpiRefreshKey == scopeKey) {
+      _masarLeadsCubitDebug(
+        'kpi skipped duplicate inFlight reason=$reason key=$scopeKey',
+      );
+      return inFlight;
     }
+
+    final cachedCounts = _cachedKpiCountsFor(scopeKey: scopeKey);
+    final stateHasKpiCounts = state.kpiCounts.hasAll(_kpiCountKeys);
+    final hasSameSuccessfulScope = _lastSuccessfulKpiRefreshKey == scopeKey;
+    if (!force &&
+        reason == 'watch-start' &&
+        hasSameSuccessfulScope &&
+        (stateHasKpiCounts || cachedCounts != null)) {
+      final rehydrated = !stateHasKpiCounts && cachedCounts != null;
+      _masarLeadsCubitDebug(
+        'kpi skipped cached watch-start key=$scopeKey '
+        'stateHadCounts=$stateHasKpiCounts rehydrated=$rehydrated '
+        'ageMs=${_cachedKpiAgeMs()}',
+      );
+      if (rehydrated && !isClosed && !_isClosing) {
+        emit(state.copyWith(kpiCounts: cachedCounts));
+        _debugCheckKpiInvariant();
+      }
+      return Future<void>.value();
+    }
+
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (!force &&
+        reason == 'stream-data' &&
+        cachedCounts != null &&
+        lastAt != null &&
+        DateTime.now().difference(lastAt) < _streamKpiRefreshDebounce) {
+      final rehydrated = !stateHasKpiCounts;
+      _masarLeadsCubitDebug(
+        'kpi skipped recent stream-data key=$scopeKey '
+        'stateHadCounts=$stateHasKpiCounts rehydrated=$rehydrated '
+        'ageMs=${_cachedKpiAgeMs()}',
+      );
+      if (rehydrated && !isClosed && !_isClosing) {
+        emit(state.copyWith(kpiCounts: cachedCounts));
+        _debugCheckKpiInvariant();
+      }
+      return Future<void>.value();
+    }
+
+    final refreshSerial = ++_kpiRefreshSerial;
+    final refresh = _runKpiRefresh(
+      companyId: companyId,
+      assignedTo: expectedAssignedTo,
+      managerId: expectedManagerId,
+      teamId: expectedTeamId,
+      archiveFilter: expectedArchiveFilter,
+      scopeKey: scopeKey,
+      reason: reason,
+      refreshSerial: refreshSerial,
+      bypassCache: force,
+    );
+    _inFlightKpiRefresh = refresh;
+    _inFlightKpiRefreshKey = scopeKey;
+    refresh.whenComplete(() {
+      if (identical(_inFlightKpiRefresh, refresh)) {
+        _inFlightKpiRefresh = null;
+        _inFlightKpiRefreshKey = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _runKpiRefresh({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+    required String scopeKey,
+    required String reason,
+    required int refreshSerial,
+    required bool bypassCache,
+  }) async {
+    try {
+      _masarLeadsCubitDebug(
+        'kpi start reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId archive=${archiveFilter.name} '
+        'key=$scopeKey',
+      );
+      final counts = await _countsDataSource.leadCounts(
+        companyId: companyId,
+        assignedTo: assignedTo,
+        managerId: managerId,
+        teamId: teamId,
+        archiveFilter: archiveFilter,
+        bypassCache: bypassCache,
+      );
+      final currentKey = _currentKpiScopeKey();
+      final shouldApply = !_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          currentKey == scopeKey;
+      if (shouldApply) {
+        _lastSuccessfulKpiRefreshKey = scopeKey;
+        _lastSuccessfulKpiRefreshAt = DateTime.now();
+        _lastSuccessfulKpiCounts = counts;
+        _masarLeadsCubitDebug(
+          'kpi success reason=$reason company=$companyId assignedTo=$assignedTo '
+          'managerId=$managerId teamId=$teamId archive=${archiveFilter.name} '
+          'kpi=${_debugKpiCounts(counts)}',
+        );
+        emit(state.copyWith(kpiCounts: counts));
+        _debugCheckKpiInvariant();
+      } else {
+        final discardReason = _isClosing || isClosed
+            ? 'cubitClosed'
+            : _kpiRefreshSerial != refreshSerial
+                ? 'serialChanged'
+                : currentKey != scopeKey
+                    ? 'scopeChanged'
+                    : 'unknown';
+        _masarLeadsCubitDebug(
+          'kpi discarded stale reason=$reason discardReason=$discardReason '
+          'company=$companyId key=$scopeKey serial=$refreshSerial '
+          'latestSerial=$_kpiRefreshSerial currentKey=$currentKey '
+          'isClosing=$_isClosing isClosed=$isClosed',
+        );
+      }
+    } catch (error) {
+      _masarLeadsCubitDebug(
+        'kpi error reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId archive=${archiveFilter.name} '
+        'errorType=${error.runtimeType} error=$error',
+      );
+      final currentKey = _currentKpiScopeKey();
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          currentKey == scopeKey) {
+        emit(
+          state.copyWith(
+            kpiCounts: ModuleKpiCounts(
+              const <String, int>{},
+              failedKeys: _kpiCountKeys.toSet(),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  String? _currentKpiScopeKey() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return null;
+    }
+    final assignedTo = _effectiveAssignedToFilter;
+    return _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: assignedTo == null ? _watchedManagerId : null,
+      teamId: assignedTo == null ? _watchedTeamId : null,
+      archiveFilter: _watchedArchiveFilter,
+    );
+  }
+
+  ModuleKpiCounts? _cachedKpiCountsFor({required String scopeKey}) {
+    final cachedCounts = _lastSuccessfulKpiCounts;
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (_lastSuccessfulKpiRefreshKey != scopeKey ||
+        cachedCounts == null ||
+        !cachedCounts.hasAll(_kpiCountKeys) ||
+        lastAt == null) {
+      return null;
+    }
+    return cachedCounts;
+  }
+
+  int? _cachedKpiAgeMs() {
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (lastAt == null) {
+      return null;
+    }
+    return DateTime.now().difference(lastAt).inMilliseconds;
+  }
+
+  String _kpiScopeKey({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+  }) {
+    return <String>[
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      archiveFilter.name,
+    ].join('|');
   }
 
   void _debugCheckKpiInvariant() {
@@ -661,6 +879,7 @@ class LeadsCubit extends Cubit<LeadsState> {
               : LeadsAction.createLead,
         ),
       );
+      unawaited(_refreshKpiCounts(reason: 'create', force: true));
     } on LeadException catch (error) {
       if (isClosed) {
         return;
@@ -759,7 +978,7 @@ class LeadsCubit extends Cubit<LeadsState> {
         ),
       );
       if (assignmentChanged || current.status != updated.status || current.nextFollowUpAt != updated.nextFollowUpAt) {
-        unawaited(_refreshKpiCounts());
+        unawaited(_refreshKpiCounts(reason: 'mutation', force: true));
       }
       return true;
     } on LeadException catch (error) {
@@ -878,6 +1097,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           lastAction: LeadsAction.archiveLead,
         ),
       );
+      unawaited(_refreshKpiCounts(reason: 'archive', force: true));
       return true;
     } on LeadException catch (error) {
       if (isClosed) {
@@ -949,6 +1169,7 @@ class LeadsCubit extends Cubit<LeadsState> {
           lastAction: LeadsAction.restoreLead,
         ),
       );
+      unawaited(_refreshKpiCounts(reason: 'restore', force: true));
       return true;
     } on LeadException catch (error) {
       if (isClosed) {
@@ -1441,12 +1662,36 @@ class LeadsCubit extends Cubit<LeadsState> {
 
   @override
   Future<void> close() {
+    _isClosing = true;
     _leadsInitialLoadTimeout.cancel();
     _leadsSubscription?.cancel();
     _notesSubscription?.cancel();
     _timelineSubscription?.cancel();
     return super.close();
   }
+}
+
+
+void _masarLeadsCubitDebug(String message) {
+  assert(() {
+    // ignore: avoid_print
+    print('MasarLeadsCubitDebug $message');
+    return true;
+  }());
+}
+
+String _debugKpiCounts(ModuleKpiCounts counts) {
+  final values = _debugCompactValues(counts.values);
+  final failed = counts.failedKeys.toList()..sort();
+  return 'values={$values} failed=$failed';
+}
+
+String _debugCompactValues(Map<String, int> values) {
+  if (values.isEmpty) {
+    return '';
+  }
+  final keys = values.keys.toList()..sort();
+  return keys.map((key) => '$key=${values[key]}').join(',');
 }
 
 bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {

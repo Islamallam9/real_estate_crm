@@ -74,6 +74,16 @@ class _CountDiagnostics {
   final String archiveScope;
 }
 
+class _ModuleKpiCountsCacheEntry {
+  const _ModuleKpiCountsCacheEntry({
+    required this.counts,
+    required this.createdAt,
+  });
+
+  final ModuleKpiCounts counts;
+  final DateTime createdAt;
+}
+
 class FirestoreModuleKpiCountsDataSource {
   FirestoreModuleKpiCountsDataSource({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -81,7 +91,10 @@ class FirestoreModuleKpiCountsDataSource {
   final FirebaseFirestore _firestore;
   static const int _stuckDealDays = 14;
   static const int _leadFollowUpScanLimit = 1000;
+  static const Duration _kpiCountsCacheTtl = Duration(seconds: 30);
   static final Set<String> _reportedCountFailures = <String>{};
+  static final Map<String, _ModuleKpiCountsCacheEntry> _kpiCountsCache =
+      <String, _ModuleKpiCountsCacheEntry>{};
 
   Future<ModuleKpiCounts> leadCounts({
     required String companyId,
@@ -89,6 +102,7 @@ class FirestoreModuleKpiCountsDataSource {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    bool bypassCache = false,
   }) async {
     final collectionPath = FirebasePaths.companyLeads(companyId);
     final diagnostics = _CountDiagnostics(
@@ -102,6 +116,37 @@ class FirestoreModuleKpiCountsDataSource {
       ),
       archiveScope: archiveFilter.name,
     );
+    final now = DateTime.now();
+    final cacheKey = _kpiCountsCacheKey(
+      module: 'leads',
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+      archiveFilter: archiveFilter,
+      dateBucket: _dateCacheBucket(now),
+    );
+    if (!bypassCache) {
+      final cachedCounts = _readKpiCountsCache(
+        cacheKey: cacheKey,
+        label: 'leads.kpiCache',
+        diagnostics: diagnostics,
+      );
+      if (cachedCounts != null) {
+        return cachedCounts;
+      }
+    }
+
+    ModuleKpiCounts cacheResult(ModuleKpiCounts counts) {
+      _writeKpiCountsCache(
+        cacheKey: cacheKey,
+        counts: counts,
+        label: 'leads.kpiCache',
+        diagnostics: diagnostics,
+      );
+      return counts;
+    }
+
     final activeStatuses = <String>[
       'new',
       'contacted',
@@ -109,7 +154,7 @@ class FirestoreModuleKpiCountsDataSource {
       'visitScheduled',
       'negotiation',
     ];
-    final startToday = _startOfDay(DateTime.now());
+    final startToday = _startOfDay(now);
     final startTomorrow = startToday.add(const Duration(days: 1));
     final base = _applyPeopleScope(
       _applyArchive(
@@ -136,7 +181,7 @@ class FirestoreModuleKpiCountsDataSource {
     );
     if (countQueryCounts != null) {
       values.addAll(countQueryCounts);
-      return ModuleKpiCounts(values, failedKeys: failedKeys);
+      return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
     }
 
     if (scopedFallback) {
@@ -160,7 +205,7 @@ class FirestoreModuleKpiCountsDataSource {
       } else {
         values.addAll(snapshotCounts);
       }
-      return ModuleKpiCounts(values, failedKeys: failedKeys);
+      return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
     }
 
     final activeBase = base.where('status', whereIn: activeStatuses);
@@ -202,7 +247,7 @@ class FirestoreModuleKpiCountsDataSource {
     _putCount(values, failedKeys, 'overdue', results[3]);
     _putCount(values, failedKeys, 'upcoming', results[4]);
     _putCount(values, failedKeys, 'unassigned', results[5]);
-    return ModuleKpiCounts(values, failedKeys: failedKeys);
+    return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
   }
 
   Future<ModuleKpiCounts> taskCounts({
@@ -563,6 +608,7 @@ class FirestoreModuleKpiCountsDataSource {
     String? managerId,
     String? teamId,
     ArchiveFilter archiveFilter = ArchiveFilter.active,
+    bool bypassCache = false,
   }) async {
     final collectionPath = FirebasePaths.companyClients(companyId);
     final diagnostics = _CountDiagnostics(
@@ -576,6 +622,35 @@ class FirestoreModuleKpiCountsDataSource {
       ),
       archiveScope: archiveFilter.name,
     );
+    final cacheKey = _kpiCountsCacheKey(
+      module: 'clients',
+      companyId: companyId,
+      assignedTo: assignedTo,
+      managerId: managerId,
+      teamId: teamId,
+      archiveFilter: archiveFilter,
+    );
+    if (!bypassCache) {
+      final cachedCounts = _readKpiCountsCache(
+        cacheKey: cacheKey,
+        label: 'clients.kpiCache',
+        diagnostics: diagnostics,
+      );
+      if (cachedCounts != null) {
+        return cachedCounts;
+      }
+    }
+
+    ModuleKpiCounts cacheResult(ModuleKpiCounts counts) {
+      _writeKpiCountsCache(
+        cacheKey: cacheKey,
+        counts: counts,
+        label: 'clients.kpiCache',
+        diagnostics: diagnostics,
+      );
+      return counts;
+    }
+
     final base = _applyPeopleScope(
       _applyArchive(
         _firestore.collection(collectionPath),
@@ -600,7 +675,7 @@ class FirestoreModuleKpiCountsDataSource {
     );
     if (countQueryCounts != null) {
       values.addAll(countQueryCounts);
-      return ModuleKpiCounts(values, failedKeys: failedKeys);
+      return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
     }
 
     final snapshotCounts = await _safeClientSnapshotCounts(
@@ -616,13 +691,13 @@ class FirestoreModuleKpiCountsDataSource {
           'assigned': 0,
           'unassigned': 0,
         });
-        return ModuleKpiCounts(values, failedKeys: failedKeys);
+        return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
       }
       failedKeys.addAll(const <String>['total', 'assigned', 'unassigned']);
-      return ModuleKpiCounts(values, failedKeys: failedKeys);
+      return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
     }
     values.addAll(snapshotCounts);
-    return ModuleKpiCounts(values, failedKeys: failedKeys);
+    return cacheResult(ModuleKpiCounts(values, failedKeys: failedKeys));
   }
   Future<ModuleKpiCounts> propertyCounts({required String companyId}) async {
     final collectionPath = FirebasePaths.companyProperties(companyId);
@@ -1592,6 +1667,102 @@ class FirestoreModuleKpiCountsDataSource {
       ranged = ranged.where(field, isLessThan: isLessThan);
     }
     return ranged;
+  }
+
+  ModuleKpiCounts? _readKpiCountsCache({
+    required String cacheKey,
+    required String label,
+    required _CountDiagnostics? diagnostics,
+  }) {
+    final entry = _kpiCountsCache[cacheKey];
+    if (entry == null) {
+      return null;
+    }
+    final age = DateTime.now().difference(entry.createdAt);
+    if (age > _kpiCountsCacheTtl) {
+      _kpiCountsCache.remove(cacheKey);
+      _logKpiCountsCache(
+        label: label,
+        diagnostics: diagnostics,
+        status: 'cacheExpired',
+        ageMs: age.inMilliseconds,
+      );
+      return null;
+    }
+    _logKpiCountsCache(
+      label: label,
+      diagnostics: diagnostics,
+      status: 'cacheHit',
+      ageMs: age.inMilliseconds,
+    );
+    return entry.counts;
+  }
+
+  void _writeKpiCountsCache({
+    required String cacheKey,
+    required ModuleKpiCounts counts,
+    required String label,
+    required _CountDiagnostics? diagnostics,
+  }) {
+    if (!counts.hasFailures) {
+      _kpiCountsCache[cacheKey] = _ModuleKpiCountsCacheEntry(
+        counts: counts,
+        createdAt: DateTime.now(),
+      );
+      _logKpiCountsCache(
+        label: label,
+        diagnostics: diagnostics,
+        status: 'cacheStore',
+        ageMs: 0,
+      );
+    }
+  }
+
+  String _kpiCountsCacheKey({
+    required String module,
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+    String? dateBucket,
+  }) {
+    return <String>[
+      module,
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      archiveFilter.name,
+      dateBucket ?? '',
+    ].join('|');
+  }
+
+  String _dateCacheBucket(DateTime value) {
+    final local = _startOfDay(value);
+    final year = local.year.toString().padLeft(4, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  void _logKpiCountsCache({
+    required String label,
+    required _CountDiagnostics? diagnostics,
+    required String status,
+    required int ageMs,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final module = diagnostics?.module ?? 'unknown';
+    final roleScope = diagnostics?.roleScope ?? 'unknown';
+    final archiveScope = diagnostics?.archiveScope ?? 'unknown';
+    debugPrint(
+      'MasarKpiCountDebug: module=$module label=$label status=$status '
+      'ageMs=$ageMs ttlMs=${_kpiCountsCacheTtl.inMilliseconds} '
+      'role=$roleScope archive=$archiveScope',
+    );
   }
 
   Future<int?> _safeCount(
