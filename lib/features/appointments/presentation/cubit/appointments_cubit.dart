@@ -56,6 +56,14 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   String? _watchedTeamId;
   DateTime? _watchedRangeStart;
   DateTime? _watchedRangeEnd;
+  Future<void>? _inFlightKpiRefresh;
+  String? _inFlightKpiRefreshKey;
+  String? _lastSuccessfulKpiRefreshKey;
+  DateTime? _lastSuccessfulKpiRefreshAt;
+  int _kpiRefreshSerial = 0;
+  bool _isClosing = false;
+  static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
   static const int _defaultPageLimit = 15;
   static const int _pageIncrement = 15;
   static const List<String> _kpiCountKeys = <String>[
@@ -115,7 +123,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       ),
     );
     if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
+      unawaited(_refreshKpiCounts(reason: 'watch-start'));
     }
     _appointmentsSubscription?.cancel();
     _appointmentsInitialLoadTimeout.start(() {
@@ -168,7 +176,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
             clearMessage: true,
           ),
         );
-        unawaited(_refreshKpiCounts());
+        unawaited(_refreshKpiCounts(reason: 'stream-data'));
         _debugCheckKpiInvariant();
       },
       onError: (Object error) {
@@ -207,38 +215,124 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
   }
 
 
-  Future<void> _refreshKpiCounts() async {
+  Future<void> _refreshKpiCounts({
+    required String reason,
+    bool force = false,
+  }) {
+    if (_isClosing || isClosed) {
+      return Future<void>.value();
+    }
     final companyId = _watchedCompanyId;
     if (companyId == null || companyId.trim().isEmpty) {
-      return;
+      return Future<void>.value();
     }
+
+    final scopeKey = _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+    );
+    final inFlight = _inFlightKpiRefresh;
+    if (!force && inFlight != null && _inFlightKpiRefreshKey == scopeKey) {
+      _masarAppointmentsCubitDebug(
+        'kpi skipped duplicate inFlight reason=$reason key=$scopeKey',
+      );
+      return inFlight;
+    }
+
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (!force &&
+        reason == 'stream-data' &&
+        _lastSuccessfulKpiRefreshKey == scopeKey &&
+        lastAt != null &&
+        DateTime.now().difference(lastAt) < _streamKpiRefreshDebounce) {
+      _masarAppointmentsCubitDebug(
+        'kpi skipped recent stream-data key=$scopeKey',
+      );
+      return Future<void>.value();
+    }
+
+    final refreshSerial = ++_kpiRefreshSerial;
+    final refresh = _runKpiRefresh(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+      scopeKey: scopeKey,
+      reason: reason,
+      refreshSerial: refreshSerial,
+    );
+    _inFlightKpiRefresh = refresh;
+    _inFlightKpiRefreshKey = scopeKey;
+    refresh.whenComplete(() {
+      if (identical(_inFlightKpiRefresh, refresh)) {
+        _inFlightKpiRefresh = null;
+        _inFlightKpiRefreshKey = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _runKpiRefresh({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required DateTime? rangeStart,
+    required DateTime? rangeEnd,
+    required String scopeKey,
+    required String reason,
+    required int refreshSerial,
+  }) async {
     try {
+      _masarAppointmentsCubitDebug(
+        'kpi start reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+        'rangeEnd=$rangeEnd key=$scopeKey',
+      );
       final counts = await _countsDataSource.appointmentCounts(
         companyId: companyId,
-        assignedTo: _watchedAssignedTo,
-        managerId: _watchedManagerId,
-        teamId: _watchedTeamId,
-        rangeStart: _watchedRangeStart,
-        rangeEnd: _watchedRangeEnd,
+        assignedTo: assignedTo,
+        managerId: managerId,
+        teamId: teamId,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
       );
-      if (!isClosed && _watchedCompanyId == companyId) {
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
+        _lastSuccessfulKpiRefreshKey = scopeKey;
+        _lastSuccessfulKpiRefreshAt = DateTime.now();
         _masarAppointmentsCubitDebug(
-          'kpi success company=$companyId assignedTo=$_watchedAssignedTo '
-          'managerId=$_watchedManagerId teamId=$_watchedTeamId '
-          'rangeStart=$_watchedRangeStart rangeEnd=$_watchedRangeEnd '
-          'kpi=${_debugKpiCounts(counts)}',
+          'kpi success reason=$reason company=$companyId assignedTo=$assignedTo '
+          'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+          'rangeEnd=$rangeEnd kpi=${_debugKpiCounts(counts)}',
         );
         emit(state.copyWith(kpiCounts: counts));
         _debugCheckKpiInvariant();
+      } else {
+        _masarAppointmentsCubitDebug(
+          'kpi discarded stale reason=$reason company=$companyId key=$scopeKey '
+          'serial=$refreshSerial latestSerial=$_kpiRefreshSerial '
+          'currentKey=${_currentKpiScopeKey()}',
+        );
       }
     } catch (error) {
       _masarAppointmentsCubitDebug(
-        'kpi error company=$companyId assignedTo=$_watchedAssignedTo '
-        'managerId=$_watchedManagerId teamId=$_watchedTeamId '
-        'rangeStart=$_watchedRangeStart rangeEnd=$_watchedRangeEnd '
-        'errorType=${error.runtimeType} error=$error',
+        'kpi error reason=$reason company=$companyId assignedTo=$assignedTo '
+        'managerId=$managerId teamId=$teamId rangeStart=$rangeStart '
+        'rangeEnd=$rangeEnd errorType=${error.runtimeType} error=$error',
       );
-      if (!isClosed && _watchedCompanyId == companyId) {
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
         emit(
           state.copyWith(
             kpiCounts: ModuleKpiCounts(
@@ -249,6 +343,39 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
         );
       }
     }
+  }
+
+  String? _currentKpiScopeKey() {
+    final companyId = _watchedCompanyId;
+    if (companyId == null || companyId.trim().isEmpty) {
+      return null;
+    }
+    return _kpiScopeKey(
+      companyId: companyId,
+      assignedTo: _watchedAssignedTo,
+      managerId: _watchedManagerId,
+      teamId: _watchedTeamId,
+      rangeStart: _watchedRangeStart,
+      rangeEnd: _watchedRangeEnd,
+    );
+  }
+
+  String _kpiScopeKey({
+    required String companyId,
+    required String? assignedTo,
+    required String? managerId,
+    required String? teamId,
+    required DateTime? rangeStart,
+    required DateTime? rangeEnd,
+  }) {
+    return <String>[
+      companyId.trim(),
+      assignedTo?.trim() ?? '',
+      managerId?.trim() ?? '',
+      teamId?.trim() ?? '',
+      rangeStart?.toUtc().millisecondsSinceEpoch.toString() ?? '',
+      rangeEnd?.toUtc().millisecondsSinceEpoch.toString() ?? '',
+    ].join('|');
   }
 
   String _debugKpiCounts(ModuleKpiCounts counts) {
@@ -573,6 +700,7 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
           clearMessage: true,
         ),
       );
+      unawaited(_refreshKpiCounts(reason: 'save', force: true));
       return true;
     } on AppointmentException catch (error) {
       if (isClosed) {
@@ -1021,9 +1149,9 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
 
   @override
   Future<void> close() {
+    _isClosing = true;
     _appointmentsInitialLoadTimeout.cancel();
     _appointmentInitialLoadTimeout.cancel();
-    _refreshKpiCounts();
     _appointmentsSubscription?.cancel();
     _appointmentSubscription?.cancel();
     return super.close();
