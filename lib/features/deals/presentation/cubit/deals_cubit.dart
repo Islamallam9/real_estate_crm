@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/archive/archive_filter.dart';
@@ -21,6 +22,13 @@ import '../../domain/usecases/update_deal_usecase.dart';
 import '../../domain/usecases/watch_deal_usecase.dart';
 import '../../domain/usecases/watch_deals_usecase.dart';
 import 'deals_state.dart';
+
+void _masarDealsCubitDebug(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('MasarDealsCubitDebug $message');
+}
 
 class DealsCubit extends Cubit<DealsState> {
   DealsCubit({
@@ -59,6 +67,14 @@ class DealsCubit extends Cubit<DealsState> {
   String? _watchedCurrentUserId;
   String? _watchedTeamId;
   ArchiveFilter _watchedArchiveFilter = ArchiveFilter.active;
+  Future<void>? _inFlightKpiRefresh;
+  String? _inFlightKpiRefreshKey;
+  String? _lastSuccessfulKpiRefreshKey;
+  DateTime? _lastSuccessfulKpiRefreshAt;
+  int _kpiRefreshSerial = 0;
+  bool _isClosing = false;
+  static const Duration _streamKpiRefreshDebounce =
+      Duration(milliseconds: 1500);
   static const int _defaultPageLimit = 15;
   static const int _pageIncrement = 15;
   static const List<String> _kpiCountKeys = <String>[
@@ -83,7 +99,7 @@ class DealsCubit extends Cubit<DealsState> {
       ),
     );
     if (!state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
+      unawaited(_refreshKpiCounts(reason: 'single-watch-start'));
     }
     _dealsSubscription?.cancel();
     _dealsInitialLoadTimeout.start(() {
@@ -123,6 +139,10 @@ class DealsCubit extends Cubit<DealsState> {
         if (isClosed) {
           return;
         }
+        _masarDealsCubitDebug(
+          'watchDeal error company=$companyId dealId=$dealId '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _dealsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -152,6 +172,14 @@ class DealsCubit extends Cubit<DealsState> {
     final pageLimit = usePagination
         ? (resetPage ? _defaultPageLimit : limit ?? state.pageLimit)
         : state.pageLimit;
+    final watchLimit = usePagination ? pageLimit : _dashboardWatchLimit;
+    _masarDealsCubitDebug(
+      'watchDeals start company=$companyId role=${role.name} '
+      'currentUserId=$currentUserId teamId=$teamId '
+      'archive=${archiveFilter.name} usePagination=$usePagination '
+      'resetPage=$resetPage pageLimit=$pageLimit watchLimit=$watchLimit '
+      'currentRows=${state.deals.length} kpi=${_debugKpiCounts(state.kpiCounts)}',
+    );
     emit(
       state.copyWith(
         status: resetPage || state.deals.isEmpty
@@ -163,7 +191,7 @@ class DealsCubit extends Cubit<DealsState> {
       ),
     );
     if (resetPage || !state.kpiCounts.hasAll(_kpiCountKeys)) {
-      _refreshKpiCounts();
+      unawaited(_refreshKpiCounts(reason: 'watch-start'));
     }
     _dealsSubscription?.cancel();
     _dealsInitialLoadTimeout.start(() {
@@ -186,12 +214,17 @@ class DealsCubit extends Cubit<DealsState> {
       currentUserId: currentUserId,
       teamId: teamId,
       archiveFilter: archiveFilter,
-      limit: usePagination ? pageLimit : _dashboardWatchLimit,
+      limit: watchLimit,
     ).listen(
       (deals) {
         if (isClosed) {
           return;
         }
+        _masarDealsCubitDebug(
+          'watchDeals data company=$companyId count=${deals.length} '
+          'role=${role.name} currentUserId=$currentUserId teamId=$teamId '
+          'archive=${archiveFilter.name} watchLimit=$watchLimit',
+        );
         _dealsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -203,13 +236,19 @@ class DealsCubit extends Cubit<DealsState> {
             clearMessage: true,
           ),
         );
-        unawaited(_refreshKpiCounts());
+        unawaited(_refreshKpiCounts(reason: 'stream-data'));
         _debugCheckKpiInvariant();
       },
       onError: (error) {
         if (isClosed) {
           return;
         }
+        _masarDealsCubitDebug(
+          'watchDeals error company=$companyId role=${role.name} '
+          'currentUserId=$currentUserId teamId=$teamId '
+          'archive=${archiveFilter.name} watchLimit=$watchLimit '
+          'errorType=${error.runtimeType} error=$error',
+        );
         _dealsInitialLoadTimeout.complete();
         emit(
           state.copyWith(
@@ -222,24 +261,181 @@ class DealsCubit extends Cubit<DealsState> {
   }
 
 
-  Future<void> _refreshKpiCounts() async {
+  Future<void> _refreshKpiCounts({
+    required String reason,
+    bool force = false,
+  }) {
+    if (_isClosing || isClosed) {
+      return Future<void>.value();
+    }
     final companyId = _watchedCompanyId;
     final role = _watchedRole;
     final currentUserId = _watchedCurrentUserId;
-    if (companyId == null || companyId.trim().isEmpty || role == null || currentUserId == null) {
-      return;
+    if (companyId == null ||
+        companyId.trim().isEmpty ||
+        role == null ||
+        currentUserId == null ||
+        currentUserId.trim().isEmpty) {
+      return Future<void>.value();
     }
-    final counts = await _countsDataSource.dealCounts(
+
+    final scopeKey = _kpiScopeKey(
       companyId: companyId,
       role: role,
       currentUserId: currentUserId,
       teamId: _watchedTeamId,
       archiveFilter: _watchedArchiveFilter,
     );
-    if (!isClosed && _watchedCompanyId == companyId) {
-      emit(state.copyWith(kpiCounts: counts));
-      _debugCheckKpiInvariant();
+    final inFlight = _inFlightKpiRefresh;
+    if (!force && inFlight != null && _inFlightKpiRefreshKey == scopeKey) {
+      _masarDealsCubitDebug(
+        'kpi skipped duplicate inFlight reason=$reason key=$scopeKey',
+      );
+      return inFlight;
     }
+
+    final lastAt = _lastSuccessfulKpiRefreshAt;
+    if (!force &&
+        reason == 'stream-data' &&
+        _lastSuccessfulKpiRefreshKey == scopeKey &&
+        lastAt != null &&
+        DateTime.now().difference(lastAt) < _streamKpiRefreshDebounce) {
+      _masarDealsCubitDebug(
+        'kpi skipped recent stream-data key=$scopeKey',
+      );
+      return Future<void>.value();
+    }
+
+    final refreshSerial = ++_kpiRefreshSerial;
+    final refresh = _runKpiRefresh(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+      scopeKey: scopeKey,
+      reason: reason,
+      refreshSerial: refreshSerial,
+    );
+    _inFlightKpiRefresh = refresh;
+    _inFlightKpiRefreshKey = scopeKey;
+    refresh.whenComplete(() {
+      if (identical(_inFlightKpiRefresh, refresh)) {
+        _inFlightKpiRefresh = null;
+        _inFlightKpiRefreshKey = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _runKpiRefresh({
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+    required String scopeKey,
+    required String reason,
+    required int refreshSerial,
+  }) async {
+    try {
+      _masarDealsCubitDebug(
+        'kpi start reason=$reason company=$companyId role=${role.name} '
+        'currentUserId=$currentUserId teamId=$teamId '
+        'archive=${archiveFilter.name} key=$scopeKey',
+      );
+      final counts = await _countsDataSource.dealCounts(
+        companyId: companyId,
+        role: role,
+        currentUserId: currentUserId,
+        teamId: teamId,
+        archiveFilter: archiveFilter,
+      );
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
+        _lastSuccessfulKpiRefreshKey = scopeKey;
+        _lastSuccessfulKpiRefreshAt = DateTime.now();
+        _masarDealsCubitDebug(
+          'kpi success reason=$reason company=$companyId role=${role.name} '
+          'currentUserId=$currentUserId teamId=$teamId '
+          'archive=${archiveFilter.name} kpi=${_debugKpiCounts(counts)}',
+        );
+        emit(state.copyWith(kpiCounts: counts));
+        _debugCheckKpiInvariant();
+      } else {
+        _masarDealsCubitDebug(
+          'kpi discarded stale reason=$reason company=$companyId key=$scopeKey '
+          'serial=$refreshSerial latestSerial=$_kpiRefreshSerial '
+          'currentKey=${_currentKpiScopeKey()}',
+        );
+      }
+    } catch (error) {
+      _masarDealsCubitDebug(
+        'kpi error reason=$reason company=$companyId role=${role.name} '
+        'currentUserId=$currentUserId teamId=$teamId '
+        'archive=${archiveFilter.name} errorType=${error.runtimeType} '
+        'error=$error',
+      );
+      if (!_isClosing &&
+          !isClosed &&
+          _kpiRefreshSerial == refreshSerial &&
+          _currentKpiScopeKey() == scopeKey) {
+        emit(
+          state.copyWith(
+            kpiCounts: ModuleKpiCounts(
+              const <String, int>{},
+              failedKeys: _kpiCountKeys.toSet(),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  String? _currentKpiScopeKey() {
+    final companyId = _watchedCompanyId;
+    final role = _watchedRole;
+    final currentUserId = _watchedCurrentUserId;
+    if (companyId == null ||
+        companyId.trim().isEmpty ||
+        role == null ||
+        currentUserId == null ||
+        currentUserId.trim().isEmpty) {
+      return null;
+    }
+    return _kpiScopeKey(
+      companyId: companyId,
+      role: role,
+      currentUserId: currentUserId,
+      teamId: _watchedTeamId,
+      archiveFilter: _watchedArchiveFilter,
+    );
+  }
+
+  String _kpiScopeKey({
+    required String companyId,
+    required UserRole role,
+    required String currentUserId,
+    required String? teamId,
+    required ArchiveFilter archiveFilter,
+  }) {
+    return <String>[
+      companyId.trim(),
+      role.name,
+      currentUserId.trim(),
+      teamId?.trim() ?? '',
+      archiveFilter.name,
+    ].join('|');
+  }
+
+  String _debugKpiCounts(ModuleKpiCounts counts) {
+    final values = counts.values.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(',');
+    final failed = counts.failedKeys.join(',');
+    return 'values={$values} failed=[$failed]';
   }
 
   void _debugCheckKpiInvariant() {
@@ -640,7 +836,7 @@ class DealsCubit extends Cubit<DealsState> {
       if (isClosed) {
         return false;
       }
-      unawaited(_refreshKpiCounts());
+      unawaited(_refreshKpiCounts(reason: 'mutation', force: true));
       final updatedDeals = result is Deal
           ? _upsertDealInCurrentList(result)
           : state.deals;
@@ -854,6 +1050,7 @@ class DealsCubit extends Cubit<DealsState> {
 
   @override
   Future<void> close() {
+    _isClosing = true;
     _dealsInitialLoadTimeout.cancel();
     _dealsSubscription?.cancel();
     return super.close();
