@@ -502,6 +502,7 @@ String _guidanceSuggestionLabel(
   return _suggestedCommandActionLabel(
     l,
     item,
+    role: role,
     canCreateTask: canCreateTask,
     canCreateAppointment: canCreateAppointment,
   );
@@ -1485,7 +1486,8 @@ class _DashboardPerformanceChartCardState
               : item.points;
           return DashboardChartSeries(
             type: item.type,
-            points: _pointsForTrendMode(item.type, points),
+            points: _pointsForTrendMode(points, item.currentTotal),
+            currentTotal: item.currentTotal,
           );
         })
         .where((item) => item.points.isNotEmpty)
@@ -1548,16 +1550,17 @@ class _DashboardPerformanceChartCardState
   }
 
   List<DashboardTrendPoint> _pointsForTrendMode(
-    DashboardPerformanceSeriesType type,
     List<DashboardTrendPoint> points,
+    int? currentTotal,
   ) {
     if (_selectedMode == _PerformanceTrendMode.daily || points.isEmpty) {
       return points;
     }
 
-    final currentTotal = _currentTotalForSeries(type);
     final visibleTotal = points.fold<int>(0, (sum, point) => sum + point.value);
-    var runningTotal = math.max(currentTotal - visibleTotal, 0);
+    var runningTotal = currentTotal == null
+        ? 0
+        : math.max(currentTotal - visibleTotal, 0);
     return [
       for (final point in points)
         DashboardTrendPoint(
@@ -1565,34 +1568,6 @@ class _DashboardPerformanceChartCardState
           value: runningTotal += point.value,
         ),
     ];
-  }
-
-  int _currentTotalForSeries(DashboardPerformanceSeriesType type) {
-    int valueFor(DashboardKpiType metricType) {
-      for (final metric in widget.analytics.metrics) {
-        if (metric.type == metricType) {
-          return metric.value.round().clamp(0, 1 << 30).toInt();
-        }
-      }
-      return 0;
-    }
-
-    return switch (type) {
-      DashboardPerformanceSeriesType.leads =>
-        valueFor(DashboardKpiType.activeLeads),
-      DashboardPerformanceSeriesType.appointments =>
-        valueFor(DashboardKpiType.appointmentsToday) +
-            valueFor(DashboardKpiType.missedAppointments),
-      DashboardPerformanceSeriesType.followUps =>
-        valueFor(DashboardKpiType.dueTodayFollowUps) +
-            valueFor(DashboardKpiType.overdueFollowUps),
-      DashboardPerformanceSeriesType.deals =>
-        valueFor(DashboardKpiType.pipelineDeals) +
-            valueFor(DashboardKpiType.wonDealsThisMonth),
-      DashboardPerformanceSeriesType.properties =>
-        valueFor(DashboardKpiType.activeProperties),
-      DashboardPerformanceSeriesType.pipelineValue => 0,
-    };
   }
 
   bool _matchesPerformanceFilter(DashboardChartSeries item) {
@@ -3854,6 +3829,7 @@ Future<void> _showWorkQueueActionDrawer(
     suggestedAction: _suggestedCommandActionLabel(
       l,
       item,
+      role: role,
       canCreateTask: taskRoute != null,
       canCreateAppointment: appointmentRoute != null,
     ),
@@ -4026,9 +4002,10 @@ String _suggestedCommandActionLabel(
   SalesCommandItem item, {
   required bool canCreateTask,
   required bool canCreateAppointment,
+  UserRole? role,
 }) {
   if (item.module == DashboardCommandModule.lead) {
-    return _leadSuggestedCommandActionText(l, item);
+    return _leadSuggestedCommandActionText(l, item, role: role);
   }
   if (item.reason == DashboardAttentionReason.overdueFollowUp ||
       item.reason == DashboardAttentionReason.dueTodayFollowUp ||
@@ -4061,14 +4038,20 @@ String _suggestedCommandActionLabel(
   return l.open;
 }
 
-String _leadSuggestedCommandActionText(AppLocalizations l, SalesCommandItem item) {
+String _leadSuggestedCommandActionText(
+  AppLocalizations l,
+  SalesCommandItem item, {
+  UserRole? role,
+}) {
   return switch (item.reason) {
     DashboardAttentionReason.leadNeedsContact => l.leadNbaContactBody,
     DashboardAttentionReason.leadMissingNextStep =>
       l.leadNbaMissingNextStepBody,
     DashboardAttentionReason.leadNeedsAppointment =>
       l.leadNbaScheduleAppointmentBody,
-    DashboardAttentionReason.leadNeedsDeal => l.leadNbaCreateDealBody,
+    DashboardAttentionReason.leadNeedsDeal => _isSalesExecutionRole(role)
+        ? l.leadNbaCreateDealSalesBody
+        : l.leadNbaCreateDealBody,
     DashboardAttentionReason.overdueFollowUp => l.leadNbaFollowUpOverdueBody,
     DashboardAttentionReason.dueTodayFollowUp => l.leadNbaFollowUpTodayBody,
     DashboardAttentionReason.staleLead => l.leadNbaStaleBody,
@@ -4083,6 +4066,12 @@ String _leadSuggestedCommandActionText(AppLocalizations l, SalesCommandItem item
     DashboardAttentionReason.dealAtRisk ||
     DashboardAttentionReason.overloadedAssignee => l.salesCommandWhyHotLead,
   };
+}
+
+bool _isSalesExecutionRole(UserRole? role) {
+  return role == UserRole.salesAgent ||
+      role == UserRole.marketing ||
+      role == UserRole.viewer;
 }
 
 enum _DashboardDrawerActionStyle { primary, secondary, danger }
@@ -6819,11 +6808,19 @@ List<DashboardTodayItem> _urgentItemsForDate(
   DateTime date,
 ) {
   final selected = _dateOnly(date);
+  final today = _dateOnly(DateTime.now());
+  final now = DateTime.now();
   return items.where((item) {
     if (item.module == DashboardTodayModule.appointment || item.dueAt == null) {
       return false;
     }
-    final day = _dateOnly(item.dueAt!);
+    final dueAt = item.dueAt!.toLocal();
+    final day = _dateOnly(dueAt);
+    if (item.module == DashboardTodayModule.followUp &&
+        selected == today &&
+        dueAt.isAfter(now)) {
+      return false;
+    }
     return day == selected || day.isBefore(selected);
   }).toList()
     ..sort((a, b) {

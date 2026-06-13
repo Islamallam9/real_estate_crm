@@ -75,9 +75,11 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     'upcoming',
     'missed',
     'completed',
+    'cancelled',
   ];
   static const int _dashboardWatchLimit = 500;
   static const int _filterModeWatchLimit = 500;
+  static const Duration _appointmentOutcomeGrace = Duration(minutes: 120);
   final InitialLoadTimeout _appointmentsInitialLoadTimeout =
       InitialLoadTimeout();
   final InitialLoadTimeout _appointmentInitialLoadTimeout =
@@ -726,6 +728,34 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
     _reloadCurrentAppointmentScopeAfterFilterChange();
   }
 
+  void showAllAppointments() {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        assignedToFilter: '',
+        dateFilter: AppointmentDateFilter.all,
+        pageLimit: _defaultPageLimit,
+        clearStatusFilter: true,
+        clearTypeFilter: true,
+        clearSelectedDateFilter: true,
+        filteredAppointments: _applyFilters(
+          state.appointments,
+          searchQuery: '',
+          statusFilter: null,
+          typeFilter: null,
+          dateFilter: AppointmentDateFilter.all,
+          selectedDateFilter: null,
+          assignedToFilter: '',
+          overrideStatusFilter: true,
+          overrideTypeFilter: true,
+          overrideDateFilter: true,
+          overrideSelectedDateFilter: true,
+        ),
+      ),
+    );
+    _reloadCurrentAppointmentScopeAfterFilterChange();
+  }
+
   Future<bool> saveAppointment({
     required String companyId,
     required String operation,
@@ -1008,11 +1038,13 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       case AppointmentDateFilter.missed:
         return isMissed;
       case AppointmentDateFilter.feedbackNeeded:
-        final endAt = (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
+        final completedReferenceAt =
+            appointment.completedAt?.toLocal() ??
+            (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
         return appointment.status == AppointmentStatus.completed &&
-            appointment.outcomeNotes.trim().isEmpty &&
-            endAt != null &&
-            endAt.isBefore(now);
+            appointment.outcome == null &&
+            completedReferenceAt != null &&
+            now.difference(completedReferenceAt) >= _appointmentOutcomeGrace;
       case AppointmentDateFilter.all:
         return true;
     }
@@ -1058,17 +1090,6 @@ class AppointmentsCubit extends Cubit<AppointmentsState> {
       return AppointmentStatus.missed;
     }
     return appointment.status;
-  }
-
-  bool _isAppointmentPastStart(Appointment appointment, DateTime now) {
-    final scheduledAt = appointment.scheduledAt;
-    return scheduledAt != null &&
-        now.difference(scheduledAt.toLocal()).inSeconds >= 60;
-  }
-
-  bool _isOpenScheduledStatus(AppointmentStatus status) {
-    return status == AppointmentStatus.scheduled ||
-        status == AppointmentStatus.rescheduled;
   }
 
   Future<Appointment?> _loadAppointmentForAudit(

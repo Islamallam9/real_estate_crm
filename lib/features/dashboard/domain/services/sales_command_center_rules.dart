@@ -15,6 +15,7 @@ class SalesCommandCenterRules {
     this.highPriorityStaleLeadDays = DashboardTruthRules.highPriorityStaleLeadDays,
     this.stuckDealDays = 14,
     this.feedbackWindowDays = 7,
+    this.appointmentOutcomeGraceMinutes = 120,
     this.overloadedTaskThreshold = 3,
   });
 
@@ -22,6 +23,7 @@ class SalesCommandCenterRules {
   final int highPriorityStaleLeadDays;
   final int stuckDealDays;
   final int feedbackWindowDays;
+  final int appointmentOutcomeGraceMinutes;
   final int overloadedTaskThreshold;
 
   SalesCommandSummary build(SalesCommandCenterRuleInput input) {
@@ -498,9 +500,7 @@ class SalesCommandCenterRules {
       }
 
       if (isOpenStatus &&
-          scheduledAt != null &&
-          !scheduledAt.isAfter(input.now) &&
-          (endAt == null || !endAt.isBefore(input.now))) {
+          DashboardTruthRules.isAppointmentDueNow(appointment, input.now)) {
         today.add(
           _appointmentItem(
             appointment: appointment,
@@ -531,22 +531,27 @@ class SalesCommandCenterRules {
         continue;
       }
 
+      final completedReferenceAt = appointment.completedAt?.toLocal() ?? endAt;
+      final missingOutcomeAge = completedReferenceAt == null
+          ? null
+          : input.now.difference(completedReferenceAt);
       if (appointment.status == AppointmentStatus.completed &&
-          appointment.outcomeNotes.trim().isEmpty &&
-          endAt != null &&
-          endAt.isBefore(input.now) &&
-          input.now.difference(endAt).inDays <= feedbackWindowDays) {
-        risk.add(
-          _appointmentItem(
-            appointment: appointment,
-            reason: DashboardAttentionReason.appointmentNeedsFeedback,
-            priority: DashboardPriority.medium,
-            dueAt: endAt,
-            sortDate: endAt,
-            score: 58,
-            ageDays: input.now.difference(endAt).inDays,
-          ),
+          appointment.outcome == null &&
+          completedReferenceAt != null &&
+          missingOutcomeAge != null &&
+          missingOutcomeAge.inMinutes >= appointmentOutcomeGraceMinutes &&
+          missingOutcomeAge.inDays <= feedbackWindowDays) {
+        final item = _appointmentItem(
+          appointment: appointment,
+          reason: DashboardAttentionReason.appointmentNeedsFeedback,
+          priority: DashboardPriority.medium,
+          dueAt: completedReferenceAt,
+          sortDate: completedReferenceAt,
+          score: 58 + missingOutcomeAge.inDays.clamp(0, 4).toInt(),
+          ageDays: missingOutcomeAge.inDays,
         );
+        today.add(item);
+        risk.add(item);
       }
     }
   }

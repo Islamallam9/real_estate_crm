@@ -8,8 +8,10 @@ import '../../../../core/constants/firebase_paths.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../domain/constants/notification_limits.dart';
 import '../../domain/entities/attention_reminder.dart';
+import '../../domain/entities/crm_notification.dart';
 import '../../domain/errors/notification_exception.dart';
 import '../models/crm_notification_model.dart';
 
@@ -238,6 +240,7 @@ class FirestoreNotificationsRemoteDataSource
             companyId: companyId,
             recipientUid: recipientUid,
           )
+              .where(_shouldKeepNotificationForDisplay)
               .where((notification) =>
                   !notification.isRead && !notification.isDismissed)
               .map((notification) => notification.id)
@@ -270,6 +273,7 @@ class FirestoreNotificationsRemoteDataSource
             companyId: companyId,
             recipientUid: recipientUid,
           )
+              .where(_shouldKeepNotificationForDisplay)
               .where((notification) =>
                   !notification.isRead && !notification.isDismissed)
               .map((notification) => notification.id)
@@ -379,28 +383,30 @@ class FirestoreNotificationsRemoteDataSource
       },
     );
 
-    tasksSub = _taskReminderQuery(
-      companyId: companyId,
-      currentUserId: currentUserId,
-      role: role,
-      managerTeamId: managerTeamId,
-      limit: limit,
-    ).snapshots().listen(
-      (snapshot) {
-        try {
-          latestTaskReminders = _taskRemindersFromSnapshot(
-            snapshot,
-            companyId: companyId,
-          );
-          emitCombined();
-        } catch (error) {
+    if (role != UserRole.admin) {
+      tasksSub = _taskReminderQuery(
+        companyId: companyId,
+        currentUserId: currentUserId,
+        role: role,
+        managerTeamId: managerTeamId,
+        limit: limit,
+      ).snapshots().listen(
+        (snapshot) {
+          try {
+            latestTaskReminders = _taskRemindersFromSnapshot(
+              snapshot,
+              companyId: companyId,
+            );
+            emitCombined();
+          } catch (error) {
+            addAttentionError('tasks', error);
+          }
+        },
+        onError: (Object error) {
           addAttentionError('tasks', error);
-        }
-      },
-      onError: (Object error) {
-        addAttentionError('tasks', error);
-      },
-    );
+        },
+      );
+    }
 
     appointmentsSub = _appointmentReminderQuery(
       companyId: companyId,
@@ -591,7 +597,9 @@ class FirestoreNotificationsRemoteDataSource
     Query<Map<String, dynamic>> query = _firestore.collection(
       FirebasePaths.companyAppointments(companyId),
     );
-    if (role == UserRole.manager) {
+    if (role == UserRole.admin) {
+      query = query.where('assignedTo', isEqualTo: currentUserId);
+    } else if (role == UserRole.manager) {
       final teamId = (managerTeamId ?? '').trim();
       query = teamId.isNotEmpty
           ? query.where('teamId', isEqualTo: teamId)
@@ -627,7 +635,7 @@ class FirestoreNotificationsRemoteDataSource
               ? data['sourceDetails'] as String
               : data['source'] as String? ?? '';
       final nextFollowUpAt = _dateTimeFromValue(data['nextFollowUpAt']);
-      if (nextFollowUpAt != null) {
+      if (role != UserRole.admin && nextFollowUpAt != null) {
         final followUpDay = _dateOnly(nextFollowUpAt);
         if (followUpDay.isBefore(today) || followUpDay == today) {
           reminders.add(
@@ -720,7 +728,7 @@ class FirestoreNotificationsRemoteDataSource
   }) {
     final now = DateTime.now();
     final today = _dateOnly(now);
-    final soonCutoff = now.add(const Duration(hours: 2));
+    final soonCutoff = now.add(const Duration(minutes: 10));
     final reminders = <AttentionReminder>[];
     for (final document in documents) {
       final data = document.data();
@@ -735,23 +743,34 @@ class FirestoreNotificationsRemoteDataSource
       if (scheduledAt == null) {
         continue;
       }
+      final endAt = _dateTimeFromValue(data['endAt']);
       final scheduledDay = _dateOnly(scheduledAt);
-      final isStoredMissed = status == 'missed';
-      final isOpenScheduled =
-          status == 'scheduled' || status == 'rescheduled';
-      final secondsPastStart =
-          now.difference(scheduledAt.toLocal()).inSeconds;
-      final isDueNow = isOpenScheduled &&
-          !scheduledAt.toLocal().isAfter(now) &&
-          secondsPastStart < 60;
-      final isOverdueScheduled = isOpenScheduled && secondsPastStart >= 60;
+      final isMissed = DashboardTruthRules.isMissedAppointmentState(
+        status: status,
+        scheduledAt: scheduledAt,
+        endAt: endAt,
+        now: now,
+      );
+      final isDueNow = DashboardTruthRules.isAppointmentDueNowState(
+        status: status,
+        scheduledAt: scheduledAt,
+        endAt: endAt,
+        now: now,
+      );
+      final scheduleCommittedAt =
+          _dateTimeFromValue(data['scheduleCommittedAt']) ??
+          _dateTimeFromValue(data['createdAt']);
       final isUpcomingSoon =
           scheduledAt.toLocal().isAfter(now) &&
-          scheduledAt.toLocal().isBefore(soonCutoff);
+          scheduledAt.toLocal().isBefore(soonCutoff) &&
+          _isTenMinuteAppointmentReminderEligible(
+            scheduledAt: scheduledAt,
+            scheduleCommittedAt: scheduleCommittedAt,
+          );
       final isToday = scheduledDay == today;
 
       AttentionReminderType? type;
-      if (isStoredMissed || isOverdueScheduled) {
+      if (isMissed) {
         type = AttentionReminderType.appointmentMissed;
       } else if (isDueNow) {
         type = AttentionReminderType.appointmentDueNow;
@@ -943,6 +962,9 @@ int _reminderGroup(AttentionReminder reminder) {
 }
 
 bool _shouldKeepNotificationForDisplay(CrmNotificationModel notification) {
+  if (_isLowValueAdminOperationalNotification(notification)) {
+    return false;
+  }
   if (!notification.isRead || notification.needsAction) {
     return true;
   }
@@ -955,6 +977,59 @@ bool _shouldKeepNotificationForDisplay(CrmNotificationModel notification) {
         const Duration(days: notificationReadRetentionDays),
       );
   return expiresAt.isAfter(DateTime.now());
+}
+
+
+bool _isTenMinuteAppointmentReminderEligible({
+  required DateTime scheduledAt,
+  required DateTime? scheduleCommittedAt,
+}) {
+  if (scheduleCommittedAt == null) {
+    return true;
+  }
+  return scheduledAt.toLocal().difference(scheduleCommittedAt.toLocal()) >
+      const Duration(minutes: 10);
+}
+
+bool _isLowValueAdminOperationalNotification(
+  CrmNotificationModel notification,
+) {
+  if (notification.recipientRole != 'admin') {
+    return false;
+  }
+  return switch (notification.type) {
+    CrmNotificationType.teamAppointmentAssigned ||
+    CrmNotificationType.teamAppointmentReassigned ||
+    CrmNotificationType.teamAppointmentDueSoon ||
+    CrmNotificationType.teamAppointmentDueNow ||
+    CrmNotificationType.teamAppointmentCompleted ||
+    CrmNotificationType.teamAppointmentRescheduled ||
+    CrmNotificationType.teamAppointmentCancelled ||
+    CrmNotificationType.teamAppointmentMissed ||
+    CrmNotificationType.teamTaskStatusChanged => true,
+    CrmNotificationType.teamLeadStatusChanged =>
+      !_isAdminWorthyLeadNotification(notification),
+    _ => false,
+  };
+}
+
+bool _isAdminWorthyLeadNotification(CrmNotificationModel notification) {
+  final status = _normalizedNotificationMetadataValue(
+    notification.metadata['newStatus'] ?? notification.metadata['newStage'],
+  );
+  return status == 'won' ||
+      status == 'lost' ||
+      status == 'closed' ||
+      status == 'closedwon' ||
+      status == 'closedlost';
+}
+
+String _normalizedNotificationMetadataValue(Object? value) {
+  return value
+      .toString()
+      .trim()
+      .replaceAll(RegExp(r'[\s_-]+'), '')
+      .toLowerCase();
 }
 
 Timestamp _retentionExpiry(int retentionDays) {

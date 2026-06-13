@@ -169,15 +169,57 @@ abstract final class DashboardTruthRules {
   }
 
   static bool isMissedAppointment(Appointment appointment, DateTime now) {
-    if (appointment.status == AppointmentStatus.completed ||
-        appointment.status == AppointmentStatus.cancelled) {
+    return isMissedAppointmentState(
+      status: appointment.status.name,
+      scheduledAt: appointment.scheduledAt,
+      endAt: appointment.endAt,
+      now: now,
+    );
+  }
+
+  static bool isAppointmentDueNow(Appointment appointment, DateTime now) {
+    return isAppointmentDueNowState(
+      status: appointment.status.name,
+      scheduledAt: appointment.scheduledAt,
+      endAt: appointment.endAt,
+      now: now,
+    );
+  }
+
+  static bool isMissedAppointmentState({
+    required String status,
+    required DateTime? scheduledAt,
+    required DateTime? endAt,
+    required DateTime now,
+  }) {
+    final normalizedStatus = status.trim();
+    if (normalizedStatus == 'completed' || normalizedStatus == 'cancelled') {
       return false;
     }
-    final openStatus = appointment.status == AppointmentStatus.scheduled ||
-        appointment.status == AppointmentStatus.rescheduled;
-    final endAt = (appointment.endAt ?? appointment.scheduledAt)?.toLocal();
-    return appointment.status == AppointmentStatus.missed ||
-        (openStatus && endAt != null && endAt.isBefore(now));
+    final openStatus = normalizedStatus == 'scheduled' ||
+        normalizedStatus == 'rescheduled';
+    final localEnd = (endAt ?? scheduledAt)?.toLocal();
+    return normalizedStatus == 'missed' ||
+        (openStatus && localEnd != null && localEnd.isBefore(now));
+  }
+
+  static bool isAppointmentDueNowState({
+    required String status,
+    required DateTime? scheduledAt,
+    required DateTime? endAt,
+    required DateTime now,
+  }) {
+    final normalizedStatus = status.trim();
+    final openStatus = normalizedStatus == 'scheduled' ||
+        normalizedStatus == 'rescheduled';
+    if (!openStatus) {
+      return false;
+    }
+    final localStart = scheduledAt?.toLocal();
+    final localEnd = (endAt ?? scheduledAt)?.toLocal();
+    return localStart != null &&
+        !localStart.isAfter(now) &&
+        (localEnd == null || !localEnd.isBefore(now));
   }
 
   static bool isActiveProperty(Property property) {

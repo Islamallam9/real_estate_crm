@@ -155,13 +155,15 @@ class DashboardChartSeries extends Equatable {
   const DashboardChartSeries({
     required this.type,
     required this.points,
+    this.currentTotal,
   });
 
   final DashboardPerformanceSeriesType type;
   final List<DashboardTrendPoint> points;
+  final int? currentTotal;
 
   @override
-  List<Object?> get props => [type, points];
+  List<Object?> get props => [type, points, currentTotal];
 }
 
 class DashboardBarMetric extends Equatable {

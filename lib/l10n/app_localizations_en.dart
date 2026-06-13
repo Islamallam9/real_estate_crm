@@ -1819,7 +1819,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentMissed =>
-      'The appointment time has passed and still needs handling.';
+      'Appointment was missed. Contact the client and reschedule or record what happened.';
 
   @override
   String get salesCommandWhyAppointmentDueNow =>
@@ -1831,7 +1831,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentNeedsFeedback =>
-      'The appointment ended but no outcome was captured.';
+      'Completion is saved but no outcome is recorded. Record the result so Masar knows the next step.';
 
   @override
   String get salesCommandWhyDealAtRisk =>
@@ -3602,6 +3602,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Appointment end time must be after start time.';
 
   @override
+  String get appointmentFutureTimeRequired =>
+      'Choose a future appointment time.';
+
+  @override
   String get appointmentSaved => 'Appointment saved.';
 
   @override
@@ -3657,6 +3661,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appointmentOutcome => 'Appointment outcome';
+
+  @override
+  String get recordAppointmentOutcome => 'Record outcome';
+
+  @override
+  String get addAppointmentOutcomeLater => 'Later';
+
+  @override
+  String get appointmentCompletedOutcomePromptMessage =>
+      'Appointment completion is saved. Record the outcome now so Masar can guide the real next step.';
 
   @override
   String get cancellationReason => 'Cancellation reason';
@@ -3730,7 +3744,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get completeAppointmentConfirmation =>
-      'Complete this appointment and record the outcome.';
+      'Mark this appointment as completed. Masar will ask for the outcome after the save succeeds.';
 
   @override
   String get markMissedConfirmation => 'Mark this appointment as missed?';
@@ -3754,7 +3768,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appointmentOutcomeDealOpportunity => 'Deal opportunity';
 
   @override
+  String get appointmentOutcomePendingDecision => 'Pending decision';
+
+  @override
   String get appointmentOutcomeOther => 'Other';
+
+  @override
+  String get appointmentOutcomeHintSuccessfulMeeting =>
+      'Meeting succeeded. Keep the next commitment clear and recorded.';
+
+  @override
+  String get appointmentOutcomeHintNoAnswer =>
+      'No answer needs recovery. Contact again or reschedule before the opportunity loses momentum.';
+
+  @override
+  String get appointmentOutcomeHintClientPostponed =>
+      'Client postponed. Agree on a new time and record the next follow-up.';
+
+  @override
+  String get appointmentOutcomeHintClientNotInterested =>
+      'Client is not interested. Record the reason or set a low-pressure follow-up if there is still a chance.';
+
+  @override
+  String get appointmentOutcomeHintFollowUpNeeded =>
+      'Follow-up is needed. Schedule the next step so the opportunity does not disappear.';
+
+  @override
+  String get appointmentOutcomeHintDealOpportunity =>
+      'This can become a deal. Create or update the deal after saving the outcome.';
+
+  @override
+  String get appointmentOutcomeHintPendingDecision =>
+      'Client needs a decision deadline. Set a follow-up date and keep the pressure visible.';
+
+  @override
+  String get appointmentOutcomeHintOther =>
+      'Record the real result clearly so the next action stays honest.';
 
   @override
   String get appointmentTypeCall => 'Call';
@@ -4954,7 +5003,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get journeyActionOverdueFollowUpDescription =>
-      'Contact this record today or create a task so it does not stay cold.';
+      'Contact this record today or create a task to keep the follow-up momentum clear.';
 
   @override
   String get journeyActionNoContact => 'Needs a fresh touchpoint';
@@ -5468,7 +5517,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardPerformanceDailyActivityNote =>
-      'Shows daily activity, so days without new records appear as 0.';
+      'Shows daily activity inside the selected period, so quiet days appear as 0.';
 
   @override
   String get dashboardPerformanceTotalTrend => 'Total';
@@ -5478,11 +5527,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardPerformanceTotalTrendNote =>
-      'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.';
+      'Shows the current scoped total with the movement inside the selected period.';
 
   @override
   String get salesCommandWhyLeadNeedsContact =>
-      'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so it does not stay cold.';
+      'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so the opportunity keeps momentum.';
 
   @override
   String get salesCommandWhyLeadMissingNextStep =>
@@ -5527,11 +5576,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leadNbaFollowUpTodayBody =>
-      'This is the right time to follow up. Open the conversation today before the opportunity cools down.';
+      'This is the right time to follow up. Open the conversation today to keep the opportunity moving.';
 
   @override
   String get leadNbaMissingNextStepTitle =>
-      'Set the next step before this lead cools down';
+      'Set the next step to keep the opportunity moving';
 
   @override
   String get leadNbaMissingNextStepBody =>
@@ -5545,11 +5594,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'This lead is interested. The next smart move is to book a viewing or appointment instead of leaving the conversation open.';
 
   @override
-  String get leadNbaCreateAppointmentTitle => 'Create the appointment record';
+  String get leadNbaCreateAppointmentTitle => 'Track the scheduled visit';
 
   @override
   String get leadNbaCreateAppointmentBody =>
-      'The status says a visit is expected, but no appointment is linked yet. Create it so the schedule and reminders stay accurate.';
+      'The lead is already in the viewing stage. Let the scheduled appointment carry the next step, then record the result after the visit so the opportunity stays clear.';
 
   @override
   String get leadNbaCreateDealTitle => 'Move negotiation into a tracked deal';
@@ -5557,6 +5606,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get leadNbaCreateDealBody =>
       'This lead reached negotiation. Create the deal now so value, stage, and closing actions are managed properly.';
+
+  @override
+  String get leadNbaCreateDealSalesTitle => 'Lock the next negotiation step';
+
+  @override
+  String get leadNbaCreateDealSalesBody =>
+      'This lead is in negotiation. Do not leave the conversation open: agree on the next follow-up, reservation step, or decision deadline, then record it so the opportunity stays warm.';
 
   @override
   String get leadNbaStaleTitle => 'Wake up this quiet lead';

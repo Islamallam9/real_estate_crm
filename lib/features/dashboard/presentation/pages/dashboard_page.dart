@@ -33,6 +33,7 @@ import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/sales_command_center.dart';
+import '../../domain/services/dashboard_truth_rules.dart';
 import '../../domain/usecases/build_dashboard_analytics_usecase.dart';
 import '../../domain/usecases/build_sales_command_center_usecase.dart';
 import '../widgets/dashboard_cockpit_body.dart';
@@ -6739,23 +6740,11 @@ String _taskSubtitle(BuildContext context, CrmTask task) {
 }
 
 bool _dashboardAppointmentIsMissed(Appointment appointment) {
-  final endAt = appointment.endAt ?? appointment.scheduledAt;
-  return appointment.status == AppointmentStatus.missed ||
-      (appointment.status == AppointmentStatus.scheduled &&
-          endAt != null &&
-          endAt.toLocal().isBefore(DateTime.now()));
+  return DashboardTruthRules.isMissedAppointment(appointment, DateTime.now());
 }
 
 bool _dashboardAppointmentIsDueNow(Appointment appointment) {
-  final scheduledAt = appointment.scheduledAt;
-  if (appointment.status != AppointmentStatus.scheduled ||
-      scheduledAt == null) {
-    return false;
-  }
-  final now = DateTime.now();
-  final start = scheduledAt.toLocal();
-  final end = (appointment.endAt ?? scheduledAt).toLocal();
-  return !start.isAfter(now) && !end.isBefore(now);
+  return DashboardTruthRules.isAppointmentDueNow(appointment, DateTime.now());
 }
 
 int _dashboardAppointmentRank(Appointment appointment) {

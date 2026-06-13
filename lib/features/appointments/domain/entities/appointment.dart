@@ -26,6 +26,7 @@ enum AppointmentOutcome {
   clientNotInterested,
   followUpNeeded,
   dealOpportunity,
+  pendingDecision,
   other,
 }
 

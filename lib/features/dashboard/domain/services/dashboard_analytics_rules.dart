@@ -593,6 +593,21 @@ class DashboardAnalyticsRules {
       if (dueAt == null) {
         continue;
       }
+      final isOverdue = DashboardTruthRules.isOverdueFollowUpLead(
+        lead,
+        input.today,
+      );
+      final isDueToday = DashboardTruthRules.isDueTodayFollowUpLead(
+        lead,
+        input.today,
+      );
+      final isUpcoming = DashboardTruthRules.isUpcomingFollowUpLead(
+        lead,
+        input.today,
+      );
+      if (!isOverdue && !isDueToday && !isUpcoming) {
+        continue;
+      }
       items.add(
         DashboardTodayItem(
           id: 'lead:${lead.id}:follow-up',
@@ -601,7 +616,11 @@ class DashboardAnalyticsRules {
           title: _fallback(lead.fullName, lead.phone),
           subtitle: _fallback(lead.assignedToName, lead.phone),
           dueAt: dueAt,
-          urgency: _urgencyForDate(input, dueAt),
+          urgency: isOverdue
+              ? DashboardTodayUrgency.overdue
+              : isDueToday
+                  ? DashboardTodayUrgency.dueToday
+                  : _urgencyForDate(input, dueAt),
         ),
       );
     }
@@ -673,10 +692,27 @@ class DashboardAnalyticsRules {
     DashboardAnalyticsInput input,
     List<Deal> openDeals,
   ) {
+    final activeLeadCount = input.leads
+        .where(DashboardTruthRules.isActiveLead)
+        .length;
+    final dueTodayFollowUpCount = input.leads.where((lead) {
+      return DashboardTruthRules.isDueTodayFollowUpLead(lead, input.today);
+    }).length;
+    final overdueFollowUpCount = input.leads.where((lead) {
+      return DashboardTruthRules.isOverdueFollowUpLead(lead, input.today);
+    }).length;
+    final wonDealsThisMonthCount = input.deals.where((deal) {
+      return DashboardTruthRules.isDealWonThisMonth(deal, input.now);
+    }).length;
+    final activePropertyCount = input.properties
+        .where(DashboardTruthRules.isActiveProperty)
+        .length;
+
     return [
       if (input.includeLeads)
         DashboardChartSeries(
           type: DashboardPerformanceSeriesType.leads,
+          currentTotal: activeLeadCount,
           points: _trendPoints(
             input.now,
             input.leads.map((lead) => lead.createdAt),
@@ -686,6 +722,7 @@ class DashboardAnalyticsRules {
       if (input.includeAppointments)
         DashboardChartSeries(
           type: DashboardPerformanceSeriesType.appointments,
+          currentTotal: input.appointments.length,
           points: _trendPoints(
             input.now,
             input.appointments.map((appointment) => appointment.scheduledAt),
@@ -695,6 +732,7 @@ class DashboardAnalyticsRules {
       if (input.includeLeads || input.includeTasks)
         DashboardChartSeries(
           type: DashboardPerformanceSeriesType.followUps,
+          currentTotal: dueTodayFollowUpCount + overdueFollowUpCount,
           points: _trendPoints(
             input.now,
             [
@@ -709,6 +747,7 @@ class DashboardAnalyticsRules {
       if (input.includeDeals)
         DashboardChartSeries(
           type: DashboardPerformanceSeriesType.deals,
+          currentTotal: openDeals.length + wonDealsThisMonthCount,
           points: _trendPoints(
             input.now,
             input.deals.map((deal) => deal.updatedAt ?? deal.createdAt),
@@ -718,6 +757,7 @@ class DashboardAnalyticsRules {
       if (input.includeProperties)
         DashboardChartSeries(
           type: DashboardPerformanceSeriesType.properties,
+          currentTotal: activePropertyCount,
           points: _trendPoints(
             input.now,
             input.properties.map((property) => property.updatedAt),

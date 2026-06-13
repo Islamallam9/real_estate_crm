@@ -485,6 +485,22 @@ class _AppointmentFormState extends State<AppointmentForm> {
     }
 
     final previous = widget.appointment;
+    final isOpenScheduleSave = _status == AppointmentStatus.scheduled ||
+        _status == AppointmentStatus.rescheduled;
+    final previousStartMillis =
+        previous?.scheduledAt?.toLocal().millisecondsSinceEpoch;
+    final previousEndMillis = previous?.endAt?.toLocal().millisecondsSinceEpoch;
+    final scheduleChanged = previous == null ||
+        previous.status != _status ||
+        previousStartMillis != scheduledAt.millisecondsSinceEpoch ||
+        previousEndMillis != endAt.millisecondsSinceEpoch;
+    if (isOpenScheduleSave &&
+        scheduleChanged &&
+        !scheduledAt.isAfter(DateTime.now())) {
+      AppFeedback.warning(context, l.appointmentFutureTimeRequired);
+      return;
+    }
+
     final selectedAssignee = _selectedAssignee();
     final assignedToName = selectedAssignee?.fullName ?? _assignedToName;
     final assignedToEmail = selectedAssignee?.email ?? _assignedToEmail;
@@ -930,7 +946,30 @@ String appointmentOutcomeLabel(AppLocalizations l, AppointmentOutcome outcome) {
       l.appointmentOutcomeClientNotInterested,
     AppointmentOutcome.followUpNeeded => l.appointmentOutcomeFollowUpNeeded,
     AppointmentOutcome.dealOpportunity => l.appointmentOutcomeDealOpportunity,
+    AppointmentOutcome.pendingDecision => l.appointmentOutcomePendingDecision,
     AppointmentOutcome.other => l.appointmentOutcomeOther,
+  };
+}
+
+String appointmentOutcomeNextStepHint(
+  AppLocalizations l,
+  AppointmentOutcome outcome,
+) {
+  return switch (outcome) {
+    AppointmentOutcome.successfulMeeting =>
+      l.appointmentOutcomeHintSuccessfulMeeting,
+    AppointmentOutcome.noAnswer => l.appointmentOutcomeHintNoAnswer,
+    AppointmentOutcome.clientPostponed =>
+      l.appointmentOutcomeHintClientPostponed,
+    AppointmentOutcome.clientNotInterested =>
+      l.appointmentOutcomeHintClientNotInterested,
+    AppointmentOutcome.followUpNeeded =>
+      l.appointmentOutcomeHintFollowUpNeeded,
+    AppointmentOutcome.dealOpportunity =>
+      l.appointmentOutcomeHintDealOpportunity,
+    AppointmentOutcome.pendingDecision =>
+      l.appointmentOutcomeHintPendingDecision,
+    AppointmentOutcome.other => l.appointmentOutcomeHintOther,
   };
 }
 

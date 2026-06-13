@@ -65,6 +65,8 @@ String localizeErrorMessage(AppLocalizations l, String? message) {
     case AppErrorMessages.propertyImageTooLarge:
     case 'Property image must be 5 MB or smaller.':
       return l.propertyImageTooLarge;
+    case 'Appointment time must be in the future.':
+      return l.appointmentFutureTimeRequired;
     default:
       return message ?? l.somethingWentWrong;
   }

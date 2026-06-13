@@ -70,6 +70,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       role: role,
       managerTeamId: managerTeamId,
       notificationsLimit: notificationsLimit,
+      clearExistingNotifications: true,
     );
   }
 
@@ -86,7 +87,12 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     _remindersKey = '';
     emit(
       state.copyWith(
+        status: NotificationsStatus.loading,
+        notifications: const <CrmNotification>[],
+        reminders: const <AttentionReminder>[],
+        clearMessage: true,
         clearReminderMessage: true,
+        clearedNotificationIds: const <String>{},
         clearedReminderIds: const <String>{},
       ),
     );
@@ -106,6 +112,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     required UserRole role,
     String? managerTeamId,
     int notificationsLimit = notificationDropdownLimit,
+    bool clearExistingNotifications = false,
   }) {
     _prepareSession(
       companyId: companyId,
@@ -117,6 +124,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       companyId: companyId,
       currentUserId: currentUserId,
       notificationsLimit: notificationsLimit,
+      clearExistingNotifications: clearExistingNotifications,
     );
     _watchUnreadCount(
       companyId: companyId,
@@ -225,12 +233,16 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     _stopAttentionReminders(clearState: true);
     _locallyReadNotificationIds.clear();
     _suppressUnreadCountUntil = null;
+    if (!isClosed) {
+      emit(const NotificationsState.initial());
+    }
   }
 
   void _watchNotifications({
     required String companyId,
     required String currentUserId,
     required int notificationsLimit,
+    bool clearExistingNotifications = false,
   }) {
     final key = '$companyId:$currentUserId:$notificationsLimit';
     if (_notificationsKey == key) {
@@ -241,9 +253,14 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     emit(
       state.copyWith(
         status: NotificationsStatus.loading,
+        notifications: clearExistingNotifications
+            ? const <CrmNotification>[]
+            : state.notifications,
         notificationsLimit: notificationsLimit,
         clearMessage: true,
-        clearedNotificationIds: const <String>{},
+        clearedNotificationIds: clearExistingNotifications
+            ? const <String>{}
+            : state.clearedNotificationIds,
       ),
     );
     _notificationsSubscription = _watchNotificationsUseCase(

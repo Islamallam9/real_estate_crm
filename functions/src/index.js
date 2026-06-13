@@ -1205,6 +1205,7 @@ const APPOINTMENT_OUTCOMES = new Set([
   'clientNotInterested',
   'followUpNeeded',
   'dealOpportunity',
+  'pendingDecision',
   'other',
 ]);
 const LEAD_SOURCES = new Set([
@@ -1323,6 +1324,7 @@ const PLATFORM_NOTIFICATION_TYPES = new Set([
   'paymentSuspended',
   'paymentReactivated',
   'paymentMarkedPaid',
+  'platformOwnerEmailChanged',
 ]);
 const PLATFORM_NOTIFICATION_SEVERITIES = new Set(['info', 'success', 'warning', 'urgent']);
 const PLATFORM_NOTIFICATION_DELIVERY_MODES = new Set(['inAppOnly', 'pushEligible', 'attentionOnly', 'auditOnly']);
@@ -1335,6 +1337,7 @@ const PLATFORM_NOTIFICATION_SOURCES = new Set([
   'user',
   'storage',
   'system',
+  'security',
 ]);
 const REPORT_EXPORT_TYPES = new Set([
   'reportsExport',
@@ -1419,6 +1422,13 @@ const IMPORTANT_TASK_STATUSES = new Set([
 const MAJOR_DEAL_OUTCOMES = new Set([
   'won',
   'lost',
+  'closedWon',
+  'closedLost',
+]);
+const MAJOR_RECORD_OUTCOMES = new Set([
+  'won',
+  'lost',
+  'closed',
   'closedWon',
   'closedLost',
 ]);
@@ -6116,7 +6126,7 @@ exports.saveAppointmentRecord = onCall(async (request) => {
     relatedId: optionalString(appointmentInput.relatedId),
   });
 
-  const now = FieldValue.serverTimestamp();
+  const now = admin.firestore.Timestamp.now();
   const payload = buildAppointmentPayload({
     companyId,
     appointmentId,
@@ -6710,218 +6720,11 @@ exports.refreshActionableReminderNotifications = onCall(
 // compatibility with older clients.
 
 
-async function refreshActionableReminderWindow({ companyId, actorUid, actor, nowDate, limit }) {
+async function refreshActionableReminderWindow() {
   // Live attention reminders are now shown from scoped CRM queries in the app.
-  // Do not create persistent notification documents for generic suggestions,
-  // because they flood the bell/unread list and make release QA noisy.
+  // Keep this callable-compatible helper as a no-op so older clients receive
+  // the same response without running unused Lead/Task/Deal reminder scans.
   return { checked: 0, created: 0, mode: 'liveAttentionOnly' };
-
-  const now = nowDate instanceof Date ? nowDate : new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  const staleDealCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const dueEnd = admin.firestore.Timestamp.fromDate(todayEnd);
-  const staleDealTimestamp = admin.firestore.Timestamp.fromDate(staleDealCutoff);
-  let checked = 0;
-  let created = 0;
-
-  const leadQuery = reminderCollectionQuery({ companyId, collection: 'leads' })
-    .where('nextFollowUpAt', '<=', dueEnd)
-    .limit(limit || 180);
-  const taskQuery = reminderCollectionQuery({ companyId, collection: 'tasks' })
-    .where('dueDate', '<=', dueEnd)
-    .limit(limit || 180);
-  const dealQuery = reminderCollectionQuery({ companyId, collection: 'deals' })
-    .where('updatedAt', '<=', staleDealTimestamp)
-    .limit(Math.min(limit || 180, 160));
-
-  const [leadSnapshot, taskSnapshot, dealSnapshot] = await Promise.all([
-    leadQuery.get(),
-    taskQuery.get(),
-    dealQuery.get(),
-  ]);
-
-  for (const document of leadSnapshot.docs) {
-    const lead = document.data() || {};
-    const resolvedCompanyId = optionalString(lead.companyId) || companyIdFromScopedPath(document.ref.path);
-    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
-      continue;
-    }
-    if (lead.isArchived === true) {
-      continue;
-    }
-    const status = normalizedWorkflowValue(lead.status);
-    if (['won', 'lost', 'converted', 'closed'].includes(status)) {
-      continue;
-    }
-    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: lead })) {
-      continue;
-    }
-    const dueAt = timestampToDateSafe(lead.nextFollowUpAt);
-    if (!dueAt || dueAt > todayEnd) {
-      continue;
-    }
-    checked += 1;
-    const reminderType = dueAt < todayStart ? 'followUpOverdue' : 'followUpDueToday';
-    const recipients = await actionableReminderRecipients({
-      companyId: resolvedCompanyId,
-      record: lead,
-      actorUid,
-      actor,
-      fallbackAdminForUnassigned: true,
-    });
-    for (const recipient of recipients) {
-      const id = await createCompanyNotification({
-        companyId: resolvedCompanyId,
-        recipientUid: recipient.uid,
-        recipientRole: recipient.role,
-        type: reminderType,
-        module: 'leads',
-        recordId: optionalString(lead.id) || document.id,
-        recordTitle: optionalString(lead.fullName) || 'Lead follow-up',
-        recordSubtitle: optionalString(lead.phone) || optionalString(lead.source),
-        route: `/leads/${optionalString(lead.id) || document.id}`,
-        actorUid: '',
-        actorName: '',
-        teamId: optionalString(lead.teamId),
-        teamName: optionalString(lead.teamName),
-        managerId: optionalString(lead.managerId),
-        priority: reminderType === 'followUpOverdue' ? 'high' : 'normal',
-        actionState: 'actionNeeded',
-        metadata: {
-          rule: reminderType,
-          dueAt: dueAt.toISOString(),
-          titleEn: reminderType === 'followUpOverdue' ? 'Follow-up overdue' : 'Follow-up due today',
-          titleAr: reminderType === 'followUpOverdue' ? 'متابعة متأخرة' : 'متابعة مستحقة اليوم',
-          bodyEn: 'Open the lead and complete the next follow-up action.',
-          bodyAr: 'افتح العميل المحتمل وأنهِ إجراء المتابعة التالي.',
-        },
-        dedupeKey: `actionable_${reminderType}_${optionalString(lead.id) || document.id}_${recipient.uid}_${dateKey(todayStart)}`,
-      });
-      if (id) created += 1;
-    }
-  }
-
-  for (const document of taskSnapshot.docs) {
-    const task = document.data() || {};
-    const resolvedCompanyId = optionalString(task.companyId) || companyIdFromScopedPath(document.ref.path);
-    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
-      continue;
-    }
-    if (task.isActive === false) {
-      continue;
-    }
-    const status = normalizedWorkflowValue(task.status);
-    if (['completed', 'cancelled', 'canceled', 'closed'].includes(status)) {
-      continue;
-    }
-    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: task })) {
-      continue;
-    }
-    const dueAt = timestampToDateSafe(task.dueDate);
-    if (!dueAt || dueAt > todayEnd) {
-      continue;
-    }
-    checked += 1;
-    const reminderType = dueAt < todayStart ? 'taskOverdue' : 'taskDueToday';
-    const recipients = await actionableReminderRecipients({
-      companyId: resolvedCompanyId,
-      record: task,
-      actorUid,
-      actor,
-      fallbackAdminForUnassigned: false,
-    });
-    for (const recipient of recipients) {
-      const id = await createCompanyNotification({
-        companyId: resolvedCompanyId,
-        recipientUid: recipient.uid,
-        recipientRole: recipient.role,
-        type: reminderType,
-        module: 'tasks',
-        recordId: optionalString(task.id) || document.id,
-        recordTitle: optionalString(task.title) || 'Task',
-        recordSubtitle: optionalString(task.relatedTitle) || optionalString(task.relatedSubtitle),
-        route: `/tasks/${optionalString(task.id) || document.id}/edit`,
-        actorUid: '',
-        actorName: '',
-        teamId: optionalString(task.teamId),
-        teamName: optionalString(task.teamName),
-        managerId: optionalString(task.managerId),
-        priority: reminderType === 'taskOverdue' ? 'high' : 'normal',
-        actionState: 'actionNeeded',
-        metadata: {
-          rule: reminderType,
-          dueAt: dueAt.toISOString(),
-          titleEn: reminderType === 'taskOverdue' ? 'Task overdue' : 'Task due today',
-          titleAr: reminderType === 'taskOverdue' ? 'مهمة متأخرة' : 'مهمة مستحقة اليوم',
-          bodyEn: 'Open the task and finish the required action.',
-          bodyAr: 'افتح المهمة وأنهِ الإجراء المطلوب.',
-        },
-        dedupeKey: `actionable_${reminderType}_${optionalString(task.id) || document.id}_${recipient.uid}_${dateKey(todayStart)}`,
-      });
-      if (id) created += 1;
-    }
-  }
-
-  for (const document of dealSnapshot.docs) {
-    const deal = document.data() || {};
-    const resolvedCompanyId = optionalString(deal.companyId) || companyIdFromScopedPath(document.ref.path);
-    if (!resolvedCompanyId || (companyId && resolvedCompanyId !== companyId)) {
-      continue;
-    }
-    if (deal.isActive === false) {
-      continue;
-    }
-    const stage = normalizedWorkflowValue(deal.stage);
-    if (['won', 'lost', 'closedwon', 'closedlost', 'closed'].includes(stage)) {
-      continue;
-    }
-    if (!actorCanReceiveReminder({ actorUid, actor, companyId: resolvedCompanyId, record: deal })) {
-      continue;
-    }
-    checked += 1;
-    const recipients = await actionableReminderRecipients({
-      companyId: resolvedCompanyId,
-      record: deal,
-      actorUid,
-      actor,
-      fallbackAdminForUnassigned: false,
-    });
-    for (const recipient of recipients) {
-      const dealId = optionalString(deal.id) || document.id;
-      const id = await createCompanyNotification({
-        companyId: resolvedCompanyId,
-        recipientUid: recipient.uid,
-        recipientRole: recipient.role,
-        type: 'systemInfo',
-        module: 'deals',
-        recordId: dealId,
-        recordTitle: dealTitle(deal, dealId),
-        recordSubtitle: optionalString(deal.propertyLocation) || optionalString(deal.clientPhone),
-        route: `/deals/${dealId}`,
-        actorUid: '',
-        actorName: '',
-        teamId: optionalString(deal.teamId),
-        teamName: optionalString(deal.teamName),
-        managerId: optionalString(deal.managerId),
-        priority: 'high',
-        actionState: 'actionNeeded',
-        metadata: {
-          rule: 'dealStuck',
-          titleEn: 'Deal needs movement',
-          titleAr: 'صفقة تحتاج تحريك',
-          bodyEn: 'This deal has not moved for more than 7 days. Review the next step.',
-          bodyAr: 'هذه الصفقة لم تتحرك منذ أكثر من 7 أيام. راجع الخطوة التالية.',
-        },
-        fallbackTitle: 'Deal needs movement',
-        fallbackBody: 'This deal has not moved for more than 7 days. Review the next step.',
-        dedupeKey: `actionable_dealStuck_${dealId}_${recipient.uid}_${dateKey(todayStart)}`,
-      });
-      if (id) created += 1;
-    }
-  }
-
-  return { checked, created };
 }
 
 function reminderCollectionQuery({ companyId, collection }) {
@@ -10264,6 +10067,16 @@ function buildAppointmentPayload({
   if (scheduleChanged && !['completed', 'cancelled'].includes(normalizedWorkflowValue(status))) {
     status = 'rescheduled';
   }
+  const previousStatus = existingAppointment ? optionalString(existingAppointment.status) : '';
+  const isOpenScheduleStatus = status === 'scheduled' || status === 'rescheduled';
+  const changedIntoOpenSchedule = existingAppointment &&
+    previousStatus !== status &&
+    isOpenScheduleStatus;
+  if ((isCreate || scheduleChanged || changedIntoOpenSchedule) &&
+      isOpenScheduleStatus &&
+      scheduledAt.toMillis() <= now.toMillis()) {
+    throw new HttpsError('failed-precondition', 'Appointment time must be in the future.');
+  }
   const cleanOutcomeInput = optionalString(appointmentInput.outcome);
   const outcome = cleanOutcomeInput
     ? enumValue(cleanOutcomeInput, APPOINTMENT_OUTCOMES, 'outcome')
@@ -10322,14 +10135,18 @@ function buildAppointmentPayload({
     previousEndAt: existingAppointment && existingAppointment.previousEndAt
       ? existingAppointment.previousEndAt
       : null,
+    scheduleCommittedAt: existingAppointment && existingAppointment.scheduleCommittedAt
+      ? existingAppointment.scheduleCommittedAt
+      : (isCreate ? now : (existingAppointment && existingAppointment.createdAt ? existingAppointment.createdAt : null)),
   };
+
+  if (isCreate || scheduleChanged || changedIntoOpenSchedule) {
+    payload.scheduleCommittedAt = now;
+  }
 
   if (status === 'completed' && optionalString(payload.completedBy) === '') {
     payload.completedAt = now;
     payload.completedBy = actorUid;
-    if (!payload.outcome) {
-      payload.outcome = 'other';
-    }
   }
   if (status === 'cancelled' && optionalString(payload.cancelledBy) === '') {
     payload.cancelledAt = now;
@@ -10586,6 +10403,9 @@ async function createAppointmentDueSoonNotifications({
   if (msUntilStart <= 0 || msUntilStart > 10 * 60 * 1000) {
     return;
   }
+  if (!isTenMinuteAppointmentReminderEligible({ appointment, scheduledAt })) {
+    return;
+  }
   await createAppointmentTimingNotificationPair({
     companyId,
     appointmentId,
@@ -10599,6 +10419,23 @@ async function createAppointmentDueSoonNotifications({
     teamFallbackBody: `${optionalString(appointment.title) || appointmentId} starts soon for ${optionalString(appointment.assignedToName) || 'a team member'}.`,
     priority: 'high',
   });
+}
+
+
+function isTenMinuteAppointmentReminderEligible({ appointment, scheduledAt }) {
+  if (!scheduledAt || typeof scheduledAt.toMillis !== 'function') {
+    return false;
+  }
+  const anchor = appointment && appointment.scheduleCommittedAt &&
+      typeof appointment.scheduleCommittedAt.toMillis === 'function'
+    ? appointment.scheduleCommittedAt
+    : (appointment && appointment.createdAt && typeof appointment.createdAt.toMillis === 'function'
+        ? appointment.createdAt
+        : null);
+  if (!anchor) {
+    return true;
+  }
+  return scheduledAt.toMillis() - anchor.toMillis() > 10 * 60 * 1000;
 }
 
 async function createAppointmentDueNotifications({
@@ -10841,7 +10678,7 @@ async function createLeadImportantStatusNotifications({
     priority: nextStatus === 'won' || nextStatus === 'lost' ? 'high' : 'normal',
     metadata: {
       previousStatus,
-      newStatus: effectiveStatus,
+      newStatus: nextStatus,
     },
   };
 
@@ -11135,7 +10972,7 @@ async function createTaskStatusNotifications({
     priority: nextStatus === 'cancelled' || nextStatus === 'canceled' ? 'high' : 'normal',
     metadata: {
       previousStatus,
-      newStatus: effectiveStatus,
+      newStatus: nextStatus,
       assignedToName: optionalString(after.assignedToName),
     },
   };
@@ -11320,6 +11157,9 @@ async function notifyCompanyAdminsForImportantRecordEvent({
   actorUid,
   dedupeKey,
 }) {
+  if (!shouldNotifyCompanyAdminsForImportantRecordEvent(base)) {
+    return;
+  }
   const adminsSnapshot = await db.collection(`companies/${companyId}/users`)
     .where('role', '==', 'admin')
     .where('isActive', '==', true)
@@ -11337,6 +11177,28 @@ async function notifyCompanyAdminsForImportantRecordEvent({
       dedupeKey: `${dedupeKey}_admin_${adminUid}`,
     });
   }
+}
+
+function shouldNotifyCompanyAdminsForImportantRecordEvent(base) {
+  const cleanBase = base && typeof base === 'object' ? base : {};
+  const module = optionalString(cleanBase.module);
+  const type = optionalString(cleanBase.type);
+  const metadata = cleanBase.metadata && typeof cleanBase.metadata === 'object'
+    ? cleanBase.metadata
+    : {};
+  const newStatus = optionalString(metadata.newStatus || metadata.newStage);
+
+  if (module === 'leads') {
+    return setHasWorkflowValue(MAJOR_RECORD_OUTCOMES, newStatus);
+  }
+
+  if (module === 'deals') {
+    return type === 'dealWon' ||
+      type === 'dealLost' ||
+      setHasWorkflowValue(MAJOR_RECORD_OUTCOMES, newStatus);
+  }
+
+  return false;
 }
 
 async function notifyCompanyAdminsForDealOutcome({
@@ -12439,6 +12301,13 @@ async function createCompanyNotification({
     : 'normal';
   const cleanModule = sanitizePlainString(optionalString(module) || 'system', 40);
   const cleanRecipientRole = optionalString(recipientRole) || optionalString(recipient.role);
+  if (shouldSkipCompanyNotificationForRecipient({
+    recipientRole: cleanRecipientRole,
+    type: cleanType,
+    metadata,
+  })) {
+    return null;
+  }
   const cleanDeliveryMode = notificationDeliveryModeOrDefault({
     deliveryMode,
     type: cleanType,
@@ -12652,6 +12521,43 @@ function notificationTypeNeedsAction(type) {
     'teamAppointmentMissed',
     'dataHealthIssue',
   ].includes(optionalString(type));
+}
+
+function shouldSkipCompanyNotificationForRecipient({ recipientRole, type, metadata }) {
+  const cleanRole = optionalString(recipientRole);
+  const cleanType = optionalString(type);
+  if (cleanRole !== 'admin') {
+    return false;
+  }
+  if (isLowValueAdminOperationalNotificationType(cleanType)) {
+    return true;
+  }
+  if (cleanType === 'teamLeadStatusChanged') {
+    return !isAdminWorthyLeadNotificationMetadata(metadata);
+  }
+  return false;
+}
+
+function isLowValueAdminOperationalNotificationType(type) {
+  return [
+    'teamAppointmentAssigned',
+    'teamAppointmentReassigned',
+    'teamAppointmentDueSoon',
+    'teamAppointmentDueNow',
+    'teamAppointmentRescheduled',
+    'teamAppointmentCancelled',
+    'teamAppointmentCompleted',
+    'teamAppointmentMissed',
+    'teamTaskStatusChanged',
+  ].includes(optionalString(type));
+}
+
+function isAdminWorthyLeadNotificationMetadata(metadata) {
+  const source = metadata && typeof metadata === 'object' ? metadata : {};
+  const status = optionalString(source.newStatus || source.newStage)
+    .replace(/[\s_-]+/g, '')
+    .toLowerCase();
+  return ['won', 'lost', 'closed', 'closedwon', 'closedlost'].includes(status);
 }
 
 async function loadCompanyUserSafe(companyId, uid) {

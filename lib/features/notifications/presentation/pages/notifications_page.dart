@@ -143,7 +143,9 @@ class _NotificationsWorkspaceState extends State<_NotificationsWorkspace> {
   }
 
   void _watch() {
-    _notificationsCubit.watchCenter(
+    // Opening the Notifications page should reload the same notification
+    // window used by the bell instead of rendering stale shell data first.
+    _notificationsCubit.refreshCenter(
           companyId: widget.companyId,
           currentUserId: widget.currentUserId,
           role: widget.role,

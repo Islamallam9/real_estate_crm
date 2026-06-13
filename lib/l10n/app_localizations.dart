@@ -3443,7 +3443,7 @@ abstract class AppLocalizations {
   /// No description provided for @salesCommandWhyAppointmentMissed.
   ///
   /// In en, this message translates to:
-  /// **'The appointment time has passed and still needs handling.'**
+  /// **'Appointment was missed. Contact the client and reschedule or record what happened.'**
   String get salesCommandWhyAppointmentMissed;
 
   /// No description provided for @salesCommandWhyAppointmentDueNow.
@@ -3461,7 +3461,7 @@ abstract class AppLocalizations {
   /// No description provided for @salesCommandWhyAppointmentNeedsFeedback.
   ///
   /// In en, this message translates to:
-  /// **'The appointment ended but no outcome was captured.'**
+  /// **'Completion is saved but no outcome is recorded. Record the result so Masar knows the next step.'**
   String get salesCommandWhyAppointmentNeedsFeedback;
 
   /// No description provided for @salesCommandWhyDealAtRisk.
@@ -6641,6 +6641,12 @@ abstract class AppLocalizations {
   /// **'Appointment end time must be after start time.'**
   String get appointmentEndAfterStartRequired;
 
+  /// No description provided for @appointmentFutureTimeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a future appointment time.'**
+  String get appointmentFutureTimeRequired;
+
   /// No description provided for @appointmentSaved.
   ///
   /// In en, this message translates to:
@@ -6754,6 +6760,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Appointment outcome'**
   String get appointmentOutcome;
+
+  /// No description provided for @recordAppointmentOutcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Record outcome'**
+  String get recordAppointmentOutcome;
+
+  /// No description provided for @addAppointmentOutcomeLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get addAppointmentOutcomeLater;
+
+  /// No description provided for @appointmentCompletedOutcomePromptMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Appointment completion is saved. Record the outcome now so Masar can guide the real next step.'**
+  String get appointmentCompletedOutcomePromptMessage;
 
   /// No description provided for @cancellationReason.
   ///
@@ -6896,7 +6920,7 @@ abstract class AppLocalizations {
   /// No description provided for @completeAppointmentConfirmation.
   ///
   /// In en, this message translates to:
-  /// **'Complete this appointment and record the outcome.'**
+  /// **'Mark this appointment as completed. Masar will ask for the outcome after the save succeeds.'**
   String get completeAppointmentConfirmation;
 
   /// No description provided for @markMissedConfirmation.
@@ -6941,11 +6965,65 @@ abstract class AppLocalizations {
   /// **'Deal opportunity'**
   String get appointmentOutcomeDealOpportunity;
 
+  /// No description provided for @appointmentOutcomePendingDecision.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending decision'**
+  String get appointmentOutcomePendingDecision;
+
   /// No description provided for @appointmentOutcomeOther.
   ///
   /// In en, this message translates to:
   /// **'Other'**
   String get appointmentOutcomeOther;
+
+  /// No description provided for @appointmentOutcomeHintSuccessfulMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting succeeded. Keep the next commitment clear and recorded.'**
+  String get appointmentOutcomeHintSuccessfulMeeting;
+
+  /// No description provided for @appointmentOutcomeHintNoAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer needs recovery. Contact again or reschedule before the opportunity loses momentum.'**
+  String get appointmentOutcomeHintNoAnswer;
+
+  /// No description provided for @appointmentOutcomeHintClientPostponed.
+  ///
+  /// In en, this message translates to:
+  /// **'Client postponed. Agree on a new time and record the next follow-up.'**
+  String get appointmentOutcomeHintClientPostponed;
+
+  /// No description provided for @appointmentOutcomeHintClientNotInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'Client is not interested. Record the reason or set a low-pressure follow-up if there is still a chance.'**
+  String get appointmentOutcomeHintClientNotInterested;
+
+  /// No description provided for @appointmentOutcomeHintFollowUpNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up is needed. Schedule the next step so the opportunity does not disappear.'**
+  String get appointmentOutcomeHintFollowUpNeeded;
+
+  /// No description provided for @appointmentOutcomeHintDealOpportunity.
+  ///
+  /// In en, this message translates to:
+  /// **'This can become a deal. Create or update the deal after saving the outcome.'**
+  String get appointmentOutcomeHintDealOpportunity;
+
+  /// No description provided for @appointmentOutcomeHintPendingDecision.
+  ///
+  /// In en, this message translates to:
+  /// **'Client needs a decision deadline. Set a follow-up date and keep the pressure visible.'**
+  String get appointmentOutcomeHintPendingDecision;
+
+  /// No description provided for @appointmentOutcomeHintOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Record the real result clearly so the next action stays honest.'**
+  String get appointmentOutcomeHintOther;
 
   /// No description provided for @appointmentTypeCall.
   ///
@@ -9146,7 +9224,7 @@ abstract class AppLocalizations {
   /// No description provided for @journeyActionOverdueFollowUpDescription.
   ///
   /// In en, this message translates to:
-  /// **'Contact this record today or create a task so it does not stay cold.'**
+  /// **'Contact this record today or create a task to keep the follow-up momentum clear.'**
   String get journeyActionOverdueFollowUpDescription;
 
   /// No description provided for @journeyActionNoContact.
@@ -10070,7 +10148,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardPerformanceDailyActivityNote.
   ///
   /// In en, this message translates to:
-  /// **'Shows daily activity, so days without new records appear as 0.'**
+  /// **'Shows daily activity inside the selected period, so quiet days appear as 0.'**
   String get dashboardPerformanceDailyActivityNote;
 
   /// No description provided for @dashboardPerformanceTotalTrend.
@@ -10088,13 +10166,13 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardPerformanceTotalTrendNote.
   ///
   /// In en, this message translates to:
-  /// **'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.'**
+  /// **'Shows the current scoped total with the movement inside the selected period.'**
   String get dashboardPerformanceTotalTrendNote;
 
   /// No description provided for @salesCommandWhyLeadNeedsContact.
   ///
   /// In en, this message translates to:
-  /// **'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so it does not stay cold.'**
+  /// **'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so the opportunity keeps momentum.'**
   String get salesCommandWhyLeadNeedsContact;
 
   /// No description provided for @salesCommandWhyLeadMissingNextStep.
@@ -10172,13 +10250,13 @@ abstract class AppLocalizations {
   /// No description provided for @leadNbaFollowUpTodayBody.
   ///
   /// In en, this message translates to:
-  /// **'This is the right time to follow up. Open the conversation today before the opportunity cools down.'**
+  /// **'This is the right time to follow up. Open the conversation today to keep the opportunity moving.'**
   String get leadNbaFollowUpTodayBody;
 
   /// No description provided for @leadNbaMissingNextStepTitle.
   ///
   /// In en, this message translates to:
-  /// **'Set the next step before this lead cools down'**
+  /// **'Set the next step to keep the opportunity moving'**
   String get leadNbaMissingNextStepTitle;
 
   /// No description provided for @leadNbaMissingNextStepBody.
@@ -10202,13 +10280,13 @@ abstract class AppLocalizations {
   /// No description provided for @leadNbaCreateAppointmentTitle.
   ///
   /// In en, this message translates to:
-  /// **'Create the appointment record'**
+  /// **'Track the scheduled visit'**
   String get leadNbaCreateAppointmentTitle;
 
   /// No description provided for @leadNbaCreateAppointmentBody.
   ///
   /// In en, this message translates to:
-  /// **'The status says a visit is expected, but no appointment is linked yet. Create it so the schedule and reminders stay accurate.'**
+  /// **'The lead is already in the viewing stage. Let the scheduled appointment carry the next step, then record the result after the visit so the opportunity stays clear.'**
   String get leadNbaCreateAppointmentBody;
 
   /// No description provided for @leadNbaCreateDealTitle.
@@ -10222,6 +10300,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This lead reached negotiation. Create the deal now so value, stage, and closing actions are managed properly.'**
   String get leadNbaCreateDealBody;
+
+  /// No description provided for @leadNbaCreateDealSalesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock the next negotiation step'**
+  String get leadNbaCreateDealSalesTitle;
+
+  /// No description provided for @leadNbaCreateDealSalesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead is in negotiation. Do not leave the conversation open: agree on the next follow-up, reservation step, or decision deadline, then record it so the opportunity stays warm.'**
+  String get leadNbaCreateDealSalesBody;
 
   /// No description provided for @leadNbaStaleTitle.
   ///

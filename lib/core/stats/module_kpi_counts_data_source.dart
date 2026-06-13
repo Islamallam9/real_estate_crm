@@ -391,6 +391,7 @@ class FirestoreModuleKpiCountsDataSource {
           'upcoming': 0,
           'missed': 0,
           'completed': 0,
+          'cancelled': 0,
         });
       } else {
         values.addAll(snapshotCounts);
@@ -466,6 +467,11 @@ class FirestoreModuleKpiCountsDataSource {
         label: 'appointments.completed',
         diagnostics: diagnostics,
       ),
+      _safeCount(
+        scopedBase.where('status', isEqualTo: 'cancelled'),
+        label: 'appointments.cancelled',
+        diagnostics: diagnostics,
+      ),
     ]);
     _putCount(values, failedKeys, 'total', results[0]);
     _putCount(values, failedKeys, 'listTotal', results[1]);
@@ -473,6 +479,7 @@ class FirestoreModuleKpiCountsDataSource {
     _putCount(values, failedKeys, 'upcoming', results[3]);
     _putCount(values, failedKeys, 'missed', results[4]);
     _putCount(values, failedKeys, 'completed', results[5]);
+    _putCount(values, failedKeys, 'cancelled', results[6]);
     return ModuleKpiCounts(values, failedKeys: failedKeys);
   }
 
@@ -1186,6 +1193,7 @@ class FirestoreModuleKpiCountsDataSource {
         'upcoming': 0,
         'missed': 0,
         'completed': 0,
+        'cancelled': 0,
       };
       for (final document in snapshot.docs) {
         final data = document.data();
@@ -1210,6 +1218,9 @@ class FirestoreModuleKpiCountsDataSource {
         }
         if (status == 'completed') {
           counts['completed'] = (counts['completed'] ?? 0) + 1;
+        }
+        if (status == 'cancelled') {
+          counts['cancelled'] = (counts['cancelled'] ?? 0) + 1;
         }
         final isOpen = status == 'scheduled' || status == 'rescheduled';
         if (isOpen && scheduledAt != null && !scheduledAt.isBefore(now)) {

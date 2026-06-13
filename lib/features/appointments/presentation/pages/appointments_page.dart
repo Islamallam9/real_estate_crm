@@ -28,6 +28,7 @@ import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../dashboard/domain/services/dashboard_truth_rules.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -343,29 +344,29 @@ class _AppointmentsContentState extends State<_AppointmentsContent> {
                   );
                 }
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    header,
-                    const SizedBox(height: AppSpacing.xs),
-                    summary,
-                    const SizedBox(height: AppSpacing.xs),
-                    tabs,
-                    const SizedBox(height: AppSpacing.xs),
-                    if (showAttentionTab)
-                      Expanded(
-                        child: SingleChildScrollView(
-                          physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: attention,
-                        ),
-                      )
-                    else ...[
-                      filters,
+                return SingleChildScrollView(
+                  physics: const MasarRefreshPhysics(parent: BouncingScrollPhysics()),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      header,
                       const SizedBox(height: AppSpacing.xs),
-                      Expanded(child: body),
+                      summary,
+                      const SizedBox(height: AppSpacing.xs),
+                      tabs,
+                      const SizedBox(height: AppSpacing.xs),
+                      if (showAttentionTab)
+                        attention
+                      else ...[
+                        filters,
+                        const SizedBox(height: AppSpacing.xs),
+                        body,
+                      ],
+                      const SizedBox(height: 96),
                     ],
-                  ],
+                  ),
                 );
               },
             );
@@ -472,6 +473,22 @@ class _AppointmentsSummary extends StatelessWidget {
     final cubit = context.read<AppointmentsCubit>();
     final cards = [
       ModuleKpiCardData(
+        label: l.allAppointments,
+        value: state.kpiCounts.display(
+          'listTotal',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.event_note_outlined,
+        tone: AppStatusTone.neutral,
+        selected: state.dateFilter == AppointmentDateFilter.all &&
+            state.statusFilter == null,
+        onTap: () {
+          onKpiSelected?.call();
+          cubit.showAllAppointments();
+        },
+      ),
+      ModuleKpiCardData(
         label: l.todaysAppointments,
         value: state.kpiCounts.display(
           'today',
@@ -517,6 +534,22 @@ class _AppointmentsSummary extends StatelessWidget {
           onKpiSelected?.call();
           cubit.clearFilters();
           cubit.setDateFilter(AppointmentDateFilter.missed);
+        },
+      ),
+      ModuleKpiCardData(
+        label: l.cancelledAppointments,
+        value: state.kpiCounts.display(
+          'cancelled',
+          unavailableLabel: l.notAvailable,
+          failureLabel: l.errorOccurred,
+        ),
+        icon: Icons.event_busy_outlined,
+        tone: AppStatusTone.neutral,
+        selected: state.statusFilter == AppointmentStatus.cancelled,
+        onTap: () {
+          onKpiSelected?.call();
+          cubit.clearFilters();
+          cubit.setStatusFilter(AppointmentStatus.cancelled);
         },
       ),
       ModuleKpiCardData(
@@ -2646,13 +2679,31 @@ class _AppointmentActionsState extends State<_AppointmentActions> {
     required AppointmentStatus status,
   }) async {
     final cubit = context.read<AppointmentsCubit>();
-    await showDialog<void>(
+    final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return _AppointmentStatusChangeDialog(
           title: title,
           message: message,
           status: status,
+          companyId: widget.companyId,
+          appointment: widget.appointment,
+          updatedBy: widget.updatedBy,
+          cubit: cubit,
+        );
+      },
+    );
+    if (!mounted || status != AppointmentStatus.completed || saved != true) {
+      return;
+    }
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return _AppointmentOutcomePromptDialog(
           companyId: widget.companyId,
           appointment: widget.appointment,
           updatedBy: widget.updatedBy,
@@ -2847,6 +2898,10 @@ class _AppointmentRescheduleDialogState
       AppFeedback.warning(context, l.appointmentEndAfterStartRequired);
       return;
     }
+    if (!scheduledAt.isAfter(DateTime.now())) {
+      AppFeedback.warning(context, l.appointmentFutureTimeRequired);
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     final success = await widget.cubit.saveAppointment(
@@ -2920,7 +2975,6 @@ class _ScheduleComparisonRow extends StatelessWidget {
 class _AppointmentStatusChangeDialogState
     extends State<_AppointmentStatusChangeDialog> {
   late final TextEditingController _controller;
-  AppointmentOutcome _outcome = AppointmentOutcome.successfulMeeting;
   bool _isSubmitting = false;
 
   @override
@@ -2958,26 +3012,15 @@ class _AppointmentStatusChangeDialogState
             children: [
               Text(widget.message),
               const SizedBox(height: AppSpacing.md),
-              if (isComplete) ...[
-                AppDropdown<AppointmentOutcome>(
-                  label: l.appointmentOutcome,
-                  value: _outcome,
-                  items: AppointmentOutcome.values,
-                  itemLabelBuilder: (outcome) =>
-                      appointmentOutcomeLabel(l, outcome),
+              if (!isComplete)
+                TextField(
+                  controller: _controller,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: isCancel ? l.cancellationReason : l.outcomeNotes,
+                  ),
                   enabled: !_isSubmitting,
-                  onChanged: (value) => setState(() => _outcome = value),
                 ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              TextField(
-                controller: _controller,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: isCancel ? l.cancellationReason : l.outcomeNotes,
-                ),
-                enabled: !_isSubmitting,
-              ),
             ],
           ),
         ),
@@ -3010,11 +3053,128 @@ class _AppointmentStatusChangeDialogState
       appointment: widget.appointment,
       status: widget.status,
       updatedBy: widget.updatedBy,
-      outcome: widget.status == AppointmentStatus.completed ? _outcome : null,
+      outcome: null,
       outcomeNotes:
           widget.status == AppointmentStatus.cancelled ? '' : _controller.text,
       cancellationReason:
           widget.status == AppointmentStatus.cancelled ? _controller.text : '',
+    );
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() => _isSubmitting = false);
+  }
+}
+
+
+class _AppointmentOutcomePromptDialog extends StatefulWidget {
+  const _AppointmentOutcomePromptDialog({
+    required this.companyId,
+    required this.appointment,
+    required this.updatedBy,
+    required this.cubit,
+  });
+
+  final String companyId;
+  final Appointment appointment;
+  final String updatedBy;
+  final AppointmentsCubit cubit;
+
+  @override
+  State<_AppointmentOutcomePromptDialog> createState() =>
+      _AppointmentOutcomePromptDialogState();
+}
+
+class _AppointmentOutcomePromptDialogState
+    extends State<_AppointmentOutcomePromptDialog> {
+  late final TextEditingController _notesController;
+  AppointmentOutcome _outcome = AppointmentOutcome.successfulMeeting;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    final controller = _notesController;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l.recordAppointmentOutcome),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l.appointmentCompletedOutcomePromptMessage),
+              const SizedBox(height: AppSpacing.md),
+              AppDropdown<AppointmentOutcome>(
+                label: l.appointmentOutcome,
+                value: _outcome,
+                items: AppointmentOutcome.values,
+                itemLabelBuilder: (outcome) => appointmentOutcomeLabel(l, outcome),
+                enabled: !_isSubmitting,
+                onChanged: (value) => setState(() => _outcome = value),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                appointmentOutcomeNextStepHint(l, _outcome),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: l.outcomeNotes),
+                enabled: !_isSubmitting,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l.addAppointmentOutcomeLater),
+        ),
+        AppButton(
+          label: l.recordAppointmentOutcome,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _isSubmitting = true);
+    final success = await widget.cubit.changeStatus(
+      companyId: widget.companyId,
+      appointment: widget.appointment,
+      status: AppointmentStatus.completed,
+      updatedBy: widget.updatedBy,
+      outcome: _outcome,
+      outcomeNotes: _notesController.text,
     );
     if (!mounted) {
       return;
@@ -3026,7 +3186,6 @@ class _AppointmentStatusChangeDialogState
     setState(() => _isSubmitting = false);
   }
 }
-
 
 class _MenuItem extends StatelessWidget {
   const _MenuItem({
@@ -3262,7 +3421,7 @@ String _relatedRecordDisplayLabel(
 }
 
 const int _attentionPageSize = 15;
-const int _staleMissedAttentionDays = 30;
+const int _missedRecoveryAttentionDays = 7;
 
 int _attentionBadgeCount(
   AppointmentsState state,
@@ -3302,18 +3461,15 @@ _AppointmentAttentionType? _appointmentAttentionType(Appointment appointment) {
   }
   final now = DateTime.now();
   final localStart = scheduledAt.toLocal();
-  if (_isOpenScheduledStatus(appointment.status) &&
-      _isAppointmentDueNow(appointment, now)) {
+  if (DashboardTruthRules.isAppointmentDueNow(appointment, now)) {
     return _AppointmentAttentionType.dueNow;
   }
-  if (appointment.status == AppointmentStatus.missed ||
-      (_isOpenScheduledStatus(appointment.status) &&
-          _isAppointmentPastStart(appointment, now))) {
+  if (DashboardTruthRules.isMissedAppointment(appointment, now)) {
     final staleCutoff = DateTime(
       now.year,
       now.month,
       now.day,
-    ).subtract(const Duration(days: _staleMissedAttentionDays));
+    ).subtract(const Duration(days: _missedRecoveryAttentionDays));
     if (localStart.isBefore(staleCutoff)) {
       return null;
     }
@@ -3647,30 +3803,10 @@ String _dateFilterLabel(AppLocalizations l, AppointmentDateFilter filter) {
 }
 
 AppointmentStatus _effectiveStatus(Appointment appointment) {
-  if (_isOpenScheduledStatus(appointment.status) &&
-      _isAppointmentPastStart(appointment, DateTime.now())) {
+  if (DashboardTruthRules.isMissedAppointment(appointment, DateTime.now())) {
     return AppointmentStatus.missed;
   }
   return appointment.status;
-}
-
-bool _isAppointmentPastStart(Appointment appointment, DateTime now) {
-  final scheduledAt = appointment.scheduledAt;
-  return scheduledAt != null &&
-      now.difference(scheduledAt.toLocal()).inSeconds >= 60;
-}
-
-bool _isAppointmentDueNow(Appointment appointment, DateTime now) {
-  final scheduledAt = appointment.scheduledAt?.toLocal();
-  if (scheduledAt == null || scheduledAt.isAfter(now)) {
-    return false;
-  }
-  return now.difference(scheduledAt).inSeconds < 60;
-}
-
-bool _isOpenScheduledStatus(AppointmentStatus status) {
-  return status == AppointmentStatus.scheduled ||
-      status == AppointmentStatus.rescheduled;
 }
 
 AppStatusTone _statusTone(AppointmentStatus status) {

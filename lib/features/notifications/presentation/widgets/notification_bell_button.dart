@@ -74,31 +74,44 @@ class NotificationBellButton extends StatelessWidget {
               return;
             }
             final cubit = context.read<NotificationsCubit>();
-            cubit.refreshShell(
-              companyId: profile.companyId,
-              currentUserId: authUid,
-              role: profile.role,
-              managerTeamId: profile.teamId,
-              notificationsLimit: notificationDropdownLimit * 2,
-            );
-            cubit.watchAttentionReminders(
-              consumerKey: _notificationPanelAttentionConsumer,
-              companyId: profile.companyId,
-              currentUserId: authUid,
-              role: profile.role,
-              managerTeamId: profile.teamId,
-              remindersLimit: 8,
-            );
+            final currentRoute = GoRouterState.of(context).uri.toString();
+            final isNotificationsPage =
+                currentRoute == RouteNames.notifications ||
+                    currentRoute.startsWith('${RouteNames.notifications}?');
+            final shouldRefreshForPanel = !isNotificationsPage;
+            if (shouldRefreshForPanel) {
+              cubit.refreshShell(
+                companyId: profile.companyId,
+                currentUserId: authUid,
+                role: profile.role,
+                managerTeamId: profile.teamId,
+                // Keep the panel on the same display window as the
+                // Notifications page so the bell never shows a different
+                // top list from the full center.
+                notificationsLimit: notificationDropdownLimit,
+              );
+              cubit.watchAttentionReminders(
+                consumerKey: _notificationPanelAttentionConsumer,
+                companyId: profile.companyId,
+                currentUserId: authUid,
+                role: profile.role,
+                managerTeamId: profile.teamId,
+                remindersLimit: 8,
+              );
+            }
             unawaited(
               _showNotificationsPanel(
                 context: context,
                 cubit: cubit,
                 companyId: profile.companyId,
                 currentUserId: authUid,
+                guardInitialSnapshot: shouldRefreshForPanel,
               ).whenComplete(() {
-                cubit.releaseAttentionReminders(
-                  _notificationPanelAttentionConsumer,
-                );
+                if (shouldRefreshForPanel) {
+                  cubit.releaseAttentionReminders(
+                    _notificationPanelAttentionConsumer,
+                  );
+                }
                 if (!context.mounted) {
                   return;
                 }
@@ -163,6 +176,7 @@ Future<void> _showNotificationsPanel({
   required NotificationsCubit cubit,
   required String companyId,
   required String currentUserId,
+  required bool guardInitialSnapshot,
 }) {
   return showGeneralDialog<void>(
     context: context,
@@ -176,6 +190,7 @@ Future<void> _showNotificationsPanel({
         child: _NotificationsPanel(
           companyId: companyId,
           currentUserId: currentUserId,
+          guardInitialSnapshot: guardInitialSnapshot,
         ),
       );
     },
@@ -198,17 +213,47 @@ class _NotificationsPanel extends StatefulWidget {
   const _NotificationsPanel({
     required this.companyId,
     required this.currentUserId,
+    required this.guardInitialSnapshot,
   });
 
   final String companyId;
   final String currentUserId;
+  final bool guardInitialSnapshot;
 
   @override
   State<_NotificationsPanel> createState() => _NotificationsPanelState();
 }
 
 class _NotificationsPanelState extends State<_NotificationsPanel> {
+  static const Duration _staleSnapshotGuardDuration =
+      Duration(milliseconds: 1000);
+
   bool _attentionExpanded = false;
+  bool _staleSnapshotGuardElapsed = false;
+  Timer? _staleSnapshotGuardTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.guardInitialSnapshot) {
+      _staleSnapshotGuardElapsed = true;
+      return;
+    }
+    _staleSnapshotGuardTimer = Timer(_staleSnapshotGuardDuration, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _staleSnapshotGuardElapsed = true;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _staleSnapshotGuardTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +280,12 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
               ),
               child: BlocBuilder<NotificationsCubit, NotificationsState>(
                 builder: (context, state) {
-                  final reminders = _latestPanelReminders(state.reminders);
+                  final waitingForFreshPanel =
+                      widget.guardInitialSnapshot &&
+                          !_staleSnapshotGuardElapsed;
+                  final reminders = waitingForFreshPanel
+                      ? const <AttentionReminder>[]
+                      : _latestPanelReminders(state.reminders);
                   return Column(
                     mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +323,9 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
                         ],
                       ),
                       Expanded(
-                        child: SingleChildScrollView(
+                        child: waitingForFreshPanel
+                            ? const Center(child: MasarLogoLoader(size: 36))
+                            : SingleChildScrollView(
                           padding: const EdgeInsets.only(
                             bottom: AppSpacing.xs,
                           ),
@@ -445,6 +497,7 @@ List<AttentionReminder> _latestPanelReminders(
   return sorted.take(8).toList(growable: false);
 }
 
+
 class _PanelNotificationList extends StatelessWidget {
   const _PanelNotificationList({
     required this.companyId,
@@ -457,9 +510,15 @@ class _PanelNotificationList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    if (state.status == NotificationsStatus.loading &&
-        state.notifications.isEmpty) {
-      return const Center(child: MasarLogoLoader(size: 36));
+    // The bell panel is a short-lived overlay. When it is refreshed, never
+    // render the previous shell/page notification snapshot while the new
+    // scoped snapshot is loading. Otherwise the panel can flash stale items
+    // for a few hundred milliseconds before switching to the correct list.
+    if (state.status == NotificationsStatus.loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Center(child: MasarLogoLoader(size: 36)),
+      );
     }
     if (state.status == NotificationsStatus.failure &&
         state.notifications.isEmpty) {
