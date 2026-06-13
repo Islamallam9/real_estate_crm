@@ -6,9 +6,9 @@ import '../../../tasks/domain/entities/crm_task.dart';
 
 /// Shared CRM truth table for dashboard KPIs, Sales Command, and list routes.
 ///
-/// Real-estate rule: a contact activity is not the same as a next action.
-/// A lead can be contacted today and still remain overdue until the next
-/// follow-up is rescheduled, the lead is won/lost, or it is archived.
+/// Track A rule: a lead contacted today is removed from urgent follow-up
+/// queues for the rest of the company day. It returns when the next follow-up
+/// is due again or when Missing Next Step applies on a later day.
 abstract final class DashboardTruthRules {
   static const staleLeadDays = 5;
   static const highPriorityStaleLeadDays = 3;
@@ -37,9 +37,16 @@ abstract final class DashboardTruthRules {
             lead.status == LeadStatus.negotiation);
   }
 
+  static bool isContactedToday(Lead lead, DateTime today) {
+    final lastContactAt = lead.lastContactAt;
+    return lastContactAt != null &&
+        dateOnly(lastContactAt) == dateOnly(today);
+  }
+
   static bool isDueTodayFollowUpLead(Lead lead, DateTime today) {
     final followUpAt = lead.nextFollowUpAt;
     return isActiveLead(lead) &&
+        !isContactedToday(lead, today) &&
         followUpAt != null &&
         dateOnly(followUpAt) == dateOnly(today);
   }
@@ -47,6 +54,7 @@ abstract final class DashboardTruthRules {
   static bool isOverdueFollowUpLead(Lead lead, DateTime today) {
     final followUpAt = lead.nextFollowUpAt;
     return isActiveLead(lead) &&
+        !isContactedToday(lead, today) &&
         followUpAt != null &&
         dateOnly(followUpAt).isBefore(dateOnly(today));
   }
@@ -59,14 +67,15 @@ abstract final class DashboardTruthRules {
   }
 
   static bool isLeadWithoutNextFollowUp(Lead lead) {
-    return isActiveLead(lead) && lead.nextFollowUpAt == null;
+    return isActiveLead(lead) &&
+        lead.nextFollowUpAt == null &&
+        !isContactedToday(lead, DateTime.now());
   }
 
   static bool isContactedTodayWithOverdueFollowUp(Lead lead, DateTime today) {
-    final lastContactAt = lead.lastContactAt;
-    return lastContactAt != null &&
-        dateOnly(lastContactAt) == dateOnly(today) &&
-        isOverdueFollowUpLead(lead, today);
+    // Retained for older dashboard/filter routes, but Track A no longer treats
+    // a contacted-today lead as overdue until a later follow-up is due again.
+    return false;
   }
 
   static int? staleLeadAgeDays(

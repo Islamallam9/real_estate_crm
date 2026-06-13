@@ -4475,7 +4475,12 @@ Future<bool> _applyLeadDrawerOutcome(
     actorName: actorName,
     silentFailure: true,
   );
-  AppFeedback.success(context, l.dashboardActionSaved);
+  AppFeedback.success(
+    context,
+    outcome == _LeadDrawerOutcome.contacted
+        ? l.leadMarkedContactedToday
+        : l.dashboardActionSaved,
+  );
   return true;
 }
 

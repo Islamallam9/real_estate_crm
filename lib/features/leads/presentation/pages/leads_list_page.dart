@@ -1999,9 +1999,17 @@ class _LeadPreviewPanel extends StatelessWidget {
 
   void _markContactedToday(BuildContext context, Lead lead) {
     final now = DateTime.now();
+    final nextStatus = lead.status == LeadStatus.newLead
+        ? LeadStatus.contacted
+        : lead.status;
     context.read<LeadsCubit>().updateLead(
       companyId: companyId,
-      lead: lead.copyWith(lastContactAt: now, updatedAt: now, updatedBy: uid),
+      lead: lead.copyWith(
+        status: nextStatus,
+        lastContactAt: now,
+        updatedAt: now,
+        updatedBy: uid,
+      ),
       actorName: actorName,
       successAction: LeadsAction.markContactedToday,
     );
@@ -2966,8 +2974,8 @@ String _followUpStatusLabel(AppLocalizations localizations, Lead lead) {
   final today = DateUtils.dateOnly(DateTime.now());
   final followUpDate = DateUtils.dateOnly(nextFollowUpAt.toLocal());
   if (followUpDate.isBefore(today)) {
-    return DashboardTruthRules.isContactedTodayWithOverdueFollowUp(lead, today)
-        ? localizations.contactedTodayFollowUpStillOverdue
+    return DashboardTruthRules.isContactedToday(lead, today)
+        ? localizations.contacted
         : localizations.overdue;
   }
   if (followUpDate == today) {
@@ -2985,7 +2993,9 @@ AppStatusTone _followUpStatusTone(Lead lead) {
   final today = DateUtils.dateOnly(DateTime.now());
   final followUpDate = DateUtils.dateOnly(nextFollowUpAt.toLocal());
   if (followUpDate.isBefore(today)) {
-    return AppStatusTone.error;
+    return DashboardTruthRules.isContactedToday(lead, today)
+        ? AppStatusTone.success
+        : AppStatusTone.error;
   }
   if (followUpDate == today) {
     return AppStatusTone.warning;
