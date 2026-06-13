@@ -5446,4 +5446,115 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dashboardPerformanceTotalTrendNote =>
       'يعرض الإجمالي المتراكم خلال الفترة المحددة، لذلك لا يهبط الخط إلى 0 في الأيام الهادئة.';
+
+  @override
+  String get salesCommandWhyLeadNeedsContact =>
+      'هذا العميل المحتمل لم يتم التعامل معه بعد. ابدأ بمكالمة أو واتساب حقيقي الآن، ثم سجّل النتيجة حتى لا يظل باردًا.';
+
+  @override
+  String get salesCommandWhyLeadMissingNextStep =>
+      'تم التواصل مع العميل من قبل، لكن لا يوجد إجراء قادم واضح. حدّد المتابعة التالية حتى لا تختفي الفرصة من خط البيع.';
+
+  @override
+  String get salesCommandWhyLeadNeedsAppointment =>
+      'العميل يظهر اهتمامًا. حرّك المحادثة للأمام بحجز معاينة أو موعد بدل تركها مفتوحة.';
+
+  @override
+  String get salesCommandWhyLeadNeedsDeal =>
+      'العميل وصل لمرحلة التفاوض. أنشئ الصفقة الآن حتى يتم تتبع القيمة والمرحلة والالتزام القادم.';
+
+  @override
+  String get salesCommandReasonLeadNeedsContact => 'تواصل الآن';
+
+  @override
+  String get salesCommandReasonLeadMissingNextStep => 'ينقصه إجراء قادم';
+
+  @override
+  String get salesCommandReasonLeadNeedsAppointment => 'حدد معاينة';
+
+  @override
+  String get salesCommandReasonLeadNeedsDeal => 'أنشئ صفقة';
+
+  @override
+  String get leadNbaContactTitle => 'ابدأ بتواصل حقيقي مع العميل';
+
+  @override
+  String get leadNbaContactBody =>
+      'هذا العميل ما زال جديدًا. اتصل به أو أرسل واتساب أولًا، ثم سجّل التواصل حتى تفهم لوحة المتابعة أنه تم التعامل معه.';
+
+  @override
+  String get leadNbaFollowUpOverdueTitle => 'المتابعة متأخرة';
+
+  @override
+  String get leadNbaFollowUpOverdueBody =>
+      'هذا العميل كان ينتظر متابعة والتاريخ مر بالفعل. تواصل معه الآن، ثم حدّد الخطوة التالية.';
+
+  @override
+  String get leadNbaFollowUpTodayTitle => 'المتابعة مستحقة اليوم';
+
+  @override
+  String get leadNbaFollowUpTodayBody =>
+      'هذا هو الوقت المناسب للمتابعة. افتح المحادثة اليوم قبل أن تبرد الفرصة.';
+
+  @override
+  String get leadNbaMissingNextStepTitle =>
+      'حدّد الخطوة التالية قبل أن يبرد العميل';
+
+  @override
+  String get leadNbaMissingNextStepBody =>
+      'تم التواصل مع العميل من قبل، لكن لا يوجد تاريخ متابعة قادم. أضف إجراءً واضحًا حتى يرجعه التطبيق في الوقت الصحيح.';
+
+  @override
+  String get leadNbaScheduleAppointmentTitle => 'حوّل الاهتمام إلى معاينة';
+
+  @override
+  String get leadNbaScheduleAppointmentBody =>
+      'العميل مهتم. الخطوة الذكية الآن هي حجز معاينة أو موعد بدل ترك المحادثة مفتوحة.';
+
+  @override
+  String get leadNbaCreateAppointmentTitle => 'أنشئ سجل الموعد';
+
+  @override
+  String get leadNbaCreateAppointmentBody =>
+      'الحالة تشير إلى زيارة متوقعة، لكن لا يوجد موعد مرتبط حتى الآن. أنشئه حتى تظل الجدولة والتنبيهات دقيقة.';
+
+  @override
+  String get leadNbaCreateDealTitle => 'حوّل التفاوض إلى صفقة واضحة';
+
+  @override
+  String get leadNbaCreateDealBody =>
+      'العميل وصل لمرحلة التفاوض. أنشئ الصفقة الآن حتى تتم إدارة القيمة والمرحلة وخطوات الإغلاق بشكل صحيح.';
+
+  @override
+  String get leadNbaStaleTitle => 'أعد تنشيط هذا العميل الهادئ';
+
+  @override
+  String get leadNbaStaleBody =>
+      'لا توجد حركة مهمة منذ فترة. تابعه الآن أو قرر هل يجب إغلاقه كعميل مفقود.';
+
+  @override
+  String get leadNbaFutureFollowUpTitle => 'الخطوة القادمة مجدولة بالفعل';
+
+  @override
+  String get leadNbaFutureFollowUpBody =>
+      'هذا العميل لديه متابعة مستقبلية، لذلك من الأفضل أن يظل هادئًا حتى يأتي وقته. لا يوجد إجراء عاجل الآن.';
+
+  @override
+  String get leadNbaPrimaryActionContact => 'تسجيل التواصل';
+
+  @override
+  String get leadNbaPrimaryActionScheduleFollowUp => 'تحديد متابعة';
+
+  @override
+  String get leadNbaPrimaryActionCreateAppointment => 'إنشاء موعد';
+
+  @override
+  String get leadNbaPrimaryActionCreateDeal => 'إنشاء صفقة';
+
+  @override
+  String get leadNbaContactedTodayTitle => 'تم التعامل معه اليوم';
+
+  @override
+  String get leadNbaContactedTodayBody =>
+      'تم التواصل مع هذا العميل اليوم، لذلك لا يجب أن يظل كإجراء عاجل الآن. حدّد متابعة إذا كان يحتاج تواصلًا آخر.';
 }

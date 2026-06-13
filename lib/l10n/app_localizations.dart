@@ -10090,6 +10090,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.'**
   String get dashboardPerformanceTotalTrendNote;
+
+  /// No description provided for @salesCommandWhyLeadNeedsContact.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so it does not stay cold.'**
+  String get salesCommandWhyLeadNeedsContact;
+
+  /// No description provided for @salesCommandWhyLeadMissingNextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'The lead was contacted before, but there is no next step. Set the next follow-up so the opportunity does not disappear from the pipeline.'**
+  String get salesCommandWhyLeadMissingNextStep;
+
+  /// No description provided for @salesCommandWhyLeadNeedsAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'The lead is showing interest. Move the conversation forward by booking a viewing or appointment.'**
+  String get salesCommandWhyLeadNeedsAppointment;
+
+  /// No description provided for @salesCommandWhyLeadNeedsDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'The lead reached negotiation. Create the deal now so the pipeline, value, and next commitment are tracked.'**
+  String get salesCommandWhyLeadNeedsDeal;
+
+  /// No description provided for @salesCommandReasonLeadNeedsContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact now'**
+  String get salesCommandReasonLeadNeedsContact;
+
+  /// No description provided for @salesCommandReasonLeadMissingNextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing next step'**
+  String get salesCommandReasonLeadMissingNextStep;
+
+  /// No description provided for @salesCommandReasonLeadNeedsAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule viewing'**
+  String get salesCommandReasonLeadNeedsAppointment;
+
+  /// No description provided for @salesCommandReasonLeadNeedsDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Create deal'**
+  String get salesCommandReasonLeadNeedsDeal;
+
+  /// No description provided for @leadNbaContactTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with a real contact attempt'**
+  String get leadNbaContactTitle;
+
+  /// No description provided for @leadNbaContactBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead is still new. Call or WhatsApp first, then record the contact so Sales Command knows the lead was handled.'**
+  String get leadNbaContactBody;
+
+  /// No description provided for @leadNbaFollowUpOverdueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up is overdue'**
+  String get leadNbaFollowUpOverdueTitle;
+
+  /// No description provided for @leadNbaFollowUpOverdueBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead was waiting for follow-up and the date has already passed. Contact the client now, then set the next step.'**
+  String get leadNbaFollowUpOverdueBody;
+
+  /// No description provided for @leadNbaFollowUpTodayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow-up is due today'**
+  String get leadNbaFollowUpTodayTitle;
+
+  /// No description provided for @leadNbaFollowUpTodayBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This is the right time to follow up. Open the conversation today before the opportunity cools down.'**
+  String get leadNbaFollowUpTodayBody;
+
+  /// No description provided for @leadNbaMissingNextStepTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the next step before this lead cools down'**
+  String get leadNbaMissingNextStepTitle;
+
+  /// No description provided for @leadNbaMissingNextStepBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The lead was contacted before, but there is no next follow-up date. Add one clear next action so the app can bring it back at the right time.'**
+  String get leadNbaMissingNextStepBody;
+
+  /// No description provided for @leadNbaScheduleAppointmentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn interest into a viewing'**
+  String get leadNbaScheduleAppointmentTitle;
+
+  /// No description provided for @leadNbaScheduleAppointmentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead is interested. The next smart move is to book a viewing or appointment instead of leaving the conversation open.'**
+  String get leadNbaScheduleAppointmentBody;
+
+  /// No description provided for @leadNbaCreateAppointmentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the appointment record'**
+  String get leadNbaCreateAppointmentTitle;
+
+  /// No description provided for @leadNbaCreateAppointmentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The status says a visit is expected, but no appointment is linked yet. Create it so the schedule and reminders stay accurate.'**
+  String get leadNbaCreateAppointmentBody;
+
+  /// No description provided for @leadNbaCreateDealTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move negotiation into a tracked deal'**
+  String get leadNbaCreateDealTitle;
+
+  /// No description provided for @leadNbaCreateDealBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead reached negotiation. Create the deal now so value, stage, and closing actions are managed properly.'**
+  String get leadNbaCreateDealBody;
+
+  /// No description provided for @leadNbaStaleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wake up this quiet lead'**
+  String get leadNbaStaleTitle;
+
+  /// No description provided for @leadNbaStaleBody.
+  ///
+  /// In en, this message translates to:
+  /// **'There has been no meaningful movement for a while. Follow up now or decide whether this lead should be closed as lost.'**
+  String get leadNbaStaleBody;
+
+  /// No description provided for @leadNbaFutureFollowUpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Next move is already scheduled'**
+  String get leadNbaFutureFollowUpTitle;
+
+  /// No description provided for @leadNbaFutureFollowUpBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead has a future follow-up date, so it should stay quiet until the right time. No urgent action is needed now.'**
+  String get leadNbaFutureFollowUpBody;
+
+  /// No description provided for @leadNbaPrimaryActionContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark contacted'**
+  String get leadNbaPrimaryActionContact;
+
+  /// No description provided for @leadNbaPrimaryActionScheduleFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set follow-up'**
+  String get leadNbaPrimaryActionScheduleFollowUp;
+
+  /// No description provided for @leadNbaPrimaryActionCreateAppointment.
+  ///
+  /// In en, this message translates to:
+  /// **'Create appointment'**
+  String get leadNbaPrimaryActionCreateAppointment;
+
+  /// No description provided for @leadNbaPrimaryActionCreateDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Create deal'**
+  String get leadNbaPrimaryActionCreateDeal;
+
+  /// No description provided for @leadNbaContactedTodayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Handled today'**
+  String get leadNbaContactedTodayTitle;
+
+  /// No description provided for @leadNbaContactedTodayBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This lead was contacted today, so it should stay quiet for now. Set a follow-up if the client needs another touchpoint.'**
+  String get leadNbaContactedTodayBody;
 }
 
 class _AppLocalizationsDelegate

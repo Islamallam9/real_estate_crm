@@ -3449,7 +3449,7 @@ List<SalesCommandItem> _filteredCommandItems(
           item.reason == DashboardAttentionReason.appointmentDueNow;
     }).toList(),
     _CommandFilter.hot => items.where((item) {
-      return item.reason == DashboardAttentionReason.hotLead ||
+      return _isLeadSalesOpportunityReason(item.reason) ||
           item.module == DashboardCommandModule.deal;
     }).toList(),
     _CommandFilter.atRisk => items.where((item) {
@@ -3694,6 +3694,9 @@ String _commandModuleLabel(AppLocalizations l, DashboardCommandModule module) {
 }
 
 String _commandReasonText(AppLocalizations l, SalesCommandItem item) {
+  if (item.module == DashboardCommandModule.lead) {
+    return _leadCommandReasonText(l, item);
+  }
   return switch (item.reason) {
     DashboardAttentionReason.overdueFollowUp => l.salesCommandReasonOverdueFollowUp,
     DashboardAttentionReason.dueTodayFollowUp => l.salesCommandReasonDueTodayFollowUp,
@@ -3701,6 +3704,12 @@ String _commandReasonText(AppLocalizations l, SalesCommandItem item) {
     DashboardAttentionReason.dueTodayTask => l.salesCommandReasonDueTodayTask,
     DashboardAttentionReason.staleLead => l.salesCommandReasonStaleLead,
     DashboardAttentionReason.hotLead => l.salesCommandReasonHotLead,
+    DashboardAttentionReason.leadNeedsContact => l.salesCommandReasonLeadNeedsContact,
+    DashboardAttentionReason.leadMissingNextStep =>
+      l.salesCommandReasonLeadMissingNextStep,
+    DashboardAttentionReason.leadNeedsAppointment =>
+      l.salesCommandReasonLeadNeedsAppointment,
+    DashboardAttentionReason.leadNeedsDeal => l.salesCommandReasonLeadNeedsDeal,
     DashboardAttentionReason.unassignedLead => l.salesCommandReasonUnassignedLead,
     DashboardAttentionReason.appointmentMissed => l.salesCommandReasonAppointmentMissed,
     DashboardAttentionReason.appointmentDueNow => l.salesCommandReasonAppointmentDueNow,
@@ -3709,6 +3718,32 @@ String _commandReasonText(AppLocalizations l, SalesCommandItem item) {
     DashboardAttentionReason.dealAtRisk => l.dashboardDealRisks,
     DashboardAttentionReason.overloadedAssignee =>
       l.salesCommandReasonOverloadedAssignee(item.count ?? 0),
+  };
+}
+
+String _leadCommandReasonText(AppLocalizations l, SalesCommandItem item) {
+  return switch (item.reason) {
+    DashboardAttentionReason.leadNeedsContact =>
+      l.salesCommandWhyLeadNeedsContact,
+    DashboardAttentionReason.leadMissingNextStep =>
+      l.salesCommandWhyLeadMissingNextStep,
+    DashboardAttentionReason.leadNeedsAppointment =>
+      l.salesCommandWhyLeadNeedsAppointment,
+    DashboardAttentionReason.leadNeedsDeal => l.salesCommandWhyLeadNeedsDeal,
+    DashboardAttentionReason.overdueFollowUp => l.leadNbaFollowUpOverdueBody,
+    DashboardAttentionReason.dueTodayFollowUp => l.leadNbaFollowUpTodayBody,
+    DashboardAttentionReason.staleLead => l.leadNbaStaleBody,
+    DashboardAttentionReason.hotLead => l.salesCommandWhyHotLead,
+    DashboardAttentionReason.unassignedLead => l.salesCommandReasonUnassignedLead,
+    DashboardAttentionReason.overdueTask ||
+    DashboardAttentionReason.dueTodayTask ||
+    DashboardAttentionReason.appointmentMissed ||
+    DashboardAttentionReason.appointmentDueNow ||
+    DashboardAttentionReason.appointmentUpcoming ||
+    DashboardAttentionReason.appointmentNeedsFeedback ||
+    DashboardAttentionReason.dealAtRisk ||
+    DashboardAttentionReason.overloadedAssignee =>
+      l.salesCommandReasonHotLead,
   };
 }
 
@@ -3966,6 +4001,15 @@ Future<void> _showDailyInsightDrawer(
   );
 }
 
+
+bool _isLeadSalesOpportunityReason(DashboardAttentionReason reason) {
+  return reason == DashboardAttentionReason.hotLead ||
+      reason == DashboardAttentionReason.leadNeedsContact ||
+      reason == DashboardAttentionReason.leadMissingNextStep ||
+      reason == DashboardAttentionReason.leadNeedsAppointment ||
+      reason == DashboardAttentionReason.leadNeedsDeal;
+}
+
 String _assignedCommandUser(AppLocalizations l, SalesCommandItem item) {
   final name = item.assignedToName.trim();
   if (name.isNotEmpty) {
@@ -3983,11 +4027,22 @@ String _suggestedCommandActionLabel(
   required bool canCreateTask,
   required bool canCreateAppointment,
 }) {
+  if (item.module == DashboardCommandModule.lead) {
+    return _leadSuggestedCommandActionText(l, item);
+  }
   if (item.reason == DashboardAttentionReason.overdueFollowUp ||
       item.reason == DashboardAttentionReason.dueTodayFollowUp ||
       item.reason == DashboardAttentionReason.staleLead ||
-      item.reason == DashboardAttentionReason.hotLead) {
+      item.reason == DashboardAttentionReason.hotLead ||
+      item.reason == DashboardAttentionReason.leadNeedsContact ||
+      item.reason == DashboardAttentionReason.leadMissingNextStep) {
     return l.markContactedToday;
+  }
+  if (item.reason == DashboardAttentionReason.leadNeedsAppointment) {
+    return l.newAppointment;
+  }
+  if (item.reason == DashboardAttentionReason.leadNeedsDeal) {
+    return l.createDeal;
   }
   if (item.reason == DashboardAttentionReason.overdueTask ||
       item.reason == DashboardAttentionReason.dueTodayTask) {
@@ -4004,6 +4059,30 @@ String _suggestedCommandActionLabel(
     return l.newAppointment;
   }
   return l.open;
+}
+
+String _leadSuggestedCommandActionText(AppLocalizations l, SalesCommandItem item) {
+  return switch (item.reason) {
+    DashboardAttentionReason.leadNeedsContact => l.leadNbaContactBody,
+    DashboardAttentionReason.leadMissingNextStep =>
+      l.leadNbaMissingNextStepBody,
+    DashboardAttentionReason.leadNeedsAppointment =>
+      l.leadNbaScheduleAppointmentBody,
+    DashboardAttentionReason.leadNeedsDeal => l.leadNbaCreateDealBody,
+    DashboardAttentionReason.overdueFollowUp => l.leadNbaFollowUpOverdueBody,
+    DashboardAttentionReason.dueTodayFollowUp => l.leadNbaFollowUpTodayBody,
+    DashboardAttentionReason.staleLead => l.leadNbaStaleBody,
+    DashboardAttentionReason.hotLead => l.salesCommandWhyHotLead,
+    DashboardAttentionReason.unassignedLead => l.salesCommandReasonUnassignedLead,
+    DashboardAttentionReason.overdueTask ||
+    DashboardAttentionReason.dueTodayTask ||
+    DashboardAttentionReason.appointmentMissed ||
+    DashboardAttentionReason.appointmentDueNow ||
+    DashboardAttentionReason.appointmentUpcoming ||
+    DashboardAttentionReason.appointmentNeedsFeedback ||
+    DashboardAttentionReason.dealAtRisk ||
+    DashboardAttentionReason.overloadedAssignee => l.salesCommandWhyHotLead,
+  };
 }
 
 enum _DashboardDrawerActionStyle { primary, secondary, danger }

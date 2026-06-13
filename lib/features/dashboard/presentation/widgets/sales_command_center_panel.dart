@@ -587,6 +587,13 @@ String _reasonSentence(BuildContext context, SalesCommandItem item) {
     DashboardAttentionReason.staleLead =>
       l.salesCommandWhyStaleLead(item.ageDays ?? 0),
     DashboardAttentionReason.hotLead => l.salesCommandWhyHotLead,
+    DashboardAttentionReason.leadNeedsContact =>
+      l.salesCommandWhyLeadNeedsContact,
+    DashboardAttentionReason.leadMissingNextStep =>
+      l.salesCommandWhyLeadMissingNextStep,
+    DashboardAttentionReason.leadNeedsAppointment =>
+      l.salesCommandWhyLeadNeedsAppointment,
+    DashboardAttentionReason.leadNeedsDeal => l.salesCommandWhyLeadNeedsDeal,
     DashboardAttentionReason.unassignedLead =>
       l.salesCommandWhyUnassignedLead,
     DashboardAttentionReason.appointmentMissed =>

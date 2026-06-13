@@ -5,10 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/auth/protected_company_session.dart';
 import '../../../../core/constants/role_constants.dart';
 import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/intelligence/lead_nba_evaluator.dart';
+import '../../../../core/intelligence/sales_next_action_type.dart';
 import '../../../../core/permissions/app_permission.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
@@ -499,6 +502,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   }
 
   List<Widget> _mainContent(AppLocalizations l) {
+    final smartSuggestion = _leadSmartSuggestion(l);
     return [
       Row(
         children: [
@@ -528,6 +532,10 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       ),
       const SizedBox(height: AppSpacing.sm),
       Text(l.leadAssignedTo(widget.assigneeName)),
+      if (smartSuggestion != null) ...[
+        const SizedBox(height: AppSpacing.md),
+        _LeadSmartSuggestionCard(suggestion: smartSuggestion),
+      ],
       const SizedBox(height: AppSpacing.md),
       _LeadDetailsActions(
         canEdit: widget.canEdit,
@@ -619,6 +627,163 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
         ),
       ),
     ];
+  }
+
+
+  _LeadSmartSuggestion? _leadSmartSuggestion(AppLocalizations l) {
+    final decision = _evaluateLeadNba();
+    if (widget.lead.isArchived) {
+      return null;
+    }
+
+    if (decision.reason == 'contactedToday') {
+      return _LeadSmartSuggestion(
+        title: l.leadNbaContactedTodayTitle,
+        body: l.leadNbaContactedTodayBody,
+        icon: Icons.check_circle_outline_rounded,
+        primaryLabel: l.leadNbaPrimaryActionScheduleFollowUp,
+        onPrimaryAction: widget.canEdit && !widget.isSaving
+            ? () => _scheduleFollowUp(context)
+            : null,
+      );
+    }
+
+    switch (decision.nextActionType) {
+      case SalesNextActionType.contactLead:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaContactTitle,
+          body: l.leadNbaContactBody,
+          icon: Icons.phone_in_talk_outlined,
+          primaryLabel: l.leadNbaPrimaryActionContact,
+          onPrimaryAction: widget.canEdit && !widget.isSaving
+              ? () => _markContactedToday(context)
+              : null,
+        );
+      case SalesNextActionType.followUp:
+        final overdue = decision.reason == 'overdueFollowUp';
+        return _LeadSmartSuggestion(
+          title: overdue
+              ? l.leadNbaFollowUpOverdueTitle
+              : l.leadNbaFollowUpTodayTitle,
+          body: overdue
+              ? l.leadNbaFollowUpOverdueBody
+              : l.leadNbaFollowUpTodayBody,
+          icon: overdue
+              ? Icons.notification_important_outlined
+              : Icons.event_available_outlined,
+          primaryLabel: l.leadNbaPrimaryActionContact,
+          onPrimaryAction: widget.canEdit && !widget.isSaving
+              ? () => _markContactedToday(context)
+              : null,
+        );
+      case SalesNextActionType.setNextStep:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaMissingNextStepTitle,
+          body: l.leadNbaMissingNextStepBody,
+          icon: Icons.route_outlined,
+          primaryLabel: l.leadNbaPrimaryActionScheduleFollowUp,
+          onPrimaryAction: widget.canEdit && !widget.isSaving
+              ? () => _scheduleFollowUp(context)
+              : null,
+        );
+      case SalesNextActionType.scheduleAppointment:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaScheduleAppointmentTitle,
+          body: l.leadNbaScheduleAppointmentBody,
+          icon: Icons.real_estate_agent_outlined,
+          primaryLabel: l.leadNbaPrimaryActionCreateAppointment,
+          onPrimaryAction: _canCreateAppointment && !widget.isSaving
+              ? _createAppointmentFromLead
+              : null,
+        );
+      case SalesNextActionType.createAppointment:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaCreateAppointmentTitle,
+          body: l.leadNbaCreateAppointmentBody,
+          icon: Icons.event_note_outlined,
+          primaryLabel: l.leadNbaPrimaryActionCreateAppointment,
+          onPrimaryAction: _canCreateAppointment && !widget.isSaving
+              ? _createAppointmentFromLead
+              : null,
+        );
+      case SalesNextActionType.createDeal:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaCreateDealTitle,
+          body: l.leadNbaCreateDealBody,
+          icon: Icons.handshake_outlined,
+          primaryLabel: l.leadNbaPrimaryActionCreateDeal,
+          onPrimaryAction: _canCreateDeal && !widget.isSaving
+              ? () => context.go(RouteNames.dealsCreate)
+              : null,
+        );
+      case SalesNextActionType.reviewStaleLead:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaStaleTitle,
+          body: l.leadNbaStaleBody,
+          icon: Icons.restart_alt_outlined,
+          primaryLabel: l.leadNbaPrimaryActionContact,
+          onPrimaryAction: widget.canEdit && !widget.isSaving
+              ? () => _markContactedToday(context)
+              : null,
+        );
+      case SalesNextActionType.futureFollowUp:
+        return _LeadSmartSuggestion(
+          title: l.leadNbaFutureFollowUpTitle,
+          body: l.leadNbaFutureFollowUpBody,
+          icon: Icons.event_available_outlined,
+          primaryLabel: l.leadNbaPrimaryActionScheduleFollowUp,
+          onPrimaryAction: widget.canEdit && !widget.isSaving
+              ? () => _scheduleFollowUp(context)
+              : null,
+        );
+      case SalesNextActionType.assignLead:
+      case SalesNextActionType.managerReview:
+      case SalesNextActionType.closeLost:
+      case SalesNextActionType.none:
+        return null;
+    }
+  }
+
+  LeadNbaDecision _evaluateLeadNba() {
+    return LeadNbaEvaluator.evaluate(
+      LeadNbaInput(
+        status: _leadStatusValueForNba(widget.lead.status),
+        priority: widget.lead.priority.name,
+        isArchived: widget.lead.isArchived,
+        createdAt: widget.lead.createdAt,
+        updatedAt: widget.lead.updatedAt,
+        lastContactAt: widget.lead.lastContactAt,
+        nextActionAt: widget.lead.nextFollowUpAt,
+        assignedTo: widget.lead.assignedTo,
+        preferStatusSuggestions: true,
+        now: DateTime.now(),
+      ),
+    );
+  }
+
+  bool get _canCreateAppointment {
+    final role = widget.currentUserProfile?.role;
+    return role != null &&
+        PermissionService.can(role, AppPermission.createAppointment);
+  }
+
+  bool get _canCreateDeal {
+    final role = widget.currentUserProfile?.role;
+    return role != null && PermissionService.can(role, AppPermission.createDeal);
+  }
+
+  void _createAppointmentFromLead() {
+    context.go(
+      RouteNames.appointmentCreateFor(
+        relatedType: 'lead',
+        relatedId: widget.lead.id,
+        relatedTitle: widget.lead.fullName,
+        relatedSubtitle: widget.lead.phone.isNotEmpty
+            ? widget.lead.phone
+            : widget.lead.email,
+        assignedTo: widget.lead.assignedTo,
+      ),
+    );
   }
 
   Widget _detail(String label, String value, AppLocalizations l) {
@@ -763,13 +928,18 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
 
   void _markContactedToday(BuildContext context) {
     final now = DateTime.now();
+    final nextStatus = widget.lead.status == LeadStatus.newLead
+        ? LeadStatus.contacted
+        : widget.lead.status;
     _updateLeadFromDetails(
       context,
       widget.lead.copyWith(
+        status: nextStatus,
         lastContactAt: now,
         updatedAt: now,
         updatedBy: widget.uid,
       ),
+      successAction: LeadsAction.markContactedToday,
     );
   }
 
@@ -803,6 +973,122 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   }
 }
 
+
+
+class _LeadSmartSuggestion {
+  const _LeadSmartSuggestion({
+    required this.title,
+    required this.body,
+    required this.icon,
+    required this.primaryLabel,
+    this.onPrimaryAction,
+  });
+
+  final String title;
+  final String body;
+  final IconData icon;
+  final String primaryLabel;
+  final VoidCallback? onPrimaryAction;
+}
+
+class _LeadSmartSuggestionCard extends StatelessWidget {
+  const _LeadSmartSuggestionCard({required this.suggestion});
+
+  final _LeadSmartSuggestion suggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.inputSurface(context),
+        border: Border.all(color: AppColors.borderColor(context)),
+        borderRadius: AppRadius.large,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 680;
+          final icon = Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(suggestion.icon, color: AppColors.primary, size: 22),
+          );
+          final text = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppStatusBadge(
+                label: l.journeyRecommendedNextAction,
+                tone: AppStatusTone.warning,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                suggestion.title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                suggestion.body,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondaryColor(context),
+                      height: 1.35,
+                    ),
+              ),
+            ],
+          );
+          final action = suggestion.onPrimaryAction == null
+              ? null
+              : AppButton(
+                  label: suggestion.primaryLabel,
+                  icon: Icons.arrow_forward_rounded,
+                  variant: AppButtonVariant.secondary,
+                  isExpanded: isNarrow,
+                  onPressed: suggestion.onPrimaryAction,
+                );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    icon,
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(child: text),
+                  ],
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  action,
+                ],
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              icon,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: text),
+              if (action != null) ...[
+                const SizedBox(width: AppSpacing.md),
+                action,
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
 
 class _LeadDetailsActions extends StatelessWidget {
   const _LeadDetailsActions({
@@ -1261,6 +1547,19 @@ Stream<List<UserProfile>> _watchActiveUsers(String companyId) {
     remoteDataSource: FirestoreUserProfileRemoteDataSource(),
   );
   return WatchActiveUsersUseCase(repository)(companyId: companyId);
+}
+
+
+String _leadStatusValueForNba(LeadStatus status) {
+  return switch (status) {
+    LeadStatus.newLead => 'new',
+    LeadStatus.contacted => 'contacted',
+    LeadStatus.interested => 'interested',
+    LeadStatus.visitScheduled => 'visitScheduled',
+    LeadStatus.negotiation => 'negotiation',
+    LeadStatus.won => 'won',
+    LeadStatus.lost => 'lost',
+  };
 }
 
 String _statusLabel(AppLocalizations l, LeadStatus status) {

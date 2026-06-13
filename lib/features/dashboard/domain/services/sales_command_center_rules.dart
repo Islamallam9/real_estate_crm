@@ -144,7 +144,7 @@ class SalesCommandCenterRules {
     final hotLeadsCount = _uniqueRecordCount(
       hotCandidates.where((item) {
         return item.module == DashboardCommandModule.lead &&
-            item.reason == DashboardAttentionReason.hotLead;
+            _isLeadOpportunityReason(item.reason);
       }),
     );
     return SalesCommandSummary(
@@ -288,10 +288,14 @@ class SalesCommandCenterRules {
       case SalesNextActionType.reviewStaleLead:
         return DashboardAttentionReason.staleLead;
       case SalesNextActionType.contactLead:
+        return DashboardAttentionReason.leadNeedsContact;
       case SalesNextActionType.scheduleAppointment:
       case SalesNextActionType.createAppointment:
+        return DashboardAttentionReason.leadNeedsAppointment;
       case SalesNextActionType.createDeal:
+        return DashboardAttentionReason.leadNeedsDeal;
       case SalesNextActionType.setNextStep:
+        return DashboardAttentionReason.leadMissingNextStep;
       case SalesNextActionType.futureFollowUp:
       case SalesNextActionType.managerReview:
       case SalesNextActionType.closeLost:
@@ -666,6 +670,15 @@ class SalesCommandCenterRules {
       selected.add(item);
     }
     return selected;
+  }
+
+
+  bool _isLeadOpportunityReason(DashboardAttentionReason reason) {
+    return reason == DashboardAttentionReason.hotLead ||
+        reason == DashboardAttentionReason.leadNeedsContact ||
+        reason == DashboardAttentionReason.leadMissingNextStep ||
+        reason == DashboardAttentionReason.leadNeedsAppointment ||
+        reason == DashboardAttentionReason.leadNeedsDeal;
   }
 
   SalesCommandSection _operationalGroupItems(

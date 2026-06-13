@@ -28,6 +28,10 @@ enum DashboardAttentionReason {
   dueTodayTask,
   staleLead,
   hotLead,
+  leadNeedsContact,
+  leadMissingNextStep,
+  leadNeedsAppointment,
+  leadNeedsDeal,
   unassignedLead,
   appointmentMissed,
   appointmentDueNow,
@@ -71,6 +75,7 @@ class SalesCommandItem extends Equatable {
     this.sortDate,
     this.count,
     this.ageDays,
+    this.dedupeKey,
   });
 
   final String id;
@@ -92,8 +97,15 @@ class SalesCommandItem extends Equatable {
   final DateTime? sortDate;
   final int? count;
   final int? ageDays;
+  final String? dedupeKey;
 
-  String get recordKey => '${module.name}:$recordId';
+  String get recordKey {
+    final key = dedupeKey?.trim();
+    if (key != null && key.isNotEmpty) {
+      return key;
+    }
+    return '${module.name}:$recordId';
+  }
 
   @override
   List<Object?> get props => [
@@ -116,6 +128,7 @@ class SalesCommandItem extends Equatable {
         sortDate,
         count,
         ageDays,
+        dedupeKey,
       ];
 }
 

@@ -5479,4 +5479,115 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dashboardPerformanceTotalTrendNote =>
       'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.';
+
+  @override
+  String get salesCommandWhyLeadNeedsContact =>
+      'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so it does not stay cold.';
+
+  @override
+  String get salesCommandWhyLeadMissingNextStep =>
+      'The lead was contacted before, but there is no next step. Set the next follow-up so the opportunity does not disappear from the pipeline.';
+
+  @override
+  String get salesCommandWhyLeadNeedsAppointment =>
+      'The lead is showing interest. Move the conversation forward by booking a viewing or appointment.';
+
+  @override
+  String get salesCommandWhyLeadNeedsDeal =>
+      'The lead reached negotiation. Create the deal now so the pipeline, value, and next commitment are tracked.';
+
+  @override
+  String get salesCommandReasonLeadNeedsContact => 'Contact now';
+
+  @override
+  String get salesCommandReasonLeadMissingNextStep => 'Missing next step';
+
+  @override
+  String get salesCommandReasonLeadNeedsAppointment => 'Schedule viewing';
+
+  @override
+  String get salesCommandReasonLeadNeedsDeal => 'Create deal';
+
+  @override
+  String get leadNbaContactTitle => 'Start with a real contact attempt';
+
+  @override
+  String get leadNbaContactBody =>
+      'This lead is still new. Call or WhatsApp first, then record the contact so Sales Command knows the lead was handled.';
+
+  @override
+  String get leadNbaFollowUpOverdueTitle => 'Follow-up is overdue';
+
+  @override
+  String get leadNbaFollowUpOverdueBody =>
+      'This lead was waiting for follow-up and the date has already passed. Contact the client now, then set the next step.';
+
+  @override
+  String get leadNbaFollowUpTodayTitle => 'Follow-up is due today';
+
+  @override
+  String get leadNbaFollowUpTodayBody =>
+      'This is the right time to follow up. Open the conversation today before the opportunity cools down.';
+
+  @override
+  String get leadNbaMissingNextStepTitle =>
+      'Set the next step before this lead cools down';
+
+  @override
+  String get leadNbaMissingNextStepBody =>
+      'The lead was contacted before, but there is no next follow-up date. Add one clear next action so the app can bring it back at the right time.';
+
+  @override
+  String get leadNbaScheduleAppointmentTitle => 'Turn interest into a viewing';
+
+  @override
+  String get leadNbaScheduleAppointmentBody =>
+      'This lead is interested. The next smart move is to book a viewing or appointment instead of leaving the conversation open.';
+
+  @override
+  String get leadNbaCreateAppointmentTitle => 'Create the appointment record';
+
+  @override
+  String get leadNbaCreateAppointmentBody =>
+      'The status says a visit is expected, but no appointment is linked yet. Create it so the schedule and reminders stay accurate.';
+
+  @override
+  String get leadNbaCreateDealTitle => 'Move negotiation into a tracked deal';
+
+  @override
+  String get leadNbaCreateDealBody =>
+      'This lead reached negotiation. Create the deal now so value, stage, and closing actions are managed properly.';
+
+  @override
+  String get leadNbaStaleTitle => 'Wake up this quiet lead';
+
+  @override
+  String get leadNbaStaleBody =>
+      'There has been no meaningful movement for a while. Follow up now or decide whether this lead should be closed as lost.';
+
+  @override
+  String get leadNbaFutureFollowUpTitle => 'Next move is already scheduled';
+
+  @override
+  String get leadNbaFutureFollowUpBody =>
+      'This lead has a future follow-up date, so it should stay quiet until the right time. No urgent action is needed now.';
+
+  @override
+  String get leadNbaPrimaryActionContact => 'Mark contacted';
+
+  @override
+  String get leadNbaPrimaryActionScheduleFollowUp => 'Set follow-up';
+
+  @override
+  String get leadNbaPrimaryActionCreateAppointment => 'Create appointment';
+
+  @override
+  String get leadNbaPrimaryActionCreateDeal => 'Create deal';
+
+  @override
+  String get leadNbaContactedTodayTitle => 'Handled today';
+
+  @override
+  String get leadNbaContactedTodayBody =>
+      'This lead was contacted today, so it should stay quiet for now. Set a follow-up if the client needs another touchpoint.';
 }
