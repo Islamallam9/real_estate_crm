@@ -1,4 +1,7 @@
 import '../../../../core/constants/role_constants.dart';
+import '../../../../core/intelligence/lead_nba_evaluator.dart';
+import '../../../../core/intelligence/sales_attention_level.dart';
+import '../../../../core/intelligence/sales_next_action_type.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../deals/domain/entities/deal.dart';
 import '../../../leads/domain/entities/lead.dart';
@@ -182,118 +185,161 @@ class SalesCommandCenterRules {
     List<SalesCommandItem> pressure,
   ) {
     for (final lead in input.leads) {
-      if (!DashboardTruthRules.isActiveLead(lead)) {
+      final decision = LeadNbaEvaluator.evaluate(
+        LeadNbaInput(
+          status: _leadStatusValue(lead.status),
+          priority: _leadPriorityValue(lead.priority),
+          isArchived: lead.isArchived,
+          assignedTo: lead.assignedTo,
+          canViewUnassignedLeads: input.canViewUnassignedLeads,
+          createdAt: lead.createdAt,
+          updatedAt: lead.updatedAt,
+          lastContactAt: lead.lastContactAt,
+          nextActionAt: lead.nextFollowUpAt,
+          now: input.now,
+          staleDays: staleLeadDays,
+          highPriorityStaleDays: highPriorityStaleLeadDays,
+        ),
+      );
+
+      if (!decision.isActionableNow) {
         continue;
       }
 
-      final followUpAt = lead.nextFollowUpAt?.toLocal();
-      final lastTouch = DashboardTruthRules.leadLastTouchAt(lead)?.toLocal();
-      final ageDays = lastTouch == null
-          ? null
-          : DashboardTruthRules.dateOnly(input.today)
-              .difference(DashboardTruthRules.dateOnly(lastTouch))
-              .inDays;
-      final priorityBoost = _leadPriorityBoost(lead.priority);
-      final statusBoost = _leadStatusBoost(lead.status);
+      final item = _leadItemForDecision(
+        lead: lead,
+        decision: decision,
+      );
 
-      if (followUpAt != null) {
-        final followUpDay = DashboardTruthRules.dateOnly(followUpAt);
-        if (DashboardTruthRules.isOverdueFollowUpLead(lead, input.today)) {
-          final item = _leadItem(
-            lead: lead,
-            reason: DashboardAttentionReason.overdueFollowUp,
-            priority: lead.priority == LeadPriority.high
-                ? DashboardPriority.high
-                : DashboardPriority.medium,
-            dueAt: followUpAt,
-            sortDate: followUpAt,
-            score: 94 + priorityBoost + statusBoost,
-            ageDays: input.today.difference(followUpDay).inDays,
-          );
+      switch (decision.nextActionType) {
+        case SalesNextActionType.assignLead:
           today.add(item);
-          risk.add(item);
-          continue;
-        }
-        if (DashboardTruthRules.isDueTodayFollowUpLead(lead, input.today)) {
-          final item = _leadItem(
-            lead: lead,
-            reason: DashboardAttentionReason.dueTodayFollowUp,
-            priority: lead.priority == LeadPriority.high
-                ? DashboardPriority.high
-                : DashboardPriority.medium,
-            dueAt: followUpAt,
-            sortDate: followUpAt,
-            score: 84 + priorityBoost + statusBoost,
-          );
+          pressure.add(item);
+        case SalesNextActionType.followUp:
+          today.add(item);
+          if (decision.reason == 'overdueFollowUp') {
+            risk.add(item);
+          } else {
+            hot.add(item);
+          }
+        case SalesNextActionType.contactLead:
+        case SalesNextActionType.createDeal:
           today.add(item);
           hot.add(item);
-          continue;
-        }
-      }
-
-      if (lead.assignedTo.trim().isEmpty &&
-          input.canViewUnassignedLeads &&
-          (lead.priority != LeadPriority.low || lead.status == LeadStatus.newLead)) {
-        final item = _leadItem(
-          lead: lead,
-          reason: DashboardAttentionReason.unassignedLead,
-          priority: lead.priority == LeadPriority.high
-              ? DashboardPriority.high
-              : DashboardPriority.medium,
-          actionType: DashboardCommandActionType.assignLead,
-          sortDate: lead.createdAt,
-          score: 82 + priorityBoost + statusBoost,
-        );
-        today.add(item);
-        pressure.add(item);
-        continue;
-      }
-
-      if (lead.priority == LeadPriority.high ||
-          lead.status == LeadStatus.interested ||
-          lead.status == LeadStatus.visitScheduled ||
-          lead.status == LeadStatus.negotiation) {
-        hot.add(
-          _leadItem(
-            lead: lead,
-            reason: DashboardAttentionReason.hotLead,
-            priority: lead.priority == LeadPriority.high
-                ? DashboardPriority.high
-                : DashboardPriority.medium,
-            sortDate: lead.updatedAt,
-            score: 70 + priorityBoost + statusBoost,
-            ageDays: ageDays,
-          ),
-        );
-      }
-
-      final staleAfter = lead.priority == LeadPriority.high
-          ? highPriorityStaleLeadDays
-          : staleLeadDays;
-      final staleAgeDays = DashboardTruthRules.staleLeadAgeDays(
-        lead,
-        input.today,
-        staleDays: staleAfter,
-      );
-      if (staleAgeDays != null) {
-        risk.add(
-          _leadItem(
-            lead: lead,
-            reason: DashboardAttentionReason.staleLead,
-            priority: lead.priority == LeadPriority.high
-                ? DashboardPriority.high
-                : DashboardPriority.medium,
-            relatedDate: lastTouch,
-            sortDate: lastTouch,
-            score: 64 +
-                priorityBoost +
-                statusBoost +
-                staleAgeDays.clamp(0, 12).toInt(),
-            ageDays: staleAgeDays,
-          ),
-        );
+        case SalesNextActionType.scheduleAppointment:
+        case SalesNextActionType.createAppointment:
+          hot.add(item);
+        case SalesNextActionType.setNextStep:
+          today.add(item);
+          hot.add(item);
+        case SalesNextActionType.reviewStaleLead:
+          risk.add(item);
+        case SalesNextActionType.none:
+        case SalesNextActionType.futureFollowUp:
+        case SalesNextActionType.managerReview:
+        case SalesNextActionType.closeLost:
+          break;
       }
     }
+  }
+
+  SalesCommandItem _leadItemForDecision({
+    required Lead lead,
+    required LeadNbaDecision decision,
+  }) {
+    final reason = _leadReasonForDecision(decision);
+    final priority = _dashboardPriorityForDecision(lead, decision);
+    final priorityBoost = _leadPriorityBoost(lead.priority);
+    final statusBoost = _leadStatusBoost(lead.status);
+    final dueAt = decision.dueAt?.toLocal();
+    final relatedAt = decision.relatedAt?.toLocal();
+    final ageDays = decision.ageDays;
+    final score = _leadDecisionScore(
+      decision: decision,
+      lead: lead,
+      priorityBoost: priorityBoost,
+      statusBoost: statusBoost,
+      ageDays: ageDays,
+    );
+
+    return _leadItem(
+      lead: lead,
+      reason: reason,
+      priority: priority,
+      dueAt: dueAt,
+      relatedDate: relatedAt,
+      sortDate: dueAt ?? relatedAt ?? lead.updatedAt,
+      score: score,
+      ageDays: ageDays,
+      actionType: decision.nextActionType == SalesNextActionType.assignLead
+          ? DashboardCommandActionType.assignLead
+          : DashboardCommandActionType.openLead,
+    );
+  }
+
+  DashboardAttentionReason _leadReasonForDecision(LeadNbaDecision decision) {
+    switch (decision.nextActionType) {
+      case SalesNextActionType.assignLead:
+        return DashboardAttentionReason.unassignedLead;
+      case SalesNextActionType.followUp:
+        return decision.reason == 'overdueFollowUp'
+            ? DashboardAttentionReason.overdueFollowUp
+            : DashboardAttentionReason.dueTodayFollowUp;
+      case SalesNextActionType.reviewStaleLead:
+        return DashboardAttentionReason.staleLead;
+      case SalesNextActionType.contactLead:
+      case SalesNextActionType.scheduleAppointment:
+      case SalesNextActionType.createAppointment:
+      case SalesNextActionType.createDeal:
+      case SalesNextActionType.setNextStep:
+      case SalesNextActionType.futureFollowUp:
+      case SalesNextActionType.managerReview:
+      case SalesNextActionType.closeLost:
+      case SalesNextActionType.none:
+        return DashboardAttentionReason.hotLead;
+    }
+  }
+
+  DashboardPriority _dashboardPriorityForDecision(
+    Lead lead,
+    LeadNbaDecision decision,
+  ) {
+    if (decision.attentionLevel == SalesAttentionLevel.urgent ||
+        decision.attentionLevel == SalesAttentionLevel.manager ||
+        lead.priority == LeadPriority.high) {
+      return DashboardPriority.high;
+    }
+    if (decision.attentionLevel == SalesAttentionLevel.info) {
+      return DashboardPriority.low;
+    }
+    return DashboardPriority.medium;
+  }
+
+  int _leadDecisionScore({
+    required LeadNbaDecision decision,
+    required Lead lead,
+    required int priorityBoost,
+    required int statusBoost,
+    int? ageDays,
+  }) {
+    final base = switch (decision.nextActionType) {
+      SalesNextActionType.followUp =>
+        decision.reason == 'overdueFollowUp' ? 94 : 84,
+      SalesNextActionType.assignLead => 82,
+      SalesNextActionType.contactLead => 80,
+      SalesNextActionType.createDeal => 78,
+      SalesNextActionType.scheduleAppointment ||
+      SalesNextActionType.createAppointment => 74,
+      SalesNextActionType.setNextStep => 72,
+      SalesNextActionType.reviewStaleLead => 64,
+      SalesNextActionType.managerReview => 86,
+      SalesNextActionType.closeLost => 58,
+      SalesNextActionType.none || SalesNextActionType.futureFollowUp => 0,
+    };
+    return base +
+        priorityBoost +
+        statusBoost +
+        (ageDays == null ? 0 : ageDays.clamp(0, 12).toInt());
   }
 
   void _addTaskCandidates(
@@ -702,7 +748,22 @@ class SalesCommandCenterRules {
       sortDate: dueAt ?? task.updatedAt ?? task.createdAt,
       score: score,
       ageDays: ageDays,
+      dedupeKey: _taskBusinessRecordKey(task),
     );
+  }
+
+  String? _taskBusinessRecordKey(CrmTask task) {
+    final relatedId = task.relatedId.trim();
+    if (relatedId.isEmpty) {
+      return null;
+    }
+    return switch (task.relatedType) {
+      TaskRelatedType.lead => 'lead:$relatedId',
+      TaskRelatedType.client => 'client:$relatedId',
+      TaskRelatedType.deal => 'deal:$relatedId',
+      TaskRelatedType.property => 'property:$relatedId',
+      TaskRelatedType.general => null,
+    };
   }
 
   SalesCommandItem _appointmentItem({
@@ -881,6 +942,26 @@ String _fallback(String value, String fallback) {
     return trimmed;
   }
   return fallback.trim();
+}
+
+String _leadStatusValue(LeadStatus status) {
+  return switch (status) {
+    LeadStatus.newLead => 'new',
+    LeadStatus.contacted => 'contacted',
+    LeadStatus.interested => 'interested',
+    LeadStatus.visitScheduled => 'visitScheduled',
+    LeadStatus.negotiation => 'negotiation',
+    LeadStatus.won => 'won',
+    LeadStatus.lost => 'lost',
+  };
+}
+
+String _leadPriorityValue(LeadPriority priority) {
+  return switch (priority) {
+    LeadPriority.low => 'low',
+    LeadPriority.medium => 'medium',
+    LeadPriority.high => 'high',
+  };
 }
 
 int _leadPriorityBoost(LeadPriority priority) {

@@ -978,7 +978,9 @@ class DashboardAnalyticsRules {
   }
 
   List<Lead> _leadsWithoutNextFollowUp(DashboardAnalyticsInput input) {
-    return input.leads.where(DashboardTruthRules.isLeadWithoutNextFollowUp).toList();
+    return input.leads.where((lead) {
+      return DashboardTruthRules.isLeadWithoutNextFollowUp(lead, input.today);
+    }).toList();
   }
 
   List<Lead> _staleLeads(DashboardAnalyticsInput input) {

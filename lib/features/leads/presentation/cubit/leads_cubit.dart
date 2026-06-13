@@ -1705,7 +1705,7 @@ bool _matchesFollowUpFilter(Lead lead, LeadFollowUpFilter filter) {
     LeadFollowUpFilter.upcoming =>
       DashboardTruthRules.isUpcomingFollowUpLead(lead, today),
     LeadFollowUpFilter.notScheduled =>
-      DashboardTruthRules.isLeadWithoutNextFollowUp(lead),
+      DashboardTruthRules.isLeadWithoutNextFollowUp(lead, today),
   };
 }
 

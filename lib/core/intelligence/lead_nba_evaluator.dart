@@ -149,11 +149,14 @@ abstract final class LeadNbaEvaluator {
       );
     }
 
-    if (_needsNextStep(input)) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.soon,
+    final missingNextStepAge = _missingNextStepAgeDays(input);
+    if (missingNextStepAge != null) {
+      return LeadNbaDecision(
+        attentionLevel: SalesAttentionLevel.today,
         nextActionType: SalesNextActionType.setNextStep,
         reason: 'missingNextStep',
+        relatedAt: input.lastContactAt,
+        ageDays: missingNextStepAge,
       );
     }
 
@@ -204,12 +207,27 @@ abstract final class LeadNbaEvaluator {
     return input.status == 'negotiation';
   }
 
-  static bool _needsNextStep(LeadNbaInput input) {
-    return input.lastContactAt != null &&
-        (input.status == 'contacted' ||
-            input.status == 'interested' ||
-            input.status == 'visitScheduled' ||
-            input.status == 'negotiation');
+  static int? _missingNextStepAgeDays(LeadNbaInput input) {
+    final lastContactAt = input.lastContactAt;
+    if (lastContactAt == null || input.nextActionAt != null) {
+      return null;
+    }
+    if (!_canAskForNextStep(input)) {
+      return null;
+    }
+    final today = _dateOnly(input.now);
+    final contactDay = _dateOnly(lastContactAt);
+    if (!contactDay.isBefore(today)) {
+      return null;
+    }
+    return today.difference(contactDay).inDays;
+  }
+
+  static bool _canAskForNextStep(LeadNbaInput input) {
+    return input.status == 'contacted' ||
+        input.status == 'interested' ||
+        input.status == 'visitScheduled' ||
+        input.status == 'negotiation';
   }
 
   static int? _staleAgeDays(LeadNbaInput input) {

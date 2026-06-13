@@ -66,10 +66,12 @@ abstract final class DashboardTruthRules {
         dateOnly(followUpAt).isAfter(dateOnly(today));
   }
 
-  static bool isLeadWithoutNextFollowUp(Lead lead) {
+  static bool isLeadWithoutNextFollowUp(Lead lead, [DateTime? today]) {
+    final referenceDay = today ?? DateTime.now();
     return isActiveLead(lead) &&
         lead.nextFollowUpAt == null &&
-        !isContactedToday(lead, DateTime.now());
+        lead.lastContactAt != null &&
+        dateOnly(lead.lastContactAt!).isBefore(dateOnly(referenceDay));
   }
 
   static bool isContactedTodayWithOverdueFollowUp(Lead lead, DateTime today) {
