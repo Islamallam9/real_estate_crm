@@ -20,6 +20,7 @@ class LeadNbaInput {
     this.canViewUnassignedLeads = false,
     this.hasAppointment = false,
     this.hasDeal = false,
+    this.preferStatusSuggestions = false,
     this.staleDays = 14,
     this.highPriorityStaleDays = 3,
   });
@@ -36,6 +37,7 @@ class LeadNbaInput {
   final bool canViewUnassignedLeads;
   final bool hasAppointment;
   final bool hasDeal;
+  final bool preferStatusSuggestions;
   final int staleDays;
   final int highPriorityStaleDays;
 }
@@ -79,18 +81,33 @@ abstract final class LeadNbaEvaluator {
       );
     }
 
-    if (_wasContactedToday(input)) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.none,
-        nextActionType: SalesNextActionType.none,
-        reason: 'contactedToday',
-      );
+    if (input.preferStatusSuggestions) {
+      final statusDecision = _statusDrivenDecision(input);
+      if (statusDecision != null) {
+        return statusDecision;
+      }
     }
 
+    final contactedToday = _wasContactedToday(input);
     final nextActionAt = input.nextActionAt;
     if (nextActionAt != null) {
       final nextActionDay = _dateOnly(nextActionAt);
       final today = _dateOnly(input.now);
+      if (nextActionDay.isAfter(today)) {
+        return LeadNbaDecision(
+          attentionLevel: SalesAttentionLevel.none,
+          nextActionType: SalesNextActionType.futureFollowUp,
+          reason: 'futureFollowUp',
+          dueAt: nextActionAt,
+        );
+      }
+      if (contactedToday) {
+        return const LeadNbaDecision(
+          attentionLevel: SalesAttentionLevel.none,
+          nextActionType: SalesNextActionType.none,
+          reason: 'contactedToday',
+        );
+      }
       if (nextActionDay.isBefore(today)) {
         return LeadNbaDecision(
           attentionLevel: SalesAttentionLevel.urgent,
@@ -100,21 +117,27 @@ abstract final class LeadNbaEvaluator {
           ageDays: today.difference(nextActionDay).inDays,
         );
       }
-      if (nextActionDay == today) {
-        return LeadNbaDecision(
-          attentionLevel: SalesAttentionLevel.today,
-          nextActionType: SalesNextActionType.followUp,
-          reason: 'dueTodayFollowUp',
-          dueAt: nextActionAt,
-        );
-      }
-
       return LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.none,
-        nextActionType: SalesNextActionType.futureFollowUp,
-        reason: 'futureFollowUp',
+        attentionLevel: SalesAttentionLevel.today,
+        nextActionType: SalesNextActionType.followUp,
+        reason: 'dueTodayFollowUp',
         dueAt: nextActionAt,
       );
+    }
+
+    if (contactedToday) {
+      return const LeadNbaDecision(
+        attentionLevel: SalesAttentionLevel.none,
+        nextActionType: SalesNextActionType.none,
+        reason: 'contactedToday',
+      );
+    }
+
+    if (!input.preferStatusSuggestions) {
+      final statusDecision = _statusDrivenDecision(input);
+      if (statusDecision != null) {
+        return statusDecision;
+      }
     }
 
     if (_isNew(input) && input.lastContactAt == null) {
@@ -122,30 +145,6 @@ abstract final class LeadNbaEvaluator {
         attentionLevel: SalesAttentionLevel.today,
         nextActionType: SalesNextActionType.contactLead,
         reason: 'contactLead',
-      );
-    }
-
-    if (_isInterested(input) && !input.hasAppointment) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.soon,
-        nextActionType: SalesNextActionType.scheduleAppointment,
-        reason: 'scheduleAppointment',
-      );
-    }
-
-    if (_isVisitScheduled(input) && !input.hasAppointment) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.soon,
-        nextActionType: SalesNextActionType.createAppointment,
-        reason: 'createAppointment',
-      );
-    }
-
-    if (_isNegotiation(input) && !input.hasDeal) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.today,
-        nextActionType: SalesNextActionType.createDeal,
-        reason: 'createDeal',
       );
     }
 
@@ -193,6 +192,31 @@ abstract final class LeadNbaEvaluator {
       return false;
     }
     return _dateOnly(lastContactAt) == _dateOnly(input.now);
+  }
+
+  static LeadNbaDecision? _statusDrivenDecision(LeadNbaInput input) {
+    if (_isInterested(input) && !input.hasAppointment) {
+      return const LeadNbaDecision(
+        attentionLevel: SalesAttentionLevel.soon,
+        nextActionType: SalesNextActionType.scheduleAppointment,
+        reason: 'scheduleAppointment',
+      );
+    }
+    if (_isVisitScheduled(input) && !input.hasAppointment) {
+      return const LeadNbaDecision(
+        attentionLevel: SalesAttentionLevel.soon,
+        nextActionType: SalesNextActionType.createAppointment,
+        reason: 'createAppointment',
+      );
+    }
+    if (_isNegotiation(input) && !input.hasDeal) {
+      return const LeadNbaDecision(
+        attentionLevel: SalesAttentionLevel.today,
+        nextActionType: SalesNextActionType.createDeal,
+        reason: 'createDeal',
+      );
+    }
+    return null;
   }
 
   static bool _isInterested(LeadNbaInput input) {
