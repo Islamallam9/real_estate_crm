@@ -81,13 +81,6 @@ abstract final class LeadNbaEvaluator {
       );
     }
 
-    if (input.preferStatusSuggestions) {
-      final statusDecision = _statusDrivenDecision(input);
-      if (statusDecision != null) {
-        return statusDecision;
-      }
-    }
-
     final contactedToday = _wasContactedToday(input);
     final nextActionAt = input.nextActionAt;
     if (nextActionAt != null) {
@@ -123,6 +116,13 @@ abstract final class LeadNbaEvaluator {
         reason: 'dueTodayFollowUp',
         dueAt: nextActionAt,
       );
+    }
+
+    if (input.preferStatusSuggestions) {
+      final statusDecision = _statusDrivenDecision(input);
+      if (statusDecision != null) {
+        return statusDecision;
+      }
     }
 
     if (contactedToday) {
@@ -202,13 +202,9 @@ abstract final class LeadNbaEvaluator {
         reason: 'scheduleAppointment',
       );
     }
-    if (_isVisitScheduled(input) && !input.hasAppointment) {
-      return const LeadNbaDecision(
-        attentionLevel: SalesAttentionLevel.soon,
-        nextActionType: SalesNextActionType.createAppointment,
-        reason: 'createAppointment',
-      );
-    }
+    // A lead in visitScheduled already has an active visit path by status.
+    // Until R1 can prove linked appointments from the journey stream here,
+    // do not nag Sales Command to create another appointment from status alone.
     if (_isNegotiation(input) && !input.hasDeal) {
       return const LeadNbaDecision(
         attentionLevel: SalesAttentionLevel.today,
@@ -223,9 +219,6 @@ abstract final class LeadNbaEvaluator {
     return input.status == 'interested';
   }
 
-  static bool _isVisitScheduled(LeadNbaInput input) {
-    return input.status == 'visitScheduled';
-  }
 
   static bool _isNegotiation(LeadNbaInput input) {
     return input.status == 'negotiation';
@@ -250,7 +243,6 @@ abstract final class LeadNbaEvaluator {
   static bool _canAskForNextStep(LeadNbaInput input) {
     return input.status == 'contacted' ||
         input.status == 'interested' ||
-        input.status == 'visitScheduled' ||
         input.status == 'negotiation';
   }
 

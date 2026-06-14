@@ -30,6 +30,493 @@ Core stack:
 
 ---
 
+## Latest strategic checkpoint — Track A Sales Intelligence plan
+
+Treat this as the active next major product direction. It supersedes older “next phase” notes where they conflict.
+
+The user decided to start **Track A: Business Logic + Sales Intelligence** before final polish and before the full quota/limits system. Track A is not a generic UI polish phase and not an LLM/AI feature. It is a deterministic real-estate sales workflow layer that makes Masar understand sales behavior, hide completed work, show next best actions, and escalate real business risks.
+
+Current product status before Track A:
+- Masar already has the core SaaS CRM foundation: Platform Owner, company Admin/Manager/Sales/Marketing/Viewer roles, Leads, Clients, Properties, Tasks, Appointments, Deals, Reports/Exports, Audit Logs, Notifications, Dashboard, Sales Command Center, trial/payment/company lifecycle, Release Center, Android/Web update control, and recent Firestore/Functions cost/stability work.
+- The remaining major product gap is business intelligence and workflow correctness: Sales Command and record detail pages must understand what the sales agent just did, what should happen next, when a record should disappear, when it should return, and when a manager/admin should be alerted.
+
+Track A must be executed in two releases:
+
+### Track A Release 1 — Core Sales Intelligence
+
+R1 is the must-ship intelligence update before serious paid/public launch.
+
+Scope:
+1. A0 — Preparation and safety freeze.
+2. A1 — Full business logic audit only.
+3. A2 — Shared intelligence schema and migration strategy.
+4. A2-B — Business intelligence settings.
+5. A2-C — Lost reason management.
+6. A3 — Leads Intelligence V1.
+7. A4 — Sales Command state engine.
+8. A5 — Lead Details smart suggestions.
+9. A6 — Appointment intelligence.
+10. A7 partial — Deal lost/won requirements and deal-stage audit.
+11. R1 QA minimum.
+
+R1 success criteria:
+- Contacted lead disappears from Sales Command immediately/optimistically.
+- If the contact write fails, the card reappears with a clear localized error.
+- Lead returns only when `nextActionAt <= now` or when “Missing next step” applies.
+- Lost lead/deal requires a controlled `lostReason`.
+- Appointment completed prompts for outcome immediately.
+- Missing appointment outcome appears after the configured grace period.
+- Missed appointment creates a recovery action.
+- Lead details shows one clear next best action.
+- Sales Command is state-based, not event-only.
+- Existing role scoping remains correct.
+
+### Track A Release 2 — Operations Intelligence
+
+R2 starts only after R1 is stable.
+
+Scope:
+1. A7 full — Deals intelligence and property locking/warnings.
+2. A8 — Tasks intelligence.
+3. A9 — Clients intelligence.
+4. A10 — Properties intelligence.
+5. A10-B — Data Health Dashboard.
+6. A11 — Manager intelligence.
+7. A12 — Audit intelligence.
+8. A13 — Notification intelligence.
+9. A14 — Sales agent daily experience polish.
+10. A15 — Full QA matrix.
+
+R2 success criteria:
+- Manager sees risks, not noise.
+- Manager risk feed is deduplicated.
+- Data Health uses summary/paginated patterns, not broad unbounded scans.
+- Audit for critical fields includes before/after values through scoped server-side logic.
+- Notification push remains reserved for important/urgent events only.
+
+### A0 rules — preparation and safety freeze
+
+Before Track A code changes:
+- Inspect the actual repo state first.
+- Confirm branch/worktree status.
+- Do not mix Track A with quota/limits, debug cleanup, generic UI polish, unrelated bugs, or broad refactors.
+- Keep useful debug logs until Track A stabilizes.
+- Do not run Flutter/Firebase/Git/npm/Dart/analyze/build/deploy/commit/push without explicit user approval.
+
+### A1 rules — audit-only and evidence-based
+
+A1 is the most important phase. It must be done by inspecting the real codebase, not by assumptions.
+
+No code changes in A1.
+
+A1 must produce a rule matrix with at least one row per module:
+
+```text
+Module | Current Behavior | Correct Business Behavior | Missing Fields | Risk Level | Fix Phase | Server or Client
+```
+
+Modules to audit:
+- Leads
+- Clients
+- Appointments
+- Deals
+- Tasks
+- Properties
+- Sales Command Center
+- Dashboard
+- Notifications
+- Audit Logs
+- Reports/Exports
+- User roles and permissions
+
+A1 must answer with code evidence:
+- Is a property one sellable unit or a project/listing containing many units?
+- Which lead statuses currently exist and are actively used?
+- Which appointment statuses/outcomes currently exist?
+- Which deal stages currently exist?
+- Do `reservation` and `contract` stages exist today?
+- Which modules write through Cloud Functions/callables?
+- Which modules write directly to Firestore?
+- Which Sales Command cards are state-based?
+- Which Sales Command cards are event-like, stale, duplicated, or locally derived?
+- Which existing fields can support `nextActionAt`, `attentionLevel`, and next-action logic?
+
+A1 is not complete until the rule matrix and these required decisions are documented.
+
+### A2 rules — schema, settings, migration, and timezone
+
+Do not bulk-backfill old Firestore records first.
+
+Migration strategy:
+- Old records remain unchanged.
+- Model/repository layer provides safe read-time defaults.
+- NBA/attention functions handle null fields gracefully.
+- New writes store new intelligence fields.
+- Optional targeted backfill only after R1 is stable.
+
+Shared intelligence fields, used only where relevant:
+- `lastActivityAt`
+- `lastMeaningfulActivityAt`
+- `lastContactedAt`
+- `lastContactChannel`
+- `lastContactOutcome`
+- `nextActionAt`
+- `nextActionType`
+- `nextActionLabel`
+- `attentionLevel`
+- `attentionReason`
+- `requiresManagerAttention`
+- `managerAttentionReason`
+- `lostReason`
+- `outcome`
+- `outcomeRecordedAt`
+
+Company intelligence settings live in the existing company document/settings model, preferably:
+
+```text
+companies/{companyId}.intelligenceSettings
+```
+
+Default keys:
+- `leadFirstContactSlaMinutes = 60`
+- `staleLeadDays = 14`
+- `staleDealDays = 7`
+- `maxOverdueTasksBeforeManagerEscalation = 15`
+- `massLostDailyThreshold = 10`
+- `appointmentOutcomeGraceMinutes = 120`
+
+Firestore rules must protect `intelligenceSettings`:
+- Platform Owner can write.
+- Company Admin can write for own company.
+- Manager/Sales/Marketing/Viewer may read only if their existing company read scope allows.
+- Agents/managers must not be able to weaken SLA/stale/escalation thresholds.
+
+Timezone rule:
+- All “today,” “overdue,” “due now,” and `nextActionAt` business comparisons must use company configured timezone first.
+- Fallback to user/device timezone only when company timezone is unavailable.
+- Never rely on silent UTC-only business logic for Sales Command behavior.
+
+Lost reasons:
+- V1 uses controlled default values: `budgetMismatch`, `locationMismatch`, `boughtElsewhere`, `notReady`, `noResponse`, `wrongNumber`, `lostToCompetitor`, `duplicate`, `other`.
+- Optional notes can remain free text.
+- Company-custom lost reasons can come later.
+
+### NBA evaluator rules
+
+The Next Best Action evaluator must live in one shared pure-Dart location:
+
+```text
+lib/core/intelligence/
+```
+
+Recommended files:
+- `lib/core/intelligence/lead_nba_evaluator.dart`
+- `lib/core/intelligence/sales_attention_level.dart`
+- `lib/core/intelligence/sales_next_action_type.dart`
+
+Rules:
+- Pure Dart only.
+- No Flutter imports.
+- No Firebase imports.
+- No UI dependencies.
+- Fully unit-testable.
+- Imported by Leads, Sales Command, and Lead Details.
+- No feature/module may create its own duplicate NBA or Sales Command predicate logic.
+
+A4 Sales Command and A5 Lead Details may run in parallel only after A3 ships a stable/tested evaluator. A4/A5 must import and call it, not modify it independently. Rule changes discovered during A4/A5 go back through A3/evaluator first.
+
+### Old record write-back rule
+
+For old records with missing intelligence fields:
+- Compute fallback intelligence through the shared Dart evaluator.
+- If result is not `none`, the app may silently write back `attentionLevel`, `attentionReason`, `nextActionType`, and applicable `nextActionAt` through a controlled update path.
+- Write-back must happen at most once per record per session.
+- If write-back fails, UI still works from computed fallback.
+- This is progressive migration, not a bulk migration.
+
+### A3 rules — Leads Intelligence V1
+
+Lead contact logging must use both:
+1. Summary fields on the Lead document.
+2. Lightweight contact log history.
+
+Lead summary fields:
+- `lastContactedAt`
+- `lastContactChannel`
+- `lastContactOutcome`
+- `lastMeaningfulActivityAt`
+- `nextActionAt`
+- `nextActionType`
+- `nextActionLabel`
+- `attentionLevel`
+- `attentionReason`
+
+Contact log path:
+
+```text
+companies/{companyId}/leads/{leadId}/contact_logs/{logId}
+```
+
+Each contact log should store:
+- `channel`
+- `outcome`
+- `notes`
+- `nextActionAt`
+- `createdAt`
+- `createdBy`
+- `createdByName`
+
+Contact log write must be atomic:
+- Use Firestore batch write or callable transaction.
+- Do not write lead summary and contact log as separate sequential operations.
+- Either both succeed or both fail.
+- If write fails, the optimistically hidden Sales Command card must reappear with a localized error.
+
+Firestore rules must cover `contact_logs` before shipping A3:
+- Read: assigned agent, manager/team scope, admin/company scope, and platform owner only if existing support/debug scope allows.
+- Write: assigned agent/admin/manager according to the current role model, preferably through the existing controlled write path/callable.
+- Delete: never from client.
+
+Lead “contacted today” behavior:
+- If `lastContactedAt` is today in company timezone and `nextActionAt` is future, remove from Contact Now and urgent follow-up.
+- Keep visible in normal Leads list/details.
+- Return only when `nextActionAt <= now` or Missing Next Step applies.
+
+Optimistic UI behavior:
+- When the agent submits contact log, remove the Sales Command card locally immediately.
+- Firestore write confirms the state.
+- If write fails, card reappears and error is shown.
+
+Lead NBA R1 rules:
+- New + not contacted → Contact this lead now.
+- Contacted + no `nextActionAt` → Set next follow-up.
+- Interested + no appointment → Schedule property viewing.
+- Visit scheduled + no appointment record → Create appointment.
+- Negotiation + no deal → Create deal.
+- No activity for configured stale days → Follow up or mark lost.
+- Won/lost → no active suggestion.
+
+### A4 rules — Sales Command State Engine
+
+Sales Command must be state-based, not event-only.
+
+R1 computation model:
+- Shared pure Dart evaluator is the single source of truth for client fallback/display logic.
+- Stored intelligence fields are cache/output of the same rule concept.
+- Sales Command primarily reads stored `attentionLevel`, `attentionReason`, `nextActionType`, and `nextActionAt` when available.
+- Old/null records compute fallback through the shared evaluator.
+- Avoid broad Cloud Function triggers in R1.
+- Critical blockers remain server-enforced where needed.
+
+Sales Command role visibility:
+- Sales agent sees own actions.
+- Manager sees team risks.
+- Admin sees company overview.
+- Platform Owner does not use Sales Command as daily CRM queue.
+
+No duplicate cards for the same record/action.
+
+### A6 rules — Appointment Intelligence
+
+Use prompt-after-complete behavior:
+1. Agent marks appointment completed.
+2. App immediately opens outcome dialog/bottom sheet.
+3. If dismissed, appointment remains completed but missing outcome.
+4. Sales Command shows “Missing outcome” after the configured grace period.
+
+Required appointment outcomes:
+- `successfulMeeting`
+- `dealOpportunity`
+- `pendingDecision`
+- `noAnswer`
+- `clientPostponed`
+- `clientNotInterested`
+- `followUpNeeded`
+- `other`
+
+Missing outcome detection is query/state-based, not timer-based:
+
+```text
+status == completed
+AND outcome == null
+AND completedAt < now - appointmentOutcomeGraceMinutes
+```
+
+Do not add client timers or a Cloud Function trigger for this in R1.
+
+### A7 rules — Deals Intelligence
+
+Do not implement reservation/contract intelligence until A1 confirms those stages exist in the current data model.
+
+R1 deal scope:
+- Lost deal requires controlled `lostReason`.
+- Won deal requires linked client/property/value only where the current schema supports those fields.
+- Document current stages and fields.
+
+R2 deal scope:
+- Stale deal detection.
+- Reservation/contract next-task warnings.
+- High-value stale deal manager attention.
+- Property locking/warnings based on A1 property model decision.
+
+Property locking rule:
+- If property = one sellable unit: reservation should soft-lock, won should mark sold/reserved, duplicate active reservation should be blocked server-side.
+- If property = project/multiple units: do not hard-lock property; unit-level model is required first.
+
+### A10-B Data Health Dashboard cost rules
+
+Do not scan all raw records in real time.
+
+Preferred R2 model:
+
+```text
+companies/{companyId}/health_summary/current
+```
+
+Updated by:
+- scheduled Cloud Function once per hour, or
+- on-demand admin refresh callable, or
+- lightweight write-time updates later.
+
+Dashboard reads the summary document. Detail drill-down uses paginated queries, not broad unbounded streams.
+
+### A11 Manager Intelligence rules
+
+Manager risks must be risk-only, not normal activity noise.
+
+Risk item deduplication:
+
+```text
+riskKey = {recordId}:{riskType}
+```
+
+Same risk for same record appears once. Optional later: manager can snooze risk for X days.
+
+Risk rules include:
+- Lead uncontacted past SLA.
+- Lead has no next step.
+- Stale interested/negotiation lead.
+- Missed appointment.
+- Completed appointment missing outcome.
+- Stale deal.
+- High-value deal at risk.
+- Agent has more than `maxOverdueTasksBeforeManagerEscalation` overdue tasks.
+- Agent marks more than `massLostDailyThreshold` leads lost/unreachable in one day.
+- Record assigned to inactive user.
+- Property double-reservation risk.
+
+### A12 Audit Intelligence rules
+
+Do not rely on the client to provide previous values.
+
+Before/after audit enrichment should use narrow scoped Cloud Function triggers only for critical collections:
+- `leads`
+- `deals`
+- `appointments`
+
+This is an allowed exception to “avoid broad triggers” because before/after snapshots are required for trustworthy audit metadata.
+
+Critical fields:
+- lead status
+- assignedTo
+- nextActionAt
+- lastContactedAt
+- lostReason
+- appointment status
+- appointment outcome
+- deal stage
+- deal value
+- deal lostReason
+- property status only if property trigger is later approved
+
+Do not reintroduce alternate audit feeds. Central audit source remains:
+
+```text
+companies/{companyId}/audit_logs/{auditLogId}
+```
+
+### A13 Notification Intelligence rules
+
+Push only for important/urgent events:
+- New lead assigned.
+- Appointment due soon.
+- Appointment missed.
+- SLA breach.
+- Manager escalation.
+- Critical deal risk.
+
+In-app only for:
+- normal status updates
+- minor edits
+- suggestions
+- non-urgent next actions
+
+Do not create push spam.
+
+### R1 QA minimum
+
+R1 is not complete until these pass:
+
+Leads:
+- Contacted lead disappears from Sales Command optimistically/immediately.
+- If contact write fails, card reappears with localized error.
+- Future follow-up does not appear as urgent.
+- Due follow-up appears when `nextActionAt <= now`.
+- Lost lead cannot save without `lostReason`.
+- Won/lost lead is hidden from active work.
+- Contact action writes lead summary fields and contact log atomically.
+- Old leads without new fields still load.
+
+Sales Command:
+- No duplicate cards for same lead/action.
+- Contacted-today lead does not remain in urgent queue.
+- Missing next step appears only when no `nextActionAt` exists.
+- Role scoping remains correct.
+
+Lead Details:
+- Shows one primary suggestion.
+- Suggestion updates after contact/status/nextAction changes.
+- Won/lost leads show no active NBA suggestion.
+- Action buttons open the correct flow.
+
+Appointments:
+- Completing appointment opens outcome prompt immediately.
+- If dismissed, missing outcome appears after grace period.
+- Missed appointment creates recovery action.
+- `pendingDecision` creates or suggests follow-up.
+- `dealOpportunity` suggests deal creation.
+
+Deals R1 partial:
+- Lost deal requires `lostReason`.
+- Won deal requires linked client/property/value where current schema supports it.
+- No reservation/contract rules are applied unless A1 confirms those stages exist.
+
+Notifications/routing:
+- No push spam is introduced.
+- Existing notification routing still opens correct records.
+- Important appointment/lead actions do not break existing notification behavior.
+
+R2 QA covers manager risk dedupe, Data Health Dashboard, audit before/after enrichment, full task/client/property intelligence, full deal/property locking, notification cooldown, and full manager operations intelligence.
+
+### What not to do in Track A
+
+Do not implement in Track A:
+- LLM-generated next actions.
+- AI property matching.
+- Direct WhatsApp/SMS sending.
+- Client portal.
+- Full commission engine.
+- Complex marketing automation.
+- Aggressive automatic status mutations.
+- Full quota/limits system.
+- Debug log cleanup mixed with intelligence patches.
+- Broad Cloud Function triggers before cost review.
+- Bulk Firestore backfill before R1 is stable.
+- Unbounded health dashboard scans.
+- Manager risk spam without deduplication.
+
+Track B quota/feature/limit control remains a later major phase. Do not mix it into Track A unless the user explicitly changes the plan.
+
 ## Latest handoff checkpoint — 2026-06-11 later update
 
 Treat this as the active project baseline. It supersedes older handoff sections where they conflict.

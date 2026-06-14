@@ -648,6 +648,16 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
       );
     }
 
+    if (decision.nextActionType == SalesNextActionType.none &&
+        widget.lead.status == LeadStatus.visitScheduled) {
+      return _LeadSmartSuggestion(
+        title: l.leadNbaCreateAppointmentTitle,
+        body: l.leadNbaCreateAppointmentBody,
+        icon: Icons.event_available_outlined,
+        primaryLabel: l.connectedJourneyTitle,
+      );
+    }
+
     switch (decision.nextActionType) {
       case SalesNextActionType.contactLead:
         return _LeadSmartSuggestion(
@@ -697,24 +707,40 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
               : null,
         );
       case SalesNextActionType.createAppointment:
+        final visitStageActive = widget.lead.status == LeadStatus.visitScheduled;
         return _LeadSmartSuggestion(
           title: l.leadNbaCreateAppointmentTitle,
           body: l.leadNbaCreateAppointmentBody,
           icon: Icons.event_note_outlined,
-          primaryLabel: l.leadNbaPrimaryActionCreateAppointment,
-          onPrimaryAction: _canCreateAppointment && !widget.isSaving
-              ? _createAppointmentFromLead
-              : null,
+          primaryLabel: visitStageActive
+              ? l.connectedJourneyTitle
+              : l.leadNbaPrimaryActionCreateAppointment,
+          onPrimaryAction: visitStageActive
+              ? null
+              : _canCreateAppointment && !widget.isSaving
+                  ? _createAppointmentFromLead
+                  : null,
         );
       case SalesNextActionType.createDeal:
+        final useSalesNegotiationGuidance = _isSalesExecutionRole || !_canCreateDeal;
         return _LeadSmartSuggestion(
-          title: l.leadNbaCreateDealTitle,
-          body: l.leadNbaCreateDealBody,
+          title: useSalesNegotiationGuidance
+              ? l.leadNbaCreateDealSalesTitle
+              : l.leadNbaCreateDealTitle,
+          body: useSalesNegotiationGuidance
+              ? l.leadNbaCreateDealSalesBody
+              : l.leadNbaCreateDealBody,
           icon: Icons.handshake_outlined,
-          primaryLabel: l.leadNbaPrimaryActionCreateDeal,
-          onPrimaryAction: _canCreateDeal && !widget.isSaving
-              ? () => context.go(RouteNames.dealsCreate)
-              : null,
+          primaryLabel: useSalesNegotiationGuidance
+              ? l.leadNbaPrimaryActionScheduleFollowUp
+              : l.leadNbaPrimaryActionCreateDeal,
+          onPrimaryAction: useSalesNegotiationGuidance
+              ? widget.canEdit && !widget.isSaving
+                  ? () => _scheduleFollowUp(context)
+                  : null
+              : _canCreateDeal && !widget.isSaving
+                  ? () => context.go(RouteNames.dealsCreate)
+                  : null,
         );
       case SalesNextActionType.reviewStaleLead:
         return _LeadSmartSuggestion(
@@ -731,10 +757,7 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
           title: l.leadNbaFutureFollowUpTitle,
           body: l.leadNbaFutureFollowUpBody,
           icon: Icons.event_available_outlined,
-          primaryLabel: l.leadNbaPrimaryActionScheduleFollowUp,
-          onPrimaryAction: widget.canEdit && !widget.isSaving
-              ? () => _scheduleFollowUp(context)
-              : null,
+          primaryLabel: l.connectedJourneyTitle,
         );
       case SalesNextActionType.assignLead:
       case SalesNextActionType.managerReview:
@@ -770,6 +793,13 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
   bool get _canCreateDeal {
     final role = widget.currentUserProfile?.role;
     return role != null && PermissionService.can(role, AppPermission.createDeal);
+  }
+
+  bool get _isSalesExecutionRole {
+    final role = widget.currentUserProfile?.role;
+    return role == UserRole.salesAgent ||
+        role == UserRole.marketing ||
+        role == UserRole.viewer;
   }
 
   void _createAppointmentFromLead() {
