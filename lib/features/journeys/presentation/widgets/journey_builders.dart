@@ -23,6 +23,13 @@ List<JourneyItem> leadBaseJourneyItems(
       subtitle: lead.phone,
       occurredAt: lead.createdAt,
       tone: JourneyTone.info,
+      statusLabel: _statusValueLabel(l, _leadStatusRaw(lead.status)),
+      metadata: {
+        'status': _leadStatusRaw(lead.status),
+        'source': _leadSourceRaw(lead.source),
+        'priority': _leadPriorityRaw(lead.priority),
+        'assignedToName': lead.assignedToName,
+      },
     ),
     JourneyItem(
       id: 'lead:${lead.id}:updated:${lead.updatedAt.millisecondsSinceEpoch}',
@@ -33,6 +40,15 @@ List<JourneyItem> leadBaseJourneyItems(
       subtitle: lead.assignedToName,
       occurredAt: lead.updatedAt,
       tone: JourneyTone.neutral,
+      actorName: lead.assignedToName,
+      statusLabel: _statusValueLabel(l, _leadStatusRaw(lead.status)),
+      metadata: {
+        'status': _leadStatusRaw(lead.status),
+        'priority': _leadPriorityRaw(lead.priority),
+        'assignedToName': lead.assignedToName,
+        'nextFollowUpAt': lead.nextFollowUpAt?.toIso8601String() ?? '',
+        'lastContactAt': lead.lastContactAt?.toIso8601String() ?? '',
+      },
     ),
     if (lead.isArchived && lead.archivedAt != null)
       JourneyItem(
@@ -45,6 +61,7 @@ List<JourneyItem> leadBaseJourneyItems(
         occurredAt: lead.archivedAt!,
         tone: JourneyTone.neutral,
         actorName: lead.archivedByName,
+        metadata: {'reason': lead.archiveReason},
       ),
     if (lead.restoredAt != null)
       JourneyItem(
@@ -322,6 +339,14 @@ List<JourneyItem> clientBaseJourneyItems(Client client) {
         subtitle: client.phone,
         occurredAt: client.createdAt!,
         tone: JourneyTone.info,
+        metadata: {
+          'phone': client.phone,
+          'assignedToName': client.assignedToName,
+          'budgetMin': client.budgetMin,
+          'budgetMax': client.budgetMax,
+          'preferredLocation': client.preferredLocation,
+          'preferredPropertyType': client.preferredPropertyType,
+        },
       ),
     if (client.updatedAt != null)
       JourneyItem(
@@ -333,6 +358,14 @@ List<JourneyItem> clientBaseJourneyItems(Client client) {
         subtitle: client.assignedToName,
         occurredAt: client.updatedAt!,
         tone: JourneyTone.neutral,
+        actorName: client.assignedToName,
+        metadata: {
+          'assignedToName': client.assignedToName,
+          'budgetMin': client.budgetMin,
+          'budgetMax': client.budgetMax,
+          'preferredLocation': client.preferredLocation,
+          'preferredPropertyType': client.preferredPropertyType,
+        },
       ),
     if (client.isArchived && client.archivedAt != null)
       JourneyItem(
@@ -345,6 +378,7 @@ List<JourneyItem> clientBaseJourneyItems(Client client) {
         occurredAt: client.archivedAt!,
         tone: JourneyTone.neutral,
         actorName: client.archivedByName,
+        metadata: {'reason': client.archiveReason},
       ),
     if (client.restoredAt != null)
       JourneyItem(
@@ -374,6 +408,8 @@ List<JourneyItem> dealBaseJourneyItems(Deal deal) {
         subtitle: deal.propertyTitle,
         occurredAt: deal.createdAt!,
         tone: JourneyTone.info,
+        statusLabel: _dealStageValue(deal.stage),
+        metadata: _dealJourneyMetadata(deal),
       ),
     if (deal.updatedAt != null)
       JourneyItem(
@@ -386,6 +422,8 @@ List<JourneyItem> dealBaseJourneyItems(Deal deal) {
         occurredAt: deal.updatedAt!,
         tone: _dealTone(deal.stage),
         actorName: deal.assignedToName,
+        statusLabel: _dealStageValue(deal.stage),
+        metadata: _dealJourneyMetadata(deal),
       ),
     if (deal.closingDate != null)
       JourneyItem(
@@ -397,6 +435,8 @@ List<JourneyItem> dealBaseJourneyItems(Deal deal) {
         subtitle: deal.propertyTitle,
         occurredAt: deal.closingDate!,
         tone: JourneyTone.warning,
+        statusLabel: _dealStageValue(deal.stage),
+        metadata: _dealJourneyMetadata(deal),
       ),
     if (deal.isArchived && deal.archivedAt != null)
       JourneyItem(
@@ -409,6 +449,7 @@ List<JourneyItem> dealBaseJourneyItems(Deal deal) {
         occurredAt: deal.archivedAt!,
         tone: JourneyTone.neutral,
         actorName: deal.archivedByName,
+        metadata: {'reason': deal.archiveReason},
       ),
   ];
   return _dedupe(items);
@@ -616,6 +657,64 @@ String _dealTitle(Deal deal) {
   if (deal.clientName.trim().isNotEmpty) return deal.clientName.trim();
   if (deal.leadName.trim().isNotEmpty) return deal.leadName.trim();
   return deal.id;
+}
+
+
+String _leadStatusRaw(LeadStatus status) {
+  return switch (status) {
+    LeadStatus.newLead => 'new',
+    LeadStatus.contacted => 'contacted',
+    LeadStatus.interested => 'interested',
+    LeadStatus.visitScheduled => 'visitScheduled',
+    LeadStatus.negotiation => 'negotiation',
+    LeadStatus.won => 'won',
+    LeadStatus.lost => 'lost',
+  };
+}
+
+String _leadSourceRaw(LeadSource source) {
+  return switch (source) {
+    LeadSource.facebook => 'facebook',
+    LeadSource.website => 'website',
+    LeadSource.phoneCall => 'phoneCall',
+    LeadSource.whatsapp => 'whatsapp',
+    LeadSource.referral => 'referral',
+    LeadSource.walkIn => 'walkIn',
+    LeadSource.other => 'other',
+  };
+}
+
+String _leadPriorityRaw(LeadPriority priority) {
+  return switch (priority) {
+    LeadPriority.high => 'high',
+    LeadPriority.medium => 'medium',
+    LeadPriority.low => 'low',
+  };
+}
+
+String _dealStageValue(DealStage stage) {
+  return switch (stage) {
+    DealStage.newDeal => 'new',
+    DealStage.qualified => 'qualified',
+    DealStage.proposal => 'proposal',
+    DealStage.negotiation => 'negotiation',
+    DealStage.won => 'won',
+    DealStage.lost => 'lost',
+  };
+}
+
+Map<String, Object?> _dealJourneyMetadata(Deal deal) {
+  return {
+    'stage': _dealStageValue(deal.stage),
+    'expectedValue': deal.expectedValue,
+    'commission': deal.commission,
+    'closingDate': deal.closingDate?.toIso8601String() ?? '',
+    'lostReason': deal.lostReason,
+    'clientName': deal.clientName,
+    'leadName': deal.leadName,
+    'propertyTitle': deal.propertyTitle,
+    'assignedToName': deal.assignedToName,
+  };
 }
 
 DateTime _dateOnly(DateTime value) {

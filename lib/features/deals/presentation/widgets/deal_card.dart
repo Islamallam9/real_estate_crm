@@ -182,6 +182,19 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
+const List<String> dealLostReasonOptionValues = <String>[
+  '',
+  'budgetMismatch',
+  'locationMismatch',
+  'boughtElsewhere',
+  'notReady',
+  'noResponse',
+  'wrongNumber',
+  'lostToCompetitor',
+  'duplicate',
+  'other',
+];
+
 String dealStageLabel(AppLocalizations l, DealStage stage) {
   switch (stage) {
     case DealStage.newDeal:
@@ -196,6 +209,33 @@ String dealStageLabel(AppLocalizations l, DealStage stage) {
       return l.won;
     case DealStage.lost:
       return l.lost;
+  }
+}
+
+
+String dealLostReasonLabel(AppLocalizations l, String reason) {
+  final clean = reason.trim();
+  switch (clean) {
+    case 'budgetMismatch':
+      return l.dealLostReasonBudgetMismatch;
+    case 'locationMismatch':
+      return l.dealLostReasonLocationMismatch;
+    case 'boughtElsewhere':
+      return l.dealLostReasonBoughtElsewhere;
+    case 'notReady':
+      return l.dealLostReasonNotReady;
+    case 'noResponse':
+      return l.dealLostReasonNoResponse;
+    case 'wrongNumber':
+      return l.dealLostReasonWrongNumber;
+    case 'lostToCompetitor':
+      return l.dealLostReasonLostToCompetitor;
+    case 'duplicate':
+      return l.dealLostReasonDuplicate;
+    case 'other':
+      return l.dealLostReasonOther;
+    default:
+      return clean.isEmpty ? l.notAvailable : clean;
   }
 }
 

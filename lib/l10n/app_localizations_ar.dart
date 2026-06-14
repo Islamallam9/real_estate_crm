@@ -1808,7 +1808,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentMissed =>
-      'الموعد فائت. تواصل مع العميل وأعد الجدولة أو سجّل ما حدث.';
+      'وقت الموعد انتهى وما زال يحتاج معالجة.';
 
   @override
   String get salesCommandWhyAppointmentDueNow =>
@@ -1820,11 +1820,39 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentNeedsFeedback =>
-      'تم حفظ الإكمال لكن لم تُسجّل النتيجة. سجّل النتيجة حتى يعرف مسار الخطوة التالية.';
+      'الموعد انتهى ولم يتم تسجيل نتيجته.';
 
   @override
   String get salesCommandWhyDealAtRisk =>
       'الصفقة متوقفة أو اقترب موعد إغلاقها وتحتاج خطوة واضحة.';
+
+  @override
+  String get salesCommandWhyDealHotOpportunity =>
+      'هذه الصفقة لديها قيمة أو تقدّم واضح في المرحلة. ثبّت الالتزام القادم أو حدّث المرحلة أو أنشئ مهمة متابعة حتى يبقى مسار الفرصة مضبوطًا.';
+
+  @override
+  String get salesCommandWhyDealClosingDue =>
+      'تاريخ الإغلاق المتوقع مستحق أو متأخر. أكّد قرار العميل أو حدّث مرحلة الصفقة أو أنشئ مهمة الإغلاق الآن.';
+
+  @override
+  String get salesCommandWhyDealStale =>
+      'هذه الصفقة لم تتحرك مؤخرًا. اتفق على الالتزام القادم وسجّله حتى يعكس خط البيع الفرص الحقيقية فقط.';
+
+  @override
+  String get salesCommandWhyAppointmentMissedRecovery =>
+      'الموعد فائت. عالجه بإعادة الجدولة أو إكماله مع تسجيل النتيجة أو إلغائه بسبب واضح.';
+
+  @override
+  String get salesCommandWhyAppointmentDueNowSmart =>
+      'الموعد مستحق الآن. افتحه، ولا تكمله إلا بعد حدوث المقابلة، ثم سجّل النتيجة.';
+
+  @override
+  String get salesCommandWhyAppointmentUpcomingSmart =>
+      'هذا الموعد قادم اليوم. أبقه ظاهرًا، لكن لا تتعامل معه كإجراء عاجل إلا عند حلول توقيته أو الحاجة للتحضير.';
+
+  @override
+  String get salesCommandWhyAppointmentNeedsOutcomeSmart =>
+      'تم إكمال الموعد بدون تسجيل نتيجة. أضف النتيجة حتى تكون الخطوة التالية مبنية على إثبات واضح.';
 
   @override
   String salesCommandWhyOverloadedAssignee(Object name, int count) {
@@ -1998,6 +2026,49 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get lostReasonRequired => 'سبب الخسارة مطلوب.';
+
+  @override
+  String get selectLostReason => 'اختر سبب الخسارة';
+
+  @override
+  String get lostReasonControlledRequired => 'اختر سبب خسارة صحيحًا.';
+
+  @override
+  String get dealWonRequiresClient => 'يجب ربط الصفقة الناجحة بعميل.';
+
+  @override
+  String get dealWonRequiresProperty => 'يجب ربط الصفقة الناجحة بعقار.';
+
+  @override
+  String get dealWonRequiresExpectedValue =>
+      'يجب أن تحتوي الصفقة الناجحة على قيمة متوقعة أكبر من صفر.';
+
+  @override
+  String get dealLostReasonBudgetMismatch => 'عدم توافق الميزانية';
+
+  @override
+  String get dealLostReasonLocationMismatch => 'عدم توافق الموقع';
+
+  @override
+  String get dealLostReasonBoughtElsewhere => 'اشترى من جهة أخرى';
+
+  @override
+  String get dealLostReasonNotReady => 'العميل غير جاهز حاليًا';
+
+  @override
+  String get dealLostReasonNoResponse => 'لا يوجد رد من العميل';
+
+  @override
+  String get dealLostReasonWrongNumber => 'رقم غير صحيح';
+
+  @override
+  String get dealLostReasonLostToCompetitor => 'خسارة لصالح منافس';
+
+  @override
+  String get dealLostReasonDuplicate => 'فرصة مكررة';
+
+  @override
+  String get dealLostReasonOther => 'سبب آخر';
 
   @override
   String get selectClient => 'اختر العميل';
@@ -3586,9 +3657,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'يجب أن يكون وقت نهاية الموعد بعد وقت البداية.';
 
   @override
-  String get appointmentFutureTimeRequired => 'اختر وقت موعد في المستقبل.';
-
-  @override
   String get appointmentSaved => 'تم حفظ الموعد.';
 
   @override
@@ -3644,16 +3712,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get appointmentOutcome => 'نتيجة الموعد';
-
-  @override
-  String get recordAppointmentOutcome => 'تسجيل نتيجة الموعد';
-
-  @override
-  String get addAppointmentOutcomeLater => 'لاحقًا';
-
-  @override
-  String get appointmentCompletedOutcomePromptMessage =>
-      'تم حفظ إكمال الموعد. سجّل النتيجة الآن حتى يوجّه مسار الخطوة التالية بشكل صحيح.';
 
   @override
   String get cancellationReason => 'سبب الإلغاء';
@@ -3726,8 +3784,7 @@ class AppLocalizationsAr extends AppLocalizations {
       'هل تريد إلغاء هذا الموعد؟ سيبقى السجل محفوظًا في التاريخ.';
 
   @override
-  String get completeAppointmentConfirmation =>
-      'سجّل هذا الموعد كمكتمل. سيطلب مسار النتيجة بعد نجاح الحفظ.';
+  String get completeAppointmentConfirmation => 'أنهِ هذا الموعد وسجّل نتيجته.';
 
   @override
   String get markMissedConfirmation => 'هل تريد تسجيل هذا الموعد كموعد فائت؟';
@@ -3751,42 +3808,55 @@ class AppLocalizationsAr extends AppLocalizations {
   String get appointmentOutcomeDealOpportunity => 'فرصة صفقة';
 
   @override
-  String get appointmentOutcomePendingDecision => 'في انتظار قرار';
-
-  @override
   String get appointmentOutcomeOther => 'أخرى';
 
   @override
+  String get appointmentFutureTimeRequired => 'اختر وقت موعد في المستقبل.';
+
+  @override
+  String get recordAppointmentOutcome => 'تسجيل نتيجة الموعد';
+
+  @override
+  String get appointmentCompletedOutcomePromptMessage =>
+      'تم إكمال الموعد. سجّل النتيجة الآن، أو أضفها لاحقًا إذا كنت تحتاج إلى تأكيد التفاصيل.';
+
+  @override
+  String get addAppointmentOutcomeLater => 'لاحقًا';
+
+  @override
+  String get appointmentOutcomePendingDecision => 'في انتظار قرار';
+
+  @override
   String get appointmentOutcomeHintSuccessfulMeeting =>
-      'الاجتماع نجح. ثبّت الالتزام التالي وسجّله بوضوح.';
+      'الاجتماع نجح. سجّل الالتزام التالي بوضوح.';
 
   @override
   String get appointmentOutcomeHintNoAnswer =>
-      'عدم الرد يحتاج إجراء استرجاع. تواصل مرة أخرى أو أعد الجدولة للحفاظ على زخم الفرصة.';
+      'لم يتم الرد. أعد التواصل أو أعد الجدولة للحفاظ على فرصة التحويل.';
 
   @override
   String get appointmentOutcomeHintClientPostponed =>
-      'العميل أجّل. اتفق على موعد جديد وسجّل المتابعة التالية.';
+      'العميل أجّل الموعد. اتفق على موعد جديد وسجّل المتابعة التالية.';
 
   @override
   String get appointmentOutcomeHintClientNotInterested =>
-      'العميل غير مهتم. سجّل السبب أو حدّد متابعة هادئة إذا ما زالت هناك فرصة.';
+      'العميل غير مهتم. سجّل السبب أو حدّد متابعة لاحقة إذا ما زالت هناك فرصة.';
 
   @override
   String get appointmentOutcomeHintFollowUpNeeded =>
-      'هناك متابعة مطلوبة. حدّد الخطوة القادمة حتى لا تضيع الفرصة.';
+      'هناك متابعة مطلوبة. حدّد الخطوة التالية حتى تبقى الفرصة تحت المتابعة.';
 
   @override
   String get appointmentOutcomeHintDealOpportunity =>
-      'يمكن تحويل هذا إلى صفقة. أنشئ أو حدّث الصفقة بعد حفظ النتيجة.';
+      'يمكن تحويل هذا إلى صفقة. أنشئ الصفقة أو حدّثها بعد حفظ النتيجة.';
 
   @override
   String get appointmentOutcomeHintPendingDecision =>
-      'العميل يحتاج موعد قرار. حدّد متابعة واجعل الضغط ظاهرًا.';
+      'العميل يحتاج موعدًا واضحًا لاتخاذ القرار. حدّد متابعة واجعل الخطوة التالية واضحة.';
 
   @override
   String get appointmentOutcomeHintOther =>
-      'سجّل النتيجة الحقيقية بوضوح حتى تبقى الخطوة التالية صادقة.';
+      'سجّل النتيجة الفعلية بوضوح حتى تبقى الخطوة التالية دقيقة.';
 
   @override
   String get appointmentTypeCall => 'مكالمة';
@@ -4951,6 +5021,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get journeyOpenRecord => 'فتح السجل';
 
   @override
+  String get journeyReason => 'السبب';
+
+  @override
   String get journeyItemRecordCreated => 'تم إنشاء السجل';
 
   @override
@@ -5484,7 +5557,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get dashboardPerformanceDailyActivityNote =>
-      'يعرض النشاط اليومي داخل الفترة المحددة، لذلك تظهر الأيام الهادئة كقيمة 0.';
+      'يعرض النشاط اليومي، لذلك تظهر الأيام التي لا تحتوي على سجلات جديدة كقيمة 0.';
 
   @override
   String get dashboardPerformanceTotalTrend => 'الإجمالي';
@@ -5494,11 +5567,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get dashboardPerformanceTotalTrendNote =>
-      'يعرض الإجمالي الحالي حسب صلاحياتك مع حركة السجلات داخل الفترة المحددة.';
+      'يعرض الإجمالي المتراكم خلال الفترة المحددة، لذلك لا يهبط الخط إلى 0 في الأيام الهادئة.';
 
   @override
   String get salesCommandWhyLeadNeedsContact =>
-      'هذا العميل المحتمل لم يتم التعامل معه بعد. ابدأ بمكالمة أو واتساب جاد الآن، ثم سجّل النتيجة حتى لا تفقد الفرصة زخمها.';
+      'هذا العميل المحتمل لم يتم التعامل معه بعد. ابدأ بمكالمة أو واتساب الآن، ثم سجّل النتيجة حتى تبقى الفرصة واضحة في المسار.';
 
   @override
   String get salesCommandWhyLeadMissingNextStep =>

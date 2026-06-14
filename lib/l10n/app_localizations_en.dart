@@ -1819,7 +1819,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentMissed =>
-      'Appointment was missed. Contact the client and reschedule or record what happened.';
+      'The appointment time has passed and still needs handling.';
 
   @override
   String get salesCommandWhyAppointmentDueNow =>
@@ -1831,11 +1831,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salesCommandWhyAppointmentNeedsFeedback =>
-      'Completion is saved but no outcome is recorded. Record the result so Masar knows the next step.';
+      'The appointment ended but no outcome was captured.';
 
   @override
   String get salesCommandWhyDealAtRisk =>
       'The closing date or activity age suggests this deal needs attention.';
+
+  @override
+  String get salesCommandWhyDealHotOpportunity =>
+      'This deal has value, stage progress, or negotiation activity. Secure the next commitment, update the stage, or create the next task so the opportunity stays controlled.';
+
+  @override
+  String get salesCommandWhyDealClosingDue =>
+      'The expected closing date is due or overdue. Confirm the client decision, update the deal stage, or create the closing task now.';
+
+  @override
+  String get salesCommandWhyDealStale =>
+      'This deal has not moved recently. Agree on the next commitment and record it so the pipeline does not overstate real opportunities.';
+
+  @override
+  String get salesCommandWhyAppointmentMissedRecovery =>
+      'The appointment was missed. Recover it by rescheduling, completing it with an outcome, or cancelling it with a clear reason.';
+
+  @override
+  String get salesCommandWhyAppointmentDueNowSmart =>
+      'The appointment is due now. Open it, complete it only after the meeting happens, then record the outcome.';
+
+  @override
+  String get salesCommandWhyAppointmentUpcomingSmart =>
+      'This appointment is coming today. Keep it visible, but act only when the timing is due or preparation is needed.';
+
+  @override
+  String get salesCommandWhyAppointmentNeedsOutcomeSmart =>
+      'The appointment was completed but no outcome was recorded. Add the outcome so the next sales step is based on proof.';
 
   @override
   String salesCommandWhyOverloadedAssignee(Object name, int count) {
@@ -2007,6 +2035,50 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lostReasonRequired => 'Lost reason is required.';
+
+  @override
+  String get selectLostReason => 'Select lost reason';
+
+  @override
+  String get lostReasonControlledRequired => 'Choose a valid lost reason.';
+
+  @override
+  String get dealWonRequiresClient => 'A won deal must be linked to a client.';
+
+  @override
+  String get dealWonRequiresProperty =>
+      'A won deal must be linked to a property.';
+
+  @override
+  String get dealWonRequiresExpectedValue =>
+      'A won deal must have an expected value greater than zero.';
+
+  @override
+  String get dealLostReasonBudgetMismatch => 'Budget mismatch';
+
+  @override
+  String get dealLostReasonLocationMismatch => 'Location mismatch';
+
+  @override
+  String get dealLostReasonBoughtElsewhere => 'Bought elsewhere';
+
+  @override
+  String get dealLostReasonNotReady => 'Client not ready';
+
+  @override
+  String get dealLostReasonNoResponse => 'No response';
+
+  @override
+  String get dealLostReasonWrongNumber => 'Wrong number';
+
+  @override
+  String get dealLostReasonLostToCompetitor => 'Lost to competitor';
+
+  @override
+  String get dealLostReasonDuplicate => 'Duplicate opportunity';
+
+  @override
+  String get dealLostReasonOther => 'Other';
 
   @override
   String get selectClient => 'Select client';
@@ -3602,10 +3674,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Appointment end time must be after start time.';
 
   @override
-  String get appointmentFutureTimeRequired =>
-      'Choose a future appointment time.';
-
-  @override
   String get appointmentSaved => 'Appointment saved.';
 
   @override
@@ -3661,16 +3729,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appointmentOutcome => 'Appointment outcome';
-
-  @override
-  String get recordAppointmentOutcome => 'Record outcome';
-
-  @override
-  String get addAppointmentOutcomeLater => 'Later';
-
-  @override
-  String get appointmentCompletedOutcomePromptMessage =>
-      'Appointment completion is saved. Record the outcome now so Masar can guide the real next step.';
 
   @override
   String get cancellationReason => 'Cancellation reason';
@@ -3744,7 +3802,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get completeAppointmentConfirmation =>
-      'Mark this appointment as completed. Masar will ask for the outcome after the save succeeds.';
+      'Complete this appointment and record the outcome.';
 
   @override
   String get markMissedConfirmation => 'Mark this appointment as missed?';
@@ -3768,18 +3826,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appointmentOutcomeDealOpportunity => 'Deal opportunity';
 
   @override
-  String get appointmentOutcomePendingDecision => 'Pending decision';
-
-  @override
   String get appointmentOutcomeOther => 'Other';
 
   @override
+  String get appointmentFutureTimeRequired =>
+      'Choose a future appointment time.';
+
+  @override
+  String get recordAppointmentOutcome => 'Record outcome';
+
+  @override
+  String get appointmentCompletedOutcomePromptMessage =>
+      'The appointment is completed. Record the result now, or add it later if you need to confirm details.';
+
+  @override
+  String get addAppointmentOutcomeLater => 'Later';
+
+  @override
+  String get appointmentOutcomePendingDecision => 'Pending decision';
+
+  @override
   String get appointmentOutcomeHintSuccessfulMeeting =>
-      'Meeting succeeded. Keep the next commitment clear and recorded.';
+      'Meeting succeeded. Record the next commitment clearly.';
 
   @override
   String get appointmentOutcomeHintNoAnswer =>
-      'No answer needs recovery. Contact again or reschedule before the opportunity loses momentum.';
+      'No answer. Contact again or reschedule so the opportunity stays active.';
 
   @override
   String get appointmentOutcomeHintClientPostponed =>
@@ -3787,11 +3859,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appointmentOutcomeHintClientNotInterested =>
-      'Client is not interested. Record the reason or set a low-pressure follow-up if there is still a chance.';
+      'Client is not interested. Record the reason or set a later follow-up if there is still a chance.';
 
   @override
   String get appointmentOutcomeHintFollowUpNeeded =>
-      'Follow-up is needed. Schedule the next step so the opportunity does not disappear.';
+      'Follow-up is needed. Schedule the next step so the opportunity stays tracked.';
 
   @override
   String get appointmentOutcomeHintDealOpportunity =>
@@ -3799,11 +3871,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appointmentOutcomeHintPendingDecision =>
-      'Client needs a decision deadline. Set a follow-up date and keep the pressure visible.';
+      'Client needs a decision deadline. Set a follow-up date and keep the next step visible.';
 
   @override
   String get appointmentOutcomeHintOther =>
-      'Record the real result clearly so the next action stays honest.';
+      'Record the real result clearly so the next action stays accurate.';
 
   @override
   String get appointmentTypeCall => 'Call';
@@ -4983,6 +5055,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get journeyOpenRecord => 'Open record';
 
   @override
+  String get journeyReason => 'Reason';
+
+  @override
   String get journeyItemRecordCreated => 'Record created';
 
   @override
@@ -5003,7 +5078,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get journeyActionOverdueFollowUpDescription =>
-      'Contact this record today or create a task to keep the follow-up momentum clear.';
+      'Contact this record today or create a task so follow-up stays controlled.';
 
   @override
   String get journeyActionNoContact => 'Needs a fresh touchpoint';
@@ -5517,7 +5592,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardPerformanceDailyActivityNote =>
-      'Shows daily activity inside the selected period, so quiet days appear as 0.';
+      'Shows daily activity, so days without new records appear as 0.';
 
   @override
   String get dashboardPerformanceTotalTrend => 'Total';
@@ -5527,11 +5602,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardPerformanceTotalTrendNote =>
-      'Shows the current scoped total with the movement inside the selected period.';
+      'Shows the running total across the selected period, so the line does not drop to 0 on quiet days.';
 
   @override
   String get salesCommandWhyLeadNeedsContact =>
-      'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so the opportunity keeps momentum.';
+      'This lead is still untouched. Start with a real call or WhatsApp now, then record the result so the opportunity stays visible in the pipeline.';
 
   @override
   String get salesCommandWhyLeadMissingNextStep =>
@@ -5576,11 +5651,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leadNbaFollowUpTodayBody =>
-      'This is the right time to follow up. Open the conversation today to keep the opportunity moving.';
+      'This is the right time to follow up. Open the conversation today while the opportunity still has momentum.';
 
   @override
   String get leadNbaMissingNextStepTitle =>
-      'Set the next step to keep the opportunity moving';
+      'Set the next step before momentum is lost';
 
   @override
   String get leadNbaMissingNextStepBody =>

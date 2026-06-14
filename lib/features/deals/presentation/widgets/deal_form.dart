@@ -65,13 +65,13 @@ class _DealFormState extends State<DealForm> {
   final _formKey = GlobalKey<FormState>();
   final _expectedValueController = TextEditingController();
   final _commissionController = TextEditingController();
-  final _lostReasonController = TextEditingController();
   final _notesController = TextEditingController();
 
   String _clientId = '';
   String _leadId = '';
   String _propertyId = '';
   String _assignedTo = '';
+  String _lostReason = '';
   DealStage _stage = DealStage.newDeal;
   DateTime? _closingDate;
 
@@ -92,7 +92,9 @@ class _DealFormState extends State<DealForm> {
         deal.expectedValue == 0 ? '' : deal.expectedValue.toString();
     _commissionController.text =
         deal.commission == 0 ? '' : deal.commission.toString();
-    _lostReasonController.text = deal.lostReason;
+    _lostReason = isControlledDealLostReasonValue(deal.lostReason)
+        ? deal.lostReason.trim()
+        : '';
     _notesController.text = deal.notes;
   }
 
@@ -100,7 +102,6 @@ class _DealFormState extends State<DealForm> {
   void dispose() {
     _expectedValueController.dispose();
     _commissionController.dispose();
-    _lostReasonController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -159,7 +160,7 @@ class _DealFormState extends State<DealForm> {
                 setState(() {
                   _stage = stage;
                   if (stage != DealStage.lost) {
-                    _lostReasonController.clear();
+                    _lostReason = '';
                   }
                 });
               },
@@ -191,12 +192,18 @@ class _DealFormState extends State<DealForm> {
             ),
             if (_stage == DealStage.lost) ...[
               const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _lostReasonController,
+              AppDropdown<String>(
                 label: l.lostReason,
+                value: _lostReason,
+                items: dealLostReasonOptionValues,
+                itemLabelBuilder: (reason) => reason.isEmpty
+                    ? l.selectLostReason
+                    : dealLostReasonLabel(l, reason),
                 enabled: !widget.isSaving,
-                maxLines: 2,
-                validator: (value) => _requiredValidator(value, l),
+                onChanged: (reason) => setState(() => _lostReason = reason),
+                validator: (reason) => (reason == null || reason.trim().isEmpty)
+                    ? l.lostReasonControlledRequired
+                    : null,
               ),
             ],
           ]),
@@ -266,12 +273,6 @@ class _DealFormState extends State<DealForm> {
     return MaterialLocalizations.of(context).formatMediumDate(closingDate);
   }
 
-  String? _requiredValidator(String? value, AppLocalizations l) {
-    if (value == null || value.trim().isEmpty) {
-      return l.requiredField;
-    }
-    return null;
-  }
 
   String? _nonNegativeNumberValidator(String? value, AppLocalizations l) {
     final trimmed = value?.trim() ?? '';
@@ -310,6 +311,15 @@ class _DealFormState extends State<DealForm> {
       return;
     }
     final lead = _leadById(_leadId);
+    final expectedValue = num.tryParse(_expectedValueController.text.trim()) ?? 0;
+    if (_stage == DealStage.lost && _lostReason.trim().isEmpty) {
+      AppFeedback.warning(context, l.lostReasonControlledRequired);
+      return;
+    }
+    if (_stage == DealStage.won && expectedValue <= 0) {
+      AppFeedback.warning(context, l.dealWonRequiresExpectedValue);
+      return;
+    }
     final now = DateTime.now();
     final previous = widget.deal;
 
@@ -343,12 +353,10 @@ class _DealFormState extends State<DealForm> {
             ? widget.assignedManagerName
             : assignedUser.managerName,
         stage: _stage,
-        expectedValue: num.tryParse(_expectedValueController.text.trim()) ?? 0,
+        expectedValue: expectedValue,
         commission: num.tryParse(_commissionController.text.trim()) ?? 0,
         closingDate: _closingDate,
-        lostReason: _stage == DealStage.lost
-            ? _lostReasonController.text.trim()
-            : '',
+        lostReason: _stage == DealStage.lost ? _lostReason.trim() : '',
         notes: _notesController.text.trim(),
         isActive: previous?.isActive ?? true,
         createdAt: previous?.createdAt ?? now,

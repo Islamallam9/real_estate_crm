@@ -222,6 +222,14 @@ String localizeDealFormError(AppLocalizations l, String? message) {
   switch (message) {
     case 'lostReasonRequired':
       return l.lostReasonRequired;
+    case 'lostReasonControlledRequired':
+      return l.lostReasonControlledRequired;
+    case 'dealWonClientRequired':
+      return l.dealWonRequiresClient;
+    case 'dealWonPropertyRequired':
+      return l.dealWonRequiresProperty;
+    case 'dealWonValueRequired':
+      return l.dealWonRequiresExpectedValue;
     case AppErrorMessages.permissionDenied:
       return l.permissionDenied;
     case AppErrorMessages.unableToConnect:

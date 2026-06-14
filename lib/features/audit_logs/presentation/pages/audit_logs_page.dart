@@ -1696,12 +1696,34 @@ String _detailsSummary(AppLocalizations l, AuditLog log) {
     );
   }
 
-  final assignedToName = (log.metadata['assignedToName'] ?? '').toString();
-  if (assignedToName.isNotEmpty) {
-    return '${l.assignedToLabel}: $assignedToName';
+  final metadataDetails = _auditMetadataDetails(l, log);
+  if (metadataDetails.isNotEmpty) {
+    return metadataDetails;
   }
 
   return _localizedAuditText(l, log.recordSubtitle);
+}
+
+String _auditMetadataDetails(AppLocalizations l, AuditLog log) {
+  final metadata = log.metadata;
+  final details = <String>[];
+  void add(String label, Object? value, {String field = ''}) {
+    final raw = (value ?? '').toString().trim();
+    if (raw.isEmpty) {
+      return;
+    }
+    final rendered = field.isEmpty ? _localizedAuditText(l, raw) : _valueLabel(l, field, raw);
+    details.add('$label: $rendered');
+  }
+
+  add(l.assignedToLabel, metadata['assignedToName']);
+  add(l.status, metadata['newStatus'] ?? metadata['status'], field: 'status');
+  add(l.stage, metadata['newStage'] ?? metadata['stage'], field: 'stage');
+  add(l.lostReason, metadata['lostReason'], field: 'lostReason');
+  add(l.appointmentOutcome, metadata['outcome'], field: 'outcome');
+  add(l.cancellationReason, metadata['cancellationReason']);
+  add(l.notes, metadata['notes'] ?? metadata['reason'] ?? metadata['quickActionLabel']);
+  return details.take(3).join(' | ');
 }
 
 String _localizedAuditText(AppLocalizations l, String value) {
@@ -1907,6 +1929,12 @@ String _fieldLabel(AppLocalizations l, String field) {
     'notes' => l.notes,
     'lastContactAt' => l.lastContact,
     'nextFollowUpAt' => l.nextFollowUp,
+    'stage' => l.stage,
+    'outcome' => l.appointmentOutcome,
+    'lostReason' => l.lostReason,
+    'cancellationReason' => l.cancellationReason,
+    'expectedValue' => l.expectedValue,
+    'commission' => l.commission,
     _ => field,
   };
 }
@@ -1928,7 +1956,38 @@ String _valueLabel(AppLocalizations l, String field, String value) {
       _statusValueLabel(l, trimmed),
     'source' => _sourceValueLabel(l, trimmed),
     'priority' => _priorityValueLabel(l, trimmed),
+    'outcome' => _appointmentOutcomeValueLabel(l, trimmed),
+    'lostReason' => _dealLostReasonValueLabel(l, trimmed),
     _ => _genericAuditValueLabel(l, trimmed),
+  };
+}
+
+String _appointmentOutcomeValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'successfulMeeting' => l.appointmentOutcomeSuccessfulMeeting,
+    'noAnswer' => l.appointmentOutcomeNoAnswer,
+    'clientPostponed' => l.appointmentOutcomeClientPostponed,
+    'clientNotInterested' => l.appointmentOutcomeClientNotInterested,
+    'followUpNeeded' => l.appointmentOutcomeFollowUpNeeded,
+    'dealOpportunity' => l.appointmentOutcomeDealOpportunity,
+    'pendingDecision' => l.appointmentOutcomePendingDecision,
+    'other' => l.appointmentOutcomeOther,
+    _ => value,
+  };
+}
+
+String _dealLostReasonValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'budgetMismatch' => l.dealLostReasonBudgetMismatch,
+    'locationMismatch' => l.dealLostReasonLocationMismatch,
+    'boughtElsewhere' => l.dealLostReasonBoughtElsewhere,
+    'notReady' => l.dealLostReasonNotReady,
+    'noResponse' => l.dealLostReasonNoResponse,
+    'wrongNumber' => l.dealLostReasonWrongNumber,
+    'lostToCompetitor' => l.dealLostReasonLostToCompetitor,
+    'duplicate' => l.dealLostReasonDuplicate,
+    'other' => l.dealLostReasonOther,
+    _ => value,
   };
 }
 

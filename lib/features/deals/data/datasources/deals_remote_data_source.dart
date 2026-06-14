@@ -213,6 +213,7 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
   }) async {
     _ensureSameCompany(companyId: companyId, deal: deal);
     _validateLostReason(deal.stage, deal.lostReason);
+    _validateWonDeal(deal);
     try {
       final collection = _dealsCollection(companyId);
       final document = deal.id.isEmpty ? collection.doc() : collection.doc(deal.id);
@@ -318,6 +319,7 @@ class FirestoreDealsRemoteDataSource implements DealsRemoteDataSource {
   }) async {
     _ensureSameCompany(companyId: companyId, deal: deal);
     _validateLostReason(deal.stage, deal.lostReason);
+    _validateWonDeal(deal);
     try {
       final now = DateTime.now();
       final dealToSave = DealModel(
@@ -576,8 +578,29 @@ String _mapFunctionsError(FirebaseFunctionsException error) {
 }
 
 void _validateLostReason(DealStage stage, String lostReason) {
-  if (stage == DealStage.lost && lostReason.trim().isEmpty) {
+  if (stage != DealStage.lost) {
+    return;
+  }
+  if (lostReason.trim().isEmpty) {
     throw const DealException('lostReasonRequired');
+  }
+  if (!isControlledDealLostReasonValue(lostReason)) {
+    throw const DealException('lostReasonControlledRequired');
+  }
+}
+
+void _validateWonDeal(Deal deal) {
+  if (deal.stage != DealStage.won) {
+    return;
+  }
+  if (deal.clientId.trim().isEmpty) {
+    throw const DealException('dealWonClientRequired');
+  }
+  if (deal.propertyId.trim().isEmpty) {
+    throw const DealException('dealWonPropertyRequired');
+  }
+  if (deal.expectedValue <= 0) {
+    throw const DealException('dealWonValueRequired');
   }
 }
 

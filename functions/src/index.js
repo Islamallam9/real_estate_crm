@@ -1440,6 +1440,17 @@ const DEAL_STAGES = new Set([
   'won',
   'lost',
 ]);
+const DEAL_LOST_REASONS = new Set([
+  'budgetMismatch',
+  'locationMismatch',
+  'boughtElsewhere',
+  'notReady',
+  'noResponse',
+  'wrongNumber',
+  'lostToCompetitor',
+  'duplicate',
+  'other',
+]);
 
 exports.createCompanyInvitation = onCall(async (request) => {
   const callerUid = await requireActivePlatformAdmin(request);
@@ -5671,6 +5682,31 @@ exports.checkDuplicateLead = onCall(async (request) => {
 });
 
 
+
+function controlledDealLostReason(value) {
+  const reason = sanitizePlainString(requiredString(value, 'lostReason'), 120);
+  if (!DEAL_LOST_REASONS.has(reason)) {
+    throw new HttpsError('failed-precondition', 'lostReasonControlledRequired');
+  }
+  return reason;
+}
+
+function assertDealClosingIntegrity({ stage, clientId, propertyId, expectedValue }) {
+  if (stage !== 'won') {
+    return;
+  }
+  if (!optionalString(clientId)) {
+    throw new HttpsError('failed-precondition', 'dealWonClientRequired');
+  }
+  if (!optionalString(propertyId)) {
+    throw new HttpsError('failed-precondition', 'dealWonPropertyRequired');
+  }
+  const value = typeof expectedValue === 'number' ? expectedValue : Number(expectedValue || 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new HttpsError('failed-precondition', 'dealWonValueRequired');
+  }
+}
+
 exports.saveDealRecord = onCall(async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'Sign in is required.');
@@ -5734,8 +5770,14 @@ exports.saveDealRecord = onCall(async (request) => {
 
     const stage = enumValue(dealInput.stage || 'new', DEAL_STAGES, 'stage');
     const lostReason = stage === 'lost'
-      ? sanitizePlainString(requiredString(dealInput.lostReason, 'lostReason'), 500)
+      ? controlledDealLostReason(dealInput.lostReason)
       : '';
+    assertDealClosingIntegrity({
+      stage,
+      clientId: optionalString(existingDeal.clientId),
+      propertyId: optionalString(existingDeal.propertyId),
+      expectedValue: existingDeal.expectedValue,
+    });
     await dealRef.set({
       stage,
       lostReason,
@@ -5807,8 +5849,15 @@ exports.saveDealRecord = onCall(async (request) => {
 
   const stage = enumValue(dealInput.stage || 'new', DEAL_STAGES, 'stage');
   const lostReason = stage === 'lost'
-    ? sanitizePlainString(requiredString(dealInput.lostReason, 'lostReason'), 500)
+    ? controlledDealLostReason(dealInput.lostReason)
     : '';
+  const expectedValue = numberValue(dealInput.expectedValue, 'expectedValue');
+  assertDealClosingIntegrity({
+    stage,
+    clientId,
+    propertyId,
+    expectedValue,
+  });
   const now = FieldValue.serverTimestamp();
   const assignment = assignmentSnapshotFromAssignee(assignedTo, assignee);
 
@@ -5827,7 +5876,7 @@ exports.saveDealRecord = onCall(async (request) => {
     propertyLocation: sanitizePlainString(optionalString(property.location) || optionalString(dealInput.propertyLocation), 220),
     ...assignment,
     stage,
-    expectedValue: numberValue(dealInput.expectedValue, 'expectedValue'),
+    expectedValue,
     commission: numberValue(dealInput.commission, 'commission'),
     closingDate: optionalCallableTimestamp(dealInput.closingDate),
     lostReason,

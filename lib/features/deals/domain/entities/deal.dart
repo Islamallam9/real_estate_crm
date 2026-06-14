@@ -2,6 +2,72 @@ import 'package:equatable/equatable.dart';
 
 enum DealStage { newDeal, qualified, proposal, negotiation, won, lost }
 
+enum DealLostReason {
+  budgetMismatch,
+  locationMismatch,
+  boughtElsewhere,
+  notReady,
+  noResponse,
+  wrongNumber,
+  lostToCompetitor,
+  duplicate,
+  other,
+}
+
+const List<DealLostReason> controlledDealLostReasons = DealLostReason.values;
+
+DealLostReason? dealLostReasonFromValue(String value) {
+  switch (value.trim()) {
+    case 'budgetMismatch':
+      return DealLostReason.budgetMismatch;
+    case 'locationMismatch':
+      return DealLostReason.locationMismatch;
+    case 'boughtElsewhere':
+      return DealLostReason.boughtElsewhere;
+    case 'notReady':
+      return DealLostReason.notReady;
+    case 'noResponse':
+      return DealLostReason.noResponse;
+    case 'wrongNumber':
+      return DealLostReason.wrongNumber;
+    case 'lostToCompetitor':
+      return DealLostReason.lostToCompetitor;
+    case 'duplicate':
+      return DealLostReason.duplicate;
+    case 'other':
+      return DealLostReason.other;
+    default:
+      return null;
+  }
+}
+
+bool isControlledDealLostReasonValue(String value) {
+  return dealLostReasonFromValue(value) != null;
+}
+
+String dealLostReasonToValue(DealLostReason reason) {
+  switch (reason) {
+    case DealLostReason.budgetMismatch:
+      return 'budgetMismatch';
+    case DealLostReason.locationMismatch:
+      return 'locationMismatch';
+    case DealLostReason.boughtElsewhere:
+      return 'boughtElsewhere';
+    case DealLostReason.notReady:
+      return 'notReady';
+    case DealLostReason.noResponse:
+      return 'noResponse';
+    case DealLostReason.wrongNumber:
+      return 'wrongNumber';
+    case DealLostReason.lostToCompetitor:
+      return 'lostToCompetitor';
+    case DealLostReason.duplicate:
+      return 'duplicate';
+    case DealLostReason.other:
+      return 'other';
+  }
+}
+
 class Deal extends Equatable {
   const Deal({
     required this.id,

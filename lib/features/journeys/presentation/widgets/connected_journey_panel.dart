@@ -478,9 +478,9 @@ class _JourneyTimelineTile extends StatelessWidget {
                                   height: 1.25,
                                 ),
                           ),
-                        if (_appointmentJourneyDetail(l, item).isNotEmpty)
+                        if (_journeyDetail(l, item).isNotEmpty)
                           Text(
-                            _appointmentJourneyDetail(l, item),
+                            _journeyDetail(l, item),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -605,31 +605,146 @@ String _itemTitle(AppLocalizations l, JourneyItem item) {
   };
 }
 
-String _appointmentJourneyDetail(AppLocalizations l, JourneyItem item) {
-  if (item.targetType != JourneyTargetType.appointment) {
-    return '';
+String _journeyDetail(AppLocalizations l, JourneyItem item) {
+  return switch (item.targetType) {
+    JourneyTargetType.lead => _leadJourneyDetail(l, item),
+    JourneyTargetType.client => _clientJourneyDetail(l, item),
+    JourneyTargetType.task => _taskJourneyDetail(l, item),
+    JourneyTargetType.appointment => _appointmentJourneyDetail(l, item),
+    JourneyTargetType.deal => _dealJourneyDetail(l, item),
+    JourneyTargetType.audit => _auditJourneyDetail(l, item),
+    JourneyTargetType.system => _reasonDetail(l, item),
+  };
+}
+
+String _leadJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
+  _addMetadataLabel(parts, l.status, _statusValueLabel(l, _metadata(item, 'status')));
+  _addMetadataLabel(parts, l.priority, _priorityValueLabel(l, _metadata(item, 'priority')));
+  _addMetadataLabel(parts, l.source, _sourceValueLabel(l, _metadata(item, 'source')));
+  _addMetadataLabel(parts, l.assignedToLabel, _metadata(item, 'assignedToName'));
+  _addMetadataLabel(parts, l.lastContact, _journeyMetadataDateTimeLabel(l, _metadata(item, 'lastContactAt')));
+  _addMetadataLabel(parts, l.nextFollowUp, _journeyMetadataDateTimeLabel(l, _metadata(item, 'nextFollowUpAt')));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _clientJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
+  final budgetMin = _metadata(item, 'budgetMin');
+  final budgetMax = _metadata(item, 'budgetMax');
+  if (budgetMin.isNotEmpty || budgetMax.isNotEmpty) {
+    _addMetadataLabel(parts, l.budget, [budgetMin, budgetMax].where((v) => v.trim().isNotEmpty).join(' - '));
   }
+  _addMetadataLabel(parts, l.preferredLocation, _metadata(item, 'preferredLocation'));
+  _addMetadataLabel(parts, l.preferredPropertyType, _metadata(item, 'preferredPropertyType'));
+  _addMetadataLabel(parts, l.assignedToLabel, _metadata(item, 'assignedToName'));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _taskJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
+  _addMetadataLabel(parts, l.status, _taskStatusLabel(l, _metadata(item, 'status')));
+  _addMetadataLabel(parts, l.priority, _priorityValueLabel(l, _metadata(item, 'priority')));
+  _addMetadataLabel(parts, l.dueDate, _journeyMetadataDateTimeLabel(l, _metadata(item, 'dueDate')));
+  _addMetadataLabel(parts, l.assignedToLabel, _metadata(item, 'assignedToName'));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _appointmentJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
   if (item.type == JourneyItemType.appointmentRescheduled) {
-    final previousScheduledAt =
-        item.metadata['previousScheduledAt']?.toString().trim() ?? '';
-    final scheduledAt = item.metadata['scheduledAt']?.toString().trim() ?? '';
+    final previousScheduledAt = _metadata(item, 'previousScheduledAt');
+    final scheduledAt = _metadata(item, 'scheduledAt');
     if (previousScheduledAt.isNotEmpty && scheduledAt.isNotEmpty) {
-      return l.changedFromTo(
+      parts.add(l.changedFromTo(
         _journeyMetadataDateTimeLabel(l, previousScheduledAt),
         _journeyMetadataDateTimeLabel(l, scheduledAt),
-      );
+      ));
     }
   }
-  final outcome = item.metadata['outcome']?.toString().trim() ?? '';
-  final cancellationReason =
-      item.metadata['cancellationReason']?.toString().trim() ?? '';
-  if (outcome.isNotEmpty) {
-    return '${l.appointmentOutcome}: ${_appointmentOutcomeLabel(l, outcome)}';
+  _addMetadataLabel(parts, l.status, _appointmentStatusLabel(l, _metadata(item, 'status')));
+  _addMetadataLabel(parts, l.scheduledAt, _journeyMetadataDateTimeLabel(l, _metadata(item, 'scheduledAt')));
+  _addMetadataLabel(parts, l.appointmentOutcome, _appointmentOutcomeLabel(l, _metadata(item, 'outcome')));
+  _addMetadataLabel(parts, l.cancellationReason, _metadata(item, 'cancellationReason'));
+  _addMetadataLabel(parts, l.notes, _metadata(item, 'outcomeNotes'));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _dealJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
+  _addMetadataLabel(parts, l.stage, _dealStageLabel(l, _metadata(item, 'stage')));
+  _addMetadataLabel(parts, l.expectedValue, _numberLabel(_metadata(item, 'expectedValue')));
+  _addMetadataLabel(parts, l.commission, _numberLabel(_metadata(item, 'commission')));
+  _addMetadataLabel(parts, l.closingDate, _journeyMetadataDateTimeLabel(l, _metadata(item, 'closingDate')));
+  _addMetadataLabel(parts, l.lostReason, _dealLostReasonLabel(l, _metadata(item, 'lostReason')));
+  _addMetadataLabel(parts, l.assignedToLabel, _metadata(item, 'assignedToName'));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _auditJourneyDetail(AppLocalizations l, JourneyItem item) {
+  final parts = <String>[];
+  final changedFields = item.metadata['changedFields'];
+  if (changedFields is Iterable) {
+    for (final entry in changedFields) {
+      if (entry is! Map) {
+        continue;
+      }
+      final field = (entry['field'] ?? '').toString();
+      final oldValue = (entry['oldValue'] ?? '').toString();
+      final newValue = (entry['newValue'] ?? '').toString();
+      if (field.trim().isEmpty || oldValue == newValue) {
+        continue;
+      }
+      parts.add('${_auditFieldLabel(l, field)}: ${l.changedFromTo(
+        _auditValueLabel(l, field, oldValue),
+        _auditValueLabel(l, field, newValue),
+      )}');
+    }
   }
-  if (cancellationReason.isNotEmpty) {
-    return '${l.cancellationReason}: $cancellationReason';
+  _addMetadataLabel(parts, l.status, _auditValueLabel(l, 'status', _metadata(item, 'newStatus')));
+  _addMetadataLabel(parts, l.assignedToLabel, _metadata(item, 'assignedToName'));
+  _addMetadataLabel(parts, l.lostReason, _dealLostReasonLabel(l, _metadata(item, 'lostReason')));
+  _addMetadataLabel(parts, l.cancellationReason, _metadata(item, 'cancellationReason'));
+  _addMetadataLabel(parts, l.appointmentOutcome, _appointmentOutcomeLabel(l, _metadata(item, 'outcome')));
+  _addMetadataLabel(parts, l.notes, _metadata(item, 'notes'));
+  return _firstDetail(parts, fallback: _reasonDetail(l, item));
+}
+
+String _reasonDetail(AppLocalizations l, JourneyItem item) {
+  final reason = _metadata(item, 'reason').trim();
+  if (reason.isNotEmpty) {
+    return '${l.journeyReason}: $reason';
   }
   return '';
+}
+
+void _addMetadataLabel(List<String> parts, String label, String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty || trimmed == '0' || trimmed == '0.0') {
+    return;
+  }
+  parts.add('$label: $trimmed');
+}
+
+String _firstDetail(List<String> parts, {String fallback = ''}) {
+  final clean = parts.where((part) => part.trim().isNotEmpty).take(3).toList();
+  if (clean.isNotEmpty) {
+    return clean.join(' • ');
+  }
+  return fallback;
+}
+
+String _metadata(JourneyItem item, String key) {
+  final value = item.metadata[key];
+  return value == null ? '' : value.toString().trim();
+}
+
+String _numberLabel(String value) {
+  final parsed = num.tryParse(value.trim());
+  if (parsed == null || parsed == 0) {
+    return '';
+  }
+  return parsed.toStringAsFixed(parsed.truncateToDouble() == parsed ? 0 : 2);
 }
 
 String _journeyMetadataDateTimeLabel(AppLocalizations l, String value) {
@@ -648,7 +763,128 @@ String _appointmentOutcomeLabel(AppLocalizations l, String value) {
     'clientNotInterested' => l.appointmentOutcomeClientNotInterested,
     'followUpNeeded' => l.appointmentOutcomeFollowUpNeeded,
     'dealOpportunity' => l.appointmentOutcomeDealOpportunity,
+    'pendingDecision' => l.appointmentOutcomePendingDecision,
     'other' => l.appointmentOutcomeOther,
+    _ => value,
+  };
+}
+
+String _appointmentStatusLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'scheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'مجدول' : 'Scheduled',
+    'rescheduled' => l.localeName.toLowerCase().startsWith('ar') ? 'أُعيدت جدولته' : 'Rescheduled',
+    'completed' => l.completed,
+    'cancelled' || 'canceled' => l.cancelled,
+    'missed' => l.localeName.toLowerCase().startsWith('ar') ? 'فائت' : 'Missed',
+    _ => value,
+  };
+}
+
+String _taskStatusLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'pending' => l.pending,
+    'inProgress' => l.inProgress,
+    'completed' => l.completed,
+    'cancelled' || 'canceled' => l.cancelled,
+    _ => value,
+  };
+}
+
+String _priorityValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'high' => l.high,
+    'medium' => l.medium,
+    'low' => l.low,
+    _ => value,
+  };
+}
+
+String _sourceValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'facebook' => l.facebook,
+    'website' => l.website,
+    'phoneCall' => l.phoneCall,
+    'whatsapp' => l.whatsapp,
+    'referral' => l.referral,
+    'walkIn' => l.walkIn,
+    'other' => l.other,
+    _ => value,
+  };
+}
+
+String _statusValueLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'newLead' || 'new' => l.newLeadStatus,
+    'contacted' => l.contactedLeadStatus,
+    'interested' => l.interestedLeadStatus,
+    'visitScheduled' => l.visitScheduledLeadStatus,
+    'negotiation' => l.negotiationLeadStatus,
+    'won' => l.wonLeadStatus,
+    'lost' => l.lostLeadStatus,
+    _ => value,
+  };
+}
+
+String _dealStageLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'new' || 'newDeal' => l.newDealStage,
+    'qualified' => l.qualified,
+    'proposal' => l.proposal,
+    'negotiation' => l.negotiation,
+    'won' => l.won,
+    'lost' => l.lost,
+    _ => value,
+  };
+}
+
+String _dealLostReasonLabel(AppLocalizations l, String value) {
+  return switch (value) {
+    'budgetMismatch' => l.dealLostReasonBudgetMismatch,
+    'locationMismatch' => l.dealLostReasonLocationMismatch,
+    'boughtElsewhere' => l.dealLostReasonBoughtElsewhere,
+    'notReady' => l.dealLostReasonNotReady,
+    'noResponse' => l.dealLostReasonNoResponse,
+    'wrongNumber' => l.dealLostReasonWrongNumber,
+    'lostToCompetitor' => l.dealLostReasonLostToCompetitor,
+    'duplicate' => l.dealLostReasonDuplicate,
+    'other' => l.dealLostReasonOther,
+    _ => value,
+  };
+}
+
+String _auditFieldLabel(AppLocalizations l, String field) {
+  return switch (field) {
+    'status' || 'appointmentStatus' || 'taskStatus' => l.status,
+    'stage' => l.stage,
+    'assignedTo' || 'assignedToName' => l.assignedToLabel,
+    'scheduledAt' => l.scheduledAt,
+    'dueDate' => l.dueDate,
+    'outcome' => l.appointmentOutcome,
+    'lostReason' => l.lostReason,
+    'cancellationReason' => l.cancellationReason,
+    'expectedValue' => l.expectedValue,
+    'commission' => l.commission,
+    'priority' => l.priority,
+    'source' => l.source,
+    'nextFollowUpAt' => l.nextFollowUp,
+    'lastContactAt' => l.lastContact,
+    _ => field,
+  };
+}
+
+String _auditValueLabel(AppLocalizations l, String field, String value) {
+  if (value.trim().isEmpty) {
+    return l.notAvailable;
+  }
+  return switch (field) {
+    'status' => _statusValueLabel(l, value),
+    'stage' => _dealStageLabel(l, value),
+    'priority' => _priorityValueLabel(l, value),
+    'source' => _sourceValueLabel(l, value),
+    'outcome' => _appointmentOutcomeLabel(l, value),
+    'lostReason' => _dealLostReasonLabel(l, value),
+    'scheduledAt' || 'dueDate' || 'nextFollowUpAt' || 'lastContactAt' =>
+      _journeyMetadataDateTimeLabel(l, value),
     _ => value,
   };
 }

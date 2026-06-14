@@ -1089,7 +1089,9 @@ Future<void> showDealStageDialog(
 }) async {
   final l = AppLocalizations.of(context)!;
   final cubit = context.read<DealsCubit>();
-  final lostReasonController = TextEditingController(text: deal.lostReason);
+  var selectedLostReason = isControlledDealLostReasonValue(deal.lostReason)
+      ? deal.lostReason.trim()
+      : '';
   var selectedStage = deal.stage;
   var isSubmitting = false;
 
@@ -1109,16 +1111,25 @@ Future<void> showDealStageDialog(
                   items: DealStage.values,
                   itemLabelBuilder: (stage) => dealStageLabel(l, stage),
                   enabled: !isSubmitting,
-                  onChanged: (stage) =>
-                      setDialogState(() => selectedStage = stage),
+                  onChanged: (stage) => setDialogState(() {
+                    selectedStage = stage;
+                    if (stage != DealStage.lost) {
+                      selectedLostReason = '';
+                    }
+                  }),
                 ),
                 if (selectedStage == DealStage.lost) ...[
                   const SizedBox(height: AppSpacing.md),
-                  AppTextField(
-                    controller: lostReasonController,
-                    enabled: !isSubmitting,
-                    maxLines: 2,
+                  AppDropdown<String>(
                     label: l.lostReason,
+                    value: selectedLostReason,
+                    items: dealLostReasonOptionValues,
+                    itemLabelBuilder: (reason) => reason.isEmpty
+                        ? l.selectLostReason
+                        : dealLostReasonLabel(l, reason),
+                    enabled: !isSubmitting,
+                    onChanged: (reason) =>
+                        setDialogState(() => selectedLostReason = reason),
                   ),
                 ],
               ],
@@ -1135,16 +1146,33 @@ Future<void> showDealStageDialog(
                 isLoading: isSubmitting,
                 onPressed: () async {
                   if (selectedStage == DealStage.lost &&
-                      lostReasonController.text.trim().isEmpty) {
-                    AppFeedback.warning(context, l.lostReasonRequired);
+                      selectedLostReason.trim().isEmpty) {
+                    AppFeedback.warning(context, l.lostReasonControlledRequired);
                     return;
+                  }
+                  if (selectedStage == DealStage.won) {
+                    if (deal.clientId.trim().isEmpty) {
+                      AppFeedback.warning(context, l.dealWonRequiresClient);
+                      return;
+                    }
+                    if (deal.propertyId.trim().isEmpty) {
+                      AppFeedback.warning(context, l.dealWonRequiresProperty);
+                      return;
+                    }
+                    if (deal.expectedValue <= 0) {
+                      AppFeedback.warning(
+                        context,
+                        l.dealWonRequiresExpectedValue,
+                      );
+                      return;
+                    }
                   }
                   setDialogState(() => isSubmitting = true);
                   final success = await cubit.updateDealStage(
                     companyId: companyId,
                     dealId: deal.id,
                     stage: selectedStage,
-                    lostReason: lostReasonController.text.trim(),
+                    lostReason: selectedLostReason.trim(),
                     updatedBy: updatedBy,
                   );
                   if (success && dialogContext.mounted) {
@@ -1161,9 +1189,7 @@ Future<void> showDealStageDialog(
         },
       );
     },
-  );
-  lostReasonController.dispose();
-}
+  );}
 
 Future<void> showArchiveDealDialog(
   BuildContext context, {
@@ -1496,6 +1522,14 @@ String localizeDealError(AppLocalizations l, String? message) {
   switch (message) {
     case 'lostReasonRequired':
       return l.lostReasonRequired;
+    case 'lostReasonControlledRequired':
+      return l.lostReasonControlledRequired;
+    case 'dealWonClientRequired':
+      return l.dealWonRequiresClient;
+    case 'dealWonPropertyRequired':
+      return l.dealWonRequiresProperty;
+    case 'dealWonValueRequired':
+      return l.dealWonRequiresExpectedValue;
     case AppErrorMessages.permissionDenied:
       return l.permissionDenied;
     case AppErrorMessages.unableToConnect:

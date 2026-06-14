@@ -177,6 +177,13 @@ JourneyItem _taskToJourneyItem(CrmTask task) {
                 : JourneyTone.info,
     actorName: task.assignedToName,
     statusLabel: _humanizeToken(task.status.name),
+    metadata: {
+      'status': task.status.name,
+      'priority': task.priority.name,
+      'dueDate': task.dueDate?.toIso8601String() ?? '',
+      'assignedToName': task.assignedToName,
+      'relatedTitle': task.relatedTitle,
+    },
   );
 }
 
@@ -213,6 +220,9 @@ JourneyItem _appointmentToJourneyItem(Appointment appointment) {
       'outcomeNotes': appointment.outcomeNotes,
       'cancellationReason': appointment.cancellationReason,
       'scheduledAt': appointment.scheduledAt?.toIso8601String() ?? '',
+      'endAt': appointment.endAt?.toIso8601String() ?? '',
+      'completedAt': appointment.completedAt?.toIso8601String() ?? '',
+      'missedAt': appointment.missedAt?.toIso8601String() ?? '',
       'previousScheduledAt':
           appointment.previousScheduledAt?.toIso8601String() ?? '',
     },
@@ -258,7 +268,17 @@ JourneyItem _dealToJourneyItem(Deal deal) {
     tone: tone,
     actorName: deal.assignedToName,
     statusLabel: _humanizeToken(deal.stage.name),
-    metadata: {'expectedValue': deal.expectedValue, 'commission': deal.commission},
+    metadata: {
+      'stage': deal.stage.name == 'newDeal' ? 'new' : deal.stage.name,
+      'expectedValue': deal.expectedValue,
+      'commission': deal.commission,
+      'closingDate': deal.closingDate?.toIso8601String() ?? '',
+      'lostReason': deal.lostReason,
+      'clientName': deal.clientName,
+      'leadName': deal.leadName,
+      'propertyTitle': deal.propertyTitle,
+      'assignedToName': deal.assignedToName,
+    },
   );
 }
 

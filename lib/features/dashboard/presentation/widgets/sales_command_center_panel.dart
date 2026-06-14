@@ -577,6 +577,12 @@ String _moduleLabel(AppLocalizations l, DashboardCommandModule module) {
 
 String _reasonSentence(BuildContext context, SalesCommandItem item) {
   final l = AppLocalizations.of(context)!;
+  if (item.module == DashboardCommandModule.deal) {
+    return _dealReasonSentence(l, item);
+  }
+  if (item.module == DashboardCommandModule.appointment) {
+    return _appointmentReasonSentence(l, item);
+  }
   return switch (item.reason) {
     DashboardAttentionReason.overdueFollowUp =>
       l.salesCommandWhyOverdueFollowUp,
@@ -610,6 +616,33 @@ String _reasonSentence(BuildContext context, SalesCommandItem item) {
         _fallback(item.assignedToName, item.title),
         item.count ?? 0,
       ),
+  };
+}
+
+String _dealReasonSentence(AppLocalizations l, SalesCommandItem item) {
+  if (item.reason == DashboardAttentionReason.hotLead) {
+    return l.salesCommandWhyDealHotOpportunity;
+  }
+  if (item.reason == DashboardAttentionReason.dealAtRisk) {
+    if (item.dueAt != null) {
+      return l.salesCommandWhyDealClosingDue;
+    }
+    return l.salesCommandWhyDealStale;
+  }
+  return l.salesCommandWhyDealAtRisk;
+}
+
+String _appointmentReasonSentence(AppLocalizations l, SalesCommandItem item) {
+  return switch (item.reason) {
+    DashboardAttentionReason.appointmentMissed =>
+      l.salesCommandWhyAppointmentMissedRecovery,
+    DashboardAttentionReason.appointmentDueNow =>
+      l.salesCommandWhyAppointmentDueNowSmart,
+    DashboardAttentionReason.appointmentUpcoming =>
+      l.salesCommandWhyAppointmentUpcomingSmart,
+    DashboardAttentionReason.appointmentNeedsFeedback =>
+      l.salesCommandWhyAppointmentNeedsOutcomeSmart,
+    _ => l.salesCommandWhyAppointmentUpcoming,
   };
 }
 

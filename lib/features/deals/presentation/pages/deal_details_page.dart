@@ -319,7 +319,10 @@ class _DealDetailsViewState extends State<_DealDetailsView> {
                                       _detail(
                                         context,
                                         l.lostReason,
-                                        _value(l, deal.lostReason),
+                                        _value(
+                                          l,
+                                          dealLostReasonLabel(l, deal.lostReason),
+                                        ),
                                       ),
                                   ],
                                 ),
