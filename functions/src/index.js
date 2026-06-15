@@ -2530,6 +2530,164 @@ exports.completeRequiredPasswordChange = onCall(async (request) => {
   return { uid, companyId };
 });
 
+
+async function createTeamMembershipNotifications({
+  companyId,
+  actorUid,
+  targetUser,
+  nextTeam,
+  previousTeamId,
+  previousTeamName,
+  previousManagerId,
+  action,
+}) {
+  const memberUid = optionalString(targetUser && targetUser.uid);
+  const memberName = optionalString(targetUser && targetUser.fullName) ||
+    optionalString(targetUser && targetUser.email) ||
+    memberUid;
+  if (!memberUid || !memberName) {
+    return;
+  }
+
+  const actor = await loadCompanyUserSafe(companyId, actorUid);
+  const actorName = optionalString(actor && actor.fullName) || optionalString(actor && actor.email);
+  const isRemoval = action === 'removed';
+  const nextTeamId = isRemoval ? '' : optionalString(nextTeam && nextTeam.id);
+  const nextTeamName = isRemoval ? '' : optionalString(nextTeam && nextTeam.name);
+  const nextManagerId = isRemoval ? '' : optionalString(nextTeam && nextTeam.managerId);
+  const cleanPreviousTeamId = optionalString(previousTeamId);
+  const cleanPreviousTeamName = optionalString(previousTeamName);
+  const cleanPreviousManagerId = optionalString(previousManagerId);
+  const isReassignment = !isRemoval && cleanPreviousTeamId && cleanPreviousTeamId !== nextTeamId;
+  const type = isRemoval
+    ? 'teamMemberRemovedFromRecord'
+    : (isReassignment ? 'teamMemberReassigned' : 'teamMemberAssigned');
+  const route = '/dashboard';
+  const recordId = isRemoval ? cleanPreviousTeamId : nextTeamId;
+  const recordTitle = isRemoval ? cleanPreviousTeamName : nextTeamName;
+
+  const notifications = [];
+
+  if (memberUid !== actorUid) {
+    const bodyEn = isRemoval
+      ? `You were removed from ${cleanPreviousTeamName || 'your team'}.`
+      : (isReassignment
+        ? `You were moved from ${cleanPreviousTeamName || 'your previous team'} to ${nextTeamName || 'your new team'}.`
+        : `You were added to ${nextTeamName || 'your team'}.`);
+    const bodyAr = isRemoval
+      ? `تمت إزالتك من فريق ${cleanPreviousTeamName || 'الفريق'}.`
+      : (isReassignment
+        ? `تم نقلك من فريق ${cleanPreviousTeamName || 'سابق'} إلى فريق ${nextTeamName || 'جديد'}.`
+        : `تمت إضافتك إلى فريق ${nextTeamName || 'الفريق'}.`);
+    notifications.push(createCompanyNotification({
+      companyId,
+      recipientUid: memberUid,
+      recipientRole: optionalString(targetUser.role),
+      type,
+      module: 'teams',
+      recordId,
+      recordTitle,
+      recordSubtitle: actorName,
+      route,
+      actorUid,
+      actorName,
+      teamId: isRemoval ? cleanPreviousTeamId : nextTeamId,
+      teamName: isRemoval ? cleanPreviousTeamName : nextTeamName,
+      managerId: isRemoval ? cleanPreviousManagerId : nextManagerId,
+      priority: 'normal',
+      metadata: {
+        assignedToName: memberName,
+        previousAssignedToName: memberName,
+        previousTeamName: cleanPreviousTeamName,
+        teamName: nextTeamName,
+        bodyEn,
+        bodyAr,
+      },
+    }));
+  }
+
+  if (!isRemoval && nextManagerId && nextManagerId !== actorUid && nextManagerId !== memberUid) {
+    const bodyEn = isReassignment
+      ? `${memberName} was moved to your team ${nextTeamName || ''}.`.trim()
+      : `${memberName} was added to your team ${nextTeamName || ''}.`.trim();
+    const bodyAr = isReassignment
+      ? `تم نقل ${memberName} إلى فريقك ${nextTeamName || ''}.`.trim()
+      : `تمت إضافة ${memberName} إلى فريقك ${nextTeamName || ''}.`.trim();
+    notifications.push(createCompanyNotification({
+      companyId,
+      recipientUid: nextManagerId,
+      recipientRole: 'manager',
+      type: isReassignment ? 'teamMemberReassigned' : 'teamMemberAssigned',
+      module: 'teams',
+      recordId: nextTeamId,
+      recordTitle: nextTeamName,
+      recordSubtitle: memberName,
+      route,
+      actorUid,
+      actorName,
+      teamId: nextTeamId,
+      teamName: nextTeamName,
+      managerId: nextManagerId,
+      priority: 'normal',
+      metadata: {
+        assignedToName: memberName,
+        previousAssignedToName: memberName,
+        previousTeamName: cleanPreviousTeamName,
+        teamName: nextTeamName,
+        bodyEn,
+        bodyAr,
+      },
+    }));
+  }
+
+  if (cleanPreviousManagerId && cleanPreviousManagerId !== nextManagerId &&
+      cleanPreviousManagerId !== actorUid && cleanPreviousManagerId !== memberUid) {
+    const bodyEn = `${memberName} was removed from your team ${cleanPreviousTeamName || ''}.`.trim();
+    const bodyAr = `تمت إزالة ${memberName} من فريقك ${cleanPreviousTeamName || ''}.`.trim();
+    notifications.push(createCompanyNotification({
+      companyId,
+      recipientUid: cleanPreviousManagerId,
+      recipientRole: 'manager',
+      type: 'teamMemberRemovedFromRecord',
+      module: 'teams',
+      recordId: cleanPreviousTeamId,
+      recordTitle: cleanPreviousTeamName,
+      recordSubtitle: memberName,
+      route,
+      actorUid,
+      actorName,
+      teamId: cleanPreviousTeamId,
+      teamName: cleanPreviousTeamName,
+      managerId: cleanPreviousManagerId,
+      priority: 'normal',
+      metadata: {
+        assignedToName: memberName,
+        previousAssignedToName: memberName,
+        previousTeamName: cleanPreviousTeamName,
+        teamName: nextTeamName,
+        bodyEn,
+        bodyAr,
+      },
+    }));
+  }
+
+  await Promise.all(notifications);
+}
+
+async function createTeamMembershipNotificationsSafely(payload) {
+  try {
+    await createTeamMembershipNotifications(payload);
+  } catch (error) {
+    console.error('team_membership_notification_failed', {
+      companyId: optionalString(payload && payload.companyId),
+      uid: optionalString(payload && payload.targetUser && payload.targetUser.uid),
+      action: optionalString(payload && payload.action),
+      code: optionalString(error && error.code),
+      message: optionalString(error && error.message),
+    });
+  }
+}
+
 exports.assignUserToTeam = onCall(async (request) => {
   const data = request.data || {};
   const companyId = requiredString(data.companyId, 'companyId');
@@ -2575,12 +2733,21 @@ exports.assignUserToTeam = onCall(async (request) => {
   }
 
   const previousTeamId = optionalString(targetUser.teamId);
+  const previousTeamName = optionalString(targetUser.teamName);
+  const previousManagerId = optionalString(targetUser.managerId);
+  const nextTeamSnapshot = {
+    ...team,
+    id: teamId,
+    name: optionalString(team.name),
+    managerId: optionalString(team.managerId),
+    managerName: optionalString(team.managerName),
+  };
   const nextAssigneeSnapshot = {
     ...targetUser,
     teamId,
-    teamName: optionalString(team.name),
-    managerId: optionalString(team.managerId),
-    managerName: optionalString(team.managerName),
+    teamName: nextTeamSnapshot.name,
+    managerId: nextTeamSnapshot.managerId,
+    managerName: nextTeamSnapshot.managerName,
   };
   await targetUserRef.update({
     teamId: nextAssigneeSnapshot.teamId,
@@ -2612,6 +2779,19 @@ exports.assignUserToTeam = onCall(async (request) => {
       : Promise.resolve(),
   ]);
 
+  if (previousTeamId !== teamId || previousManagerId !== nextTeamSnapshot.managerId) {
+    await createTeamMembershipNotificationsSafely({
+      companyId,
+      actorUid,
+      targetUser: { ...targetUser, uid },
+      nextTeam: nextTeamSnapshot,
+      previousTeamId,
+      previousTeamName,
+      previousManagerId,
+      action: previousTeamId ? 'reassigned' : 'assigned',
+    });
+  }
+
   return { companyId, teamId, uid, repairedRecords };
 });
 
@@ -2641,6 +2821,14 @@ exports.removeUserFromTeam = onCall(async (request) => {
   }
 
   const previousTeamId = optionalString(targetUser.teamId);
+  const previousTeamName = optionalString(targetUser.teamName);
+  const previousManagerId = optionalString(targetUser.managerId);
+  const previousTeamSnapshot = {
+    id: previousTeamId,
+    name: previousTeamName,
+    managerId: previousManagerId,
+    managerName: optionalString(targetUser.managerName),
+  };
   const nextAssigneeSnapshot = {
     ...targetUser,
     teamId: '',
@@ -2673,6 +2861,16 @@ exports.removeUserFromTeam = onCall(async (request) => {
 
   if (previousTeamId) {
     await refreshTeamMemberCount({ companyId, teamId: previousTeamId, actorUid });
+    await createTeamMembershipNotificationsSafely({
+      companyId,
+      actorUid,
+      targetUser: { ...targetUser, uid },
+      nextTeam: previousTeamSnapshot,
+      previousTeamId,
+      previousTeamName,
+      previousManagerId,
+      action: 'removed',
+    });
   }
 
   return { companyId, uid, repairedRecords };

@@ -2109,5 +2109,50 @@
   "matchingDemandUnavailableProperty": "تظهر المطابقات فقط للعقارات المتاحة.",
   "matchingDemandNoAccess": "لا توجد صلاحية لعرض العملاء الحاليين أو المحتملين لهذا الدور.",
   "matchingDemandLead": "عميل محتمل",
-  "matchingDemandClient": "عميل"
+  "matchingDemandClient": "عميل",
+  "dashboardDailySalesFocusTitle": "أولويات اليوم",
+  "dashboardDailySalesFocusSubtitle": "أهم ما يحتاج متابعة الآن.",
+  "dashboardDailySalesFocusManagerSubtitle": "مخاطر الفريق التي تحتاج متابعة اليوم.",
+  "dashboardDailySalesFocusAdminSubtitle": "مخاطر مبيعات على مستوى الشركة.",
+  "dashboardDailySalesFocusMarketingSubtitle": "إجراءات العملاء المحتملين المهمة اليوم.",
+  "dashboardDailySalesFocusViewerSubtitle": "أولويات للقراءة فقط من سجلاتك.",
+  "dashboardDailySalesFocusEmpty": "لا توجد أولوية حرجة الآن.",
+  "dashboardDailySalesFocusCount": "{count} عناصر",
+  "@dashboardDailySalesFocusCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailySalesFocusMatchingHint": "راجع العقارات المطابقة ثم تواصل.",
+  "dashboardDailySalesFocusLeadHint": "حدد الخطوة التالية.",
+  "dashboardDailySalesFocusAppointmentHint": "سجّل النتيجة أو أعد الجدولة.",
+  "dashboardDailySalesFocusDealHint": "حدد خطوة الإغلاق التالية.",
+  "dashboardDailySalesFocusTaskHint": "أنهِ المهمة أو حدّث حالتها.",
+  "dashboardDailySalesFocusGenericHint": "افتح السجل واحسم العائق.",
+  "leadAssignedBy": "تم إسناد العميل المحتمل إلى {toUser} بواسطة {actor}",
+  "@leadAssignedBy": {
+    "placeholders": {
+      "toUser": {},
+      "actor": {}
+    }
+  },
+  "auditAssignedToUser": "تم إسناده إلى {user}",
+  "@auditAssignedToUser": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "auditReassignedFromTo": "تم نقله من {fromUser} إلى {toUser}",
+  "@auditReassignedFromTo": {
+    "placeholders": {
+      "fromUser": {},
+      "toUser": {}
+    }
+  },
+  "auditUnassignedFrom": "تمت إزالة الإسناد من {user}",
+  "@auditUnassignedFrom": {
+    "placeholders": {
+      "user": {}
+    }
+  }
 }

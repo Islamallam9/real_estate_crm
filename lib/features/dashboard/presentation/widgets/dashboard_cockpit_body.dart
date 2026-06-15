@@ -121,12 +121,12 @@ class DashboardCockpitBody extends StatelessWidget {
             ),
             const SizedBox(height: _kCockpitGap),
             _AnimatedSection(
-              index: 3,
+              index: 4,
               child: _MainAnalyticsGrid(analytics: analytics),
             ),
             const SizedBox(height: _kCockpitGap),
             _AnimatedSection(
-              index: 4,
+              index: 5,
               child: _SecondaryAnalyticsGrid(
                 analytics: analytics,
                 authState: authState,
@@ -137,7 +137,7 @@ class DashboardCockpitBody extends StatelessWidget {
             ),
             const SizedBox(height: _kCockpitGap),
             _AnimatedSection(
-              index: 5,
+              index: 6,
               child: _BottomOpportunityGrid(
                 analytics: analytics,
                 platformPreview: platformPreview,
@@ -146,7 +146,7 @@ class DashboardCockpitBody extends StatelessWidget {
             if (!showRail) ...[
               const SizedBox(height: _kCockpitGap),
               _AnimatedSection(
-                index: 6,
+                index: 7,
                 child: DashboardTodayRail(
                   analytics: analytics,
                   commandSummary: commandSummary,
@@ -5300,6 +5300,18 @@ String _auditRailDetails(AppLocalizations l, AuditLog log) {
       if (field.isEmpty || oldValue == newValue) {
         continue;
       }
+      if (_isDashboardAuditAssignmentField(field)) {
+        final summary = _dashboardAuditAssignmentChangeSummary(
+          l,
+          log,
+          oldValue,
+          newValue,
+        );
+        if (summary.isNotEmpty) {
+          details.add(summary);
+        }
+        continue;
+      }
       details.add('${_auditFieldLabel(l, field)}: ${_auditChangeLabel(l, field, oldValue, newValue)}');
     }
     if (details.isNotEmpty) {
@@ -5312,6 +5324,82 @@ String _auditRailDetails(AppLocalizations l, AuditLog log) {
     return metadataDetails;
   }
   return _localizedAuditText(l, log.recordSubtitle.trim());
+}
+
+bool _isDashboardAuditAssignmentField(String field) {
+  return field == 'assignedTo' ||
+      field == 'assignedToId' ||
+      field == 'assignedUserId';
+}
+
+String _dashboardAuditAssignmentChangeSummary(
+  AppLocalizations l,
+  AuditLog log,
+  String oldValue,
+  String newValue,
+) {
+  final metadata = log.metadata;
+  final oldLabel = _dashboardAuditAssigneeChangeValue(
+    l,
+    oldValue,
+    fallbackName: metadata['previousAssignedToName'] ??
+        metadata['oldAssignedToName'] ??
+        metadata['previousAssigneeName'] ??
+        metadata['oldAssigneeName'],
+  );
+  final newLabel = _dashboardAuditAssigneeChangeValue(
+    l,
+    newValue,
+    fallbackName: metadata['assignedToName'] ??
+        metadata['newAssignedToName'] ??
+        metadata['assigneeName'] ??
+        metadata['newAssigneeName'],
+  );
+  final oldUnassigned = _isDashboardAuditUnassignedValue(oldValue);
+  final newUnassigned = _isDashboardAuditUnassignedValue(newValue);
+  if (newUnassigned && !oldUnassigned) {
+    return l.auditUnassignedFrom(_directionalAuditValue(oldLabel));
+  }
+  if (oldUnassigned && !newUnassigned) {
+    return l.auditAssignedToUser(_directionalAuditValue(newLabel));
+  }
+  if (!oldUnassigned && !newUnassigned) {
+    return l.auditReassignedFromTo(
+      _directionalAuditValue(oldLabel),
+      _directionalAuditValue(newLabel),
+    );
+  }
+  return '';
+}
+
+String _dashboardAuditAssigneeChangeValue(
+  AppLocalizations l,
+  String value, {
+  Object? fallbackName,
+}) {
+  final name = (fallbackName ?? '').toString().trim();
+  if (name.isNotEmpty && !_looksLikeAuditInternalId(name)) {
+    return name;
+  }
+  final raw = value.trim();
+  if (_isDashboardAuditUnassignedValue(raw)) {
+    return l.unassigned;
+  }
+  if (_looksLikeAuditInternalId(raw)) {
+    return _unavailableAuditUserLabel(l);
+  }
+  return _auditDisplayValue(l, 'assignedTo', raw);
+}
+
+bool _isDashboardAuditUnassignedValue(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isEmpty ||
+      normalized == '_' ||
+      normalized == '-' ||
+      normalized == 'null' ||
+      normalized == 'unassigned' ||
+      normalized == 'غير مسند' ||
+      normalized == 'غير متوفر';
 }
 
 String _dashboardAuditMetadataDetails(AppLocalizations l, AuditLog log) {
@@ -5346,6 +5434,19 @@ String _localizedAuditText(AppLocalizations l, String value) {
   if (!l.localeName.toLowerCase().startsWith('ar')) {
     return text;
   }
+
+  final directTokenReplacements = <String, String>{
+    'preferredLocation': 'الموقع المفضل',
+    'preferredPropertyType': 'نوع العقار المفضل',
+    'budgetMin': 'الحد الأدنى للميزانية',
+    'budgetMax': 'الحد الأقصى للميزانية',
+    'sourceDetails': 'تفاصيل المصدر',
+    'assignedToId': 'مسند إلى',
+    'assignedTo': 'مسند إلى',
+  };
+  directTokenReplacements.forEach((token, label) {
+    text = text.replaceAll(token, label);
+  });
 
   final replacements = <RegExp, String>{
     RegExp(r'\bnewLead\b'): 'جديد',

@@ -10630,6 +10630,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Client'**
   String get matchingDemandClient;
+
+  /// No description provided for @dashboardDailySalesFocusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today’s Priorities'**
+  String get dashboardDailySalesFocusTitle;
+
+  /// No description provided for @dashboardDailySalesFocusSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Top actions for today.'**
+  String get dashboardDailySalesFocusSubtitle;
+
+  /// No description provided for @dashboardDailySalesFocusManagerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team risks that need attention today.'**
+  String get dashboardDailySalesFocusManagerSubtitle;
+
+  /// No description provided for @dashboardDailySalesFocusAdminSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Company-level sales risks to check today.'**
+  String get dashboardDailySalesFocusAdminSubtitle;
+
+  /// No description provided for @dashboardDailySalesFocusMarketingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead actions worth checking today.'**
+  String get dashboardDailySalesFocusMarketingSubtitle;
+
+  /// No description provided for @dashboardDailySalesFocusViewerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only priorities from assigned records.'**
+  String get dashboardDailySalesFocusViewerSubtitle;
+
+  /// No description provided for @dashboardDailySalesFocusEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No critical priority right now.'**
+  String get dashboardDailySalesFocusEmpty;
+
+  /// No description provided for @dashboardDailySalesFocusCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String dashboardDailySalesFocusCount(Object count);
+
+  /// No description provided for @dashboardDailySalesFocusMatchingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Review matching properties, then contact.'**
+  String get dashboardDailySalesFocusMatchingHint;
+
+  /// No description provided for @dashboardDailySalesFocusLeadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the next clear step.'**
+  String get dashboardDailySalesFocusLeadHint;
+
+  /// No description provided for @dashboardDailySalesFocusAppointmentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Record outcome or reschedule.'**
+  String get dashboardDailySalesFocusAppointmentHint;
+
+  /// No description provided for @dashboardDailySalesFocusDealHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the next closing step.'**
+  String get dashboardDailySalesFocusDealHint;
+
+  /// No description provided for @dashboardDailySalesFocusTaskHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish or update the task.'**
+  String get dashboardDailySalesFocusTaskHint;
+
+  /// No description provided for @dashboardDailySalesFocusGenericHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open and resolve the blocker.'**
+  String get dashboardDailySalesFocusGenericHint;
+
+  /// No description provided for @leadAssignedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead assigned to {toUser} by {actor}'**
+  String leadAssignedBy(Object toUser, Object actor);
+
+  /// No description provided for @auditAssignedToUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to {user}'**
+  String auditAssignedToUser(Object user);
+
+  /// No description provided for @auditReassignedFromTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved from {fromUser} to {toUser}'**
+  String auditReassignedFromTo(Object fromUser, Object toUser);
+
+  /// No description provided for @auditUnassignedFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment removed from {user}'**
+  String auditUnassignedFrom(Object user);
 }
 
 class _AppLocalizationsDelegate

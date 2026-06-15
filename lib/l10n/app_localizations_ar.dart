@@ -5758,4 +5758,74 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get matchingDemandClient => 'عميل';
+
+  @override
+  String get dashboardDailySalesFocusTitle => 'أولويات اليوم';
+
+  @override
+  String get dashboardDailySalesFocusSubtitle => 'أهم ما يحتاج متابعة الآن.';
+
+  @override
+  String get dashboardDailySalesFocusManagerSubtitle =>
+      'مخاطر الفريق التي تحتاج متابعة اليوم.';
+
+  @override
+  String get dashboardDailySalesFocusAdminSubtitle =>
+      'مخاطر مبيعات على مستوى الشركة.';
+
+  @override
+  String get dashboardDailySalesFocusMarketingSubtitle =>
+      'إجراءات العملاء المحتملين المهمة اليوم.';
+
+  @override
+  String get dashboardDailySalesFocusViewerSubtitle =>
+      'أولويات للقراءة فقط من سجلاتك.';
+
+  @override
+  String get dashboardDailySalesFocusEmpty => 'لا توجد أولوية حرجة الآن.';
+
+  @override
+  String dashboardDailySalesFocusCount(Object count) {
+    return '$count عناصر';
+  }
+
+  @override
+  String get dashboardDailySalesFocusMatchingHint =>
+      'راجع العقارات المطابقة ثم تواصل.';
+
+  @override
+  String get dashboardDailySalesFocusLeadHint => 'حدد الخطوة التالية.';
+
+  @override
+  String get dashboardDailySalesFocusAppointmentHint =>
+      'سجّل النتيجة أو أعد الجدولة.';
+
+  @override
+  String get dashboardDailySalesFocusDealHint => 'حدد خطوة الإغلاق التالية.';
+
+  @override
+  String get dashboardDailySalesFocusTaskHint => 'أنهِ المهمة أو حدّث حالتها.';
+
+  @override
+  String get dashboardDailySalesFocusGenericHint => 'افتح السجل واحسم العائق.';
+
+  @override
+  String leadAssignedBy(Object toUser, Object actor) {
+    return 'تم إسناد العميل المحتمل إلى $toUser بواسطة $actor';
+  }
+
+  @override
+  String auditAssignedToUser(Object user) {
+    return 'تم إسناده إلى $user';
+  }
+
+  @override
+  String auditReassignedFromTo(Object fromUser, Object toUser) {
+    return 'تم نقله من $fromUser إلى $toUser';
+  }
+
+  @override
+  String auditUnassignedFrom(Object user) {
+    return 'تمت إزالة الإسناد من $user';
+  }
 }

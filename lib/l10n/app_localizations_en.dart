@@ -5794,4 +5794,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get matchingDemandClient => 'Client';
+
+  @override
+  String get dashboardDailySalesFocusTitle => 'Today’s Priorities';
+
+  @override
+  String get dashboardDailySalesFocusSubtitle => 'Top actions for today.';
+
+  @override
+  String get dashboardDailySalesFocusManagerSubtitle =>
+      'Team risks that need attention today.';
+
+  @override
+  String get dashboardDailySalesFocusAdminSubtitle =>
+      'Company-level sales risks to check today.';
+
+  @override
+  String get dashboardDailySalesFocusMarketingSubtitle =>
+      'Lead actions worth checking today.';
+
+  @override
+  String get dashboardDailySalesFocusViewerSubtitle =>
+      'Read-only priorities from assigned records.';
+
+  @override
+  String get dashboardDailySalesFocusEmpty => 'No critical priority right now.';
+
+  @override
+  String dashboardDailySalesFocusCount(Object count) {
+    return '$count items';
+  }
+
+  @override
+  String get dashboardDailySalesFocusMatchingHint =>
+      'Review matching properties, then contact.';
+
+  @override
+  String get dashboardDailySalesFocusLeadHint => 'Set the next clear step.';
+
+  @override
+  String get dashboardDailySalesFocusAppointmentHint =>
+      'Record outcome or reschedule.';
+
+  @override
+  String get dashboardDailySalesFocusDealHint => 'Set the next closing step.';
+
+  @override
+  String get dashboardDailySalesFocusTaskHint => 'Finish or update the task.';
+
+  @override
+  String get dashboardDailySalesFocusGenericHint =>
+      'Open and resolve the blocker.';
+
+  @override
+  String leadAssignedBy(Object toUser, Object actor) {
+    return 'Lead assigned to $toUser by $actor';
+  }
+
+  @override
+  String auditAssignedToUser(Object user) {
+    return 'Assigned to $user';
+  }
+
+  @override
+  String auditReassignedFromTo(Object fromUser, Object toUser) {
+    return 'Moved from $fromUser to $toUser';
+  }
+
+  @override
+  String auditUnassignedFrom(Object user) {
+    return 'Assignment removed from $user';
+  }
 }

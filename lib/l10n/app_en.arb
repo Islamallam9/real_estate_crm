@@ -2109,5 +2109,50 @@
   "matchingDemandUnavailableProperty": "Matching demand appears only for available properties.",
   "matchingDemandNoAccess": "No lead or client access is available for this role.",
   "matchingDemandLead": "Lead",
-  "matchingDemandClient": "Client"
+  "matchingDemandClient": "Client",
+  "dashboardDailySalesFocusTitle": "Today’s Priorities",
+  "dashboardDailySalesFocusSubtitle": "Top actions for today.",
+  "dashboardDailySalesFocusManagerSubtitle": "Team risks that need attention today.",
+  "dashboardDailySalesFocusAdminSubtitle": "Company-level sales risks to check today.",
+  "dashboardDailySalesFocusMarketingSubtitle": "Lead actions worth checking today.",
+  "dashboardDailySalesFocusViewerSubtitle": "Read-only priorities from assigned records.",
+  "dashboardDailySalesFocusEmpty": "No critical priority right now.",
+  "dashboardDailySalesFocusCount": "{count} items",
+  "@dashboardDailySalesFocusCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardDailySalesFocusMatchingHint": "Review matching properties, then contact.",
+  "dashboardDailySalesFocusLeadHint": "Set the next clear step.",
+  "dashboardDailySalesFocusAppointmentHint": "Record outcome or reschedule.",
+  "dashboardDailySalesFocusDealHint": "Set the next closing step.",
+  "dashboardDailySalesFocusTaskHint": "Finish or update the task.",
+  "dashboardDailySalesFocusGenericHint": "Open and resolve the blocker.",
+  "leadAssignedBy": "Lead assigned to {toUser} by {actor}",
+  "@leadAssignedBy": {
+    "placeholders": {
+      "toUser": {},
+      "actor": {}
+    }
+  },
+  "auditAssignedToUser": "Assigned to {user}",
+  "@auditAssignedToUser": {
+    "placeholders": {
+      "user": {}
+    }
+  },
+  "auditReassignedFromTo": "Moved from {fromUser} to {toUser}",
+  "@auditReassignedFromTo": {
+    "placeholders": {
+      "fromUser": {},
+      "toUser": {}
+    }
+  },
+  "auditUnassignedFrom": "Assignment removed from {user}",
+  "@auditUnassignedFrom": {
+    "placeholders": {
+      "user": {}
+    }
+  }
 }

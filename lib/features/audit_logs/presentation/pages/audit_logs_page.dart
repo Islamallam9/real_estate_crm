@@ -1723,6 +1723,13 @@ List<String> _changeRows(AppLocalizations l, AuditLog log) {
     if (field.trim().isEmpty || oldValue == newValue) {
       continue;
     }
+    if (_isAssignmentAuditField(field)) {
+      final summary = _auditAssignmentChangeSummary(l, log, oldValue, newValue);
+      if (summary.isNotEmpty) {
+        details.add(summary);
+      }
+      continue;
+    }
     details.add(
       '${_fieldLabel(l, field)}: ${l.changedFromTo(
         _isolate(_valueLabel(l, field, oldValue)),
@@ -1731,6 +1738,80 @@ List<String> _changeRows(AppLocalizations l, AuditLog log) {
     );
   }
   return details.take(8).toList(growable: false);
+}
+
+bool _isAssignmentAuditField(String field) {
+  return field == 'assignedTo' ||
+      field == 'assignedToId' ||
+      field == 'assignedUserId';
+}
+
+String _auditAssignmentChangeSummary(
+  AppLocalizations l,
+  AuditLog log,
+  String oldValue,
+  String newValue,
+) {
+  final metadata = log.metadata;
+  final oldLabel = _auditAssigneeChangeValue(
+    l,
+    oldValue,
+    fallbackName: metadata['previousAssignedToName'] ??
+        metadata['oldAssignedToName'] ??
+        metadata['previousAssigneeName'] ??
+        metadata['oldAssigneeName'],
+  );
+  final newLabel = _auditAssigneeChangeValue(
+    l,
+    newValue,
+    fallbackName: metadata['assignedToName'] ??
+        metadata['newAssignedToName'] ??
+        metadata['assigneeName'] ??
+        metadata['newAssigneeName'],
+  );
+
+  final oldUnassigned = _isUnassignedAuditValue(oldValue);
+  final newUnassigned = _isUnassignedAuditValue(newValue);
+  if (newUnassigned && !oldUnassigned) {
+    return l.auditUnassignedFrom(_isolate(oldLabel));
+  }
+  if (oldUnassigned && !newUnassigned) {
+    return l.auditAssignedToUser(_isolate(newLabel));
+  }
+  if (!oldUnassigned && !newUnassigned) {
+    return l.auditReassignedFromTo(_isolate(oldLabel), _isolate(newLabel));
+  }
+  return '';
+}
+
+String _auditAssigneeChangeValue(
+  AppLocalizations l,
+  String value, {
+  Object? fallbackName,
+}) {
+  final name = (fallbackName ?? '').toString().trim();
+  if (name.isNotEmpty && !_looksLikeInternalId(name)) {
+    return name;
+  }
+  final raw = value.trim();
+  if (_isUnassignedAuditValue(raw)) {
+    return l.unassigned;
+  }
+  if (_looksLikeInternalId(raw)) {
+    return _unavailableUserLabel(l);
+  }
+  return _valueLabel(l, 'assignedTo', raw);
+}
+
+bool _isUnassignedAuditValue(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isEmpty ||
+      normalized == '_' ||
+      normalized == '-' ||
+      normalized == 'null' ||
+      normalized == 'unassigned' ||
+      normalized == 'غير مسند' ||
+      normalized == 'غير متوفر';
 }
 
 String _detailsSummary(AppLocalizations l, AuditLog log) {
@@ -1800,6 +1881,19 @@ String _localizedAuditText(AppLocalizations l, String value) {
   if (!l.localeName.toLowerCase().startsWith('ar')) {
     return text;
   }
+
+  final directTokenReplacements = <String, String>{
+    'preferredLocation': 'الموقع المفضل',
+    'preferredPropertyType': 'نوع العقار المفضل',
+    'budgetMin': 'الحد الأدنى للميزانية',
+    'budgetMax': 'الحد الأقصى للميزانية',
+    'sourceDetails': 'تفاصيل المصدر',
+    'assignedToId': 'مسند إلى',
+    'assignedTo': 'مسند إلى',
+  };
+  directTokenReplacements.forEach((token, label) {
+    text = text.replaceAll(token, label);
+  });
 
   final replacements = <RegExp, String>{
     RegExp(r'\bnewLead\b'): 'جديد',
