@@ -38,6 +38,11 @@ abstract interface class PropertiesRemoteDataSource {
     required String companyId,
     int limit = 50,
   });
+
+  Future<List<PropertyModel>> findAvailablePropertiesForMatching({
+    required String companyId,
+    int limit = 120,
+  });
 }
 
 class FirestorePropertiesRemoteDataSource
@@ -269,6 +274,50 @@ class FirestorePropertiesRemoteDataSource
         throw const PropertyException(AppErrorMessages.unknown);
       }
     })();
+  }
+
+
+  @override
+  Future<List<PropertyModel>> findAvailablePropertiesForMatching({
+    required String companyId,
+    int limit = 120,
+  }) async {
+    try {
+      final snapshot = await _propertiesCollection(companyId)
+          .where('status', isEqualTo: propertyStatusToValue(PropertyStatus.available))
+          .limit(limit)
+          .get()
+          .timeout(_firestoreWriteTimeout);
+      final properties = _propertiesFromSnapshot(
+        companyId: companyId,
+        snapshot: snapshot,
+        label: 'findAvailablePropertiesForMatching',
+      ).where((property) =>
+          !property.isArchived && property.status == PropertyStatus.available
+      ).toList(growable: false);
+      properties.sort((a, b) {
+        final updatedComparison = b.updatedAt.compareTo(a.updatedAt);
+        if (updatedComparison != 0) {
+          return updatedComparison;
+        }
+        return b.id.compareTo(a.id);
+      });
+      return properties;
+    } on FirebaseException catch (error) {
+      _debugPropertyStreamError(
+        label: 'findAvailablePropertiesForMatching',
+        error: error,
+      );
+      throw PropertyException(_mapFirebaseError(error));
+    } on PropertyException {
+      rethrow;
+    } catch (error) {
+      _debugPropertyStreamError(
+        label: 'findAvailablePropertiesForMatching.unknown',
+        error: error,
+      );
+      throw const PropertyException(AppErrorMessages.unknown);
+    }
   }
 
   CollectionReference<Map<String, dynamic>> _propertiesCollection(

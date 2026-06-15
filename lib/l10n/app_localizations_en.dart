@@ -5721,4 +5721,77 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get leadNbaContactedTodayBody =>
       'This lead was contacted today, so it should stay quiet for now. Set a follow-up if the client needs another touchpoint.';
+
+  @override
+  String get matchingPropertiesTitle => 'Matching available properties';
+
+  @override
+  String get matchingPropertiesLeadSubtitle =>
+      'Suggested from this lead\'s preferred location, property type, and budget. Use it as a sales hint, not a guaranteed fit.';
+
+  @override
+  String get matchingPropertiesClientSubtitle =>
+      'Suggested from this client\'s preferred location, property type, and budget. Use it as a sales hint, not a guaranteed fit.';
+
+  @override
+  String get matchingPropertiesAddPreferences =>
+      'Add a preferred location, property type, or budget to show useful property matches.';
+
+  @override
+  String get matchingPropertiesNoMatches =>
+      'No available properties strongly match these preferences yet.';
+
+  @override
+  String get matchingPropertiesLoadFailed =>
+      'Unable to load matching properties.';
+
+  @override
+  String get propertyMatchSameCompound => 'Same compound';
+
+  @override
+  String get propertyMatchSameLocation => 'Same location';
+
+  @override
+  String get propertyMatchSameType => 'Same type';
+
+  @override
+  String get propertyMatchWithinBudget => 'Within budget';
+
+  @override
+  String get propertyMatchCloseToBudget => 'Close to budget';
+
+  @override
+  String get propertyMatchAvailableNow => 'Available now';
+
+  @override
+  String get viewProperty => 'View property';
+
+  @override
+  String get matchingDemandTitle => 'Matching leads and clients';
+
+  @override
+  String get matchingDemandSubtitle =>
+      'People whose preferences fit this available property. Use it to decide who to contact first.';
+
+  @override
+  String get matchingDemandNoMatches =>
+      'No active leads or clients strongly match this property yet.';
+
+  @override
+  String get matchingDemandLoadFailed =>
+      'Unable to load matching leads and clients.';
+
+  @override
+  String get matchingDemandUnavailableProperty =>
+      'Matching demand appears only for available properties.';
+
+  @override
+  String get matchingDemandNoAccess =>
+      'No lead or client access is available for this role.';
+
+  @override
+  String get matchingDemandLead => 'Lead';
+
+  @override
+  String get matchingDemandClient => 'Client';
 }

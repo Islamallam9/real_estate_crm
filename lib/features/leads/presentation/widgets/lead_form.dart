@@ -8,6 +8,8 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../users/domain/entities/assignment_user_policy.dart';
 import '../../../users/domain/entities/user_profile.dart';
+import '../../../properties/domain/entities/property.dart';
+import '../../../properties/presentation/widgets/property_labels.dart';
 import '../../domain/entities/lead.dart';
 
 class LeadForm extends StatefulWidget {
@@ -45,12 +47,12 @@ class _LeadFormState extends State<LeadForm> {
   final _budgetMaxController = TextEditingController();
   final _sourceDetailsController = TextEditingController();
   final _preferredLocationController = TextEditingController();
-  final _preferredPropertyTypeController = TextEditingController();
   final _notesController = TextEditingController();
 
   LeadSource _source = LeadSource.other;
   LeadStatus _status = LeadStatus.newLead;
   LeadPriority _priority = LeadPriority.medium;
+  String _preferredPropertyType = '';
   String _assignedTo = '';
   String _assignedToName = '';
   String _teamId = '';
@@ -78,7 +80,7 @@ class _LeadFormState extends State<LeadForm> {
         : lead.budgetMax.toString();
     _sourceDetailsController.text = lead.sourceDetails;
     _preferredLocationController.text = lead.preferredLocation;
-    _preferredPropertyTypeController.text = lead.preferredPropertyType;
+    _preferredPropertyType = _normalizeStoredPropertyType(lead.preferredPropertyType);
     _notesController.text = lead.notes;
     _source = lead.source;
     _status = lead.status;
@@ -102,7 +104,6 @@ class _LeadFormState extends State<LeadForm> {
     _budgetMaxController.dispose();
     _sourceDetailsController.dispose();
     _preferredLocationController.dispose();
-    _preferredPropertyTypeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -228,10 +229,13 @@ class _LeadFormState extends State<LeadForm> {
               enabled: !widget.isSaving,
             ),
             const SizedBox(height: AppSpacing.md),
-            AppTextField(
-              controller: _preferredPropertyTypeController,
+            AppDropdown<String>(
               label: l.preferredPropertyType,
+              value: _preferredPropertyType,
+              items: ['', ...PropertyType.values.map((type) => type.name)],
               enabled: !widget.isSaving,
+              itemLabelBuilder: (value) => _propertyTypeChoiceLabel(l, value),
+              onChanged: (value) => setState(() => _preferredPropertyType = value),
             ),
           ]),
           const SizedBox(height: AppSpacing.lg),
@@ -380,6 +384,57 @@ class _LeadFormState extends State<LeadForm> {
     return '';
   }
 
+  String _normalizeStoredPropertyType(String value) {
+    final normalized = _normalizePropertyTypeInput(value);
+    if (normalized.isEmpty) {
+      return '';
+    }
+    for (final type in PropertyType.values) {
+      if (type.name == normalized) {
+        return type.name;
+      }
+    }
+    return '';
+  }
+
+  String _normalizePropertyTypeInput(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '')
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll(RegExp(r'[^a-z0-9\u0600-\u06FF]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return switch (normalized) {
+      'apartment' || 'flat' || 'شقه' => 'apartment',
+      'villa' || 'فيلا' => 'villa',
+      'office' || 'مكتب' => 'office',
+      'shop' || 'store' || 'محل' => 'shop',
+      'land' || 'ارض' => 'land',
+      'studio' || 'استوديو' => 'studio',
+      'duplex' || 'douplex' || 'دوبلكس' => 'duplex',
+      'penthouse' || 'بنتهاوس' => 'penthouse',
+      _ => normalized,
+    };
+  }
+
+  String _propertyTypeChoiceLabel(AppLocalizations l, String value) {
+    if (value.trim().isEmpty) {
+      return l.notAvailable;
+    }
+    for (final type in PropertyType.values) {
+      if (type.name == value) {
+        return propertyTypeLabel(l, type);
+      }
+    }
+    return value;
+  }
+
   void _submit() {
     final formState = _formKey.currentState;
     if (formState == null || !formState.validate()) {
@@ -403,7 +458,7 @@ class _LeadFormState extends State<LeadForm> {
         budgetMin: num.tryParse(_budgetMinController.text.trim()) ?? 0,
         budgetMax: num.tryParse(_budgetMaxController.text.trim()) ?? 0,
         preferredLocation: _preferredLocationController.text.trim(),
-        preferredPropertyType: _preferredPropertyTypeController.text.trim(),
+        preferredPropertyType: _preferredPropertyType,
         assignedTo: widget.canAssign
             ? _assignedTo
             : widget.lead?.assignedTo ?? '',

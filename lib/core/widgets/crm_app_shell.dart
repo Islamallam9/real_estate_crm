@@ -907,10 +907,9 @@ class _SmartGuidanceFloatingOverlayState
     if (!mounted) {
       return;
     }
-    // Keep smart guidance helpful but not intrusive. The overlay rotates
-    // with a random delay between 10 and 40 minutes, instead of appearing
-    // every few seconds/minutes.
-    final delay = Duration(minutes: 10 + _random.nextInt(31));
+    // Keep smart guidance useful and frequent enough to matter without
+    // becoming spam. Rotate with a random delay between 5 and 15 minutes.
+    final delay = Duration(minutes: 5 + _random.nextInt(11));
     _scheduleAfter(delay);
   }
 

@@ -43,6 +43,17 @@ android {
     }
 }
 
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.outputs.forEach { output ->
+            val versionName = output.versionName.get()
+            val versionCode = output.versionCode.get()
+            output.outputFileName.set("masar-crm-$versionName-$versionCode.apk")
+        }
+    }
+}
+
 flutter {
     source = "../.."
 }

@@ -5686,4 +5686,76 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get leadNbaContactedTodayBody =>
       'تم التواصل مع هذا العميل اليوم، لذلك لا يجب أن يظل كإجراء عاجل الآن. حدّد متابعة إذا كان يحتاج تواصلًا آخر.';
+
+  @override
+  String get matchingPropertiesTitle => 'عقارات متاحة مناسبة';
+
+  @override
+  String get matchingPropertiesLeadSubtitle =>
+      'اقتراحات بناءً على الموقع المطلوب ونوع العقار والميزانية لهذا العميل المحتمل. استخدمها كإشارة بيع، وليست تطابقًا مضمونًا.';
+
+  @override
+  String get matchingPropertiesClientSubtitle =>
+      'اقتراحات بناءً على الموقع المطلوب ونوع العقار والميزانية لهذا العميل. استخدمها كإشارة بيع، وليست تطابقًا مضمونًا.';
+
+  @override
+  String get matchingPropertiesAddPreferences =>
+      'أضف الموقع المطلوب أو نوع العقار أو الميزانية لعرض اقتراحات عقارية مفيدة.';
+
+  @override
+  String get matchingPropertiesNoMatches =>
+      'لا توجد عقارات متاحة متطابقة بقوة مع هذه التفضيلات حاليًا.';
+
+  @override
+  String get matchingPropertiesLoadFailed => 'تعذر تحميل العقارات المناسبة.';
+
+  @override
+  String get propertyMatchSameCompound => 'نفس الكمبوند';
+
+  @override
+  String get propertyMatchSameLocation => 'نفس الموقع';
+
+  @override
+  String get propertyMatchSameType => 'نفس النوع';
+
+  @override
+  String get propertyMatchWithinBudget => 'ضمن الميزانية';
+
+  @override
+  String get propertyMatchCloseToBudget => 'قريبة من الميزانية';
+
+  @override
+  String get propertyMatchAvailableNow => 'متاحة الآن';
+
+  @override
+  String get viewProperty => 'عرض العقار';
+
+  @override
+  String get matchingDemandTitle => 'عملاء مناسبون لهذا العقار';
+
+  @override
+  String get matchingDemandSubtitle =>
+      'عملاء حاليون أو محتملون تتوافق تفضيلاتهم مع هذا العقار المتاح. استخدمها لتحديد من يستحق التواصل أولًا.';
+
+  @override
+  String get matchingDemandNoMatches =>
+      'لا يوجد عملاء حاليون أو محتملون متوافقون بقوة مع هذا العقار حاليًا.';
+
+  @override
+  String get matchingDemandLoadFailed =>
+      'تعذر تحميل العملاء المناسبين لهذا العقار.';
+
+  @override
+  String get matchingDemandUnavailableProperty =>
+      'تظهر المطابقات فقط للعقارات المتاحة.';
+
+  @override
+  String get matchingDemandNoAccess =>
+      'لا توجد صلاحية لعرض العملاء الحاليين أو المحتملين لهذا الدور.';
+
+  @override
+  String get matchingDemandLead => 'عميل محتمل';
+
+  @override
+  String get matchingDemandClient => 'عميل';
 }

@@ -18,6 +18,7 @@ import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../property_matching/presentation/widgets/matching_demand_card.dart';
 import '../../domain/entities/property.dart';
 import '../cubit/properties_cubit.dart';
 import '../cubit/properties_state.dart';
@@ -192,6 +193,23 @@ class _PropertyDetailsViewState extends State<_PropertyDetailsView> {
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         _PropertyImagesSection(property: property),
+                        const SizedBox(height: AppSpacing.md),
+                        MatchingDemandCard(
+                          companyId: companyId,
+                          property: property,
+                          role: role!,
+                          currentUserId: uid,
+                          currentUserTeamId: session.profile.teamId,
+                          currentUserManagerId: session.profile.managerId,
+                          canViewLeads: PermissionService.can(
+                            role,
+                            AppPermission.viewLeads,
+                          ),
+                          canViewClients: PermissionService.can(
+                            role,
+                            AppPermission.viewClients,
+                          ),
+                        ),
                         const SizedBox(height: AppSpacing.md),
                         _DetailsSection(
                           title: l.details,

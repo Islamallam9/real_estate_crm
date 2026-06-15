@@ -28,6 +28,9 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../journeys/domain/entities/connected_journey.dart';
 import '../../../journeys/presentation/widgets/connected_journey_panel.dart';
 import '../../../journeys/presentation/widgets/journey_builders.dart';
+import '../../../property_matching/presentation/widgets/matching_properties_card.dart';
+import '../../../properties/domain/entities/property.dart';
+import '../../../properties/presentation/widgets/property_labels.dart';
 import '../../../users/data/datasources/user_profile_remote_data_source.dart';
 import '../../../users/data/repositories/user_profile_repository_impl.dart';
 import '../../../users/domain/entities/user_profile.dart';
@@ -59,6 +62,20 @@ class LeadDetailsPage extends StatelessWidget {
       },
     );
   }
+}
+
+
+String _preferredPropertyTypeDisplayLabel(AppLocalizations l, String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return l.notAvailable;
+  }
+  for (final type in PropertyType.values) {
+    if (type.name == normalized) {
+      return propertyTypeLabel(l, type);
+    }
+  }
+  return value.trim();
 }
 
 class _LeadDetailsView extends StatefulWidget {
@@ -590,10 +607,18 @@ class _LeadDetailsContentState extends State<_LeadDetailsContent> {
           _detail(l.preferredLocation, widget.lead.preferredLocation, l),
           _detail(
             l.preferredPropertyType,
-            widget.lead.preferredPropertyType,
+            _preferredPropertyTypeDisplayLabel(l, widget.lead.preferredPropertyType),
             l,
           ),
         ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      MatchingPropertiesCard(
+        companyId: widget.companyId,
+        preferredLocation: widget.lead.preferredLocation,
+        preferredPropertyType: widget.lead.preferredPropertyType,
+        budgetMin: widget.lead.budgetMin,
+        budgetMax: widget.lead.budgetMax,
       ),
       const SizedBox(height: AppSpacing.md),
       _DetailsSection(

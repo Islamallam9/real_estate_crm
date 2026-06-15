@@ -149,6 +149,7 @@ class DashboardCockpitBody extends StatelessWidget {
                 index: 6,
                 child: DashboardTodayRail(
                   analytics: analytics,
+                  commandSummary: commandSummary,
                   authState: authState,
                   platformPreview: platformPreview,
                   onRecentActivityNeeded: onRecentActivityNeeded,
@@ -174,6 +175,7 @@ class DashboardCockpitBody extends StatelessWidget {
                   index: 1,
                   child: DashboardTodayRail(
                     analytics: analytics,
+                    commandSummary: commandSummary,
                     authState: authState,
                     platformPreview: platformPreview,
                     onRecentActivityNeeded: onRecentActivityNeeded,
@@ -284,7 +286,7 @@ class _DashboardGuidanceOverlayState extends State<_DashboardGuidanceOverlay> {
       return;
     }
 
-    final delay = Duration(minutes: 10 + _random.nextInt(31));
+    final delay = Duration(minutes: 5 + _random.nextInt(11));
     _showTimer = Timer(delay, _showSuggestion);
   }
 
@@ -307,7 +309,7 @@ class _DashboardGuidanceOverlayState extends State<_DashboardGuidanceOverlay> {
 
     setState(() {
       _openedOnce = true;
-      _item = items[_random.nextInt(items.length)];
+      _item = items.first;
       _visible = true;
     });
 
@@ -552,6 +554,7 @@ class DashboardMobileTabs extends StatelessWidget {
           children: [
             DashboardTodayRail(
               analytics: analytics,
+              commandSummary: commandSummary,
               authState: authState,
               platformPreview: platformPreview,
               onRecentActivityNeeded: onRecentActivityNeeded,
@@ -871,8 +874,8 @@ class _SecondaryAnalyticsGrid extends StatelessWidget {
   });
 
   final DashboardAnalytics analytics;
-  final AuthState authState;
   final SalesCommandSummary commandSummary;
+  final AuthState authState;
   final bool platformPreview;
   final VoidCallback onActiveUsersNeeded;
 
@@ -3605,6 +3608,25 @@ class _InlineEmptyMessage extends StatelessWidget {
   }
 }
 
+
+List<SalesCommandItem> _smartUrgentCommandItems(SalesCommandSummary summary) {
+  return _topCommandItems(summary).where((item) {
+    if (_commandRoute(item) == null &&
+        item.actionType != DashboardCommandActionType.createFollowUp) {
+      return false;
+    }
+    return item.priority == DashboardPriority.high ||
+        item.reason == DashboardAttentionReason.appointmentMissed ||
+        item.reason == DashboardAttentionReason.appointmentDueNow ||
+        item.reason == DashboardAttentionReason.appointmentNeedsFeedback ||
+        item.reason == DashboardAttentionReason.overdueFollowUp ||
+        item.reason == DashboardAttentionReason.overdueTask ||
+        item.reason == DashboardAttentionReason.leadMissingNextStep ||
+        item.reason == DashboardAttentionReason.dealAtRisk ||
+        item.reason == DashboardAttentionReason.unassignedLead;
+  }).toList(growable: false);
+}
+
 List<SalesCommandItem> _topCommandItems(SalesCommandSummary summary) {
   final used = <String>{};
   _purgeHandledSalesCommandItems();
@@ -4848,12 +4870,14 @@ class DashboardTodayRail extends StatefulWidget {
   const DashboardTodayRail({
     super.key,
     required this.analytics,
+    required this.commandSummary,
     required this.authState,
     required this.platformPreview,
     required this.onRecentActivityNeeded,
   });
 
   final DashboardAnalytics analytics;
+  final SalesCommandSummary commandSummary;
   final AuthState authState;
   final bool platformPreview;
   final VoidCallback onRecentActivityNeeded;
@@ -4875,10 +4899,6 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final selectedAppointments = _appointmentsForDate(
-      widget.analytics.calendarItems,
-      _selectedDate,
-    );
-    final urgentItems = _urgentItemsForDate(
       widget.analytics.calendarItems,
       _selectedDate,
     );
@@ -4950,17 +4970,6 @@ class _DashboardTodayRailState extends State<DashboardTodayRail> {
             _RailEmpty(message: l.dashboardNoAppointmentsForDay)
           else
             for (final item in selectedAppointments.take(4))
-              _RailItem(item: item, platformPreview: widget.platformPreview),
-          const SizedBox(height: 10),
-          _RailSectionHeader(
-            title: l.dashboardUrgentActions,
-            count: urgentItems.length,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          if (urgentItems.isEmpty)
-            _RailEmpty(message: l.dashboardNoUrgentActions)
-          else
-            for (final item in urgentItems.take(4))
               _RailItem(item: item, platformPreview: widget.platformPreview),
           const SizedBox(height: 10),
           DashboardRecentActivityRailCard(
@@ -5365,6 +5374,11 @@ String _localizedAuditText(AppLocalizations l, String value) {
     RegExp(r'\bcompletedAt\b'): 'وقت الإكمال',
     RegExp(r'\bcancelledAt\b'): 'وقت الإلغاء',
     RegExp(r'\bmissedAt\b'): 'وقت الفوات',
+    RegExp(r'\bpreferredLocation\b'): 'الموقع المفضل',
+    RegExp(r'\bpreferredPropertyType\b'): 'نوع العقار المفضل',
+    RegExp(r'\bbudgetMin\b'): 'الحد الأدنى للميزانية',
+    RegExp(r'\bbudgetMax\b'): 'الحد الأقصى للميزانية',
+    RegExp(r'\bsourceDetails\b'): 'تفاصيل المصدر',
     RegExp(r'\bassignedTo\b'): 'مسند إلى',
     RegExp(r'\bassignedToId\b'): 'مسند إلى',
     RegExp(r'\bactorId\b'): 'المنفذ',
@@ -5443,7 +5457,14 @@ String _auditFieldLabel(AppLocalizations l, String field) {
     'phone' => l.phoneUpdated,
     'email' => l.emailUpdated,
     'status' => l.statusUpdated,
+    'source' => l.sourceUpdated,
+    'sourceDetails' => l.sourceDetails,
     'priority' => l.priorityUpdated,
+    'budget' => l.budgetUpdated,
+    'budgetMin' => l.budgetMin,
+    'budgetMax' => l.budgetMax,
+    'preferredLocation' => l.preferredLocationUpdated,
+    'preferredPropertyType' => l.preferredPropertyTypeUpdated,
     'assignedTo' || 'assignedToId' || 'assignedUserId' => l.assignedToLabel,
     'actorId' || 'createdBy' || 'updatedBy' || 'completedBy' || 'cancelledBy' || 'missedBy' => l.actor,
     'teamId' || 'teamName' => l.team,
@@ -5510,10 +5531,37 @@ String _auditDisplayValue(AppLocalizations l, String field, String value) {
     'stage' => _auditStageValueLabel(l, trimmed),
     'outcome' => _auditAppointmentOutcomeLabel(l, trimmed),
     'lostReason' => _auditLostReasonLabel(l, trimmed),
+    'preferredPropertyType' => _auditPropertyTypeLabel(l, trimmed),
     _ => _localizedAuditText(l, trimmed),
   };
 }
 
+
+String _auditPropertyTypeLabel(AppLocalizations l, String value) {
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '')
+      .replaceAll('أ', 'ا')
+      .replaceAll('إ', 'ا')
+      .replaceAll('آ', 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll('ى', 'ي')
+      .replaceAll(RegExp(r'[^a-z0-9\u0600-\u06FF]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return switch (normalized) {
+    'apartment' || 'flat' || 'شقه' => l.apartment,
+    'villa' || 'فيلا' => l.villa,
+    'office' || 'مكتب' => l.office,
+    'shop' || 'store' || 'محل' => l.shop,
+    'land' || 'ارض' => l.land,
+    'studio' || 'استوديو' => l.studio,
+    'duplex' || 'douplex' || 'دوبلكس' => l.duplex,
+    'penthouse' || 'بنتهاوس' => l.penthouse,
+    _ => _localizedAuditText(l, value),
+  };
+}
 String _auditAppointmentOutcomeLabel(AppLocalizations l, String value) {
   return switch (value) {
     'successfulMeeting' => l.appointmentOutcomeSuccessfulMeeting,
@@ -6509,6 +6557,28 @@ class _RailSectionHeader extends StatelessWidget {
         if (onViewAll != null)
           TextButton(onPressed: onViewAll, child: Text(l.viewAll)),
       ],
+    );
+  }
+}
+
+
+class _RailCommandItem extends StatelessWidget {
+  const _RailCommandItem({
+    required this.item,
+    required this.authState,
+    required this.platformPreview,
+  });
+
+  final SalesCommandItem item;
+  final AuthState authState;
+  final bool platformPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SmartSuggestionCard(
+      item: item,
+      authState: authState,
+      platformPreview: platformPreview,
     );
   }
 }

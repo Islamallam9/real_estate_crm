@@ -30,4 +30,9 @@ abstract interface class PropertyRepository {
     required String companyId,
     int limit = 50,
   });
+
+  Future<List<Property>> findAvailablePropertiesForMatching({
+    required String companyId,
+    int limit = 120,
+  });
 }

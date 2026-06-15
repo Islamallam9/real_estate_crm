@@ -10504,6 +10504,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This lead was contacted today, so it should stay quiet for now. Set a follow-up if the client needs another touchpoint.'**
   String get leadNbaContactedTodayBody;
+
+  /// No description provided for @matchingPropertiesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching available properties'**
+  String get matchingPropertiesTitle;
+
+  /// No description provided for @matchingPropertiesLeadSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested from this lead\'s preferred location, property type, and budget. Use it as a sales hint, not a guaranteed fit.'**
+  String get matchingPropertiesLeadSubtitle;
+
+  /// No description provided for @matchingPropertiesClientSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested from this client\'s preferred location, property type, and budget. Use it as a sales hint, not a guaranteed fit.'**
+  String get matchingPropertiesClientSubtitle;
+
+  /// No description provided for @matchingPropertiesAddPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a preferred location, property type, or budget to show useful property matches.'**
+  String get matchingPropertiesAddPreferences;
+
+  /// No description provided for @matchingPropertiesNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No available properties strongly match these preferences yet.'**
+  String get matchingPropertiesNoMatches;
+
+  /// No description provided for @matchingPropertiesLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load matching properties.'**
+  String get matchingPropertiesLoadFailed;
+
+  /// No description provided for @propertyMatchSameCompound.
+  ///
+  /// In en, this message translates to:
+  /// **'Same compound'**
+  String get propertyMatchSameCompound;
+
+  /// No description provided for @propertyMatchSameLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Same location'**
+  String get propertyMatchSameLocation;
+
+  /// No description provided for @propertyMatchSameType.
+  ///
+  /// In en, this message translates to:
+  /// **'Same type'**
+  String get propertyMatchSameType;
+
+  /// No description provided for @propertyMatchWithinBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Within budget'**
+  String get propertyMatchWithinBudget;
+
+  /// No description provided for @propertyMatchCloseToBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Close to budget'**
+  String get propertyMatchCloseToBudget;
+
+  /// No description provided for @propertyMatchAvailableNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Available now'**
+  String get propertyMatchAvailableNow;
+
+  /// No description provided for @viewProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'View property'**
+  String get viewProperty;
+
+  /// No description provided for @matchingDemandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching leads and clients'**
+  String get matchingDemandTitle;
+
+  /// No description provided for @matchingDemandSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'People whose preferences fit this available property. Use it to decide who to contact first.'**
+  String get matchingDemandSubtitle;
+
+  /// No description provided for @matchingDemandNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No active leads or clients strongly match this property yet.'**
+  String get matchingDemandNoMatches;
+
+  /// No description provided for @matchingDemandLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load matching leads and clients.'**
+  String get matchingDemandLoadFailed;
+
+  /// No description provided for @matchingDemandUnavailableProperty.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching demand appears only for available properties.'**
+  String get matchingDemandUnavailableProperty;
+
+  /// No description provided for @matchingDemandNoAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'No lead or client access is available for this role.'**
+  String get matchingDemandNoAccess;
+
+  /// No description provided for @matchingDemandLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Lead'**
+  String get matchingDemandLead;
+
+  /// No description provided for @matchingDemandClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get matchingDemandClient;
 }
 
 class _AppLocalizationsDelegate

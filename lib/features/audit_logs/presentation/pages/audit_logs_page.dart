@@ -1828,6 +1828,11 @@ String _localizedAuditText(AppLocalizations l, String value) {
     RegExp(r'\bcompletedAt\b'): 'وقت الإكمال',
     RegExp(r'\bcancelledAt\b'): 'وقت الإلغاء',
     RegExp(r'\bmissedAt\b'): 'وقت الفوات',
+    RegExp(r'\bpreferredLocation\b'): 'الموقع المفضل',
+    RegExp(r'\bpreferredPropertyType\b'): 'نوع العقار المفضل',
+    RegExp(r'\bbudgetMin\b'): 'الحد الأدنى للميزانية',
+    RegExp(r'\bbudgetMax\b'): 'الحد الأقصى للميزانية',
+    RegExp(r'\bsourceDetails\b'): 'تفاصيل المصدر',
     RegExp(r'\bassignedTo\b'): 'مسند إلى',
     RegExp(r'\bassignedToId\b'): 'مسند إلى',
     RegExp(r'\bactorId\b'): 'المنفذ',
@@ -2078,10 +2083,37 @@ String _valueLabel(AppLocalizations l, String field, String value) {
     'priority' => _priorityValueLabel(l, trimmed),
     'outcome' => _appointmentOutcomeValueLabel(l, trimmed),
     'lostReason' => _dealLostReasonValueLabel(l, trimmed),
+    'preferredPropertyType' => _propertyTypeValueLabel(l, trimmed),
     _ => _genericAuditValueLabel(l, trimmed),
   };
 }
 
+
+String _propertyTypeValueLabel(AppLocalizations l, String value) {
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '')
+      .replaceAll('أ', 'ا')
+      .replaceAll('إ', 'ا')
+      .replaceAll('آ', 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll('ى', 'ي')
+      .replaceAll(RegExp(r'[^a-z0-9\u0600-\u06FF]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return switch (normalized) {
+    'apartment' || 'flat' || 'شقه' => l.apartment,
+    'villa' || 'فيلا' => l.villa,
+    'office' || 'مكتب' => l.office,
+    'shop' || 'store' || 'محل' => l.shop,
+    'land' || 'ارض' => l.land,
+    'studio' || 'استوديو' => l.studio,
+    'duplex' || 'douplex' || 'دوبلكس' => l.duplex,
+    'penthouse' || 'بنتهاوس' => l.penthouse,
+    _ => _localizedAuditText(l, value),
+  };
+}
 String _appointmentOutcomeValueLabel(AppLocalizations l, String value) {
   return switch (value) {
     'successfulMeeting' => l.appointmentOutcomeSuccessfulMeeting,

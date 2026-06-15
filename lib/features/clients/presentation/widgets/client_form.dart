@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../users/domain/entities/user_profile.dart';
+import '../../../properties/domain/entities/property.dart';
+import '../../../properties/presentation/widgets/property_labels.dart';
 import '../../domain/entities/client.dart';
 import 'client_assignment_dropdown.dart';
 
@@ -57,7 +60,6 @@ class _ClientFormState extends State<ClientForm> {
   final _budgetMinController = TextEditingController();
   final _budgetMaxController = TextEditingController();
   final _preferredLocationController = TextEditingController();
-  final _preferredPropertyTypeController = TextEditingController();
   final _notesController = TextEditingController();
   late String _assignedTo;
   String _assignedToName = '';
@@ -66,6 +68,7 @@ class _ClientFormState extends State<ClientForm> {
   String _teamName = '';
   String _managerId = '';
   String _managerName = '';
+  String _preferredPropertyType = '';
 
   @override
   void initState() {
@@ -91,7 +94,7 @@ class _ClientFormState extends State<ClientForm> {
     _budgetMinController.text = client.budgetMin?.toString() ?? '';
     _budgetMaxController.text = client.budgetMax?.toString() ?? '';
     _preferredLocationController.text = client.preferredLocation;
-    _preferredPropertyTypeController.text = client.preferredPropertyType;
+    _preferredPropertyType = _normalizeStoredPropertyType(client.preferredPropertyType);
     _notesController.text = client.notes;
   }
 
@@ -103,7 +106,6 @@ class _ClientFormState extends State<ClientForm> {
     _budgetMinController.dispose();
     _budgetMaxController.dispose();
     _preferredLocationController.dispose();
-    _preferredPropertyTypeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -172,10 +174,13 @@ class _ClientFormState extends State<ClientForm> {
                   enabled: !widget.isSaving,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                AppTextField(
-                  controller: _preferredPropertyTypeController,
+                AppDropdown<String>(
                   label: l.preferredPropertyType,
+                  value: _preferredPropertyType,
+                  items: ['', ...PropertyType.values.map((type) => type.name)],
                   enabled: !widget.isSaving,
+                  itemLabelBuilder: (value) => _propertyTypeChoiceLabel(l, value),
+                  onChanged: (value) => setState(() => _preferredPropertyType = value),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 AppTextField(
@@ -284,6 +289,57 @@ class _ClientFormState extends State<ClientForm> {
     return null;
   }
 
+  String _normalizeStoredPropertyType(String value) {
+    final normalized = _normalizePropertyTypeInput(value);
+    if (normalized.isEmpty) {
+      return '';
+    }
+    for (final type in PropertyType.values) {
+      if (type.name == normalized) {
+        return type.name;
+      }
+    }
+    return '';
+  }
+
+  String _normalizePropertyTypeInput(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '')
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll(RegExp(r'[^a-z0-9\u0600-\u06FF]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return switch (normalized) {
+      'apartment' || 'flat' || 'شقه' => 'apartment',
+      'villa' || 'فيلا' => 'villa',
+      'office' || 'مكتب' => 'office',
+      'shop' || 'store' || 'محل' => 'shop',
+      'land' || 'ارض' => 'land',
+      'studio' || 'استوديو' => 'studio',
+      'duplex' || 'douplex' || 'دوبلكس' => 'duplex',
+      'penthouse' || 'بنتهاوس' => 'penthouse',
+      _ => normalized,
+    };
+  }
+
+  String _propertyTypeChoiceLabel(AppLocalizations l, String value) {
+    if (value.trim().isEmpty) {
+      return l.notAvailable;
+    }
+    for (final type in PropertyType.values) {
+      if (type.name == value) {
+        return propertyTypeLabel(l, type);
+      }
+    }
+    return value;
+  }
+
   void _submit() {
     final formState = _formKey.currentState;
     if (formState == null || !formState.validate()) {
@@ -312,7 +368,7 @@ class _ClientFormState extends State<ClientForm> {
         budgetMin: num.tryParse(_budgetMinController.text.trim()),
         budgetMax: num.tryParse(_budgetMaxController.text.trim()),
         preferredLocation: _preferredLocationController.text.trim(),
-        preferredPropertyType: _preferredPropertyTypeController.text.trim(),
+        preferredPropertyType: _preferredPropertyType,
         notes: _notesController.text.trim(),
         assignedTo: assignedTo,
         assignedToName: assignedTo.trim().isEmpty ? '' : assignedToName.trim(),

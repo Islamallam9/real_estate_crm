@@ -22,12 +22,29 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../journeys/domain/entities/connected_journey.dart';
 import '../../../journeys/presentation/widgets/connected_journey_panel.dart';
 import '../../../journeys/presentation/widgets/journey_builders.dart';
+import '../../../property_matching/presentation/widgets/matching_properties_card.dart';
+import '../../../properties/domain/entities/property.dart';
+import '../../../properties/presentation/widgets/property_labels.dart';
 import '../../domain/entities/client.dart';
 import '../cubit/clients_cubit.dart';
 import '../cubit/clients_state.dart';
 import '../widgets/clients_scope.dart';
 import '../../../../core/widgets/masar_loading_view.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
+
+
+String _preferredPropertyTypeDisplayLabel(AppLocalizations l, String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return l.notAvailable;
+  }
+  for (final type in PropertyType.values) {
+    if (type.name == normalized) {
+      return propertyTypeLabel(l, type);
+    }
+  }
+  return value.trim();
+}
 
 class ClientDetailsPage extends StatelessWidget {
   const ClientDetailsPage({super.key, required this.clientId});
@@ -320,12 +337,25 @@ class _ClientDetailsViewState extends State<_ClientDetailsView> {
                                               _detail(
                                                 context,
                                                 l.preferredPropertyType,
-                                                _valueOrNotAvailable(
+                                                _preferredPropertyTypeDisplayLabel(
                                                   l,
                                                   client.preferredPropertyType,
                                                 ),
                                               ),
                                             ],
+                                          ),
+                                          const SizedBox(
+                                            height: AppSpacing.md,
+                                          ),
+                                          MatchingPropertiesCard(
+                                            companyId: companyId,
+                                            preferredLocation:
+                                                client.preferredLocation,
+                                            preferredPropertyType:
+                                                client.preferredPropertyType,
+                                            budgetMin: client.budgetMin,
+                                            budgetMax: client.budgetMax,
+                                            isClient: true,
                                           ),
                                           const SizedBox(
                                             height: AppSpacing.md,

@@ -74,4 +74,15 @@ class PropertyRepositoryImpl implements PropertyRepository {
       limit: limit,
     );
   }
+
+  @override
+  Future<List<Property>> findAvailablePropertiesForMatching({
+    required String companyId,
+    int limit = 120,
+  }) {
+    return _remoteDataSource.findAvailablePropertiesForMatching(
+      companyId: companyId,
+      limit: limit,
+    );
+  }
 }
