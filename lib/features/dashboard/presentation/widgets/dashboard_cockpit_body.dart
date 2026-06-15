@@ -5329,33 +5329,70 @@ String _dashboardAuditMetadataDetails(AppLocalizations l, AuditLog log) {
 
 String _localizedAuditText(AppLocalizations l, String value) {
   var text = value.trim();
-  if (text.isEmpty || !l.localeName.toLowerCase().startsWith('ar')) {
+  if (text.isEmpty) {
     return text;
   }
-  const replacements = <String, String>{
-    'newLead': 'جديد',
-    'contacted': 'تم التواصل',
-    'interested': 'مهتم',
-    'visitScheduled': 'تم تحديد زيارة',
-    'negotiation': 'تفاوض',
-    'won': 'مكتسب',
-    'lost': 'مفقود',
-    'pending': 'معلّقة',
-    'inProgress': 'قيد التنفيذ',
-    'completed': 'مكتملة',
-    'cancelled': 'ملغاة',
-    'canceled': 'ملغاة',
-    'scheduled': 'مجدولة',
-    'rescheduled': 'أُعيدت جدولته',
-    'missed': 'فائتة',
-    'high': 'عالية',
-    'medium': 'متوسطة',
-    'low': 'منخفضة',
+
+  text = _maskAuditInternalIdsInText(l, text);
+  if (!l.localeName.toLowerCase().startsWith('ar')) {
+    return text;
+  }
+
+  final replacements = <RegExp, String>{
+    RegExp(r'\bnewLead\b'): 'جديد',
+    RegExp(r'\bnew\b'): 'جديد',
+    RegExp(r'\bcontacted\b'): 'تم التواصل',
+    RegExp(r'\binterested\b'): 'مهتم',
+    RegExp(r'\bvisitScheduled\b'): 'تم تحديد زيارة',
+    RegExp(r'\bnegotiation\b'): 'تفاوض',
+    RegExp(r'\bwon\b'): 'مكتسب',
+    RegExp(r'\blost\b'): 'مفقود',
+    RegExp(r'\bqualified\b'): 'مؤهل',
+    RegExp(r'\bproposal\b'): 'عرض',
+    RegExp(r'\bpending\b'): 'معلّقة',
+    RegExp(r'\binProgress\b'): 'قيد التنفيذ',
+    RegExp(r'\bcompleted\b'): 'مكتملة',
+    RegExp(r'\bcancelled\b'): 'ملغاة',
+    RegExp(r'\bcanceled\b'): 'ملغاة',
+    RegExp(r'\bscheduled\b'): 'مجدولة',
+    RegExp(r'\brescheduled\b'): 'أُعيدت جدولته',
+    RegExp(r'\bmissed\b'): 'فائتة',
+    RegExp(r'\bscheduledAt\b'): 'وقت الموعد',
+    RegExp(r'\bpreviousScheduledAt\b'): 'وقت الموعد السابق',
+    RegExp(r'\brescheduledFrom\b'): 'أُعيدت الجدولة من',
+    RegExp(r'\bendAt\b'): 'وقت الانتهاء',
+    RegExp(r'\bpreviousEndAt\b'): 'وقت الانتهاء السابق',
+    RegExp(r'\bcompletedAt\b'): 'وقت الإكمال',
+    RegExp(r'\bcancelledAt\b'): 'وقت الإلغاء',
+    RegExp(r'\bmissedAt\b'): 'وقت الفوات',
+    RegExp(r'\bassignedTo\b'): 'مسند إلى',
+    RegExp(r'\bassignedToId\b'): 'مسند إلى',
+    RegExp(r'\bactorId\b'): 'المنفذ',
+    RegExp(r'\bcreatedBy\b'): 'أنشأه',
+    RegExp(r'\bupdatedBy\b'): 'حدّثه',
+    RegExp(r'\bpropertyViewing\b'): 'معاينة عقار',
+    RegExp(r'\bmeeting\b'): 'اجتماع',
+    RegExp(r'\badmin\b'): 'مسؤول',
+    RegExp(r'\bmanager\b'): 'مدير',
+    RegExp(r'\bsalesAgent\b'): 'مندوب مبيعات',
+    RegExp(r'\bmarketing\b'): 'تسويق',
+    RegExp(r'\bviewer\b'): 'مشاهد',
+    RegExp(r'\bnull\b'): 'غير متوفر',
+    RegExp(r'\bhigh\b'): 'عالية',
+    RegExp(r'\bmedium\b'): 'متوسطة',
+    RegExp(r'\blow\b'): 'منخفضة',
   };
-  replacements.forEach((key, label) {
-    text = text.replaceAll(key, label);
+  replacements.forEach((pattern, label) {
+    text = text.replaceAll(pattern, label);
   });
   return text;
+}
+
+String _maskAuditInternalIdsInText(AppLocalizations l, String value) {
+  return value.replaceAllMapped(
+    RegExp(r'\b[A-Za-z0-9_-]{18,}\b'),
+    (match) => _unavailableAuditUserLabel(l),
+  );
 }
 
 
@@ -5407,13 +5444,21 @@ String _auditFieldLabel(AppLocalizations l, String field) {
     'email' => l.emailUpdated,
     'status' => l.statusUpdated,
     'priority' => l.priorityUpdated,
-    'assignedTo' => l.assignedToLabel,
+    'assignedTo' || 'assignedToId' || 'assignedUserId' => l.assignedToLabel,
+    'actorId' || 'createdBy' || 'updatedBy' || 'completedBy' || 'cancelledBy' || 'missedBy' => l.actor,
     'teamId' || 'teamName' => l.team,
     'managerId' || 'managerName' => l.manager,
     'lastContactAt' => l.lastContact,
     'nextFollowUpAt' => l.nextFollowUp,
-    'scheduledAt' => l.filterByDate,
+    'scheduledAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الموعد' : 'Appointment time',
+    'previousScheduledAt' || 'rescheduledFrom' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الموعد السابق' : 'Previous appointment time',
+    'endAt' || 'previousEndAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الانتهاء' : 'End time',
     'dueDate' => l.dueDate,
+    'completedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإكمال' : 'Completed time',
+    'cancelledAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإلغاء' : 'Cancelled time',
+    'missedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الفوات' : 'Missed time',
+    'createdAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإنشاء' : 'Created time',
+    'updatedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت التحديث' : 'Updated time',
     'stage' => l.stage,
     'outcome' => l.appointmentOutcome,
     'lostReason' => l.lostReason,
@@ -5443,10 +5488,10 @@ String _auditDisplayValue(AppLocalizations l, String field, String value) {
   if (trimmed.isEmpty) {
     return '—';
   }
-  if (field == 'lastContactAt' ||
-      field == 'nextFollowUpAt' ||
-      field == 'scheduledAt' ||
-      field == 'dueDate') {
+  if (_isAuditUserReferenceField(field) && _looksLikeAuditInternalId(trimmed)) {
+    return _unavailableAuditUserLabel(l);
+  }
+  if (_isAuditDateTimeField(field)) {
     final parsed = DateTime.tryParse(trimmed) ??
         DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
     if (parsed != null) {
@@ -5465,7 +5510,7 @@ String _auditDisplayValue(AppLocalizations l, String field, String value) {
     'stage' => _auditStageValueLabel(l, trimmed),
     'outcome' => _auditAppointmentOutcomeLabel(l, trimmed),
     'lostReason' => _auditLostReasonLabel(l, trimmed),
-    _ => trimmed,
+    _ => _localizedAuditText(l, trimmed),
   };
 }
 
@@ -5550,6 +5595,56 @@ String _auditStageValueLabel(AppLocalizations l, String value) {
     'lost' => l.lostLeadStatus,
     _ => value,
   };
+}
+
+
+String _unavailableAuditUserLabel(AppLocalizations l) {
+  return l.localeName.toLowerCase().startsWith('ar')
+      ? 'مستخدم غير متوفر'
+      : 'Unavailable user';
+}
+
+bool _isAuditUserReferenceField(String field) {
+  return switch (field) {
+    'assignedTo' ||
+    'assignedToId' ||
+    'assignedUserId' ||
+    'actorId' ||
+    'createdBy' ||
+    'updatedBy' ||
+    'completedBy' ||
+    'cancelledBy' ||
+    'missedBy' ||
+    'managerId' => true,
+    _ => false,
+  };
+}
+
+bool _isAuditDateTimeField(String field) {
+  return switch (field) {
+    'lastContactAt' ||
+    'nextFollowUpAt' ||
+    'scheduledAt' ||
+    'previousScheduledAt' ||
+    'rescheduledFrom' ||
+    'endAt' ||
+    'previousEndAt' ||
+    'dueDate' ||
+    'completedAt' ||
+    'cancelledAt' ||
+    'missedAt' ||
+    'createdAt' ||
+    'updatedAt' => true,
+    _ => false,
+  };
+}
+
+bool _looksLikeAuditInternalId(String value) {
+  final trimmed = value.trim();
+  if (trimmed.length < 18 || trimmed.contains('@') || trimmed.contains(' ')) {
+    return false;
+  }
+  return RegExp(r'^[A-Za-z0-9_-]{18,}$').hasMatch(trimmed);
 }
 
 String _directionalAuditValue(String value) {

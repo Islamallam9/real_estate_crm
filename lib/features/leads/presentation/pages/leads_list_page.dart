@@ -22,6 +22,7 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/app_scroll_surface.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/module_kpi_card.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -1530,9 +1531,11 @@ class _LeadsWebTable extends StatelessWidget {
     final colors = _LeadListColors.of(context);
     final bodyHeight = (leads.length * 72.0).clamp(120.0, 520.0);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.cardSurface,
+    return AppHorizontalScrollView(
+      minWidth: showAssignee ? 1120 : 980,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.cardSurface,
         border: Border.all(color: colors.border),
         borderRadius: AppRadius.large,
         boxShadow: Theme.of(context).brightness == Brightness.dark
@@ -1593,7 +1596,8 @@ class _LeadsWebTable extends StatelessWidget {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

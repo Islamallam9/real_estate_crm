@@ -6,6 +6,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/app_scroll_surface.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/deal.dart';
 import 'deal_card.dart';
@@ -34,168 +35,160 @@ class DealListTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final tableWidth = constraints.maxWidth < 980 ? 980.0 : constraints.maxWidth;
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: tableWidth,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface(context),
-                border: Border.all(color: AppColors.borderColor(context)),
-                borderRadius: AppRadius.large,
-                boxShadow: Theme.of(context).brightness == Brightness.dark
-                    ? null
-                    : AppShadows.card,
+    return AppHorizontalScrollView(
+      minWidth: 980,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardSurface(context),
+          border: Border.all(color: AppColors.borderColor(context)),
+          borderRadius: AppRadius.large,
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : AppShadows.card,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              color: AppColors.inputSurface(context),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.sm,
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    color: AppColors.inputSurface(context),
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      AppSpacing.md,
-                      AppSpacing.sm,
-                      AppSpacing.md,
-                      AppSpacing.sm,
-                    ),
-                    child: Row(
-                      children: [
-                        _Header(l.client, flex: 3),
-                        _Header(l.property, flex: 3),
-                        _Header(l.dealStage, flex: 2),
-                        _Header(l.expectedValue, flex: 2),
-                        _Header(l.assignedAgent, flex: 2),
-                        _Header(l.closingDate, flex: 2),
-                        _Header(l.actions, flex: 2),
-                      ],
-                    ),
-                  ),
-                  Divider(height: 1, color: AppColors.borderColor(context)),
-                  ...List.generate(deals.length, (index) {
-                    final deal = deals[index];
-
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        InkWell(
-                          onTap: () => onOpen(deal),
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.fromSTEB(
-                              AppSpacing.md,
-                              AppSpacing.xs,
-                              AppSpacing.md,
-                              AppSpacing.xs,
-                            ),
-                            child: SizedBox(
-                              height: 48,
-                              child: Row(
-                                children: [
-                                  _Cell(
-                                    _fallback(deal.clientName, l.notAvailable),
-                                    flex: 3,
-                                  ),
-                                  _Cell(
-                                    _fallback(deal.propertyTitle, l.notAvailable),
-                                    flex: 3,
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Align(
-                                      alignment: AlignmentDirectional.centerStart,
-                                      child: Wrap(
-                                        spacing: AppSpacing.xs,
-                                        runSpacing: AppSpacing.xs,
-                                        children: [
-                                          if (isArchivedView || deal.isArchived)
-                                            AppStatusBadge(
-                                              label: l.archived,
-                                              tone: AppStatusTone.neutral,
-                                            ),
-                                          AppStatusBadge(
-                                            label: dealStageLabel(l, deal.stage),
-                                            tone: dealStageTone(deal.stage),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  _Cell(
-                                    '${_formatNumber(context, deal.expectedValue)} / ${_formatNumber(context, deal.commission)}',
-                                    flex: 2,
-                                  ),
-                                  _Cell(
-                                    _fallback(deal.assignedToName, l.unassigned),
-                                    flex: 2,
-                                  ),
-                                  _Cell(
-                                    _formatDate(context, deal.closingDate, l),
-                                    flex: 2,
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Align(
-                                      alignment: AlignmentDirectional.centerStart,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _ActionIcon(
-                                            tooltip: l.viewDetails,
-                                            icon: Icons.open_in_new,
-                                            onPressed: () => onOpen(deal),
-                                          ),
-                                          if (onUpdateStage != null)
-                                            _ActionIcon(
-                                              tooltip: l.updateStage,
-                                              icon: Icons.swap_horiz,
-                                              onPressed: () => onUpdateStage!(deal),
-                                            ),
-                                          if (onEdit != null)
-                                            _ActionIcon(
-                                              tooltip: l.edit,
-                                              icon: Icons.edit_outlined,
-                                              onPressed: () => onEdit!(deal),
-                                            ),
-                                          if (onArchive != null)
-                                            _ActionIcon(
-                                              tooltip: l.archiveDeal,
-                                              icon: Icons.archive_outlined,
-                                              onPressed: () => onArchive!(deal),
-                                            ),
-                                          if (onRestore != null)
-                                            _ActionIcon(
-                                              tooltip: l.restore,
-                                              icon: Icons.unarchive_outlined,
-                                              onPressed: () => onRestore!(deal),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (index != deals.length - 1)
-                          Divider(
-                            height: 1,
-                            color: AppColors.borderColor(context),
-                          ),
-                      ],
-                    );
-                  }),
-                ],
+              child: Row(
+          children: [
+            _Header(l.client, flex: 3),
+            _Header(l.property, flex: 3),
+            _Header(l.dealStage, flex: 2),
+            _Header(l.expectedValue, flex: 2),
+            _Header(l.assignedAgent, flex: 2),
+            _Header(l.closingDate, flex: 2),
+            _Header(l.actions, flex: 2),
+          ],
               ),
             ),
-          ),
-        );
-      },
-    );  }
+            Divider(height: 1, color: AppColors.borderColor(context)),
+            ...List.generate(deals.length, (index) {
+              final deal = deals[index];
+
+              return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () => onOpen(deal),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xs,
+                ),
+                child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                _Cell(
+                  _fallback(deal.clientName, l.notAvailable),
+                  flex: 3,
+                ),
+                _Cell(
+                  _fallback(deal.propertyTitle, l.notAvailable),
+                  flex: 3,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  if (isArchivedView || deal.isArchived)
+                    AppStatusBadge(
+                label: l.archived,
+                tone: AppStatusTone.neutral,
+                    ),
+                  AppStatusBadge(
+                    label: dealStageLabel(l, deal.stage),
+                    tone: dealStageTone(deal.stage),
+                  ),
+                ],
+              ),
+                  ),
+                ),
+                _Cell(
+                  '${_formatNumber(context, deal.expectedValue)} / ${_formatNumber(context, deal.commission)}',
+                  flex: 2,
+                ),
+                _Cell(
+                  _fallback(deal.assignedToName, l.unassigned),
+                  flex: 2,
+                ),
+                _Cell(
+                  _formatDate(context, deal.closingDate, l),
+                  flex: 2,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionIcon(
+                    tooltip: l.viewDetails,
+                    icon: Icons.open_in_new,
+                    onPressed: () => onOpen(deal),
+                  ),
+                  if (onUpdateStage != null)
+                    _ActionIcon(
+                tooltip: l.updateStage,
+                icon: Icons.swap_horiz,
+                onPressed: () => onUpdateStage!(deal),
+                    ),
+                  if (onEdit != null)
+                    _ActionIcon(
+                tooltip: l.edit,
+                icon: Icons.edit_outlined,
+                onPressed: () => onEdit!(deal),
+                    ),
+                  if (onArchive != null)
+                    _ActionIcon(
+                tooltip: l.archiveDeal,
+                icon: Icons.archive_outlined,
+                onPressed: () => onArchive!(deal),
+                    ),
+                  if (onRestore != null)
+                    _ActionIcon(
+                tooltip: l.restore,
+                icon: Icons.unarchive_outlined,
+                onPressed: () => onRestore!(deal),
+                    ),
+                ],
+              ),
+                  ),
+                ),
+              ],
+            ),
+                ),
+              ),
+            ),
+            if (index != deals.length - 1)
+              Divider(
+                height: 1,
+                color: AppColors.borderColor(context),
+              ),
+          ],
+              );
+            }),
+          ],
+        ),
+            ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {

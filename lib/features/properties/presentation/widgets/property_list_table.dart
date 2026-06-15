@@ -8,6 +8,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/app_scroll_surface.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/property.dart';
 import 'property_labels.dart';
@@ -33,8 +34,10 @@ class PropertyListTable extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      decoration: BoxDecoration(
+    return AppHorizontalScrollView(
+      minWidth: 1180,
+      child: Container(
+        decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.large,
@@ -66,7 +69,8 @@ class PropertyListTable extends StatelessWidget {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

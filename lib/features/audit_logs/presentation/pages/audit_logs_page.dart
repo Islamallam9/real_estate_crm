@@ -10,14 +10,15 @@ import '../../../../core/constants/role_constants.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_pagination_footer.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/app_scroll_surface.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/module_kpi_card.dart';
@@ -408,7 +409,7 @@ class _AuditLogsContentState extends State<_AuditLogsContent> {
     return importantFiltered.where((log) {
       final haystack = [
         log.recordTitle,
-        log.recordSubtitle,
+        _localizedAuditText(l, log.recordSubtitle),
         log.actorName,
         log.actorEmail,
         _moduleLabel(l, log.module),
@@ -721,12 +722,66 @@ class _LoadMoreAuditLogsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPaginationFooter(
-      loadedCount: loadedCount,
-      pageSize: pageSize,
-      isLoading: isLoading,
-      onLoadMore: onPressed,
-      totalCount: totalCount,
+    final l = AppLocalizations.of(context)!;
+    final compact = MediaQuery.sizeOf(context).width < 640;
+    final loadedText = '$loadedCount ${l.records}';
+    final moreLabel = '${l.more} +$pageSize';
+
+    return Align(
+      alignment: AlignmentDirectional.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? double.infinity : 380),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.selectedSurface(context),
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: AppColors.primaryColor(context).withValues(alpha: 0.55),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.view_list_rounded,
+                      size: 18,
+                      color: AppColors.primaryColor(context),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        loadedText,
+                        maxLines: 2,
+                        softWrap: true,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimaryColor(context),
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              AppButton(
+                label: moreLabel,
+                icon: Icons.expand_more_rounded,
+                variant: AppButtonVariant.primary,
+                isLoading: isLoading,
+                onPressed: isLoading ? null : onPressed,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -792,12 +847,21 @@ class _AuditHeader extends StatelessWidget {
       ),
     ];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: isDark
+              ? [AppColors.darkSurfaceAlt, AppColors.darkCardSurface]
+              : [AppColors.backgroundHighlight, AppColors.surfaceMuted],
+        ),
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.xLarge,
+        boxShadow: isDark ? null : AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1174,8 +1238,8 @@ class _AuditLogList extends StatelessWidget {
                 isAdmin: isAdmin,
               ),
             )
-          : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+          : AppHorizontalScrollView(
+              minWidth: 1680,
               child: DataTable(
                 showCheckboxColumn: false,
                 headingRowHeight: 42,
@@ -1376,7 +1440,7 @@ class _RecordCell extends StatelessWidget {
           ),
           if (log.recordSubtitle.trim().isNotEmpty)
             Text(
-              log.recordSubtitle,
+              _localizedAuditText(l, log.recordSubtitle),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1728,33 +1792,70 @@ String _auditMetadataDetails(AppLocalizations l, AuditLog log) {
 
 String _localizedAuditText(AppLocalizations l, String value) {
   var text = value.trim();
-  if (text.isEmpty || !l.localeName.toLowerCase().startsWith('ar')) {
+  if (text.isEmpty) {
     return text;
   }
-  const replacements = <String, String>{
-    'newLead': 'جديد',
-    'contacted': 'تم التواصل',
-    'interested': 'مهتم',
-    'visitScheduled': 'تم تحديد زيارة',
-    'negotiation': 'تفاوض',
-    'won': 'مكتسب',
-    'lost': 'مفقود',
-    'pending': 'معلّقة',
-    'inProgress': 'قيد التنفيذ',
-    'completed': 'مكتملة',
-    'cancelled': 'ملغاة',
-    'canceled': 'ملغاة',
-    'scheduled': 'مجدولة',
-    'rescheduled': 'أُعيدت جدولته',
-    'missed': 'فائتة',
-    'high': 'عالية',
-    'medium': 'متوسطة',
-    'low': 'منخفضة',
+
+  text = _maskInternalIdsInAuditText(l, text);
+  if (!l.localeName.toLowerCase().startsWith('ar')) {
+    return text;
+  }
+
+  final replacements = <RegExp, String>{
+    RegExp(r'\bnewLead\b'): 'جديد',
+    RegExp(r'\bnew\b'): 'جديد',
+    RegExp(r'\bcontacted\b'): 'تم التواصل',
+    RegExp(r'\binterested\b'): 'مهتم',
+    RegExp(r'\bvisitScheduled\b'): 'تم تحديد زيارة',
+    RegExp(r'\bnegotiation\b'): 'تفاوض',
+    RegExp(r'\bwon\b'): 'مكتسب',
+    RegExp(r'\blost\b'): 'مفقود',
+    RegExp(r'\bqualified\b'): 'مؤهل',
+    RegExp(r'\bproposal\b'): 'عرض',
+    RegExp(r'\bpending\b'): 'معلّقة',
+    RegExp(r'\binProgress\b'): 'قيد التنفيذ',
+    RegExp(r'\bcompleted\b'): 'مكتملة',
+    RegExp(r'\bcancelled\b'): 'ملغاة',
+    RegExp(r'\bcanceled\b'): 'ملغاة',
+    RegExp(r'\bscheduled\b'): 'مجدولة',
+    RegExp(r'\brescheduled\b'): 'أُعيدت جدولته',
+    RegExp(r'\bmissed\b'): 'فائتة',
+    RegExp(r'\bscheduledAt\b'): 'وقت الموعد',
+    RegExp(r'\bpreviousScheduledAt\b'): 'وقت الموعد السابق',
+    RegExp(r'\brescheduledFrom\b'): 'أُعيدت الجدولة من',
+    RegExp(r'\bendAt\b'): 'وقت الانتهاء',
+    RegExp(r'\bpreviousEndAt\b'): 'وقت الانتهاء السابق',
+    RegExp(r'\bcompletedAt\b'): 'وقت الإكمال',
+    RegExp(r'\bcancelledAt\b'): 'وقت الإلغاء',
+    RegExp(r'\bmissedAt\b'): 'وقت الفوات',
+    RegExp(r'\bassignedTo\b'): 'مسند إلى',
+    RegExp(r'\bassignedToId\b'): 'مسند إلى',
+    RegExp(r'\bactorId\b'): 'المنفذ',
+    RegExp(r'\bcreatedBy\b'): 'أنشأه',
+    RegExp(r'\bupdatedBy\b'): 'حدّثه',
+    RegExp(r'\bpropertyViewing\b'): 'معاينة عقار',
+    RegExp(r'\bmeeting\b'): 'اجتماع',
+    RegExp(r'\badmin\b'): 'مسؤول',
+    RegExp(r'\bmanager\b'): 'مدير',
+    RegExp(r'\bsalesAgent\b'): 'مندوب مبيعات',
+    RegExp(r'\bmarketing\b'): 'تسويق',
+    RegExp(r'\bviewer\b'): 'مشاهد',
+    RegExp(r'\bnull\b'): 'غير متوفر',
+    RegExp(r'\bhigh\b'): 'عالية',
+    RegExp(r'\bmedium\b'): 'متوسطة',
+    RegExp(r'\blow\b'): 'منخفضة',
   };
-  replacements.forEach((key, label) {
-    text = text.replaceAll(key, label);
+  replacements.forEach((pattern, label) {
+    text = text.replaceAll(pattern, label);
   });
   return text;
+}
+
+String _maskInternalIdsInAuditText(AppLocalizations l, String value) {
+  return value.replaceAllMapped(
+    RegExp(r'\b[A-Za-z0-9_-]{18,}\b'),
+    (match) => _unavailableUserLabel(l),
+  );
 }
 
 String? _relatedRoute(AuditLog log, {required bool isAdmin}) {
@@ -1799,7 +1900,11 @@ bool _isImportantLog(AuditLog log) {
 }
 
 String _recordTitle(AppLocalizations l, AuditLog log) {
-  return _fallback(log.recordTitle, _moduleLabel(l, log.module));
+  final title = log.recordTitle.trim();
+  if (title.isNotEmpty && !_looksLikeInternalId(title)) {
+    return title;
+  }
+  return _moduleLabel(l, log.module);
 }
 
 String _actorLine(AppLocalizations l, AuditLog log) {
@@ -1861,7 +1966,7 @@ String _displayUserSortLabel(UserProfile user) {
 }
 
 String _displayUser(UserProfile user, AppLocalizations l) {
-  final name = _fallback(user.fullName, _fallback(user.email, user.uid));
+  final name = _fallback(user.fullName, _fallback(user.email, _unavailableUserLabel(l)));
   return '$name - ${_roleLabel(l, RoleConstants.toValue(user.role))}';
 }
 
@@ -1925,10 +2030,22 @@ String _fieldLabel(AppLocalizations l, String field) {
     'budgetMax' => l.budgetMax,
     'preferredLocation' => l.preferredLocationUpdated,
     'preferredPropertyType' => l.preferredPropertyTypeUpdated,
-    'assignedTo' => l.assignedToLabel,
+    'assignedTo' || 'assignedToId' || 'assignedUserId' => l.assignedToLabel,
+    'actorId' || 'createdBy' || 'updatedBy' || 'completedBy' || 'cancelledBy' || 'missedBy' => l.actor,
+    'teamId' || 'teamName' => l.team,
+    'managerId' || 'managerName' => l.manager,
     'notes' => l.notes,
     'lastContactAt' => l.lastContact,
     'nextFollowUpAt' => l.nextFollowUp,
+    'scheduledAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الموعد' : 'Appointment time',
+    'previousScheduledAt' || 'rescheduledFrom' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الموعد السابق' : 'Previous appointment time',
+    'endAt' || 'previousEndAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الانتهاء' : 'End time',
+    'dueDate' => l.dueDate,
+    'completedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإكمال' : 'Completed time',
+    'cancelledAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإلغاء' : 'Cancelled time',
+    'missedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الفوات' : 'Missed time',
+    'createdAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت الإنشاء' : 'Created time',
+    'updatedAt' => l.localeName.toLowerCase().startsWith('ar') ? 'وقت التحديث' : 'Updated time',
     'stage' => l.stage,
     'outcome' => l.appointmentOutcome,
     'lostReason' => l.lostReason,
@@ -1944,7 +2061,10 @@ String _valueLabel(AppLocalizations l, String field, String value) {
   if (trimmed.isEmpty) {
     return l.notAvailable;
   }
-  if (field == 'lastContactAt' || field == 'nextFollowUpAt') {
+  if (_isUserReferenceField(field) && _looksLikeInternalId(trimmed)) {
+    return _unavailableUserLabel(l);
+  }
+  if (_isDateTimeAuditField(field)) {
     final parsed = DateTime.tryParse(trimmed) ??
         DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
     if (parsed != null) {
@@ -2034,10 +2154,11 @@ String _priorityValueLabel(AppLocalizations l, String value) {
 }
 
 String _genericAuditValueLabel(AppLocalizations l, String value) {
+  final safeValue = _maskInternalIdsInAuditText(l, value);
   if (!l.localeName.toLowerCase().startsWith('ar')) {
-    return value;
+    return safeValue;
   }
-  return switch (value) {
+  return switch (safeValue) {
     'newLead' || 'new' => 'جديد',
     'contacted' => 'تم التواصل',
     'interested' => 'مهتم',
@@ -2064,8 +2185,58 @@ String _genericAuditValueLabel(AppLocalizations l, String value) {
     'low' => l.low,
     'medium' => l.medium,
     'high' => l.high,
-    _ => value,
+    _ => safeValue,
   };
+}
+
+
+String _unavailableUserLabel(AppLocalizations l) {
+  return l.localeName.toLowerCase().startsWith('ar')
+      ? 'مستخدم غير متوفر'
+      : 'Unavailable user';
+}
+
+bool _isUserReferenceField(String field) {
+  return switch (field) {
+    'assignedTo' ||
+    'assignedToId' ||
+    'assignedUserId' ||
+    'actorId' ||
+    'createdBy' ||
+    'updatedBy' ||
+    'completedBy' ||
+    'cancelledBy' ||
+    'missedBy' ||
+    'managerId' => true,
+    _ => false,
+  };
+}
+
+bool _isDateTimeAuditField(String field) {
+  return switch (field) {
+    'lastContactAt' ||
+    'nextFollowUpAt' ||
+    'scheduledAt' ||
+    'previousScheduledAt' ||
+    'rescheduledFrom' ||
+    'endAt' ||
+    'previousEndAt' ||
+    'dueDate' ||
+    'completedAt' ||
+    'cancelledAt' ||
+    'missedAt' ||
+    'createdAt' ||
+    'updatedAt' => true,
+    _ => false,
+  };
+}
+
+bool _looksLikeInternalId(String value) {
+  final trimmed = value.trim();
+  if (trimmed.length < 18 || trimmed.contains('@') || trimmed.contains(' ')) {
+    return false;
+  }
+  return RegExp(r'^[A-Za-z0-9_-]{18,}$').hasMatch(trimmed);
 }
 
 IconData _moduleIcon(AuditLogModule module) {

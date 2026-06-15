@@ -22,6 +22,7 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_status_badge.dart';
+import '../../../../core/widgets/app_scroll_surface.dart';
 import '../../../../core/widgets/crm_app_shell.dart';
 import '../../../../core/widgets/masar_tab_bar.dart';
 import '../../../../core/widgets/module_kpi_card.dart';
@@ -2385,9 +2386,11 @@ class _AppointmentsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
+    return AppHorizontalScrollView(
+      minWidth: 1120,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
         color: AppColors.cardSurface(context),
         border: Border.all(color: AppColors.borderColor(context)),
         borderRadius: AppRadius.large,
@@ -2483,7 +2486,8 @@ class _AppointmentsTable extends StatelessWidget {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

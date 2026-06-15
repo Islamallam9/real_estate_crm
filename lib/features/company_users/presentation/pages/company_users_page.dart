@@ -327,18 +327,19 @@ class _UsersListContent extends StatelessWidget {
       );
     }
 
+    final sortedUsers = _sortCompanyUsersByRole(state.filteredUsers);
     final isNarrow = MediaQuery.sizeOf(context).width < 720;
     if (isNarrow) {
       return Column(
         children: [
-          for (var index = 0; index < state.filteredUsers.length; index++) ...[
+          for (var index = 0; index < sortedUsers.length; index++) ...[
             _UserRow(
               companyId: companyId,
-              user: state.filteredUsers[index],
+              user: sortedUsers[index],
               currentUserId: currentUserId,
               saving: saving,
             ),
-            if (index != state.filteredUsers.length - 1)
+            if (index != sortedUsers.length - 1)
               const SizedBox(height: AppSpacing.xs),
           ],
         ],
@@ -347,19 +348,60 @@ class _UsersListContent extends StatelessWidget {
 
     return Column(
       children: [
-        for (var index = 0; index < state.filteredUsers.length; index++) ...[
+        for (var index = 0; index < sortedUsers.length; index++) ...[
           _UserRow(
             companyId: companyId,
-            user: state.filteredUsers[index],
+            user: sortedUsers[index],
             currentUserId: currentUserId,
             saving: saving,
           ),
-          if (index != state.filteredUsers.length - 1)
+          if (index != sortedUsers.length - 1)
             const SizedBox(height: AppSpacing.xs),
         ],
       ],
     );
   }
+}
+
+List<CompanyCrmUser> _sortCompanyUsersByRole(List<CompanyCrmUser> users) {
+  final sorted = [...users];
+  sorted.sort((a, b) {
+    final roleCompare = _companyUserRoleRank(a.role).compareTo(
+      _companyUserRoleRank(b.role),
+    );
+    if (roleCompare != 0) {
+      return roleCompare;
+    }
+    final activeCompare = (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0);
+    if (activeCompare != 0) {
+      return activeCompare;
+    }
+    return _companyUserSortName(a).compareTo(_companyUserSortName(b));
+  });
+  return sorted;
+}
+
+int _companyUserRoleRank(String role) {
+  return switch (role) {
+    RoleConstants.admin => 0,
+    RoleConstants.manager => 1,
+    RoleConstants.salesAgent => 2,
+    RoleConstants.marketing => 3,
+    RoleConstants.viewer => 4,
+    _ => 5,
+  };
+}
+
+String _companyUserSortName(CompanyCrmUser user) {
+  final name = user.fullName.trim();
+  if (name.isNotEmpty) {
+    return name.toLowerCase();
+  }
+  final email = user.email.trim();
+  if (email.isNotEmpty) {
+    return email.toLowerCase();
+  }
+  return user.uid.toLowerCase();
 }
 
 class _UsersHeader extends StatelessWidget {
